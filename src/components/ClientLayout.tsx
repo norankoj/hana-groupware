@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, createContext, useContext } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import toast, { Toaster } from "react-hot-toast";
 
 // --- [1] Context 생성 (데이터 공유용) ---
 type Menu = {
@@ -123,15 +124,35 @@ export default function ClientLayout({
     };
     fetchData();
 
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        // 로그인이 되거나 토큰이 갱신되면 즉시 데이터를 다시 가져옴!
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          fetchData();
+        }
+        // 로그아웃되면 상태 초기화
+        if (event === "SIGNED_OUT") {
+          setProfile(null);
+          setMenus([]);
+          router.replace("/login");
+        }
+      },
+    );
+
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
-      )
+      ) {
         setIsDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      authListener.subscription.unsubscribe();
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   // ★ 현재 활성화된 메뉴 찾기
@@ -152,7 +173,31 @@ export default function ClientLayout({
     router.replace("/login");
   };
 
-  if (pathname === "/login") return <>{children}</>;
+  if (pathname === "/login")
+    return (
+      <>
+        {children}
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              background: "#333",
+              color: "#fff",
+              fontSize: "14px",
+              borderRadius: "8px",
+            },
+            success: {
+              style: { background: "#10B981" }, // 성공 시 초록색
+              iconTheme: { primary: "#fff", secondary: "#10B981" },
+            },
+            error: {
+              style: { background: "#EF4444" }, // 에러 시 빨간색
+              iconTheme: { primary: "#fff", secondary: "#EF4444" },
+            },
+          }}
+        />
+      </>
+    );
 
   const teamName = profile?.teams
     ? Array.isArray(profile.teams)
@@ -277,7 +322,7 @@ export default function ClientLayout({
                     </p>
                   </div>
                   <button
-                    onClick={() => alert("준비 중입니다!")}
+                    onClick={() => toast("준비 중입니다!", { icon: "🚧" })}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                   >
                     비밀번호 변경
@@ -293,6 +338,25 @@ export default function ClientLayout({
             </div>
           </header>
           <main className="flex-1 overflow-y-auto p-8">{children}</main>
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "#333",
+                color: "#fff",
+                fontSize: "14px",
+                borderRadius: "8px",
+              },
+              success: {
+                style: { background: "#10B981" }, // 성공 시 초록색
+                iconTheme: { primary: "#fff", secondary: "#10B981" },
+              },
+              error: {
+                style: { background: "#EF4444" }, // 에러 시 빨간색
+                iconTheme: { primary: "#fff", secondary: "#EF4444" },
+              },
+            }}
+          />
         </div>
       </div>
     </MenuContext.Provider>

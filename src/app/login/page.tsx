@@ -4,6 +4,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import toast from "react-hot-toast";
+import Select from "@/components/Select";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,7 +52,7 @@ export default function LoginPage() {
     };
 
     if (confirm("휴대폰 본인인증을 진행하시겠습니까? (모의 테스트)")) {
-      alert("본인인증이 성공적으로 완료되었습니다.");
+      toast.success("본인인증이 완료되었습니다.");
       setIsVerified(true); // 인증 완료 상태로 변경
 
       // setName(mockUser.name);
@@ -102,7 +104,7 @@ export default function LoginPage() {
     if (error) {
       setErrorMsg("가입 신청 실패: " + error.message);
     } else {
-      alert("회원가입이 완료되었습니다! \n환영합니다.");
+      toast.success("회원가입이 완료되었습니다! \n환영합니다.");
 
       // Supabase 설정에서 이메일 인증을 껐기 때문에,
       // 가입과 동시에 세션이 생성되어 로그인이 된 상태입니다.
@@ -129,7 +131,7 @@ export default function LoginPage() {
            --------------------------------------------------------------- */}
         {view === "login" && (
           <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-            <div className="rounded-md shadow-sm space-y-4">
+            <div className="rounded-md space-y-4">
               {errorMsg && (
                 <div className="text-red-500 text-sm text-center font-medium bg-red-50 p-2 rounded-md">
                   {errorMsg}
@@ -217,7 +219,7 @@ export default function LoginPage() {
             ) : (
               /* STEP 2: 본인인증 후 (입력폼 보임) */
               <form onSubmit={handleSignUp}>
-                <div className="rounded-md shadow-sm space-y-4">
+                <div className="rounded-md space-y-4">
                   {errorMsg && (
                     <div className="text-red-500 text-sm text-center font-medium bg-red-50 p-2 rounded-md">
                       {errorMsg}
@@ -252,24 +254,18 @@ export default function LoginPage() {
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="position"
-                      className="block text-sm font-medium text-gray-700 mb-1"
-                    >
-                      직분
-                    </label>
-                    <select
-                      id="position"
+                    <Select
+                      label="직분"
                       value={position}
-                      onChange={(e) => setPosition(e.target.value)}
-                      className="appearance-none rounded-lg block w-full px-4 py-3 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white sm:text-sm"
-                    >
-                      <option value="셀리더">셀리더</option>
-                      <option value="진장/코치">진장/코치</option>
-                      <option value="사역자">사역자</option>
-                      <option value="디렉터">디렉터</option>
-                      <option value="일반">일반</option>
-                    </select>
+                      onChange={(val) => setPosition(val)}
+                      options={[
+                        "셀리더",
+                        "진장/코치",
+                        "사역자",
+                        "디렉터",
+                        "일반",
+                      ]}
+                    />
                   </div>
 
                   <div>

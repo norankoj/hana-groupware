@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useCurrentMenu } from "@/components/ClientLayout";
+import toast from "react-hot-toast"; // 알림을 위해 추가 (선택사항)
 
 type Profile = {
   id: string;
@@ -12,8 +13,8 @@ type Profile = {
   team_id: number | null;
   role: string;
   is_approver: boolean;
-  total_leave_days: number; // 총 연차
-  used_leave_days: number; // 사용 연차
+  total_leave_days: number;
+  used_leave_days: number;
 };
 
 type Team = {
@@ -32,10 +33,12 @@ const ROLE_TO_POSITION: Record<string, string> = {
 
 export default function AdminTeamsPage() {
   const supabase = createClient();
+  const menu = useCurrentMenu();
+
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
-  const menu = useCurrentMenu();
+
   const fetchData = async () => {
     setLoading(true);
     const { data: usersData } = await supabase
@@ -55,11 +58,26 @@ export default function AdminTeamsPage() {
     fetchData();
   }, []);
 
+  // ★ [1] 시스템 전체 새로고침 (헤더/메뉴 반영용)
+  const handleSystemReload = () => {
+    if (
+      confirm(
+        "페이지를 새로고침 하시겠습니까?\n변경사항이 메뉴와 헤더에 즉시 반영됩니다.",
+      )
+    ) {
+      window.location.reload();
+    }
+  };
+
   // 정보 업데이트 함수들
   const updateMemberTeam = async (userId: string, teamId: string) => {
     const value = teamId === "none" ? null : parseInt(teamId);
     await supabase.from("profiles").update({ team_id: value }).eq("id", userId);
-    fetchData();
+    // UI 업데이트 (fetchData 없이 즉시 반영)
+    setProfiles((prev) =>
+      prev.map((p) => (p.id === userId ? { ...p, team_id: value } : p)),
+    );
+    toast.success("팀이 변경되었습니다.");
   };
 
   const updateMemberRole = async (userId: string, newRole: string) => {
@@ -68,7 +86,13 @@ export default function AdminTeamsPage() {
       .from("profiles")
       .update({ role: newRole, position: newPosition })
       .eq("id", userId);
-    fetchData();
+
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.id === userId ? { ...p, role: newRole, position: newPosition } : p,
+      ),
+    );
+    toast.success("권한이 변경되었습니다.");
   };
 
   const toggleApprover = async (userId: string, currentValue: boolean) => {
@@ -76,25 +100,40 @@ export default function AdminTeamsPage() {
       .from("profiles")
       .update({ is_approver: !currentValue })
       .eq("id", userId);
-    fetchData();
+
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.id === userId ? { ...p, is_approver: !currentValue } : p,
+      ),
+    );
+    toast.success("결재 권한이 변경되었습니다.");
   };
 
-  // ★ 연차 수정 함수
-  const updateLeaveDays = async (
+  // ★ [2] 연차 관리: 입력 중에는 화면만 갱신 (서버 통신 X)
+  const handleLeaveChange = (
     userId: string,
     field: "total_leave_days" | "used_leave_days",
     value: string,
   ) => {
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return;
-    await supabase
-      .from("profiles")
-      .update({ [field]: numValue })
-      .eq("id", userId);
-    // UI 즉시 반영을 위해 로컬 상태 업데이트 (fetchData 안 기다림)
+    // 숫자가 아니면 무시하지만, 빈 값은 허용(지울 때 대비)
+    const numValue = value === "" ? 0 : parseFloat(value);
+
     setProfiles((prev) =>
       prev.map((p) => (p.id === userId ? { ...p, [field]: numValue } : p)),
     );
+  };
+
+  // ★ [3] 연차 관리: 포커스가 빠졌을 때(onBlur) 서버 저장
+  const saveLeaveData = async (
+    userId: string,
+    field: "total_leave_days" | "used_leave_days",
+    value: number,
+  ) => {
+    await supabase
+      .from("profiles")
+      .update({ [field]: value })
+      .eq("id", userId);
+    toast.success("연차 정보가 저장되었습니다.");
   };
 
   if (loading)
@@ -106,13 +145,36 @@ export default function AdminTeamsPage() {
 
   return (
     <div className="w-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-          {menu?.name || "사용자 관리"}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          교회 구성원의 소속, 권한, 그리고 연차 일수를 관리합니다.
-        </p>
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            {menu?.name || "사용자 관리"}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            교회 구성원의 소속, 권한, 그리고 연차 일수를 관리합니다.
+          </p>
+        </div>
+
+        {/* ★ 전체 새로고침 버튼 추가 */}
+        <button
+          onClick={handleSystemReload}
+          className="px-4 py-2 bg-gray-800 text-white text-sm font-bold rounded-md hover:bg-gray-700 transition flex items-center gap-2 shadow-sm"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          시스템 반영 (전체 새로고침)
+        </button>
       </div>
 
       <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
@@ -124,7 +186,7 @@ export default function AdminTeamsPage() {
             onClick={fetchData}
             className="text-xs text-blue-600 hover:underline"
           >
-            새로고침
+            목록 새로고침
           </button>
         </div>
 
@@ -228,7 +290,7 @@ export default function AdminTeamsPage() {
                       />
                     </button>
                   </td>
-                  {/* ★ 연차 관리 (인풋 박스) */}
+                  {/* ★ 연차 관리 (개선됨: onChange는 로컬반영, onBlur는 저장) */}
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center gap-2">
                       <input
@@ -236,10 +298,17 @@ export default function AdminTeamsPage() {
                         className="w-16 text-center border-gray-300 rounded-md text-sm py-1 focus:ring-blue-500 focus:border-blue-500"
                         value={person.total_leave_days}
                         onChange={(e) =>
-                          updateLeaveDays(
+                          handleLeaveChange(
                             person.id,
                             "total_leave_days",
                             e.target.value,
+                          )
+                        }
+                        onBlur={(e) =>
+                          saveLeaveData(
+                            person.id,
+                            "total_leave_days",
+                            parseFloat(e.target.value),
                           )
                         }
                       />
@@ -249,10 +318,17 @@ export default function AdminTeamsPage() {
                         className="w-16 text-center border-gray-300 rounded-md text-sm py-1 bg-gray-50 text-gray-500"
                         value={person.used_leave_days}
                         onChange={(e) =>
-                          updateLeaveDays(
+                          handleLeaveChange(
                             person.id,
                             "used_leave_days",
                             e.target.value,
+                          )
+                        }
+                        onBlur={(e) =>
+                          saveLeaveData(
+                            person.id,
+                            "used_leave_days",
+                            parseFloat(e.target.value),
                           )
                         }
                       />
