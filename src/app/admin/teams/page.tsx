@@ -9,6 +9,7 @@ import { showConfirm } from "@/utils/alert";
 type Profile = {
   id: string;
   email: string | null;
+  full_name: string;
   phone: string | null;
   position: string;
   team_id: number | null;
