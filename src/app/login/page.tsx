@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
+import { showConfirm } from "@/utils/alert";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,15 +44,20 @@ export default function LoginPage() {
   };
 
   // 모의 본인인증 처리 함수
-  const handleIdentityVerification = () => {
+  const handleIdentityVerification = async () => {
     // 💡 나중에 여기에 포트원(PortOne) 등 실제 인증 API 코드를 넣으면 됩니다.
-    const mockUser = {
-      name: "노나연",
-      phone: "010-1234-5678",
-      // gender: "female",
-    };
+    // const mockUser = {
+    //   name: "노나연",
+    //   phone: "010-1234-5678",
+    //   // gender: "female",
+    // };
 
-    if (confirm("휴대폰 본인인증을 진행하시겠습니까? (모의 테스트)")) {
+    if (
+      await showConfirm(
+        "본인인증",
+        "휴대폰 본인인증을 진행하시겠습니까? (모의 테스트)",
+      )
+    ) {
       toast.success("본인인증이 완료되었습니다.");
       setIsVerified(true); // 인증 완료 상태로 변경
 

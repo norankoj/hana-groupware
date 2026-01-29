@@ -10,6 +10,7 @@ import { useCurrentMenu } from "@/components/ClientLayout";
 import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
+import { showConfirm } from "@/utils/alert";
 
 // 연차 차감 대상
 const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차"];
@@ -193,7 +194,7 @@ function VacationContent() {
       toast.error("모든 항목을 입력해주세요.");
       return;
     }
-    if (!confirm("휴가를 기안하시겠습니까?")) return;
+    if (!(await showConfirm("휴가를 기안하시겠습니까?"))) return;
     const start = new Date(formData.start_date);
     const end = new Date(formData.end_date);
     const diffTime = Math.abs(end.getTime() - start.getTime());
@@ -226,14 +227,14 @@ function VacationContent() {
   };
 
   const handleProcess = async (isApproved: boolean) => {
-    /* ...기존과 동일... */
     if (!selectedRequest) return;
     if (!isApproved && !rejectReason.trim()) {
       toast.error("반려 사유를 입력해주세요.");
       return;
     }
-    if (!confirm(isApproved ? "승인하시겠습니까?" : "반려하시겠습니까?"))
-      return;
+    const message = isApproved ? "승인하시겠습니까?" : "반려하시겠습니까?";
+    if (!(await showConfirm("결재 처리", message))) return;
+
     const { error } = await supabase
       .from("vacation_requests")
       .update({
@@ -259,31 +260,66 @@ function VacationContent() {
   };
 
   const handleCancel = async (req: VacationRequest) => {
-    /* ...기존과 동일... */
-    if (!confirm("정말 취소하시겠습니까?")) return;
+    if (!(await showConfirm("신청 취소", "정말 취소하시겠습니까?"))) return;
+
+    // 1-1. 목록에서 제거
+    setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
+
+    // 1-2. 연차 개수 즉시 복구 (화면상에서만)
     if (req.status === "approved" && DEDUCTIBLE_TYPES.includes(req.type)) {
-      const { data: myProfile } = await supabase
-        .from("profiles")
-        .select("used_leave_days")
-        .eq("id", user?.id)
-        .single();
-      if (myProfile) {
-        await supabase
-          .from("profiles")
-          .update({
-            used_leave_days: myProfile.used_leave_days - req.days_count,
-          })
-          .eq("id", user?.id);
-      }
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              used_leave_days: Math.max(
+                0,
+                prev.used_leave_days - req.days_count,
+              ),
+            }
+          : null,
+      );
     }
-    const { error } = await supabase
-      .from("vacation_requests")
-      .update({ status: "cancelled" })
-      .eq("id", req.id);
-    if (error) toast.error("취소 실패: " + error.message);
-    else {
+
+    // [2] 실제 DB 업데이트 (백그라운드 처리)
+    try {
+      // 2-1. DB 연차 개수 복구
+      if (req.status === "approved" && DEDUCTIBLE_TYPES.includes(req.type)) {
+        const { data: myProfile } = await supabase
+          .from("profiles")
+          .select("used_leave_days")
+          .eq("id", user?.id)
+          .single();
+
+        if (myProfile) {
+          await supabase
+            .from("profiles")
+            .update({
+              used_leave_days: myProfile.used_leave_days - req.days_count,
+            })
+            .eq("id", user?.id);
+        }
+      }
+
+      // [2] 상태를 '취소'로 변경
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .update({ status: "cancelled" })
+        .eq("id", req.id)
+        .select(); // ★ .select()를 붙여야 실제로 업데이트된 행을 돌려줍니다.
+
+      // 에러가 있거나, 업데이트된 데이터가 0개라면 실패로 간주
+      if (error || (data && data.length === 0)) {
+        toast.error("취소 실패: 권한이 없거나 이미 처리되었습니다.");
+        fetchData(); // 데이터 원상복구
+        return; // 여기서 멈춤 (아래 UI 갱신 코드 실행 안 함)
+      }
+
+      // 성공했을 때만 실행
       toast.success("신청이 취소되었습니다.");
-      fetchData();
+      setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
+    } catch (error: any) {
+      toast.error("취소 실패: " + error.message);
+      fetchData(); // 에러가 났을 때만 원상복구를 위해 재조회
     }
   };
 
@@ -435,7 +471,7 @@ function VacationContent() {
                       상태
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      처리자
+                      결재자
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       관리
@@ -737,7 +773,7 @@ function VacationContent() {
         )}
       </Modal>
 
-      {/* --- 신청 모달 (기존 디자인 유지) --- */}
+      {/* --- 신청 모달 --- */}
       <Modal
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
@@ -757,11 +793,20 @@ function VacationContent() {
         }
       >
         <div className="space-y-4" style={{ height: 300 }}>
+          {/* 1. 휴가 구분 선택 */}
           <div>
             <Select
               label="휴가 구분"
               value={formData.type}
-              onChange={(val) => setFormData({ ...formData, type: val })}
+              onChange={(val) => {
+                // ★ [수정] 반차 선택 시 종료일을 시작일과 강제로 맞춤
+                const isHalf = ["오전반차", "오후반차"].includes(val);
+                setFormData({
+                  ...formData,
+                  type: val,
+                  end_date: isHalf ? formData.start_date : formData.end_date,
+                });
+              }}
               options={[
                 "연차",
                 "오전반차",
@@ -778,10 +823,13 @@ function VacationContent() {
               </p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+
+          {/* 2. 날짜 선택 (반차 여부에 따라 UI 변경) */}
+          {["오전반차", "오후반차"].includes(formData.type) ? (
+            // ★ [추가] 반차일 경우: 날짜 1개만 선택 (시작일=종료일)
             <div>
               <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                시작일
+                날짜 (반차)
               </label>
               <input
                 type="date"
@@ -789,25 +837,49 @@ function VacationContent() {
                 className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-normal"
                 value={formData.start_date}
                 onChange={(e) =>
-                  setFormData({ ...formData, start_date: e.target.value })
+                  setFormData({
+                    ...formData,
+                    start_date: e.target.value,
+                    end_date: e.target.value, // 종료일도 같이 변경
+                  })
                 }
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                종료일
-              </label>
-              <input
-                type="date"
-                required
-                className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-normal"
-                value={formData.end_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, end_date: e.target.value })
-                }
-              />
+          ) : (
+            // ★ [기존] 연차/기타일 경우: 기간 선택 (Grid 2칸)
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                  시작일
+                </label>
+                <input
+                  type="date"
+                  required
+                  className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-normal"
+                  value={formData.start_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, start_date: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                  종료일
+                </label>
+                <input
+                  type="date"
+                  required
+                  className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-normal"
+                  value={formData.end_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, end_date: e.target.value })
+                  }
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* 3. 사유 입력 */}
           <div>
             <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
               사유

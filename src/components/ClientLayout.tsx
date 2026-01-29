@@ -19,7 +19,6 @@ type Menu = {
 };
 const MenuContext = createContext<Menu | null>(null);
 
-// ★ 이 함수를 페이지에서 가져다 쓰면 됩니다!
 export const useCurrentMenu = () => useContext(MenuContext);
 
 // --- [2] 아이콘 매핑 ---
@@ -93,11 +92,18 @@ export default function ClientLayout({
   const router = useRouter();
   const supabase = createClient();
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false); // 데스크탑용 축소 상태
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 모바일용 메뉴 열림 상태
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // 페이지 이동 시 모바일 메뉴 자동 닫기
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,11 +132,9 @@ export default function ClientLayout({
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // 로그인이 되거나 토큰이 갱신되면 즉시 데이터를 다시 가져옴!
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           fetchData();
         }
-        // 로그아웃되면 상태 초기화
         if (event === "SIGNED_OUT") {
           setProfile(null);
           setMenus([]);
@@ -155,7 +159,6 @@ export default function ClientLayout({
     };
   }, []);
 
-  // ★ 현재 활성화된 메뉴 찾기
   const activeMenu =
     menus.find(
       (m) =>
@@ -163,7 +166,6 @@ export default function ClientLayout({
     ) || null;
 
   useEffect(() => {
-    // 브라우저 탭 제목도 같이 변경
     const pageTitle = activeMenu ? activeMenu.name : "수원하나교회 그룹웨어";
     document.title = `${pageTitle} - 수원하나교회`;
   }, [pathname, activeMenu]);
@@ -177,25 +179,7 @@ export default function ClientLayout({
     return (
       <>
         {children}
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: {
-              background: "#333",
-              color: "#fff",
-              fontSize: "14px",
-              borderRadius: "8px",
-            },
-            success: {
-              style: { background: "#10B981" }, // 성공 시 초록색
-              iconTheme: { primary: "#fff", secondary: "#10B981" },
-            },
-            error: {
-              style: { background: "#EF4444" }, // 에러 시 빨간색
-              iconTheme: { primary: "#fff", secondary: "#EF4444" },
-            },
-          }}
-        />
+        <Toaster />
       </>
     );
 
@@ -212,32 +196,49 @@ export default function ClientLayout({
   });
 
   return (
-    // ★ Context Provider로 감싸서 자식들에게 데이터 전달
     <MenuContext.Provider value={activeMenu}>
       <div className="flex h-screen bg-[#F5F7FA]">
+        {/* ★ [모바일용] 오버레이 (사이드바 열렸을 때 뒷배경 어둡게) */}
+        {isMobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* ★ 사이드바 (모바일 & PC 통합) */}
         <aside
-          className={`${isCollapsed ? "w-20" : "w-64"} bg-white border-r border-gray-200 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out z-30`}
+          className={`
+            fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ease-in-out
+            md:translate-x-0 md:static md:inset-auto md:flex
+            ${isMobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full md:w-64"}
+            ${isCollapsed ? "md:w-20" : "md:w-64"}
+          `}
         >
-          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100">
-            {!isCollapsed && (
+          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 flex-shrink-0">
+            {/* PC: 로고, 모바일: 로고 */}
+            {(!isCollapsed || isMobileMenuOpen) && (
               <Link
                 href="/"
                 className="flex items-center gap-2 text-xl font-bold text-gray-800 tracking-tight ml-2"
               >
                 수원하나교회
-                {/* <div className="text-center flex flex-col items-center">
-                  <img
-                    src="/images/mainlogo.jpg"
-                    alt="수원하나교회"
-                    className="h-12 w-auto mb-1"
-                  />
-                </div> */}
               </Link>
             )}
+
+            {/* PC용 접기 버튼 (모바일에서는 닫기 버튼으로 활용) */}
             <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className={`p-1 rounded hover:bg-gray-100 text-gray-400 ${isCollapsed ? "mx-auto" : ""}`}
+              onClick={() => {
+                // 모바일에서는 아예 닫기, PC에서는 접기 토글
+                if (window.innerWidth < 768) {
+                  setIsMobileMenuOpen(false);
+                } else {
+                  setIsCollapsed(!isCollapsed);
+                }
+              }}
+              className={`p-1 rounded hover:bg-gray-100 text-gray-400 ${isCollapsed && !isMobileMenuOpen ? "mx-auto" : ""}`}
             >
+              {/* 모바일일 땐 X 아이콘, PC일 땐 햄버거 아이콘 */}
               <svg
                 className="w-6 h-6"
                 fill="none"
@@ -253,6 +254,7 @@ export default function ClientLayout({
               </svg>
             </button>
           </div>
+
           <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto font-medium">
             {visibleMenus
               .filter((m) => !m.is_admin_only)
@@ -261,7 +263,7 @@ export default function ClientLayout({
                   key={menu.id}
                   href={menu.path}
                   active={pathname === menu.path}
-                  isCollapsed={isCollapsed}
+                  isCollapsed={isCollapsed && !isMobileMenuOpen} // 모바일 열렸을 땐 항상 펼침 상태로
                   label={menu.name}
                   icon={ICON_MAP[menu.icon_key] || ICON_MAP["home"]}
                 />
@@ -275,7 +277,7 @@ export default function ClientLayout({
                       key={menu.id}
                       href={menu.path}
                       active={pathname.startsWith(menu.path)}
-                      isCollapsed={isCollapsed}
+                      isCollapsed={isCollapsed && !isMobileMenuOpen}
                       label={menu.name}
                       icon={ICON_MAP[menu.icon_key] || ICON_MAP["settings"]}
                       extraIcon={
@@ -294,9 +296,33 @@ export default function ClientLayout({
             )}
           </nav>
         </aside>
-        <div className="flex-1 flex flex-col overflow-hidden relative">
-          <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-20">
-            <div></div>
+
+        {/* 메인 컨텐츠 영역 */}
+        <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">
+          <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
+            <div className="flex items-center gap-3">
+              {/* ★ [모바일용] 햄버거 버튼 (md:hidden) */}
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden p-2 -ml-2 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* 우측 프로필 영역 */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -310,7 +336,7 @@ export default function ClientLayout({
                     {teamName} · {profile?.position || "직분미정"}
                   </span>
                 </div>
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] flex items-center justify-center text-white text-lg font-medium shadow-sm transition-transform group-hover:scale-105">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] flex items-center justify-center text-white text-lg font-medium shadow-sm transition-transform group-hover:scale-105">
                   {profile?.full_name ? profile.full_name.slice(0, 1) : "?"}
                 </div>
               </button>
@@ -320,6 +346,7 @@ export default function ClientLayout({
                     <p className="text-sm font-bold text-gray-900">
                       {profile?.full_name}
                     </p>
+                    <p className="text-xs text-gray-500">{teamName}</p>
                   </div>
                   <button
                     onClick={() => toast("준비 중입니다!", { icon: "🚧" })}
@@ -337,7 +364,10 @@ export default function ClientLayout({
               )}
             </div>
           </header>
-          <main className="flex-1 overflow-y-auto p-8">{children}</main>
+
+          {/* 컨텐츠 (패딩 조절: 모바일 p-4, PC p-8) */}
+          <main className="flex-1 overflow-y-auto p-4 sm:p-8">{children}</main>
+
           <Toaster
             position="top-center"
             toastOptions={{
@@ -347,14 +377,8 @@ export default function ClientLayout({
                 fontSize: "14px",
                 borderRadius: "8px",
               },
-              success: {
-                style: { background: "#10B981" }, // 성공 시 초록색
-                iconTheme: { primary: "#fff", secondary: "#10B981" },
-              },
-              error: {
-                style: { background: "#EF4444" }, // 에러 시 빨간색
-                iconTheme: { primary: "#fff", secondary: "#EF4444" },
-              },
+              success: { style: { background: "#10B981" } },
+              error: { style: { background: "#EF4444" } },
             }}
           />
         </div>
@@ -386,6 +410,7 @@ function MenuItem({
         {icon}
         {extraIcon}
       </svg>
+      {/* collapsed 상태여도 모바일 메뉴가 열려있으면 글씨가 보여야 함 */}
       {!isCollapsed && (
         <span
           className={`ml-3 text-[15px] whitespace-nowrap overflow-hidden ${active ? "font-bold" : "font-medium"}`}

@@ -502,14 +502,11 @@ export default function Home() {
                             {v.profiles.full_name}
                           </span>
                         </div>
-                        <div className="text-xs text-gray-500 pl-1">
-                          {v.type}
-                        </div>
                       </div>
-                      <div className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                      <div className="text-[10px] text-400 bg-gray-100 px-1.5 py-0.5 rounded">
                         {v.start_date === v.end_date
-                          ? "당일"
-                          : `${v.start_date.slice(5)}~`}
+                          ? `${v.type}`
+                          : `${v.type}  (${v.start_date.slice(5)} ~ ${v.end_date.slice(5)})`}
                       </div>
                     </div>
                   ))
