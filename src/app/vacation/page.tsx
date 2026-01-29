@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation"; // ★ useSearchParams 추가
 import Calendar from "react-calendar";
@@ -75,7 +75,7 @@ const InfoRow = ({
   </div>
 );
 
-export default function VacationPage() {
+function VacationContent() {
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams(); // ★ URL 파라미터 읽기
@@ -826,5 +826,12 @@ export default function VacationPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+export default function VacationPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">로딩 중...</div>}>
+      <VacationContent />
+    </Suspense>
   );
 }
