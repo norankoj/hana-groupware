@@ -477,40 +477,100 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="w-full lg:w-72 bg-gray-50/30 p-4 flex flex-col border-l border-gray-100">
-              <h4 className="text-sm font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">
-                {format(date, "M월 d일 (EEE) 휴가자", { locale: ko })}
-              </h4>
-              <div className="flex-1 overflow-y-auto max-h-[350px] space-y-2">
+            <div className="w-full lg:w-80 bg-white border-l border-gray-200 flex flex-col min-h-[400px]">
+              {/* 목록 헤더 */}
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                  {format(date, "M월 d일 (EEE)", { locale: ko })}
+                </h4>
+                <span className="text-xs font-medium text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
+                  총 {selectedVacations.length}명
+                </span>
+              </div>
+
+              {/* 목록 본문 (스크롤) */}
+              <div className="flex-1 overflow-y-auto max-h-[450px] custom-scrollbar">
                 {selectedVacations.length > 0 ? (
-                  selectedVacations.map((v) => (
-                    <div
-                      key={v.id}
-                      className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${TEAM_BADGE_STYLES[v.profiles.team_id] || "bg-gray-100 text-gray-600 border-gray-200"}`}
-                          >
-                            {v.profiles.teams?.name || "미배정"}
+                  <ul className="divide-y divide-gray-100">
+                    {selectedVacations.map((v) => (
+                      <li
+                        key={v.id}
+                        className="group flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+                      >
+                        {/* 왼쪽: 프로필 + 이름 + 팀정보 */}
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          {/* 아바타 */}
+                          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs border border-gray-200">
+                            {v.profiles.full_name.slice(0, 1)}
+                          </div>
+
+                          {/* 텍스트 정보 */}
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-bold text-gray-900 truncate">
+                                {v.profiles.full_name}
+                              </span>
+                              <span className="text-[10px] text-gray-400">
+                                {v.profiles.position}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  TEAM_COLORS[v.profiles.team_id] ||
+                                  "bg-gray-300"
+                                }`}
+                              ></span>
+                              <span className="text-xs text-gray-500 truncate">
+                                {v.profiles.teams?.name || "미배정"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 오른쪽: 날짜 + 휴가타입 */}
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0 pl-2">
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
+                            {v.type}
                           </span>
-                          <span className="font-bold text-gray-800 text-sm">
-                            {v.profiles.full_name}
+
+                          {/* 날짜 표시 (오늘 하루면 숨김 or 시간표시, 기간이면 기간표시) */}
+                          <span className="text-[11px] text-gray-400 font-medium tabular-nums tracking-tight">
+                            {v.start_date === v.end_date ? (
+                              "하루 종일"
+                            ) : (
+                              <>
+                                {v.start_date.slice(5).replace("-", ".")}~
+                                {v.end_date.slice(5).replace("-", ".")}
+                              </>
+                            )}
                           </span>
                         </div>
-                      </div>
-                      <div className="text-[10px] text-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                        {v.start_date === v.end_date
-                          ? `${v.type}`
-                          : `${v.type}  (${v.start_date.slice(5)} ~ ${v.end_date.slice(5)})`}
-                      </div>
-                    </div>
-                  ))
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
-                  <div className="text-center py-10 text-gray-400 text-xs leading-relaxed">
-                    휴가자가 없습니다. <br />
-                    오늘도 모두 힘내세요! 💪
+                  // 데이터 없을 때
+                  <div className="h-full flex flex-col items-center justify-center text-center py-10 opacity-60">
+                    <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-3 border border-gray-100">
+                      <svg
+                        className="w-6 h-6 text-gray-300"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-gray-400">
+                      휴가자가 없습니다
+                    </p>
                   </div>
                 )}
               </div>
