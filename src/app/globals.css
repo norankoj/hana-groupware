@@ -18,6 +18,13 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+
+  input,
+  textarea,
+  select {
+    color: #111827; /* 강제로 진한 회색(#111827 = gray-900) 적용 */
+    background-color: #ffffff;
+  }
 }
 
 body {

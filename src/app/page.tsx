@@ -218,57 +218,83 @@ export default function Home() {
   return (
     <div className="space-y-6">
       <style jsx global>{`
+        /* 1. 달력 전체 기본 글자색 검정으로 고정 */
         .react-calendar {
           width: 100%;
           border: none;
           font-family: inherit;
+          color: #111827 !important; /* ★ 강제 적용 */
         }
-        .react-calendar__navigation {
-          margin-bottom: 0.5rem;
-          height: 32px;
-        }
+
+        /* 2. 상단 네비게이션 (년/월, 화살표) 글자색 */
         .react-calendar__navigation button {
-          min-width: 32px;
+          min-width: 44px;
           background: none;
-          font-size: 1rem;
+          font-size: 1.1rem;
           font-weight: 600;
+          color: #111827 !important; /* ★ 강제 적용 */
         }
+        .react-calendar__navigation button:disabled {
+          background-color: #f3f4f6;
+        }
+
+        /* 3. 요일 표시 (월, 화, 수...) */
         .react-calendar__month-view__weekdays {
           text-align: center;
           text-transform: uppercase;
           font-weight: 500;
-          font-size: 0.7em;
-          color: #9ca3af;
-          margin-bottom: 0.2rem;
+          font-size: 0.75em;
+          color: #6b7280 !important; /* gray-500 */
+          margin-bottom: 0.5rem;
+          text-decoration: none; /* 밑줄 제거 */
         }
-        .react-calendar__month-view__days__day--weekend {
-          color: #ef4444;
+        /* 요일 밑줄 제거를 위한 추가 설정 */
+        abbr[title] {
+          text-decoration: none !important;
         }
+
+        /* 4. 날짜 칸 기본 스타일 */
         .react-calendar__tile {
-          padding: 0.25em 0;
+          padding: 1.5em 0.5em;
           position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: flex-start;
-          height: 55px;
-          font-size: 0.85rem;
+          justify-content: start;
+          height: 90px;
+          color: #111827 !important; /* ★ 날짜 숫자 검정색 강제 */
         }
+
+        /* 5. 주말(토,일)은 빨간색 */
+        .react-calendar__month-view__days__day--weekend {
+          color: #ef4444 !important;
+        }
+
+        /* 6. 이전/다음 달의 날짜는 연한 회색 */
+        .react-calendar__month-view__days__day--neighboringMonth {
+          color: #d1d5db !important; /* gray-300 */
+        }
+
+        /* 7. 마우스 올렸을 때 */
         .react-calendar__tile:enabled:hover,
         .react-calendar__tile:enabled:focus {
           background-color: #eff6ff;
-          border-radius: 6px;
-          color: #2563eb;
+          border-radius: 8px;
+          color: #2563eb !important;
         }
+
+        /* 8. 오늘 날짜 */
         .react-calendar__tile--now {
           background: #f3f4f6;
-          border-radius: 6px;
+          border-radius: 8px;
           font-weight: 600;
-          color: #1f2937;
+          color: #1f2937 !important;
         }
+
+        /* 9. 선택된 날짜 */
         .react-calendar__tile--active {
           background: #dbeafe !important;
-          border-radius: 6px;
+          border-radius: 8px;
           color: #1e40af !important;
         }
       `}</style>
