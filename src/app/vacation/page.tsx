@@ -242,7 +242,10 @@ function VacationContent() {
 
     // 2. 이미 처리가 끝난 문서라면 중단
     if (checkData && checkData.status !== "pending") {
-      const processor = checkData.approver?.full_name || "다른 관리자";
+      const approverInfo = checkData.approver as any;
+      const processor = Array.isArray(approverInfo)
+        ? approverInfo[0]?.full_name
+        : approverInfo?.full_name || "다른 관리자";
       const statusText = checkData.status === "approved" ? "승인" : "반려";
 
       toast.error(
