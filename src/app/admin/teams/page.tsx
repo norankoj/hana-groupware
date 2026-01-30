@@ -247,7 +247,7 @@ export default function AdminTeamsPage() {
             {menu?.name || "사용자 관리"}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            교회 구성원의 소속, 권한, 그리고 연차 일수를 관리합니다.
+            결재가능 - 시스템권한: 관리자/디렉터 & 결재권한ON
           </p>
         </div>
         <button
