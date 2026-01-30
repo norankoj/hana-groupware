@@ -2,7 +2,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import ClientLayout from "@/components/ClientLayout"; // ★ 방금 만든 파일 import
+import ClientLayout from "@/components/ClientLayout";
+import ChannelTalk from "@/components/ChannelTalk";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,8 +20,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={inter.className}>
-        {/* 여기서 모든 페이지를 ClientLayout으로 감싸줍니다 */}
-        <ClientLayout>{children}</ClientLayout>
+        <ClientLayout>
+          {children}
+          <ChannelTalk />
+        </ClientLayout>
       </body>
     </html>
   );
