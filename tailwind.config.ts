@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -8,9 +9,6 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      // ... 기존 설정들 ...
-
-      // ★ 여기를 추가해주세요!
       fontFamily: {
         sans: ["Pretendard", "sans-serif"],
       },
