@@ -175,7 +175,7 @@ export default function AdminTeamsPage() {
       return;
     }
 
-    const dbValue = latestData[field];
+    const dbValue = (latestData as any)[field];
 
     // 3. 충돌 감지: 내가 수정을 시작했을 때의 값(focusValue)과 현재 DB값(dbValue)이 다르면?
     // -> 누군가 그 사이에 수정한 것임!
