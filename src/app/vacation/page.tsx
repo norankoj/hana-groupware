@@ -54,7 +54,6 @@ const btnStyles = {
     "px-5 py-2.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition text-sm flex-1 sm:flex-none sm:min-w-[80px] justify-center",
 };
 
-// ★ [디자인] 테이블 행 컴포넌트 (반복되는 코드를 줄이기 위해)
 const InfoRow = ({
   label,
   value,

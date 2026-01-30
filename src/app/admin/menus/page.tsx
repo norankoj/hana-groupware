@@ -71,9 +71,6 @@ export default function AdminMenusPage() {
     setMenus((prev) =>
       prev.map((m) => (m.id === menuId ? { ...m, roles: newRoles } : m)),
     );
-
-    // ★ 중요: 사이드바가 변경사항을 알 수 있게 새로고침 유도 (또는 리얼타임 적용 가능)
-    // 여기서는 간단하게 DB 업데이트만 하고, 사용자가 F5 누르면 반영됩니다.
   };
 
   if (loading)

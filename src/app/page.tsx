@@ -69,7 +69,7 @@ export default function Home() {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [date, setDate] = useState<Date>(new Date());
 
-  // ★ [수정] 초기값을 오늘 날짜의 '월 1일'로 설정 (달력 뷰 제어용)
+  // 초기값을 오늘 날짜의 '월 1일'로 설정
   const [activeStartDate, setActiveStartDate] = useState<Date | null>(
     new Date(),
   );
@@ -155,12 +155,10 @@ export default function Home() {
     fetchData();
   }, [router, supabase]);
 
-  // ★ 날짜 변경 핸들러 (오늘 버튼 클릭 시 호출됨)
   const onDateChange = (newDate: any) => {
     setDate(newDate);
     updateSelectedVacations(newDate, allVacations);
 
-    // ★ [핵심 수정] 달력 뷰를 강제로 해당 월로 이동시킴
     setActiveStartDate(newDate);
   };
 
@@ -446,7 +444,6 @@ export default function Home() {
               <Calendar
                 onChange={onDateChange}
                 value={date}
-                // ★ [핵심] activeStartDate를 상태로 관리해야 '오늘' 버튼 누를 때 뷰가 이동함
                 activeStartDate={activeStartDate || undefined}
                 onActiveStartDateChange={({ activeStartDate }) =>
                   setActiveStartDate(activeStartDate)
