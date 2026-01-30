@@ -1,8 +1,9 @@
+// src/app/vacation/page.tsx
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation"; // ★ useSearchParams 추가
+import { useRouter, useSearchParams } from "next/navigation";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { format } from "date-fns";
@@ -78,7 +79,7 @@ const InfoRow = ({
 function VacationContent() {
   const supabase = createClient();
   const router = useRouter();
-  const searchParams = useSearchParams(); // ★ URL 파라미터 읽기
+  const searchParams = useSearchParams();
   const menu = useCurrentMenu();
 
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -86,7 +87,7 @@ function VacationContent() {
   const [approvalList, setApprovalList] = useState<VacationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ★ 초기 탭 설정: URL에 tab=approve가 있으면 'approve', 없으면 'calendar'
+  // 탭 상태
   const [activeTab, setActiveTab] = useState<"calendar" | "approve">(
     "calendar",
   );
@@ -120,7 +121,6 @@ function VacationContent() {
       .single();
     setUser(profile);
 
-    // ★ URL 파라미터에 따라 탭 전환 (권한이 있을 때만)
     if (searchParams.get("tab") === "approve" && profile.is_approver) {
       setActiveTab("approve");
     }
@@ -161,7 +161,6 @@ function VacationContent() {
   }, []);
 
   const onDateClick = (value: Date) => {
-    /* ...기존과 동일... */
     const selectedDate = format(value, "yyyy-MM-dd");
     const existingRequest = myRequests.find(
       (req) =>
@@ -188,12 +187,12 @@ function VacationContent() {
   };
 
   const handleRequestSubmit = async () => {
-    /* ...기존과 동일... */
     if (!formData.start_date || !formData.end_date || !formData.reason) {
       toast.error("모든 항목을 입력해주세요.");
       return;
     }
     if (!(await showConfirm("휴가를 기안하시겠습니까?"))) return;
+
     const start = new Date(formData.start_date);
     const end = new Date(formData.end_date);
     const diffTime = Math.abs(end.getTime() - start.getTime());
@@ -202,6 +201,7 @@ function VacationContent() {
       formData.type === "오전반차" || formData.type === "오후반차"
         ? 0.5
         : diffDays;
+
     const { error } = await supabase.from("vacation_requests").insert({
       user_id: user?.id,
       type: formData.type,
@@ -210,6 +210,7 @@ function VacationContent() {
       days_count: daysCount,
       reason: formData.reason,
     });
+
     if (error) toast.error("신청 실패: " + error.message);
     else {
       toast.success("결재 상신이 완료되었습니다!");
@@ -231,9 +232,34 @@ function VacationContent() {
       toast.error("반려 사유를 입력해주세요.");
       return;
     }
+
+    // 1. 현재 DB 상태를 한 번 더 확인 (누가 먼저 결재했는지 체크)
+    const { data: checkData } = await supabase
+      .from("vacation_requests")
+      .select("status, approver:approver_id(full_name)")
+      .eq("id", selectedRequest.id)
+      .single();
+
+    // 2. 이미 처리가 끝난 문서라면 중단
+    if (checkData && checkData.status !== "pending") {
+      const processor = checkData.approver?.full_name || "다른 관리자";
+      const statusText = checkData.status === "approved" ? "승인" : "반려";
+
+      toast.error(
+        `이미 ${processor}님에 의해 '${statusText}' 처리된 건입니다.\n목록을 갱신합니다.`,
+        { duration: 4000 },
+      );
+
+      setIsDetailModalOpen(false);
+      fetchData(); // 최신 상태로 새로고침
+      return;
+    }
+
+    // 3. (정상 상태라면) 컨펌창 띄우기
     const message = isApproved ? "승인하시겠습니까?" : "반려하시겠습니까?";
     if (!(await showConfirm("결재 처리", message))) return;
 
+    // 4. 업데이트 진행
     const { error } = await supabase
       .from("vacation_requests")
       .update({
@@ -242,10 +268,13 @@ function VacationContent() {
         rejection_reason: isApproved ? null : rejectReason,
       })
       .eq("id", selectedRequest.id);
+
     if (error) {
       toast.error("오류 발생: " + error.message);
       return;
     }
+
+    // 5. 승인 시 연차 차감 로직
     if (isApproved && DEDUCTIBLE_TYPES.includes(selectedRequest.type)) {
       const currentUsed = selectedRequest.profiles.used_leave_days || 0;
       await supabase
@@ -253,6 +282,7 @@ function VacationContent() {
         .update({ used_leave_days: currentUsed + selectedRequest.days_count })
         .eq("id", selectedRequest.user_id);
     }
+
     toast.success(isApproved ? "승인 처리되었습니다." : "반려 처리되었습니다.");
     setIsDetailModalOpen(false);
     fetchData();
@@ -261,10 +291,8 @@ function VacationContent() {
   const handleCancel = async (req: VacationRequest) => {
     if (!(await showConfirm("신청 취소", "정말 취소하시겠습니까?"))) return;
 
-    // 1-1. 목록에서 제거
     setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
 
-    // 1-2. 연차 개수 즉시 복구 (화면상에서만)
     if (req.status === "approved" && DEDUCTIBLE_TYPES.includes(req.type)) {
       setUser((prev) =>
         prev
@@ -279,9 +307,7 @@ function VacationContent() {
       );
     }
 
-    // [2] 실제 DB 업데이트 (백그라운드 처리)
     try {
-      // 2-1. DB 연차 개수 복구
       if (req.status === "approved" && DEDUCTIBLE_TYPES.includes(req.type)) {
         const { data: myProfile } = await supabase
           .from("profiles")
@@ -299,26 +325,23 @@ function VacationContent() {
         }
       }
 
-      // [2] 상태를 '취소'로 변경
       const { data, error } = await supabase
         .from("vacation_requests")
         .update({ status: "cancelled" })
         .eq("id", req.id)
-        .select(); // ★ .select()를 붙여야 실제로 업데이트된 행을 돌려줍니다.
+        .select();
 
-      // 에러가 있거나, 업데이트된 데이터가 0개라면 실패로 간주
       if (error || (data && data.length === 0)) {
         toast.error("취소 실패: 권한이 없거나 이미 처리되었습니다.");
-        fetchData(); // 데이터 원상복구
-        return; // 여기서 멈춤 (아래 UI 갱신 코드 실행 안 함)
+        fetchData();
+        return;
       }
 
-      // 성공했을 때만 실행
       toast.success("신청이 취소되었습니다.");
       setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
     } catch (error: any) {
       toast.error("취소 실패: " + error.message);
-      fetchData(); // 에러가 났을 때만 원상복구를 위해 재조회
+      fetchData();
     }
   };
 
@@ -646,7 +669,8 @@ function VacationContent() {
           </div>
         </div>
       )}
-      {/* selectedRequest.user_id !== user.id 수정필요!! */}
+
+      {/* 결재/상세 모달 */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -752,7 +776,6 @@ function VacationContent() {
               </div>
             )}
 
-            {/* 반려 모드일 때 입력칸 (테이블 아래에 배치) */}
             {isRejectMode && (
               <div className="mt-4 animate-fadeIn">
                 <label className="block text-sm font-medium text-red-600 mb-2">
@@ -772,7 +795,7 @@ function VacationContent() {
         )}
       </Modal>
 
-      {/* --- 신청 모달 --- */}
+      {/* 기안 작성 모달 */}
       <Modal
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
@@ -792,13 +815,11 @@ function VacationContent() {
         }
       >
         <div className="space-y-4" style={{ height: 300 }}>
-          {/* 1. 휴가 구분 선택 */}
           <div>
             <Select
               label="휴가 구분"
               value={formData.type}
               onChange={(val) => {
-                // ★ [수정] 반차 선택 시 종료일을 시작일과 강제로 맞춤
                 const isHalf = ["오전반차", "오후반차"].includes(val);
                 setFormData({
                   ...formData,
@@ -823,9 +844,7 @@ function VacationContent() {
             )}
           </div>
 
-          {/* 2. 날짜 선택 (반차 여부에 따라 UI 변경) */}
           {["오전반차", "오후반차"].includes(formData.type) ? (
-            // ★ [추가] 반차일 경우: 날짜 1개만 선택 (시작일=종료일)
             <div>
               <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
                 날짜 (반차)
@@ -839,13 +858,12 @@ function VacationContent() {
                   setFormData({
                     ...formData,
                     start_date: e.target.value,
-                    end_date: e.target.value, // 종료일도 같이 변경
+                    end_date: e.target.value,
                   })
                 }
               />
             </div>
           ) : (
-            // ★ [기존] 연차/기타일 경우: 기간 선택 (Grid 2칸)
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
@@ -878,7 +896,6 @@ function VacationContent() {
             </div>
           )}
 
-          {/* 3. 사유 입력 */}
           <div>
             <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
               사유

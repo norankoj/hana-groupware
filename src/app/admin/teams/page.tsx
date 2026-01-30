@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useCurrentMenu } from "@/components/ClientLayout";
 import toast from "react-hot-toast";
@@ -27,7 +27,7 @@ type Team = {
 const ROLE_TO_POSITION: Record<string, string> = {
   admin: "관리자",
   director: "디렉터",
-  staff: "전도사",
+  staff: "사역자",
   campleader: "진장",
   cellleader: "셀리더",
   member: "성도",
@@ -40,6 +40,9 @@ export default function AdminTeamsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ★ 동시성 제어: 입력 시작 당시의 값을 기억할 변수
+  const [focusValue, setFocusValue] = useState<number | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -71,10 +74,22 @@ export default function AdminTeamsPage() {
     }
   };
 
-  // --- 기존 업데이트 함수들 ---
+  // --- 업데이트 함수들 ---
+
   const updateMemberTeam = async (userId: string, teamId: string) => {
     const value = teamId === "none" ? null : parseInt(teamId);
-    await supabase.from("profiles").update({ team_id: value }).eq("id", userId);
+
+    // DB 업데이트
+    const { error } = await supabase
+      .from("profiles")
+      .update({ team_id: value })
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("변경 실패: " + error.message);
+      return;
+    }
+
     setProfiles((prev) =>
       prev.map((p) => (p.id === userId ? { ...p, team_id: value } : p)),
     );
@@ -83,10 +98,17 @@ export default function AdminTeamsPage() {
 
   const updateMemberRole = async (userId: string, newRole: string) => {
     const newPosition = ROLE_TO_POSITION[newRole] || "성도";
-    await supabase
+
+    const { error } = await supabase
       .from("profiles")
       .update({ role: newRole, position: newPosition })
       .eq("id", userId);
+
+    if (error) {
+      toast.error("권한 변경 실패: " + error.message);
+      return;
+    }
+
     setProfiles((prev) =>
       prev.map((p) =>
         p.id === userId ? { ...p, role: newRole, position: newPosition } : p,
@@ -96,10 +118,17 @@ export default function AdminTeamsPage() {
   };
 
   const toggleApprover = async (userId: string, currentValue: boolean) => {
-    await supabase
+    // 토글 시점에도 최신 상태 확인 (가볍게 처리)
+    const { error } = await supabase
       .from("profiles")
       .update({ is_approver: !currentValue })
       .eq("id", userId);
+
+    if (error) {
+      toast.error("변경 실패: " + error.message);
+      return;
+    }
+
     setProfiles((prev) =>
       prev.map((p) =>
         p.id === userId ? { ...p, is_approver: !currentValue } : p,
@@ -108,6 +137,7 @@ export default function AdminTeamsPage() {
     toast.success("결재 권한이 변경되었습니다.");
   };
 
+  // 입력 필드 값 변경 핸들러 (UI만 업데이트)
   const handleLeaveChange = (
     userId: string,
     field: "total_leave_days" | "used_leave_days",
@@ -119,16 +149,66 @@ export default function AdminTeamsPage() {
     );
   };
 
+  // ★ 포커스 시점의 원본 값 저장 (동시성 체크용)
+  const handleFocus = (value: number) => {
+    setFocusValue(value);
+  };
+
+  // ★ 저장 시점: 동시성 충돌 체크 로직 적용
   const saveLeaveData = async (
     userId: string,
     field: "total_leave_days" | "used_leave_days",
     value: number,
   ) => {
-    await supabase
+    // 1. 변경된 내용이 없으면 스킵
+    if (focusValue === value) return;
+
+    // 2. 저장하기 전, DB의 최신 값을 가져옴 (Double Check)
+    const { data: latestData, error: fetchError } = await supabase
+      .from("profiles")
+      .select(field)
+      .eq("id", userId)
+      .single();
+
+    if (fetchError || !latestData) {
+      toast.error("최신 정보를 불러오지 못했습니다.");
+      return;
+    }
+
+    const dbValue = latestData[field];
+
+    // 3. 충돌 감지: 내가 수정을 시작했을 때의 값(focusValue)과 현재 DB값(dbValue)이 다르면?
+    // -> 누군가 그 사이에 수정한 것임!
+    if (focusValue !== null && dbValue !== focusValue) {
+      const isConfirmed = await showConfirm(
+        "⚠️ 데이터 충돌 감지",
+        `다른 관리자가 이 값을 '${dbValue}'(으)로 변경했습니다.\n지금 입력한 '${value}'(으)로 덮어쓰시겠습니까?`,
+      );
+
+      if (!isConfirmed) {
+        // 취소 시 UI를 DB 최신값으로 되돌림
+        setProfiles((prev) =>
+          prev.map((p) => (p.id === userId ? { ...p, [field]: dbValue } : p)),
+        );
+        toast("최신 값으로 새로고침 되었습니다.", { icon: "🔄" });
+        return;
+      }
+    }
+
+    // 4. 안전하게 저장 (또는 덮어쓰기 승인 후 저장)
+    const { error } = await supabase
       .from("profiles")
       .update({ [field]: value })
       .eq("id", userId);
-    toast.success("연차 정보가 저장되었습니다.");
+
+    if (error) {
+      toast.error("저장 실패: " + error.message);
+    } else {
+      toast.success("저장되었습니다.");
+    }
+
+    // 포커스 값 초기화
+    setFocusValue(null);
   };
 
   // 회원 탈퇴(삭제)
@@ -140,15 +220,14 @@ export default function AdminTeamsPage() {
 
     if (!isConfirmed) return;
 
-    // profiles 테이블에서 삭제
     const { error } = await supabase.from("profiles").delete().eq("id", userId);
 
     if (error) {
-      toast.error("삭제 실패: 권한이 없거나 오류가 발생했습니다.");
-      console.error(error);
+      toast.error("삭제 실패: 이미 삭제되었거나 권한이 없습니다.");
+      // 목록 새로고침으로 싱크 맞춤
+      fetchData();
     } else {
       toast.success("성공적으로 삭제되었습니다.");
-      // UI에서 즉시 제거
       setProfiles((prev) => prev.filter((p) => p.id !== userId));
     }
   };
@@ -205,7 +284,7 @@ export default function AdminTeamsPage() {
           </button>
         </div>
 
-        {/* --- [모바일용] 카드 리스트 뷰 (md:hidden) --- */}
+        {/* --- [모바일용] 카드 리스트 뷰 --- */}
         <div className="block md:hidden bg-gray-50 divide-y divide-gray-200">
           {profiles.map((person) => (
             <div key={person.id} className="p-4 bg-white space-y-3">
@@ -300,6 +379,7 @@ export default function AdminTeamsPage() {
                     type="number"
                     className="w-10 text-center border-gray-300 rounded-md text-xs py-1"
                     value={person.total_leave_days}
+                    onFocus={() => handleFocus(person.total_leave_days)}
                     onChange={(e) =>
                       handleLeaveChange(
                         person.id,
@@ -320,6 +400,7 @@ export default function AdminTeamsPage() {
                     type="number"
                     className="w-10 text-center border-gray-300 rounded-md text-xs py-1 bg-gray-50 text-gray-500"
                     value={person.used_leave_days}
+                    onFocus={() => handleFocus(person.used_leave_days)}
                     onChange={(e) =>
                       handleLeaveChange(
                         person.id,
@@ -341,7 +422,7 @@ export default function AdminTeamsPage() {
           ))}
         </div>
 
-        {/* --- [PC용] 테이블 뷰 (hidden md:block) --- */}
+        {/* --- [PC용] 테이블 뷰 --- */}
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -453,6 +534,7 @@ export default function AdminTeamsPage() {
                         type="number"
                         className="w-12 text-center border-gray-300 rounded-md text-sm py-1 focus:ring-blue-500 focus:border-blue-500"
                         value={person.total_leave_days}
+                        onFocus={() => handleFocus(person.total_leave_days)}
                         onChange={(e) =>
                           handleLeaveChange(
                             person.id,
@@ -473,6 +555,7 @@ export default function AdminTeamsPage() {
                         type="number"
                         className="w-12 text-center border-gray-300 rounded-md text-sm py-1 bg-gray-50 text-gray-500"
                         value={person.used_leave_days}
+                        onFocus={() => handleFocus(person.used_leave_days)}
                         onChange={(e) =>
                           handleLeaveChange(
                             person.id,
