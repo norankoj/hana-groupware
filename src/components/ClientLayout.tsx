@@ -397,6 +397,22 @@ export default function ClientLayout({
             }}
           />
         </div>
+        <Link
+          href="/lunch"
+          className="fixed bottom-6 left-6 z-50 group md:bottom-8 md:left-8 transition-transform hover:scale-110"
+        >
+          <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap shadow-xl pointer-events-none">
+            오늘 점심 뭐 먹지?🤔
+            <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 transform rotate-45"></div>{" "}
+          </div>
+
+          <div className="w-14 h-14 bg-gradient-to-tr from-orange-400 to-pink-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-bounce-slow hover:animate-none hover:rotate-12 transition-all cursor-pointer">
+            <span className="text-2xl filter drop-shadow-md">🍔</span>
+          </div>
+
+          {/* 물결 효과 (파동) */}
+          {/* <span className="absolute -inset-1 rounded-full bg-orange-400 opacity-30 animate-ping -z-10"></span> */}
+        </Link>
       </div>
     </MenuContext.Provider>
   );

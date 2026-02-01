@@ -257,7 +257,7 @@ export default function AdminUploadPage() {
                 <div>
                   <div className="font-bold text-gray-800">선교펀드</div>
                   <div className="text-xs text-gray-500">
-                    선교 후원금 내역 조회
+                    적립식 선교 펀드 내역 조회
                   </div>
                 </div>
               </label>
