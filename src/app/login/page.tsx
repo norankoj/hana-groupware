@@ -136,7 +136,7 @@ export default function LoginPage() {
             1. 로그인 화면
            --------------------------------------------------------------- */}
         {view === "login" && (
-          <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          <form className="mt-8 space-y-6" onSubmit={handleLogin} noValidate>
             <div className="rounded-md space-y-4">
               {errorMsg && (
                 <div className="text-red-500 text-sm text-center font-medium bg-red-50 p-2 rounded-md">
@@ -150,6 +150,9 @@ export default function LoginPage() {
                 <input
                   type="email"
                   required
+                  spellCheck={false}
+                  autoComplete="username"
+                  autoCapitalize="off"
                   className="appearance-none rounded-lg block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm transition duration-200"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
