@@ -22,11 +22,45 @@ const ALL_ROLES = [
   { key: "member", label: "일반" },
 ];
 
+// ★ [추가] 입력 필드를 별도 컴포넌트로 분리 (렌더링 최적화 & DB 요청 최소화)
+const MenuNameEditor = ({
+  id,
+  initialName,
+  onSave,
+}: {
+  id: number;
+  initialName: string;
+  onSave: (id: number, newName: string) => void;
+}) => {
+  const [value, setValue] = useState(initialName);
+
+  // 상위 데이터가 바뀌면 내부 값도 동기화
+  useEffect(() => {
+    setValue(initialName);
+  }, [initialName]);
+
+  return (
+    <input
+      type="text"
+      className="w-full border-gray-300 rounded-md text-sm px-2 py-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-gray-700"
+      value={value}
+      onChange={(e) => setValue(e.target.value)} // 로컬 상태만 변경 (즉시 반응)
+      onBlur={() => {
+        // 포커스가 빠질 때만 저장 (변경사항이 있을 경우에만)
+        if (value !== initialName) {
+          onSave(id, value);
+        }
+      }}
+    />
+  );
+};
+
 export default function AdminMenusPage() {
   const supabase = createClient();
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const menu = useCurrentMenu();
+
   const fetchData = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -41,16 +75,17 @@ export default function AdminMenusPage() {
     fetchData();
   }, []);
 
-  // 메뉴 이름 변경
-  const updateName = async (id: number, newName: string) => {
-    await supabase.from("menus").update({ name: newName }).eq("id", id);
-    // UI 즉시 반영 (UX 향상)
+  // ★ [수정] DB 업데이트 로직 (컴포넌트에서 onBlur 때 호출됨)
+  const handleNameSave = async (id: number, newName: string) => {
+    // 1. UI 먼저 반영 (낙관적 업데이트) - 사실상 컴포넌트 내부에서 이미 보여지지만 데이터 동기화를 위해
     setMenus((prev) =>
       prev.map((m) => (m.id === id ? { ...m, name: newName } : m)),
     );
+
+    // 2. DB 업데이트
+    await supabase.from("menus").update({ name: newName }).eq("id", id);
   };
 
-  // 권한(Role) 토글 함수
   const toggleRole = async (
     menuId: number,
     roleKey: string,
@@ -58,19 +93,17 @@ export default function AdminMenusPage() {
   ) => {
     let newRoles;
     if (currentRoles.includes(roleKey)) {
-      // 이미 있으면 제거
       newRoles = currentRoles.filter((r) => r !== roleKey);
     } else {
-      // 없으면 추가
       newRoles = [...currentRoles, roleKey];
     }
 
-    await supabase.from("menus").update({ roles: newRoles }).eq("id", menuId);
-
-    // UI 즉시 반영
+    // UI 즉시 반영 (UX 향상) - DB 요청보다 먼저 실행
     setMenus((prev) =>
       prev.map((m) => (m.id === menuId ? { ...m, roles: newRoles } : m)),
     );
+
+    await supabase.from("menus").update({ roles: newRoles }).eq("id", menuId);
   };
 
   if (loading)
@@ -123,24 +156,21 @@ export default function AdminMenusPage() {
                   key={menu.id}
                   className="hover:bg-gray-50 transition-colors"
                 >
-                  {/* 메뉴 이름 수정 */}
+                  {/* ★ [수정] 분리된 컴포넌트 사용 */}
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="text"
-                      className="w-full border-gray-300 rounded-md text-sm px-2 py-1 focus:ring-blue-500 focus:border-blue-500 font-bold text-gray-700"
-                      value={menu.name}
-                      onChange={(e) => updateName(menu.id, e.target.value)}
+                    <MenuNameEditor
+                      id={menu.id}
+                      initialName={menu.name}
+                      onSave={handleNameSave}
                     />
                   </td>
 
-                  {/* 경로 (읽기 전용) */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <span className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
                       {menu.path}
                     </span>
                   </td>
 
-                  {/* 권한 체크박스 그룹 */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex gap-4 flex-wrap">
                       {ALL_ROLES.map((role) => (
@@ -157,10 +187,14 @@ export default function AdminMenusPage() {
                             }
                             disabled={
                               menu.is_admin_only && role.key !== "admin"
-                            } // 관리자 전용 메뉴 보호
+                            }
                           />
                           <span
-                            className={`text-sm ${menu.roles.includes(role.key) ? "text-gray-900 font-medium" : "text-gray-400"}`}
+                            className={`text-sm ${
+                              menu.roles.includes(role.key)
+                                ? "text-gray-900 font-medium"
+                                : "text-gray-400"
+                            }`}
                           >
                             {role.label}
                           </span>
