@@ -1,67 +1,33 @@
 // src/app/vacation/page.tsx
 "use client";
 
-import { useEffect, useState, Suspense, useMemo } from "react";
+import { useEffect, useState, Suspense, useMemo, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { format } from "date-fns";
+import "@/styles/calendar.css";
+import {
+  format,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  getDay,
+  isSameDay,
+} from "date-fns";
 import { useCurrentMenu } from "@/components/ClientLayout";
 import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
 import { showConfirm } from "@/utils/alert";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import listPlugin from "@fullcalendar/list";
-import interactionPlugin from "@fullcalendar/interaction";
 
-// --- [공휴일 데이터 (2025~2026)] ---
-const HOLIDAYS: Record<string, string> = {
-  // 2025년
-  "2025-01-01": "신정",
-  "2025-01-28": "설날 연휴",
-  "2025-01-29": "설날",
-  "2025-01-30": "설날 연휴",
-  "2025-03-01": "삼일절",
-  "2025-03-03": "대체공휴일",
-  "2025-05-05": "어린이날",
-  "2025-05-06": "부처님오신날",
-  "2025-06-06": "현충일",
-  "2025-08-15": "광복절",
-  "2025-10-03": "개천절",
-  "2025-10-05": "추석 연휴",
-  "2025-10-06": "추석",
-  "2025-10-07": "추석 연휴",
-  "2025-10-08": "대체공휴일",
-  "2025-10-09": "한글날",
-  "2025-12-25": "성탄절",
-  // 2026년
-  "2026-01-01": "신정",
-  "2026-02-16": "대체공휴일",
-  "2026-02-17": "설날",
-  "2026-02-18": "설날 연휴",
-  "2026-03-01": "삼일절",
-  "2026-03-02": "대체공휴일",
-  "2026-05-05": "어린이날",
-  "2026-05-06": "대체공휴일",
-  "2026-05-24": "부처님오신날",
-  "2026-05-25": "대체공휴일",
-  "2026-06-06": "현충일",
-  "2026-08-15": "광복절",
-  "2026-09-24": "추석 연휴",
-  "2026-09-25": "추석",
-  "2026-09-26": "추석 연휴",
-  "2026-10-03": "개천절",
-  "2026-10-09": "한글날",
-  "2026-12-25": "성탄절",
-};
+import { HOLIDAYS } from "@/constants/holidays";
 
-// 연차 차감 대상
 const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차"];
 
-// 필터 옵션 정의
+// 필터 옵션
 const STATUS_OPTIONS = [
   { value: "all", label: "전체 상태" },
   { value: "pending", label: "대기중" },
@@ -76,6 +42,7 @@ const TYPE_OPTIONS = [
   { value: "오후반차", label: "오후반차" },
   { value: "경조사", label: "경조사" },
   { value: "병가", label: "병가" },
+  { value: "특별휴가", label: "특별휴가" },
 ];
 
 type VacationRequest = {
@@ -109,12 +76,10 @@ type UserProfile = {
   used_leave_days: number;
 };
 
-// 로딩 스켈레톤
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
 );
 
-// 버튼 스타일
 const btnStyles = {
   save: "px-5 py-2.5 bg-[#2151EC] text-white font-medium rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md flex-1 sm:flex-none justify-center cursor-pointer",
   delete:
@@ -123,26 +88,39 @@ const btnStyles = {
     "px-5 py-2.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition text-sm flex-1 sm:flex-none sm:min-w-[80px] justify-center cursor-pointer",
 };
 
-const InfoRow = ({
-  label,
-  value,
-  isLast = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  isLast?: boolean;
-}) => (
-  <div
-    className={`flex border-b border-gray-200 ${isLast ? "border-b-0" : ""}`}
-  >
-    <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
-      {label}
-    </div>
-    <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center whitespace-pre-wrap">
-      {value}
-    </div>
-  </div>
-);
+// ★ 사역자 휴가 계산 함수 (토/월 제외 + 공휴일 제외)
+const calculateChurchVacationDays = (
+  startDate: string,
+  endDate: string,
+  type: string,
+) => {
+  if (!startDate || !endDate) return 0;
+
+  if (type === "오전반차" || type === "오후반차") return 0.5;
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (start > end) return 0;
+
+  const days = eachDayOfInterval({ start, end });
+  let count = 0;
+
+  days.forEach((day) => {
+    const dayStr = format(day, "yyyy-MM-dd");
+    const dayOfWeek = getDay(day); // 0:일, 1:월, ... 6:토
+
+    // 1. 토요일(6), 월요일(1) 제외
+    if (dayOfWeek === 6 || dayOfWeek === 1) return;
+
+    // 2. 공휴일 제외 (추가된 로직)
+    if (HOLIDAYS[dayStr]) return;
+
+    count++;
+  });
+
+  return count;
+};
 
 function VacationContent() {
   const supabase = createClient();
@@ -155,17 +133,20 @@ function VacationContent() {
   const [approvalList, setApprovalList] = useState<VacationRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 탭 상태: calendar(내 일정), approve(결재함), history(히스토리)
   const [activeTab, setActiveTab] = useState<
     "calendar" | "approve" | "history"
   >("calendar");
+  const [calendarViewMode, setCalendarViewMode] = useState<"month" | "list">(
+    "month",
+  );
 
-  // 필터 상태
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [date, setDate] = useState<Date>(new Date());
+  const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
+
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     type: "연차",
@@ -173,6 +154,12 @@ function VacationContent() {
     end_date: "",
     reason: "",
   });
+  const [calculatedDays, setCalculatedDays] = useState(0);
+
+  // ★ [수정] 기간 선택용 달력 상태 (좌표 포함)
+  const [showRangePicker, setShowRangePicker] = useState(false);
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0, width: 0 });
+  const rangePickerRef = useRef<HTMLDivElement>(null);
 
   const [selectedRequest, setSelectedRequest] =
     useState<VacationRequest | null>(null);
@@ -180,7 +167,6 @@ function VacationContent() {
   const [rejectReason, setRejectReason] = useState("");
   const [isRejectMode, setIsRejectMode] = useState(false);
 
-  // 히스토리 연도
   const [historyYear, setHistoryYear] = useState(new Date().getFullYear());
 
   const fetchData = async () => {
@@ -197,7 +183,6 @@ function VacationContent() {
       .single();
     setUser(profile);
 
-    // URL 파라미터로 탭 전환 (결재권자만)
     if (searchParams.get("tab") === "approve" && profile.is_approver) {
       setActiveTab("approve");
     }
@@ -237,49 +222,19 @@ function VacationContent() {
     fetchData();
   }, []);
 
-  // FullCalendar용 이벤트 데이터 변환
-  const calendarEvents = useMemo(() => {
-    const events: any[] = [];
+  useEffect(() => {
+    if (formData.start_date && formData.end_date) {
+      const days = calculateChurchVacationDays(
+        formData.start_date,
+        formData.end_date,
+        formData.type,
+      );
+      setCalculatedDays(days);
+    } else {
+      setCalculatedDays(0);
+    }
+  }, [formData.start_date, formData.end_date, formData.type]);
 
-    // 1. 공휴일 추가
-    Object.entries(HOLIDAYS).forEach(([date, title]) => {
-      events.push({
-        title: title,
-        start: date,
-        allDay: true,
-        display: "background",
-        backgroundColor: "#fef2f2", // 연한 빨강 배경
-        classNames: ["holiday-event-text"], // CSS에서 빨간색 처리
-      });
-    });
-
-    // 2. 내 연차 신청 내역 추가
-    myRequests.forEach((req) => {
-      if (req.status === "cancelled" || req.status === "rejected") return;
-
-      const isApproved = req.status === "approved";
-      const statusText = isApproved ? "" : "[대기] ";
-
-      events.push({
-        id: String(req.id),
-        title: `${statusText}${req.type}`,
-        start: req.start_date,
-        // FullCalendar end 날짜 특성 대응 (+1일)
-        end: format(
-          new Date(new Date(req.end_date).getTime() + 86400000),
-          "yyyy-MM-dd",
-        ),
-        allDay: true,
-        backgroundColor: isApproved ? "#dcfce7" : "#fef9c3",
-        textColor: isApproved ? "#15803d" : "#a16207",
-        extendedProps: { ...req },
-      });
-    });
-
-    return events;
-  }, [myRequests]);
-
-  // --- [필터링 로직] ---
   const filteredApprovals = useMemo(() => {
     return approvalList.filter((req) => {
       const matchesStatus =
@@ -290,21 +245,39 @@ function VacationContent() {
     });
   }, [approvalList, filterStatus, filterType, searchTerm]);
 
-  // --- [기안 작성 로직] ---
   const handleRequestSubmit = async () => {
     if (!formData.start_date || !formData.end_date || !formData.reason)
       return toast.error("모든 항목을 입력해주세요.");
 
-    const start = new Date(formData.start_date);
-    const end = new Date(formData.end_date);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    const daysCount =
-      formData.type === "오전반차" || formData.type === "오후반차"
-        ? 0.5
-        : diffDays;
+    // 일수 계산
+    const daysCount = calculateChurchVacationDays(
+      formData.start_date,
+      formData.end_date,
+      formData.type,
+    );
 
-    // ★ [연차 차단]
+    if (daysCount <= 0)
+      return toast.error("유효하지 않은 기간이거나, 휴가 일수가 0일입니다.");
+
+    // ★ [추가된 로직] 이미 신청된 기간과 겹치는지 확인 (중복 차단)
+    const isOverlapping = myRequests.some((req) => {
+      // 취소/반려된 건은 제외하고 체크
+      if (req.status === "cancelled" || req.status === "rejected") return false;
+
+      // 기간이 겹치는지 확인 (교차 검증)
+      return (
+        formData.start_date <= req.end_date &&
+        formData.end_date >= req.start_date
+      );
+    });
+
+    if (isOverlapping) {
+      return toast.error(
+        "이미 휴가가 신청된 날짜가 포함되어 있습니다.\n기간을 다시 확인해주세요.",
+        { duration: 4000 },
+      );
+    }
+
     if (DEDUCTIBLE_TYPES.includes(formData.type) && user) {
       const remaining = user.total_leave_days - user.used_leave_days;
       if (daysCount > remaining) {
@@ -316,7 +289,13 @@ function VacationContent() {
       }
     }
 
-    if (!(await showConfirm("휴가를 기안하시겠습니까?"))) return;
+    if (
+      !(await showConfirm(
+        "휴가를 기안하시겠습니까?",
+        `총 ${daysCount}일이 차감됩니다.`,
+      ))
+    )
+      return;
 
     const { error } = await supabase.from("vacation_requests").insert({
       user_id: user?.id,
@@ -335,12 +314,12 @@ function VacationContent() {
     }
   };
 
-  // --- [결재 처리 로직] ---
   const handleProcess = async (isApproved: boolean) => {
     if (!selectedRequest) return;
     if (!isApproved && !rejectReason.trim())
       return toast.error("반려 사유를 입력해주세요.");
 
+    // 1. 이미 처리된 건인지 DB 재확인
     const { data: checkData } = await supabase
       .from("vacation_requests")
       .select("status, approver:approver_id(full_name)")
@@ -360,6 +339,7 @@ function VacationContent() {
     )
       return;
 
+    // 2. 휴가 요청 상태 업데이트 (승인/반려)
     const { error } = await supabase
       .from("vacation_requests")
       .update({
@@ -371,8 +351,18 @@ function VacationContent() {
 
     if (error) return toast.error("오류 발생: " + error.message);
 
+    // 3. ★ [수정됨] 승인 시 연차 차감 로직 (최신 데이터 조회 후 업데이트)
     if (isApproved && DEDUCTIBLE_TYPES.includes(selectedRequest.type)) {
-      const currentUsed = selectedRequest.profiles.used_leave_days || 0;
+      // (1) 기안자의 '현재' 연차 사용량을 DB에서 새로 가져옵니다.
+      const { data: requesterProfile } = await supabase
+        .from("profiles")
+        .select("used_leave_days")
+        .eq("id", selectedRequest.user_id)
+        .single();
+
+      const currentUsed = requesterProfile?.used_leave_days || 0;
+
+      // (2) 가져온 최신 값에 이번 신청 일수(days_count)를 더해서 업데이트합니다.
       await supabase
         .from("profiles")
         .update({ used_leave_days: currentUsed + selectedRequest.days_count })
@@ -381,9 +371,8 @@ function VacationContent() {
 
     toast.success("처리되었습니다.");
     setIsDetailModalOpen(false);
-    fetchData();
+    fetchData(); // 화면 새로고침
   };
-
   const handleCancel = async (req: VacationRequest) => {
     if (!(await showConfirm("정말 취소하시겠습니까?"))) return;
     try {
@@ -415,6 +404,37 @@ function VacationContent() {
 
   const onDateClick = (value: Date) => {
     const dateStr = format(value, "yyyy-MM-dd");
+    const dayOfWeek = value.getDay(); // 0:일, 1:월, ... 6:토
+
+    // 1. 월요일(1) 또는 토요일(6) 체크
+    if (dayOfWeek === 1 || dayOfWeek === 6) {
+      return toast("월요일과 토요일은 휴무일이라 신청할 수 없습니다.", {
+        icon: "🙅‍♂️",
+      });
+    }
+
+    // 2. 공휴일 체크
+    if (HOLIDAYS[dateStr]) {
+      return toast("공휴일에는 휴가를 신청할 수 없습니다.", { icon: "🙅‍♂️" });
+    }
+
+    // 3. 이미 신청한 내역 체크
+    const existingReq = myRequests.find(
+      (r) =>
+        dateStr >= r.start_date &&
+        dateStr <= r.end_date &&
+        r.status !== "cancelled" &&
+        r.status !== "rejected",
+    );
+
+    if (existingReq) {
+      setSelectedRequest(existingReq);
+      setIsDetailModalOpen(true);
+      setIsRejectMode(false);
+      return;
+    }
+
+    // 4. 새 기안 작성
     setFormData({
       ...formData,
       start_date: dateStr,
@@ -422,6 +442,54 @@ function VacationContent() {
       reason: "",
     });
     setIsRequestModalOpen(true);
+  };
+
+  // ★ 기간 선택 핸들러 (달력 팝업)
+  const handleRangeChange = (value: any) => {
+    if (Array.isArray(value)) {
+      const [start, end] = value;
+      setFormData({
+        ...formData,
+        start_date: format(start, "yyyy-MM-dd"),
+        end_date: format(end, "yyyy-MM-dd"),
+      });
+      setShowRangePicker(false);
+    } else {
+      const dateStr = format(value, "yyyy-MM-dd");
+      setFormData({
+        ...formData,
+        start_date: dateStr,
+        end_date: dateStr,
+      });
+      if (["오전반차", "오후반차"].includes(formData.type)) {
+        setShowRangePicker(false);
+      }
+    }
+  };
+
+  const openRangePicker = () => {
+    if (rangePickerRef.current) {
+      const rect = rangePickerRef.current.getBoundingClientRect();
+      const calendarWidth = 350; // 달력의 대략적인 너비 (여유 있게 설정)
+      const windowWidth = window.innerWidth;
+
+      let leftPos = rect.left + window.scrollX;
+
+      // 달력 오른쪽 끝이 화면을 넘어갈 경우 -> 화면 안쪽으로 당김 (여백 20px 확보)
+      if (rect.left + calendarWidth > windowWidth) {
+        leftPos = windowWidth - calendarWidth - 20;
+      }
+
+      // 왼쪽이 화면 밖으로 나갈 경우 -> 최소 10px 띄움
+      if (leftPos < 10) leftPos = 10;
+
+      setPickerPos({
+        top: rect.bottom + window.scrollY + 5,
+        left: leftPos,
+        width: rect.width,
+      });
+      setShowRangePicker(true);
+    }
   };
 
   const InfoRow = ({
@@ -447,98 +515,40 @@ function VacationContent() {
 
   return (
     <div className="w-full h-full flex flex-col p-1">
-      <style jsx global>{`
-        .fc {
-          font-family: "Pretendard Variable", Pretendard, sans-serif !important;
-          --fc-border-color: transparent;
-          font-size: 0.8rem; /* 전체적인 폰트 크기 축소 */
-        }
+      {/* 팝업 달력을 위한 포탈 스타일 (Backdrop) */}
+      {showRangePicker && (
+        <div
+          className="fixed inset-0 z-[9998]"
+          onClick={() => setShowRangePicker(false)}
+        />
+      )}
 
-        /* 헤더(타이틀 및 버튼) 크기 조절 */
-        .fc .fc-toolbar-title {
-          font-size: 1.1rem !important;
-          font-weight: 700;
-        }
-        .fc .fc-button {
-          padding: 4px 10px !important;
-          font-size: 0.75rem !important;
-        }
+      {/* 팝업 달력 (Fixed Position) */}
+      {showRangePicker && (
+        <div
+          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+          style={{
+            top: pickerPos.top,
+            left: pickerPos.left,
+            maxWidth: "95vw", // ★ 화면 너비보다 커지지 않게 제한 추가
+          }}
+        >
+          <Calendar
+            onChange={handleRangeChange}
+            selectRange={!["오전반차", "오후반차"].includes(formData.type)}
+            value={
+              formData.start_date && formData.end_date
+                ? [new Date(formData.start_date), new Date(formData.end_date)]
+                : null
+            }
+            formatDay={(locale, date) => format(date, "d")}
+            calendarType="gregory"
+            locale="ko-KR"
+            minDate={new Date()}
+          />
+        </div>
+      )}
 
-        /* 격자선 제거 */
-        .fc-theme-standard td,
-        .fc-theme-standard th,
-        .fc-theme-standard .fc-scrollgrid {
-          border: none !important;
-        }
-
-        /*  캘린더 내부 디자인: 숫자 중앙 정렬 및 진하게 */
-        .fc .fc-daygrid-day-top {
-          justify-content: center;
-          padding-top: 10px;
-        }
-
-        /* 날짜 및 요일 스타일 */
-        .fc .fc-col-header-cell-cushion {
-          color: #6b7280;
-          font-weight: 600;
-          padding: 10px 0;
-        }
-        .fc .fc-daygrid-day-number {
-          color: #1f2937 !important;
-          padding: 8px !important;
-          font-weight: 500;
-        }
-
-        .fc-daygrid-day:hover .fc-daygrid-day-number {
-          color: #3b82f6 !important;
-        }
-
-        /* 토요일 파랑 / 일요일 빨강 */
-        .fc-day-sat .fc-col-header-cell-cushion,
-        .fc-day-sat .fc-daygrid-day-number {
-          color: #2563eb !important;
-        }
-        .fc-day-sun .fc-col-header-cell-cushion,
-        .fc-day-sun .fc-daygrid-day-number {
-          color: #ef4444 !important;
-        }
-
-        /* 공휴일 텍스트 스타일 */
-        .holiday-event-text {
-          color: #ef4444 !important;
-          font-style: normal !important;
-          font-weight: 600;
-          padding-left: 4px;
-        }
-
-        /* 마우스 인터랙션: 커서 및 하이라이트 */
-        .fc-daygrid-day {
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        .fc-daygrid-day:hover {
-          background-color: #f0f9ff !important;
-        } /* 연한 하늘색 하이라이트 */
-
-        /* 오늘 날짜: 회색 배경 */
-        .fc .fc-day-today {
-          background-color: #f3f4f6 !important;
-          border-radius: 4px;
-        }
-
-        .fc-event-title {
-          font-weight: 600 !important;
-          font-size: 0.75rem;
-        }
-
-        /* 이벤트 바 스타일 정리 */
-        .fc-event {
-          border: none !important;
-          border-radius: 4px !important;
-          padding: 1px 4px !important;
-        }
-      `}</style>
-      {/* 헤더 */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
           {menu?.name || "휴가/연차 관리"}
@@ -548,8 +558,7 @@ function VacationContent() {
         </p>
       </div>
 
-      {/* 탭 메뉴 (무조건 렌더링되도록 수정) */}
-      <div className="flex border-b border-gray-200 mb-6 w-full flex-shrink-0">
+      <div className="flex border-b border-gray-200 mb-6 w-full flex-shrink-0 overflow-x-auto">
         {user?.is_approver && (
           <button
             onClick={() => setActiveTab("approve")}
@@ -586,7 +595,6 @@ function VacationContent() {
         <div className="flex-1 relative">
           {activeTab === "approve" && user?.is_approver && (
             <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col h-[650px] animate-fadeIn">
-              {/* 필터 검색바 (자연스러운 디자인) */}
               <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-wrap gap-3 items-end">
                 <div className="w-36">
                   <Select
@@ -716,43 +724,229 @@ function VacationContent() {
               </div>
             </div>
           )}
-          {/* 2. 내 일정 관리 (달력) 탭 */}
+
           {activeTab === "calendar" && (
-            <div className="flex flex-col xl:flex-row gap-6 h-full animate-fadeIn">
-              <div className="flex-1 bg-white p-6 rounded-xl shadow-md border border-gray-200 h-fit">
-                <FullCalendar
-                  plugins={[dayGridPlugin, listPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  locale="ko"
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "dayGridMonth,listMonth", // 이미지처럼 Month/List 기능 제공
-                  }}
-                  dayCellContent={(arg) => arg.dayNumberText.replace("일", "")}
-                  buttonText={{
-                    today: "오늘",
-                    month: "달력",
-                    list: "목록",
-                  }}
-                  events={calendarEvents}
-                  dateClick={(info) => onDateClick(new Date(info.dateStr))}
-                  eventClick={(info) => {
-                    const req = info.event.extendedProps as VacationRequest;
-                    if (req.id) {
-                      setSelectedRequest(req);
-                      setIsDetailModalOpen(true);
-                    }
-                  }}
-                  height="650px"
-                  fixedWeekCount={false}
-                  dayMaxEvents={true}
-                />
+            <div className="flex flex-col lg:flex-row gap-6 h-full animate-fadeIn">
+              <div className="lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-gray-200 h-[650px] w-full flex flex-col">
+                {" "}
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() =>
+                        setActiveStartDate(subMonths(activeStartDate, 1))
+                      }
+                      className="p-2 hover:bg-gray-100 rounded-full transition"
+                    >
+                      <svg
+                        className="w-5 h-5 text-gray-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() =>
+                        setActiveStartDate(addMonths(activeStartDate, 1))
+                      }
+                      className="p-2 hover:bg-gray-100 rounded-full transition"
+                    >
+                      <svg
+                        className="w-5 h-5 text-gray-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const now = new Date();
+                        setDate(now);
+                        setActiveStartDate(now);
+                      }}
+                      className="px-3 py-1.5 text-sm font-bold bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition border border-blue-100"
+                    >
+                      오늘
+                    </button>
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-800 tracking-tight">
+                    {format(activeStartDate, "yyyy년 M월")}
+                  </h2>
+                  <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <button
+                      onClick={() => setCalendarViewMode("month")}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "month" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
+                    >
+                      달력
+                    </button>
+                    <button
+                      onClick={() => setCalendarViewMode("list")}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "list" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
+                    >
+                      리스트
+                    </button>
+                  </div>
+                </div>
+                {calendarViewMode === "month" ? (
+                  <>
+                    <div className="flex-1 overflow-hidden">
+                      <Calendar
+                        onChange={(v) => setDate(v as Date)}
+                        value={date}
+                        onClickDay={onDateClick}
+                        activeStartDate={activeStartDate}
+                        onActiveStartDateChange={({ activeStartDate }) =>
+                          activeStartDate && setActiveStartDate(activeStartDate)
+                        }
+                        calendarType="gregory"
+                        formatDay={(locale, date) => format(date, "d")}
+                        prevLabel={null}
+                        nextLabel={null}
+                        prev2Label={null}
+                        next2Label={null}
+                        tileClassName={({ date, view }) => {
+                          if (
+                            view === "month" &&
+                            HOLIDAYS[format(date, "yyyy-MM-dd")]
+                          )
+                            return "holiday-day";
+                        }}
+                        tileContent={({ date, view }) => {
+                          if (view === "month") {
+                            const dateStr = format(date, "yyyy-MM-dd");
+                            const dayOfWeek = date.getDay();
+                            const holiday = HOLIDAYS[dateStr];
+                            const req = myRequests.find(
+                              (r) =>
+                                dateStr >= r.start_date &&
+                                dateStr <= r.end_date &&
+                                r.status !== "cancelled" &&
+                                r.status !== "rejected",
+                            );
+                            const isExcluded =
+                              holiday || dayOfWeek === 1 || dayOfWeek === 6;
+                            return (
+                              <div className="flex flex-col items-center w-full h-full pt-1">
+                                {holiday && (
+                                  <div className="text-[10px] text-red-500 font-medium truncate px-1 w-full text-center mt-0.5">
+                                    {holiday}
+                                  </div>
+                                )}
+                                {req &&
+                                  !isExcluded &&
+                                  (req.status === "approved" ? (
+                                    <div className="w-full px-0.5 mt-0.5">
+                                      <div className="text-[9px] bg-green-100 text-green-700 border border-green-200 rounded px-1 py-0.5 truncate text-center font-medium">
+                                        {req.type}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-full px-0.5 mt-0.5">
+                                      <div className="text-[9px] bg-yellow-50 text-yellow-700 border border-yellow-200 rounded px-1 py-0.5 truncate text-center font-medium">
+                                        {req.type}[대기]
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-full overflow-y-auto divide-y divide-gray-100 custom-scrollbar pr-2">
+                    {(() => {
+                      const daysInMonth = eachDayOfInterval({
+                        start: startOfMonth(activeStartDate),
+                        end: endOfMonth(activeStartDate),
+                      });
+
+                      return daysInMonth.map((day) => {
+                        const dateStr = format(day, "yyyy-MM-dd");
+                        const dayNum = format(day, "d");
+                        const dayLabel = format(day, "EEE");
+                        const isWeekend =
+                          day.getDay() === 0 || day.getDay() === 6;
+                        const holiday = HOLIDAYS[dateStr];
+
+                        // ★ 제외 날짜 조건 추가
+                        const isExcluded =
+                          holiday || day.getDay() === 1 || day.getDay() === 6;
+
+                        const req = myRequests.find(
+                          (r) =>
+                            dateStr >= r.start_date &&
+                            dateStr <= r.end_date &&
+                            r.status !== "cancelled" &&
+                            r.status !== "rejected",
+                        );
+
+                        return (
+                          <div
+                            key={dateStr}
+                            className={`py-3 px-3 flex items-center justify-between transition-colors ${holiday ? "bg-red-50/50" : "hover:bg-gray-50"}`}
+                          >
+                            <div className="flex items-center gap-4 w-24">
+                              <span
+                                className={`text-lg font-bold ${isWeekend || holiday ? "text-red-500" : "text-gray-800"}`}
+                              >
+                                {dayNum}
+                              </span>
+                              <span
+                                className={`text-xs uppercase font-medium ${isWeekend || holiday ? "text-red-400" : "text-gray-400"}`}
+                              >
+                                {dayLabel}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              {holiday ? (
+                                <div className="bg-red-100 text-red-600 text-xs font-bold px-3 py-1.5 rounded-md inline-block">
+                                  🎉 {holiday}
+                                </div>
+                              ) : req &&
+                                !isExcluded /* ★ 여기서 !isExcluded 체크 */ ? (
+                                <div
+                                  onClick={() => {
+                                    setSelectedRequest(req);
+                                    setIsDetailModalOpen(true);
+                                    setIsRejectMode(false);
+                                  }}
+                                  className={`cursor-pointer px-3 py-1.5 rounded-md inline-flex items-center gap-2 text-xs font-bold shadow-sm transition-transform hover:scale-[1.02]
+                                    ${req.status === "approved" ? "bg-green-100 text-green-700 border border-green-200" : "bg-yellow-50 text-yellow-700 border border-yellow-200"}
+                                  `}
+                                >
+                                  {req.type}{" "}
+                                  {req.status === "pending" && "[대기]"}
+                                </div>
+                              ) : (
+                                <div className="h-1.5 w-1.5 rounded-full bg-gray-200"></div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
               </div>
 
               <div
-                className="w-full xl:w-96 flex flex-col gap-6"
-                style={{ height: "700px" }}
+                className="lg:flex-1 w-full flex flex-col gap-6"
+                style={{ height: "650px" }}
               >
                 <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
                   <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
@@ -771,7 +965,13 @@ function VacationContent() {
                     <div
                       className="h-full bg-blue-600 rounded-full transition-all duration-1000"
                       style={{
-                        width: `${Math.min(((user?.used_leave_days || 0) / (user?.total_leave_days || 1)) * 100, 100)}%`,
+                        width: `${Math.min(
+                          (((user?.total_leave_days || 0) -
+                            (user?.used_leave_days || 0)) /
+                            (user?.total_leave_days || 1)) *
+                            100,
+                          100,
+                        )}%`,
                       }}
                     ></div>
                   </div>
@@ -816,7 +1016,11 @@ function VacationContent() {
                               </div>
                             </div>
                             {req.status !== "rejected" &&
-                              req.status !== "cancelled" && (
+                              req.status !== "cancelled" &&
+                              (req.status === "pending" ||
+                                (req.status === "approved" &&
+                                  req.start_date >=
+                                    format(new Date(), "yyyy-MM-dd"))) && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -841,12 +1045,11 @@ function VacationContent() {
             </div>
           )}
 
-          {/* 3. 내 연차 히스토리 탭 */}
           {activeTab === "history" && (
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden max-w-4xl mx-auto animate-fadeIn">
+            <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden w-full animate-fadeIn">
               <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <h3 className="font-bold text-lg text-gray-800">
-                  연도별 사용 내역
+                  연도별 승인 내역
                 </h3>
                 <div className="flex items-center bg-white border border-gray-300 rounded-lg shadow-sm">
                   <button
@@ -866,10 +1069,60 @@ function VacationContent() {
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4 p-6 bg-blue-50/30 border-b border-gray-100">
-                <div className="bg-white p-4 rounded-lg border border-gray-200 text-center shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">총 사용 일수</div>
-                  <div className="text-2xl font-bold text-blue-600">
+              <div className="px-6 py-4 bg-blue-50 border-b border-blue-100 flex flex-wrap justify-end items-center gap-4 text-sm">
+                {/* 기타 휴가 통계 (회색조 배경으로 구분) */}
+                <div className="flex items-center gap-3 bg-white/60 px-3 py-1.5 rounded-lg border border-blue-100">
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-500 font-medium">경조사:</span>
+                    <span className="text-gray-600 font-bold">
+                      {myRequests
+                        .filter(
+                          (r) =>
+                            r.start_date.startsWith(String(historyYear)) &&
+                            r.status === "approved" &&
+                            r.type === "경조사",
+                        )
+                        .reduce((acc, cur) => acc + cur.days_count, 0)}
+                      일
+                    </span>
+                  </div>
+                  <div className="w-px h-3 bg-gray-300"></div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-500 font-medium">병가:</span>
+                    <span className="text-gray-600 font-bold">
+                      {myRequests
+                        .filter(
+                          (r) =>
+                            r.start_date.startsWith(String(historyYear)) &&
+                            r.status === "approved" &&
+                            r.type === "병가",
+                        )
+                        .reduce((acc, cur) => acc + cur.days_count, 0)}
+                      일
+                    </span>
+                  </div>
+                  <div className="w-px h-3 bg-gray-300"></div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-500 font-medium">특별휴가:</span>
+                    <span className="text-gray-600 font-bold">
+                      {myRequests
+                        .filter(
+                          (r) =>
+                            r.start_date.startsWith(String(historyYear)) &&
+                            r.status === "approved" &&
+                            r.type === "특별휴가",
+                        )
+                        .reduce((acc, cur) => acc + cur.days_count, 0)}
+                      일
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center">
+                  <span className="font-medium text-blue-800 mr-2">
+                    {historyYear}년 총 사용 연차:
+                  </span>
+                  <span className="text-2xl font-extrabold text-blue-600">
                     {myRequests
                       .filter(
                         (r) =>
@@ -878,91 +1131,69 @@ function VacationContent() {
                           DEDUCTIBLE_TYPES.includes(r.type),
                       )
                       .reduce((acc, cur) => acc + cur.days_count, 0)}
-                    일
-                  </div>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200 text-center shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">승인 건수</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {
-                      myRequests.filter(
-                        (r) =>
-                          r.start_date.startsWith(String(historyYear)) &&
-                          r.status === "approved",
-                      ).length
-                    }
-                    건
-                  </div>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200 text-center shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">반려 건수</div>
-                  <div className="text-2xl font-bold text-red-500">
-                    {
-                      myRequests.filter(
-                        (r) =>
-                          r.start_date.startsWith(String(historyYear)) &&
-                          r.status === "rejected",
-                      ).length
-                    }
-                    건
-                  </div>
+                  </span>
+                  <span className="font-medium text-blue-800 ml-1">개</span>
                 </div>
               </div>
-              <div className="overflow-y-auto max-h-[500px]">
+
+              <div className="overflow-y-auto max-h-[600px]">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
                         날짜
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
                         종류
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
                         사유
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500">
-                        상태
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">
+                        차감일수
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {myRequests.filter((r) =>
-                      r.start_date.startsWith(String(historyYear)),
+                    {myRequests.filter(
+                      (r) =>
+                        r.start_date.startsWith(String(historyYear)) &&
+                        r.status === "approved",
                     ).length === 0 ? (
                       <tr>
                         <td
                           colSpan={4}
-                          className="py-10 text-center text-gray-400"
+                          className="py-20 text-center text-gray-400"
                         >
-                          기록이 없습니다.
+                          승인된 내역이 없습니다.
                         </td>
                       </tr>
                     ) : (
                       myRequests
-                        .filter((r) =>
-                          r.start_date.startsWith(String(historyYear)),
+                        .filter(
+                          (r) =>
+                            r.start_date.startsWith(String(historyYear)) &&
+                            r.status === "approved",
                         )
                         .map((req) => (
-                          <tr key={req.id} className="hover:bg-gray-50">
+                          <tr
+                            key={req.id}
+                            className="hover:bg-gray-50 transition"
+                          >
                             <td className="px-6 py-4 text-sm text-gray-600">
                               {req.start_date} ~ {req.end_date}
                             </td>
                             <td className="px-6 py-4 text-sm font-bold text-gray-800">
-                              {req.type} ({req.days_count}일)
+                              <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+                                {req.type}
+                              </span>
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                            <td className="px-6 py-4 text-sm text-gray-500 max-w-md truncate">
                               {req.reason}
                             </td>
                             <td className="px-6 py-4">
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-bold ${req.status === "approved" ? "bg-green-100 text-green-700" : req.status === "rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}
-                              >
-                                {req.status === "pending"
-                                  ? "대기"
-                                  : req.status === "approved"
-                                    ? "승인"
-                                    : "반려"}
+                              <span className="font-bold text-blue-600">
+                                {req.days_count}일
                               </span>
                             </td>
                           </tr>
@@ -976,7 +1207,7 @@ function VacationContent() {
         </div>
       )}
 
-      {/* 모달들 (상세/작성) */}
+      {/* 모달들 */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -1101,6 +1332,7 @@ function VacationContent() {
         )}
       </Modal>
 
+      {/* 기안 작성 모달 */}
       <Modal
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
@@ -1119,88 +1351,76 @@ function VacationContent() {
           </>
         }
       >
-        <div className="space-y-4" style={{ height: 300 }}>
-          <div>
-            <Select
-              label="휴가 구분"
-              value={formData.type}
-              onChange={(val) => {
-                const isHalf = ["오전반차", "오후반차"].includes(val);
-                setFormData({
-                  ...formData,
-                  type: val,
-                  end_date: isHalf ? formData.start_date : formData.end_date,
-                });
-              }}
-              options={[
-                "연차",
-                "오전반차",
-                "오후반차",
-                "경조사",
-                "병가",
-                "대체휴가",
-                "특별휴가",
-              ]}
-            />
-            {!DEDUCTIBLE_TYPES.includes(formData.type) && (
-              <p className="text-xs text-blue-600 mt-1">
-                * {formData.type}는 연차가 차감되지 않습니다.
-              </p>
-            )}
-          </div>
+        <div className="space-y-4">
+          {" "}
+          {/* height 제한 제거 */}
+          <Select
+            label="종류"
+            value={formData.type}
+            onChange={(v) => {
+              const isHalf = ["오전반차", "오후반차"].includes(v);
+              setFormData({
+                ...formData,
+                type: v,
+                end_date: isHalf ? formData.start_date : formData.end_date,
+              });
+            }}
+            options={[
+              "연차",
+              "오전반차",
+              "오후반차",
+              "경조사",
+              "병가",
+              "특별휴가",
+            ]}
+          />
+          {/* ★ 기간 선택 (하나의 박스, 클릭 시 Fixed 달력 오픈) */}
+          <div className="relative" ref={rangePickerRef}>
+            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+              {["오전반차", "오후반차"].includes(formData.type)
+                ? "날짜 선택"
+                : "기간 선택"}
+            </label>
 
-          {["오전반차", "오후반차"].includes(formData.type) ? (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                날짜 (반차)
-              </label>
-              <input
-                type="date"
-                required
-                className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-normal"
-                value={formData.start_date}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    start_date: e.target.value,
-                    end_date: e.target.value,
-                  })
+            <button
+              onClick={openRangePicker}
+              className="w-full flex items-center justify-between p-2.5 border border-gray-300 rounded-md text-sm text-left hover:border-blue-500 focus:ring-2 focus:ring-blue-200 transition bg-white"
+            >
+              <span
+                className={
+                  formData.start_date
+                    ? "text-gray-900 font-medium"
+                    : "text-gray-400"
                 }
-              />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                  시작일
-                </label>
-                <input
-                  type="date"
-                  required
-                  className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-normal"
-                  value={formData.start_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_date: e.target.value })
-                  }
+              >
+                {formData.start_date
+                  ? ["오전반차", "오후반차"].includes(formData.type) ||
+                    formData.start_date === formData.end_date
+                    ? formData.start_date
+                    : `${formData.start_date} ~ ${formData.end_date}`
+                  : "날짜를 선택하세요"}
+              </span>
+              <svg
+                className="w-5 h-5 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                  종료일
-                </label>
-                <input
-                  type="date"
-                  required
-                  className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-normal"
-                  value={formData.end_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_date: e.target.value })
-                  }
-                />
-              </div>
+              </svg>
+            </button>
+          </div>
+          {/* 계산된 일수 표시 */}
+          {calculatedDays > 0 && (
+            <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold text-right">
+              총 {calculatedDays}일 사용 (토/월요일 제외됨)
             </div>
           )}
-
           <div>
             <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
               사유
