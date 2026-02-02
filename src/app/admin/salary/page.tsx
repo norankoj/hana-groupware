@@ -10,14 +10,12 @@ export default function AdminUploadPage() {
   const [selectedUser, setSelectedUser] = useState("");
   const [month, setMonth] = useState("2026-02");
 
-  // 문서 종류 (salary: 급여, mission: 선교)
   const [docType, setDocType] = useState<"salary" | "mission">("salary");
 
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 검색 가능한 드롭다운 상태
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -50,7 +48,7 @@ export default function AdminUploadPage() {
       setFile(null);
       return;
     }
-    const MAX_SIZE = 3 * 1024 * 1024; // 3MB 제한
+    const MAX_SIZE = 3 * 1024 * 1024;
     if (selectedFile.size > MAX_SIZE) {
       toast.error("파일 용량이 너무 큽니다! (3MB 이하만 가능)");
       e.target.value = "";
@@ -99,7 +97,6 @@ export default function AdminUploadPage() {
     }
   };
 
-  // 색상 테마
   const borderColor =
     docType === "salary" ? "border-blue-400" : "border-gray-400";
   const bgColor = docType === "salary" ? "bg-blue-50" : "bg-gray-50";
@@ -109,7 +106,6 @@ export default function AdminUploadPage() {
   const btnBgColor = docType === "salary" ? "bg-blue-600" : "bg-gray-600";
   const dotColor = docType === "salary" ? "bg-blue-500" : "bg-gray-500";
 
-  // 검색 필터링
   const filteredUsers = users.filter(
     (u) => u.full_name.includes(searchTerm) || u.position.includes(searchTerm),
   );
@@ -118,18 +114,22 @@ export default function AdminUploadPage() {
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-8 pb-32">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">문서 개별 업로드</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+          문서 개별 업로드
+        </h1>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-visible">
-        <div className="px-8 py-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">업로드 정보 입력</h2>
+        <div className="px-5 py-4 sm:px-8 sm:py-5 border-b border-gray-100">
+          <h2 className="text-base sm:text-lg font-bold text-gray-800">
+            업로드 정보 입력
+          </h2>
         </div>
 
-        <div className="p-8 space-y-8">
+        <div className="p-5 sm:p-8 space-y-8">
+          {/* 1. [대상자/월] 입력 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-20">
-            {/* z-20 추가하여 드롭다운이 아래 컨텐츠 덮도록 함 */}
-            {/* 대상자 검색 드롭다운 */}
+            {/* 대상자 검색 */}
             <div ref={dropdownRef} className="relative">
               <label className="flex items-center gap-1 mb-2">
                 <span className="text-sm font-bold text-gray-700">
@@ -204,7 +204,8 @@ export default function AdminUploadPage() {
                 </div>
               )}
             </div>
-            {/* 귀속 월 선택 */}
+
+            {/* 귀속 월 */}
             <div>
               <label className="flex items-center gap-1 mb-2">
                 <span className="text-sm font-bold text-gray-700">귀속 월</span>
@@ -218,13 +219,14 @@ export default function AdminUploadPage() {
             </div>
           </div>
 
-          {/* 2. 문서 종류 선택 (두 번째로 이동) */}
+          {/* 2. 문서 종류 선택 (모바일 수정됨: flex-col 추가) */}
           <div className="relative z-10">
             <label className="flex items-center gap-1 mb-3">
               <span className="text-sm font-bold text-gray-700">문서 종류</span>
               <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mb-1"></span>
             </label>
-            <div className="flex gap-4">
+            {/* ★ 여기가 수정된 부분: 모바일(기본)은 세로, sm(큰화면)은 가로 */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <label
                 className={`flex-1 border rounded-lg p-4 cursor-pointer transition flex items-center gap-3 ${docType === "salary" ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500" : "border-gray-200 hover:bg-gray-50"}`}
               >
@@ -257,14 +259,14 @@ export default function AdminUploadPage() {
                 <div>
                   <div className="font-bold text-gray-800">선교펀드</div>
                   <div className="text-xs text-gray-500">
-                    적립식 선교 펀드 내역 조회
+                    선교 후원금 내역 조회
                   </div>
                 </div>
               </label>
             </div>
           </div>
 
-          {/* 3. 파일 첨부 영역 (세 번째로 이동) */}
+          {/* 3. 파일 첨부 영역 */}
           <div className="relative z-0">
             <div className="flex items-center gap-1 mb-3">
               <span className="text-sm font-bold text-gray-700">PDF 파일</span>
@@ -272,8 +274,9 @@ export default function AdminUploadPage() {
                 className={`w-1.5 h-1.5 rounded-full mb-1 ${dotColor}`}
               ></span>
             </div>
+            {/* 패딩 조정: p-10 -> p-6 sm:p-10 */}
             <div
-              className={`border rounded-xl p-10 flex flex-col items-center justify-center text-center transition-colors ${file ? `${borderColor} ${bgColor}` : `border-cyan-400 bg-white`}`}
+              className={`border rounded-xl p-6 sm:p-10 flex flex-col items-center justify-center text-center transition-colors ${file ? `${borderColor} ${bgColor}` : `border-cyan-400 bg-white`}`}
             >
               {file ? (
                 <div className="animate-fadeIn">
@@ -370,7 +373,7 @@ export default function AdminUploadPage() {
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className={`px-8 py-3 rounded-lg text-sm font-bold text-white shadow-md transition ${uploading ? "bg-gray-400" : `${btnBgColor} ${btnHoverColor}`}`}
+              className={`w-full sm:w-auto px-8 py-3 rounded-lg text-sm font-bold text-white shadow-md transition ${uploading ? "bg-gray-400" : `${btnBgColor} ${btnHoverColor}`}`}
             >
               {uploading ? "업로드 중..." : "등록 완료"}
             </button>
