@@ -308,9 +308,37 @@ export default function VacationCalendar({
             locale="ko-KR"
             minDate={new Date()}
             tileClassName={({ date, view }) => {
-              if (view === "month" && HOLIDAYS[format(date, "yyyy-MM-dd")]) {
+              if (view !== "month") return null;
+              const dateStr = format(date, "yyyy-MM-dd");
+              if (HOLIDAYS[dateStr]) {
                 return "holiday-day";
               }
+              // 승인/대기 휴가 날짜 회색 처리
+              const isUnavailable = myRequests.some(
+                (req) =>
+                  (req.status === "approved" || req.status === "pending") &&
+                  dateStr >= req.start_date &&
+                  dateStr <= req.end_date,
+              );
+              if (isUnavailable)
+                return "!bg-gray-100 !text-gray-400 cursor-not-allowed";
+            }}
+            tileDisabled={({ date, view }) => {
+              if (view !== "month") return false;
+              const dateStr = format(date, "yyyy-MM-dd");
+              const day = date.getDay();
+              // 공휴일, 월/토요일, 승인/대기 휴가 날짜 선택 불가
+              return (
+                !!HOLIDAYS[dateStr] ||
+                day === 1 ||
+                day === 6 ||
+                myRequests.some(
+                  (req) =>
+                    (req.status === "approved" || req.status === "pending") &&
+                    dateStr >= req.start_date &&
+                    dateStr <= req.end_date,
+                )
+              );
             }}
           />
         </div>
