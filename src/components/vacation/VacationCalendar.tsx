@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -84,6 +84,15 @@ export default function VacationCalendar({
   const [selectedRequest, setSelectedRequest] =
     useState<VacationRequest | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // 1. 최근 신청 내역 정렬 (최신순: created_at 내림차순)
+  const sortedMyRequests = useMemo(() => {
+    return [...myRequests].sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [myRequests]);
 
   // 일수 자동 계산
   useEffect(() => {
@@ -313,7 +322,6 @@ export default function VacationCalendar({
               if (HOLIDAYS[dateStr]) {
                 return "holiday-day";
               }
-              // 승인/대기 휴가 날짜 회색 처리
               const isUnavailable = myRequests.some(
                 (req) =>
                   (req.status === "approved" || req.status === "pending") &&
@@ -327,7 +335,6 @@ export default function VacationCalendar({
               if (view !== "month") return false;
               const dateStr = format(date, "yyyy-MM-dd");
               const day = date.getDay();
-              // 공휴일, 월/토요일, 승인/대기 휴가 날짜 선택 불가
               return (
                 !!HOLIDAYS[dateStr] ||
                 day === 1 ||
@@ -345,12 +352,15 @@ export default function VacationCalendar({
       )}
 
       {/* 메인 레이아웃 */}
+      {/* 2. 수정: 왼쪽 패널 높이를 모바일에서도 고정 (h-[580px]) */}
       <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[650px] animate-fadeIn">
         {/* 달력/리스트 영역 */}
-        <div className="lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-gray-200 h-auto lg:h-[650px] w-full flex flex-col">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 shrink-0 w-full relative">
-            {/* 1. 왼쪽: 달력/리스트 뷰 모드 버튼 */}
-            <div className="flex justify-start w-full sm:w-1/3 order-2 sm:order-1">
+        <div className="lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-gray-200 h-[580px] lg:h-[650px] w-full flex flex-col">
+          {/* 1. 수정: 모바일에서는 2줄 (날짜 위 / 버튼 아래), PC에서는 1줄 */}
+          {/* Grid를 사용하여 모바일 정렬 제어 */}
+          <div className="grid grid-cols-2 gap-y-3 sm:flex sm:flex-row sm:justify-between sm:items-center mb-6 w-full relative">
+            {/* 1. 달력/리스트 뷰 모드 버튼 (모바일: 2행 좌측) */}
+            <div className="col-start-1 row-start-2 sm:col-auto sm:row-auto sm:order-1 w-auto sm:w-1/3 flex justify-start">
               <div className="flex bg-gray-100 p-1 rounded-lg">
                 <button
                   onClick={() => setCalendarViewMode("month")}
@@ -375,8 +385,8 @@ export default function VacationCalendar({
               </div>
             </div>
 
-            {/* 2. 중앙: < 2026년 2월 > */}
-            <div className="flex items-center justify-center gap-4 w-full sm:w-1/3 order-1 sm:order-2">
+            {/* 2. 중앙 날짜 네비게이션 (모바일: 1행 전체 중앙) */}
+            <div className="col-span-2 row-start-1 sm:col-auto sm:row-auto sm:order-2 w-full sm:w-1/3 flex items-center justify-center gap-4">
               <button
                 onClick={() =>
                   setActiveStartDate(subMonths(activeStartDate, 1))
@@ -424,8 +434,8 @@ export default function VacationCalendar({
               </button>
             </div>
 
-            {/* 3. 오른쪽: 오늘 + 휴가 등록 버튼 */}
-            <div className="flex items-center justify-end gap-2 w-full sm:w-1/3 order-3">
+            {/* 3. 오늘 + 등록 버튼 (모바일: 2행 우측) */}
+            <div className="col-start-2 row-start-2 sm:col-auto sm:row-auto sm:order-3 w-auto sm:w-1/3 flex items-center justify-end gap-2">
               <button
                 onClick={() => {
                   const now = new Date();
@@ -550,7 +560,6 @@ export default function VacationCalendar({
 
                 return (
                   <>
-                    {/* 모바일 카드 뷰 */}
                     <div className="block sm:hidden space-y-3">
                       {currentMonthData.map((req) => (
                         <div
@@ -599,7 +608,6 @@ export default function VacationCalendar({
                       ))}
                     </div>
 
-                    {/* PC 테이블 뷰 */}
                     <table className="min-w-full divide-y divide-gray-200 hidden sm:table">
                       <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                         <tr>
@@ -679,9 +687,7 @@ export default function VacationCalendar({
           )}
         </div>
 
-        {/* 오른쪽 사이드바 (통계 & 목록) */}
         <div className="lg:flex-1 w-full flex flex-col gap-6 h-auto lg:h-[650px]">
-          {/* 내 연차 현황 */}
           <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
               내 연차 현황 ({new Date().getFullYear()})
@@ -713,18 +719,18 @@ export default function VacationCalendar({
             </div>
           </div>
 
-          {/* 최근 신청 내역 */}
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 flex-1 overflow-hidden flex flex-col min-h-[300px]">
+          {/* 3. 수정: 최근 신청 내역 높이 고정 및 스크롤 (모바일 300px, PC auto) */}
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 flex-1 overflow-hidden flex flex-col h-[300px] lg:h-auto">
             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 font-bold text-gray-700">
               최근 신청 내역
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
-              {myRequests.length === 0 ? (
+              {sortedMyRequests.length === 0 ? (
                 <div className="text-center py-10 text-xs text-gray-400">
                   내역이 없습니다.
                 </div>
               ) : (
-                myRequests.map((req) => (
+                sortedMyRequests.map((req) => (
                   <div
                     key={req.id}
                     onClick={() => {
@@ -887,14 +893,13 @@ export default function VacationCalendar({
         </div>
       </Modal>
 
-      {/* 내 신청 상세 모달 */}
+      {/* 내 신청 상세 모달 - 디자인 개선 & 날짜 추가 */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        title="상세 내용"
+        title="휴가 신청 상세"
         footer={
           <div className="flex gap-2 justify-end w-full">
-            {/* 취소 가능 조건: 대기중이거나, (승인됨 AND 미래 날짜) */}
             {selectedRequest &&
               selectedRequest.status !== "rejected" &&
               selectedRequest.status !== "cancelled" &&
@@ -919,12 +924,99 @@ export default function VacationCalendar({
         }
       >
         {selectedRequest && (
-          <div className="space-y-4">
-            <div className="border border-gray-200 overflow-hidden">
-              <InfoRow
-                label="기안자"
-                value={`${selectedRequest.profiles.full_name} (${selectedRequest.profiles.position})`}
-              />
+          <div className="space-y-6">
+            {/* 1. 상단 상태 요약 카드 */}
+            <div
+              className={`flex flex-col items-center justify-center p-6 rounded-xl border ${
+                selectedRequest.status === "approved"
+                  ? "bg-green-50 border-green-100"
+                  : selectedRequest.status === "rejected"
+                    ? "bg-red-50 border-red-100"
+                    : "bg-yellow-50 border-yellow-100"
+              }`}
+            >
+              <h3
+                className={`text-xl font-bold ${
+                  selectedRequest.status === "approved"
+                    ? "text-green-700"
+                    : selectedRequest.status === "rejected"
+                      ? "text-red-700"
+                      : "text-yellow-700"
+                }`}
+              >
+                {selectedRequest.status === "approved"
+                  ? "승인되었습니다"
+                  : selectedRequest.status === "rejected"
+                    ? "반려되었습니다"
+                    : "결재 대기중입니다"}
+              </h3>
+
+              <div className="mt-3 flex flex-col items-center gap-1 text-sm opacity-80">
+                {selectedRequest.status === "approved" &&
+                selectedRequest.approved_at ? (
+                  // 1. 승인 상태이고 승인일이 있는 경우 -> 승인일만 표시
+                  <span className="text-green-800 font-medium">
+                    승인일:{" "}
+                    {format(
+                      parseISO(selectedRequest.approved_at),
+                      "yyyy-MM-dd HH:mm",
+                    )}
+                  </span>
+                ) : selectedRequest.status === "rejected" &&
+                  selectedRequest.rejected_at ? (
+                  // 2. 반려 상태이고 반려일이 있는 경우 -> 반려일만 표시
+                  <span className="text-red-800 font-medium">
+                    반려일:{" "}
+                    {format(
+                      parseISO(selectedRequest.rejected_at),
+                      "yyyy-MM-dd HH:mm",
+                    )}
+                  </span>
+                ) : (
+                  // 3. 대기중이거나(pending) 날짜 데이터가 없는 경우 -> 신청일 표시
+                  <span className="text-gray-600 font-medium">
+                    신청일:{" "}
+                    {selectedRequest.created_at
+                      ? format(
+                          parseISO(selectedRequest.created_at),
+                          "yyyy-MM-dd HH:mm",
+                        )
+                      : "-"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* 2. 상세 정보 테이블 */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="flex border-b border-gray-200">
+                <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
+                  기안자
+                </div>
+                <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                    {selectedRequest.profiles.full_name.slice(0, 1)}
+                  </div>
+                  {selectedRequest.profiles.full_name}
+                  <span className="text-gray-400 text-xs">
+                    ({selectedRequest.profiles.position})
+                  </span>
+                </div>
+              </div>
+              {selectedRequest.status !== "pending" && (
+                <InfoRow
+                  label="신청일"
+                  value={
+                    selectedRequest.created_at
+                      ? format(
+                          parseISO(selectedRequest.created_at),
+                          "yyyy-MM-dd HH:mm",
+                        )
+                      : "-"
+                  }
+                />
+              )}
+
               <InfoRow label="휴가 구분" value={selectedRequest.type} />
               <InfoRow
                 label="기간"
@@ -937,42 +1029,43 @@ export default function VacationCalendar({
               <InfoRow
                 label="신청 사유"
                 value={selectedRequest.reason}
-                isLast={true}
+                isLast={selectedRequest.status === "pending"}
               />
+
+              {/* 결재자 정보 */}
+              {selectedRequest.status !== "pending" && (
+                <>
+                  <div className="flex border-t border-gray-200 border-b border-gray-200">
+                    <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
+                      결재자
+                    </div>
+                    <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
+                      {selectedRequest.approver ? (
+                        <>
+                          <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
+                            {selectedRequest.approver.full_name.slice(0, 1)}
+                          </div>
+                          {selectedRequest.approver.full_name}
+                        </>
+                      ) : (
+                        "-"
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedRequest.status === "rejected" && (
+                    <div className="flex border-b-0">
+                      <div className="w-32 bg-red-50 p-3 text-sm font-bold text-red-600 flex items-center justify-center border-r border-gray-200">
+                        반려 사유
+                      </div>
+                      <div className="flex-1 bg-white p-3 text-sm text-red-600 font-medium">
+                        {selectedRequest.rejection_reason}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-            {selectedRequest.status !== "pending" && (
-              <div className="border border-gray-200 overflow-hidden">
-                <InfoRow
-                  label="결재 상태"
-                  value={
-                    <span
-                      className={`font-bold ${selectedRequest.status === "approved" ? "text-green-600" : "text-red-600"}`}
-                    >
-                      {selectedRequest.status === "approved" ? "승인" : "반려"}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="결재자"
-                  value={selectedRequest.approver?.full_name || "-"}
-                  isLast={selectedRequest.status === "approved"}
-                />
-                {selectedRequest.status === "rejected" && (
-                  <InfoRow
-                    label="반려 사유"
-                    value={selectedRequest.rejection_reason}
-                    isLast={true}
-                  />
-                )}
-              </div>
-            )}
-            {selectedRequest.status === "rejected" && (
-              <InfoRow
-                label="반려 사유"
-                value={selectedRequest.rejection_reason}
-                isLast={true}
-              />
-            )}
           </div>
         )}
       </Modal>

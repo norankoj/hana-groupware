@@ -41,6 +41,8 @@ export type VacationRequest = {
   days_count: number;
   reason: string;
   status: "pending" | "approved" | "rejected" | "cancelled";
+  approved_at?: string; // 승인 일자
+  rejected_at?: string; // 반려 일자
   approver_id: string | null;
   rejection_reason: string | null;
   created_at: string;

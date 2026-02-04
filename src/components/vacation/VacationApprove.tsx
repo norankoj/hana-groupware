@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
 import { showConfirm } from "@/utils/alert";
+import { format, parseISO } from "date-fns";
 import {
   VacationRequest,
   UserProfile,
@@ -91,12 +92,17 @@ export default function VacationApprove({
     )
       return;
 
+    const now = new Date().toISOString(); // 현재 시간
+
+    // 1. 승인/반려 시 날짜도 함께 업데이트
     const { error } = await supabase
       .from("vacation_requests")
       .update({
         status: isApproved ? "approved" : "rejected",
         approver_id: user?.id,
         rejection_reason: isApproved ? null : rejectReason,
+        approved_at: isApproved ? now : null, // 승인일
+        rejected_at: isApproved ? null : now, // 반려일
       })
       .eq("id", selectedRequest.id);
 
@@ -163,9 +169,9 @@ export default function VacationApprove({
           </div>
         </div>
 
-        {/* 리스트 영역 (모바일: 카드 / PC: 테이블) */}
+        {/* 리스트 영역 */}
         <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar bg-gray-50 sm:bg-white p-4 sm:p-0">
-          {/* 1. 모바일 뷰 (Card Layout) - md:hidden */}
+          {/* 모바일 뷰 (Card) */}
           <div className="block sm:hidden space-y-3">
             {filteredApprovals.length === 0 ? (
               <div className="py-20 text-center text-gray-400">
@@ -177,7 +183,6 @@ export default function VacationApprove({
                   key={req.id}
                   className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
                 >
-                  {/* 헤더: 이름/직급 + 상태 */}
                   <div className="flex justify-between items-start mb-3 border-b border-gray-50 pb-3">
                     <div>
                       <div className="text-base font-bold text-gray-900">
@@ -204,7 +209,6 @@ export default function VacationApprove({
                     </span>
                   </div>
 
-                  {/* 바디: 종류, 기간 */}
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-8">종류</span>
@@ -225,7 +229,6 @@ export default function VacationApprove({
                     </div>
                   </div>
 
-                  {/* 푸터: 버튼 */}
                   <button
                     onClick={() => {
                       setSelectedRequest(req);
@@ -241,7 +244,7 @@ export default function VacationApprove({
             )}
           </div>
 
-          {/* 2. PC 뷰 (Table Layout) - hidden sm:block */}
+          {/* PC 뷰 (Table) */}
           <div className="hidden sm:block h-full">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
@@ -258,6 +261,10 @@ export default function VacationApprove({
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
                     상태
                   </th>
+                  {/* 3. 테이블에 결재자 추가 */}
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
+                    결재자
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
                     관리
                   </th>
@@ -266,7 +273,7 @@ export default function VacationApprove({
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredApprovals.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-20 text-center text-gray-400">
+                    <td colSpan={6} className="py-20 text-center text-gray-400">
                       조건에 맞는 문서가 없습니다.
                     </td>
                   </tr>
@@ -310,6 +317,10 @@ export default function VacationApprove({
                               : "반려"}
                         </span>
                       </td>
+                      {/* 결재자 표시 */}
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {req.approver?.full_name || "-"}
+                      </td>
                       <td className="px-6 py-4">
                         <button
                           onClick={() => {
@@ -331,7 +342,7 @@ export default function VacationApprove({
         </div>
       </div>
 
-      {/* 결재 상세/처리 모달 */}
+      {/* 결재 상세/처리 모달 (디자인 개선됨) */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -387,12 +398,99 @@ export default function VacationApprove({
         }
       >
         {selectedRequest && (
-          <div className="space-y-4">
-            <div className="border border-gray-200 overflow-hidden">
-              <InfoRow
-                label="기안자"
-                value={`${selectedRequest.profiles.full_name} (${selectedRequest.profiles.position})`}
-              />
+          <div className="space-y-6">
+            {/* 2. 상단 상태 요약 카드 & 날짜 정보 (디자인 통일) */}
+            <div
+              className={`flex flex-col items-center justify-center p-6 rounded-xl border ${
+                selectedRequest.status === "approved"
+                  ? "bg-green-50 border-green-100"
+                  : selectedRequest.status === "rejected"
+                    ? "bg-red-50 border-red-100"
+                    : "bg-yellow-50 border-yellow-100"
+              }`}
+            >
+              <h3
+                className={`text-xl font-bold ${
+                  selectedRequest.status === "approved"
+                    ? "text-green-700"
+                    : selectedRequest.status === "rejected"
+                      ? "text-red-700"
+                      : "text-yellow-700"
+                }`}
+              >
+                {selectedRequest.status === "approved"
+                  ? "승인되었습니다"
+                  : selectedRequest.status === "rejected"
+                    ? "반려되었습니다"
+                    : "결재 대기중입니다"}
+              </h3>
+
+              <div className="mt-3 flex flex-col items-center gap-1 text-sm opacity-80">
+                {selectedRequest.status === "approved" &&
+                selectedRequest.approved_at ? (
+                  // 1. 승인 상태이고 승인일이 있는 경우 -> 승인일만 표시
+                  <span className="text-green-800 font-medium">
+                    승인일:{" "}
+                    {format(
+                      parseISO(selectedRequest.approved_at),
+                      "yyyy-MM-dd HH:mm",
+                    )}
+                  </span>
+                ) : selectedRequest.status === "rejected" &&
+                  selectedRequest.rejected_at ? (
+                  // 2. 반려 상태이고 반려일이 있는 경우 -> 반려일만 표시
+                  <span className="text-red-800 font-medium">
+                    반려일:{" "}
+                    {format(
+                      parseISO(selectedRequest.rejected_at),
+                      "yyyy-MM-dd HH:mm",
+                    )}
+                  </span>
+                ) : (
+                  // 3. 대기중이거나(pending) 날짜 데이터가 없는 경우 -> 신청일 표시
+                  <span className="text-gray-600 font-medium">
+                    신청일:{" "}
+                    {selectedRequest.created_at
+                      ? format(
+                          parseISO(selectedRequest.created_at),
+                          "yyyy-MM-dd HH:mm",
+                        )
+                      : "-"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* 상세 정보 테이블 */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="flex border-b border-gray-200">
+                <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
+                  기안자
+                </div>
+                <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                    {selectedRequest.profiles.full_name.slice(0, 1)}
+                  </div>
+                  {selectedRequest.profiles.full_name}
+                  <span className="text-gray-400 text-xs">
+                    ({selectedRequest.profiles.position})
+                  </span>
+                </div>
+              </div>
+              {selectedRequest.status !== "pending" && (
+                <InfoRow
+                  label="신청일"
+                  value={
+                    selectedRequest.created_at
+                      ? format(
+                          parseISO(selectedRequest.created_at),
+                          "yyyy-MM-dd HH:mm",
+                        )
+                      : "-"
+                  }
+                />
+              )}
+
               <InfoRow label="휴가 구분" value={selectedRequest.type} />
               <InfoRow
                 label="기간"
@@ -407,38 +505,41 @@ export default function VacationApprove({
                 value={selectedRequest.reason}
                 isLast={selectedRequest.status === "pending" && !isRejectMode}
               />
-            </div>
 
-            {selectedRequest.status !== "pending" && (
-              <div className="border border-gray-200 overflow-hidden">
-                <InfoRow
-                  label="결재 상태"
-                  value={
-                    <span
-                      className={`font-bold ${
-                        selectedRequest.status === "approved"
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {selectedRequest.status === "approved" ? "승인" : "반려"}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="결재자"
-                  value={selectedRequest.approver?.full_name || "-"}
-                  isLast={selectedRequest.status === "approved"}
-                />
-                {selectedRequest.status === "rejected" && (
-                  <InfoRow
-                    label="반려 사유"
-                    value={selectedRequest.rejection_reason}
-                    isLast={true}
-                  />
-                )}
-              </div>
-            )}
+              {/* 결재자 정보 */}
+              {selectedRequest.status !== "pending" && (
+                <>
+                  <div className="flex border-t border-gray-200 border-b border-gray-200">
+                    <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
+                      결재자
+                    </div>
+                    <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
+                      {selectedRequest.approver ? (
+                        <>
+                          <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
+                            {selectedRequest.approver.full_name.slice(0, 1)}
+                          </div>
+                          {selectedRequest.approver.full_name}
+                        </>
+                      ) : (
+                        "-"
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedRequest.status === "rejected" && (
+                    <div className="flex border-b-0">
+                      <div className="w-32 bg-red-50 p-3 text-sm font-bold text-red-600 flex items-center justify-center border-r border-gray-200">
+                        반려 사유
+                      </div>
+                      <div className="flex-1 bg-white p-3 text-sm text-red-600 font-medium">
+                        {selectedRequest.rejection_reason}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {isRejectMode && (
               <div className="mt-4 animate-fadeIn">
