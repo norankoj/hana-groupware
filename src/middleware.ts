@@ -3,8 +3,11 @@ import { updateSession } from "@/utils/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
   // 1. [예외 처리] 인증번호 발송 API는 로그인이 없어도 접근 가능해야 함
-  // (이 코드가 없으면 "로그인 안 했네?" 하고 307로 튕겨버립니다)
-  if (request.nextUrl.pathname.startsWith("/api/auth/send-verification")) {
+  // /api/auth/* 뿐만 아니라 /api/sms/* 경로도 로그인 없이 접근 가능하게 허용
+  if (
+    request.nextUrl.pathname.startsWith("/api/auth") ||
+    request.nextUrl.pathname.startsWith("/api/sms")
+  ) {
     return NextResponse.next();
   }
 

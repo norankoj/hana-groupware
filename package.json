@@ -26,6 +26,7 @@
     "react-datepicker": "^9.1.0",
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",
+    "solapi": "^5.5.4",
     "sweetalert2": "^11.26.17"
   },
   "devDependencies": {
