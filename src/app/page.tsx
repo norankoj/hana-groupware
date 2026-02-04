@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +9,6 @@ import "react-calendar/dist/Calendar.css";
 import "@/styles/calendar.css";
 import {
   format,
-  isSameDay,
   addMonths,
   subMonths,
   startOfMonth,
@@ -19,6 +18,56 @@ import {
 import { ko } from "date-fns/locale";
 
 import { HOLIDAYS } from "@/constants/holidays";
+
+// --- [스타일 추가] 달력 칸 늘리기 & 모바일 최적화 ---
+const calendarCustomStyles = `
+  /* 캘린더 전체 높이 사용 */
+  .react-calendar { 
+    width: 100%;
+    height: 100%;
+    border: none;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* 뷰 컨테이너가 남은 공간을 다 차지하도록 설정 */
+  .react-calendar__viewContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 월간 뷰가 남은 공간을 다 차지하도록 설정 */
+  .react-calendar__month-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 요일/날짜 영역이 남은 공간을 다 차지하도록 설정 */
+  .react-calendar__month-view__days {
+    flex: 1 !important;
+    height: 100%;
+  }
+
+  /* 개별 날짜 타일이 공간을 균등하게 나눠가짐 (핵심!) */
+  .react-calendar__tile {
+    flex: 1 0 auto !important; /* 위아래로 늘어남 */
+    height: auto !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 0.5rem 0.25rem !important;
+  }
+
+  /* 모바일에서 글씨 크기 조절 */
+  @media (max-width: 640px) {
+    .react-calendar__tile {
+      min-height: 80px; /* 모바일 최소 높이 보장 */
+    }
+  }
+`;
 
 // 타입 정의
 type Profile = {
@@ -53,7 +102,7 @@ type TeamInfo = {
 
 const ALLOWED_ROLES = ["admin", "director", "staff"];
 
-// 팀별 색상 설정 (배경색/글자색 조합으로 활용)
+// 팀별 색상 설정
 const TEAM_STYLES: Record<
   number,
   { bg: string; text: string; border: string }
@@ -80,7 +129,7 @@ const TEAM_COLORS: Record<number, string> = {
   5: "bg-emerald-500", // 미디어팀
   6: "bg-yellow-400", // 행정팀
 };
-// 기본 스타일
+
 const DEFAULT_STYLE = {
   bg: "bg-gray-100",
   text: "text-gray-700",
@@ -100,12 +149,11 @@ export default function Home() {
   const [allVacations, setAllVacations] = useState<VacationInfo[]>([]);
   const [teams, setTeams] = useState<TeamInfo[]>([]);
 
-  // page.tsx의 달력 상태 로직 적용
   const [date, setDate] = useState<Date>(new Date());
   const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
   const [calendarViewMode, setCalendarViewMode] = useState<"month" | "list">(
     "month",
-  ); // 뷰 모드 추가
+  );
 
   const [selectedVacations, setSelectedVacations] = useState<VacationInfo[]>(
     [],
@@ -189,7 +237,6 @@ export default function Home() {
   }, [router, supabase]);
 
   const onDateChange = (newDate: any) => {
-    // page.tsx 처럼 공휴일/주말 클릭 제한은 대시보드 조회용이므로 해제하거나 필요시 추가
     setDate(newDate);
     updateSelectedVacations(newDate, allVacations);
   };
@@ -221,6 +268,9 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
+      {/* 스타일 주입 (달력 칸 늘리기용) */}
+      <style>{calendarCustomStyles}</style>
+
       {/* --- [상단 섹션] 배너 + 알림 카드 --- */}
       <section className="flex flex-col xl:flex-row gap-6">
         {/* 1. 웰컴 메시지 배너 */}
@@ -236,7 +286,6 @@ export default function Home() {
               {parkingText} 🚗
             </p>
           </div>
-          {/* 장식용 SVG */}
           <div className="absolute right-0 top-0 h-full w-1/3 opacity-10 pointer-events-none">
             <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -337,10 +386,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- [하단 섹션] 전체 휴가 달력 (Grid Style 적용) --- */}
+      {/* --- [하단 섹션] 전체 휴가 달력 --- */}
       {canViewCalendar && (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[780px]">
-          {/* ★ 1. 타이틀 헤더 추가 */}
+        <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[780px]">
+          {/* 타이틀 헤더 */}
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0">
             <div className="flex items-center gap-2">
               <svg
@@ -376,53 +425,41 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ★ 2. 콘텐츠 영역 (달력 + 사이드패널) */}
-          <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+          {/* 콘텐츠 영역 (달력 + 사이드패널) */}
+          <div className="flex flex-col lg:flex-row flex-1 overflow-visible lg:overflow-hidden">
             {/* 달력 영역 */}
             <div className="flex-[2] flex flex-col border-r border-gray-200 p-6 min-w-0">
-              {/* 네비게이션 헤더 */}
-              <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 shrink-0">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() =>
-                      setActiveStartDate(subMonths(activeStartDate, 1))
-                    }
-                    className="p-2 hover:bg-gray-100 rounded-full transition"
-                  >
-                    <svg
-                      className="w-5 h-5 text-gray-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+              {/* ★ 헤더 레이아웃 수정: 모바일에서는 Flex Wrap을 사용하여 줄바꿈 및 순서 제어 ★ */}
+              <div className="flex flex-wrap items-center justify-between gap-y-4 mb-4 w-full">
+                {/* 1. 달력/리스트 토글 (모바일: 왼쪽 상단, PC: 왼쪽) */}
+                <div className="order-1 w-auto sm:w-1/3 flex justify-start">
+                  <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <button
+                      onClick={() => setCalendarViewMode("month")}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        calendarViewMode === "month"
+                          ? "bg-white text-blue-600 shadow-sm font-bold"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 19l-7-7 7-7"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() =>
-                      setActiveStartDate(addMonths(activeStartDate, 1))
-                    }
-                    className="p-2 hover:bg-gray-100 rounded-full transition"
-                  >
-                    <svg
-                      className="w-5 h-5 text-gray-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                      달력
+                    </button>
+                    <button
+                      onClick={() => setCalendarViewMode("list")}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        calendarViewMode === "list"
+                          ? "bg-white text-blue-600 shadow-sm font-bold"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </button>
+                      리스트
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. 오늘 버튼 (모바일: 오른쪽 상단, PC: 오른쪽) */}
+                {/* sm:order-3을 줘서 PC에서는 맨 오른쪽으로 이동 */}
+                <div className="order-2 sm:order-3 w-auto sm:w-1/3 flex justify-end">
                   <button
                     onClick={() => {
                       const now = new Date();
@@ -435,36 +472,61 @@ export default function Home() {
                     오늘
                   </button>
                 </div>
-                <h2 className="text-xl font-bold text-gray-800 tracking-tight">
-                  {format(activeStartDate, "yyyy년 M월")}
-                </h2>
-                {/* 뷰 모드 토글 */}
-                <div className="flex bg-gray-100 p-1 rounded-lg">
+
+                {/* 3. 날짜 네비게이션 (모바일: 다음 줄 가운데, PC: 가운데) */}
+                {/* w-full로 모바일에서 한 줄 차지, sm:w-1/3으로 PC에서 가운데 차지 */}
+                <div className="order-3 sm:order-2 w-full sm:w-1/3 flex items-center justify-center gap-4 mt-2 sm:mt-0">
                   <button
-                    onClick={() => setCalendarViewMode("month")}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                      calendarViewMode === "month"
-                        ? "bg-white text-blue-600 shadow-sm font-bold"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
+                    onClick={() =>
+                      setActiveStartDate(subMonths(activeStartDate, 1))
+                    }
+                    className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
                   >
-                    달력
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
                   </button>
+
+                  <h2 className="text-xl font-bold text-gray-800 tracking-tight min-w-[110px] text-center">
+                    {format(activeStartDate, "yyyy년 M월")}
+                  </h2>
+
                   <button
-                    onClick={() => setCalendarViewMode("list")}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                      calendarViewMode === "list"
-                        ? "bg-white text-blue-600 shadow-sm font-bold"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
+                    onClick={() =>
+                      setActiveStartDate(addMonths(activeStartDate, 1))
+                    }
+                    className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
                   >
-                    리스트
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
                   </button>
                 </div>
               </div>
 
               {/* 메인 콘텐츠 (달력/리스트) */}
-              <div className="flex-1 overflow-hidden relative h-full">
+              {/* flex-1과 h-full을 주어 부모 높이만큼 늘어나게 함 */}
+              <div className="flex-1 overflow-hidden relative h-full min-h-[500px] flex flex-col">
                 {calendarViewMode === "month" ? (
                   <Calendar
                     onChange={onDateChange}
@@ -617,7 +679,7 @@ export default function Home() {
             </div>
 
             {/* 사이드 패널 (상세 목록) */}
-            <div className="w-full lg:w-80 bg-white flex flex-col h-full lg:border-l border-t lg:border-t-0 border-gray-200">
+            <div className="w-full lg:w-80 bg-white flex flex-col h-auto lg:h-full lg:border-l border-t lg:border-t-0 border-gray-200">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 h-[72px] shrink-0">
                 <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
@@ -681,7 +743,7 @@ export default function Home() {
                     ))}
                   </ul>
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
+                  <div className="h-32 lg:h-full flex flex-col items-center justify-center text-center opacity-60">
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-3 border border-gray-100">
                       <svg
                         className="w-6 h-6 text-gray-300"

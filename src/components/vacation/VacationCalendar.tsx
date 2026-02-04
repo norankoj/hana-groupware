@@ -348,17 +348,43 @@ export default function VacationCalendar({
       <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[650px] animate-fadeIn">
         {/* 달력/리스트 영역 */}
         <div className="lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-gray-200 h-auto lg:h-[650px] w-full flex flex-col">
-          <div className="flex flex-col xl:flex-row justify-between items-center mb-6 gap-4 shrink-0">
-            {/* 좌측 컨트롤 영역 */}
-            <div className="flex flex-wrap items-center justify-center gap-2 w-full xl:w-auto">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 shrink-0 w-full relative">
+            {/* 1. 왼쪽: 달력/리스트 뷰 모드 버튼 */}
+            <div className="flex justify-start w-full sm:w-1/3 order-2 sm:order-1">
+              <div className="flex bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setCalendarViewMode("month")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                    calendarViewMode === "month"
+                      ? "bg-white text-blue-600 shadow-sm font-bold"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  달력
+                </button>
+                <button
+                  onClick={() => setCalendarViewMode("list")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                    calendarViewMode === "list"
+                      ? "bg-white text-blue-600 shadow-sm font-bold"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  리스트
+                </button>
+              </div>
+            </div>
+
+            {/* 2. 중앙: < 2026년 2월 > */}
+            <div className="flex items-center justify-center gap-4 w-full sm:w-1/3 order-1 sm:order-2">
               <button
                 onClick={() =>
                   setActiveStartDate(subMonths(activeStartDate, 1))
                 }
-                className="p-2 hover:bg-gray-100 rounded-full transition"
+                className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
               >
                 <svg
-                  className="w-5 h-5 text-gray-600"
+                  className="w-5 h-5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -366,19 +392,24 @@ export default function VacationCalendar({
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     d="M15 19l-7-7 7-7"
                   />
                 </svg>
               </button>
+
+              <h2 className="text-xl font-bold text-gray-800 tracking-tight min-w-[110px] text-center">
+                {format(activeStartDate, "yyyy년 M월")}
+              </h2>
+
               <button
                 onClick={() =>
                   setActiveStartDate(addMonths(activeStartDate, 1))
                 }
-                className="p-2 hover:bg-gray-100 rounded-full transition"
+                className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
               >
                 <svg
-                  className="w-5 h-5 text-gray-600"
+                  className="w-5 h-5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -386,12 +417,15 @@ export default function VacationCalendar({
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     d="M9 5l7 7-7 7"
                   />
                 </svg>
               </button>
+            </div>
 
+            {/* 3. 오른쪽: 오늘 + 휴가 등록 버튼 */}
+            <div className="flex items-center justify-end gap-2 w-full sm:w-1/3 order-3">
               <button
                 onClick={() => {
                   const now = new Date();
@@ -402,6 +436,7 @@ export default function VacationCalendar({
               >
                 오늘
               </button>
+
               <button
                 onClick={() => {
                   setFormData({
@@ -428,33 +463,6 @@ export default function VacationCalendar({
                   />
                 </svg>
                 휴가 등록
-              </button>
-            </div>
-
-            <h2 className="text-xl font-bold text-gray-800 tracking-tight">
-              {format(activeStartDate, "yyyy년 M월")}
-            </h2>
-
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button
-                onClick={() => setCalendarViewMode("month")}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                  calendarViewMode === "month"
-                    ? "bg-white text-blue-600 shadow-sm font-bold"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                달력
-              </button>
-              <button
-                onClick={() => setCalendarViewMode("list")}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                  calendarViewMode === "list"
-                    ? "bg-white text-blue-600 shadow-sm font-bold"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                리스트
               </button>
             </div>
           </div>
