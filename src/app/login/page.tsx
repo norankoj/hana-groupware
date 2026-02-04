@@ -324,7 +324,7 @@ export default function LoginPage() {
                 <div className="animate-fadeIn space-y-6">
                   <div className="space-y-4">
                     <h3 className="text-lg font-bold text-gray-900">
-                      휴대폰 번호 입력 - 테스트 중(인증번호 123456)
+                      휴대폰 번호 입력
                     </h3>
                     <div className="flex gap-2">
                       <input
@@ -371,7 +371,7 @@ export default function LoginPage() {
                             className={`${inputStyle} pr-24 tracking-widest font-bold text-lg`}
                             style={{ colorScheme: "light" }}
                             value={verifyCode}
-                            placeholder="인증번호 6자리(123456)"
+                            placeholder="인증번호 6자리"
                             maxLength={6}
                             onChange={(e) =>
                               setVerifyCode(
