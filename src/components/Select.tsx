@@ -8,11 +8,12 @@ type Option = {
 };
 
 type SelectProps = {
-  label?: string; // 라벨 (선택사항)
-  value: string; // 현재 선택된 값
-  onChange: (value: string) => void; // 값 변경 시 실행할 함수
-  options: Option[] | string[]; // 옵션 목록 (문자열 배열 또는 객체 배열)
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Option[] | string[];
   placeholder?: string;
+  className?: string; // 외부 스타일 주입용
 };
 
 export default function Select({
@@ -21,6 +22,7 @@ export default function Select({
   onChange,
   options,
   placeholder = "선택하세요",
+  className = "",
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,7 +41,7 @@ export default function Select({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 옵션 데이터 정규화 (문자열 배열도 처리 가능하도록)
+  // 옵션 데이터 정규화
   const formattedOptions: Option[] = options.map((opt) =>
     typeof opt === "string" ? { value: opt, label: opt } : opt,
   );
@@ -50,8 +52,9 @@ export default function Select({
 
   return (
     <div className="relative w-full" ref={containerRef}>
+      {/* 라벨은 외부에서 그릴 수도 있고 내부에서 그릴 수도 있게 처리 */}
       {label && (
-        <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+        <label className="block text-sm font-bold text-gray-600 mb-1.5 ml-1">
           {label}
         </label>
       )}
@@ -60,17 +63,28 @@ export default function Select({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between p-3 bg-white border rounded-lg text-left transition-all duration-200 outline-none
-          ${isOpen ? "border-blue-600 ring-1 ring-blue-600" : "border-gray-300 hover:border-gray-400"}
+        // ★ 핵심: 외부에서 받은 className을 적용하되, 정렬(flex) 속성은 유지
+        // style={{ colorScheme: 'light' }} -> 다크모드에서도 강제로 밝은 스타일 유지
+        style={{ colorScheme: "light" }}
+        className={`flex items-center justify-between text-left transition-all duration-200 outline-none
+          ${className} 
+          ${isOpen ? "ring-2 ring-blue-200 border-blue-500" : ""}
+          ${!className ? "w-full p-3 bg-white border border-gray-300 rounded-lg" : ""} 
         `}
       >
         <span
-          className={`text-sm ${value ? "text-gray-900 font-medium" : "text-gray-400"}`}
+          className={`text-base truncate ${
+            value ? "text-gray-900" : "text-gray-400"
+          }`}
         >
           {selectedLabel || placeholder}
         </span>
+
+        {/* 화살표 아이콘 */}
         <svg
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180 text-blue-600" : ""}`}
+          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+            isOpen ? "rotate-180 text-blue-600" : ""
+          }`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -84,9 +98,9 @@ export default function Select({
         </svg>
       </button>
 
-      {/* 드롭다운 메뉴 (Options) */}
+      {/* 드롭다운 메뉴 */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-lg shadow-lg max-h-60 overflow-y-auto animate-fadeIn">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto animate-fadeIn">
           {formattedOptions.map((opt) => (
             <div
               key={opt.value}
@@ -94,8 +108,12 @@ export default function Select({
                 onChange(opt.value);
                 setIsOpen(false);
               }}
-              className={`px-4 py-3 text-sm cursor-pointer transition-colors
-                ${value === opt.value ? "bg-blue-50 text-blue-600 font-bold" : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"}
+              className={`px-4 py-3 text-base cursor-pointer transition-colors
+                ${
+                  value === opt.value
+                    ? "bg-blue-50 text-blue-600 font-bold"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                }
               `}
             >
               {opt.label}

@@ -1,15 +1,15 @@
+// src/app/api/sms/send/route.ts
+
 import { NextResponse } from "next/server";
-import { SolapiMessageService } from "solapi";
-import { createClient } from "@supabase/supabase-js"; // ★ 변경됨: 패키지 직접 사용
+// import { SolapiMessageService } from "solapi"; // 잠시 주석
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: Request) {
   const { phone } = await request.json();
+  //   const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = "123456"; // 테스트용 고정 코드
 
-  // 1. 6자리 인증번호 생성
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-  // 2. DB에 인증번호 저장 (관리자 권한으로 프리패스!)
-  // ★ 변경됨: Service Role Key 사용
+  // 1. DB 저장은 그대로 진행
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -20,26 +20,23 @@ export async function POST(request: Request) {
     .insert({ phone, code });
 
   if (error) {
-    console.error("DB Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // 3. 솔라피로 문자 발송
+  // 2. [임시 수정] 솔라피 발송 대신 콘솔에 출력하기
+  /* 솔라피 승인 전까지 주석 처리
   try {
-    const messageService = new SolapiMessageService(
-      process.env.SOLAPI_API_KEY!,
-      process.env.SOLAPI_API_SECRET!,
-    );
-
-    await messageService.sendOne({
-      to: phone,
-      from: process.env.SOLAPI_SENDER_PHONE!,
-      text: `[우리교회 그룹웨어] 인증번호는 [${code}] 입니다.`,
-    });
-
+    const messageService = new SolapiMessageService(...);
+    await messageService.sendOne(...);
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    console.error("SMS Error:", e);
-    return NextResponse.json({ error: "문자 발송 실패" }, { status: 500 });
-  }
+  } catch (e: any) { ... } 
+  */
+
+  // ★ 대신 여기에 인증번호를 찍어주세요!
+  console.log("=========================================");
+  console.log(`[TEST] ${phone} 으로 갈 인증번호: ${code}`);
+  console.log("=========================================");
+
+  // 무조건 성공했다고 뻥(?)치기
+  return NextResponse.json({ success: true });
 }

@@ -1,4 +1,3 @@
-// src/app/login/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,7 +16,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [position, setPosition] = useState("셀리더");
+  const [position, setPosition] = useState("사역자");
 
   // 인증 관련 상태
   const [isVerificationStarted, setIsVerificationStarted] = useState(false);
@@ -46,7 +45,7 @@ export default function LoginPage() {
     setEmail("");
     setPassword("");
     setName("");
-    setPosition("셀리더");
+    setPosition("사역자");
     setPhone("");
     setVerifyCode("");
     setErrorMsg("");
@@ -93,6 +92,7 @@ export default function LoginPage() {
     const cleanPhone = phone.replace(/-/g, "");
 
     setLoading(true);
+
     try {
       const res = await fetch("/api/sms/verify", {
         method: "POST",
@@ -175,19 +175,36 @@ export default function LoginPage() {
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  // --- 공통 스타일 (인풋창 디자인) ---
-  // 검은 테두리 제거 -> 연한 회색 테두리 + 배경색 추가
-  const inputStyle =
-    "w-full px-4 py-3.5 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none text-gray-900 placeholder-gray-400";
+  // --- 공통 스타일 정의 ---
+
+  // 1. 라벨 스타일
+  const labelStyle = "block text-sm font-bold text-gray-600 mb-1.5 ml-1";
+
+  // 2. 기본 인풋 스타일
+  // color-scheme: light 덕분에 다크모드에서도 흰 배경/검은 글씨가 유지됨
+  const inputStyle = `
+    w-full px-4 py-3.5 rounded-xl text-base transition-all outline-none
+    bg-gray-50 border border-gray-200 
+    text-gray-900 placeholder-gray-400
+    focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 
+  `;
+
+  // 3. 읽기 전용 스타일 (인증 완료된 전화번호)
+  // ★ 수정: bg-gray-200으로 더 진하게 해서 눈에 확 띄게 만듦
+  const readOnlyStyle = `
+    w-full px-4 py-3.5 rounded-xl text-base outline-none cursor-default font-medium
+    bg-gray-200 border border-gray-300 text-gray-500
+  `;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 md:p-10 rounded-3xl shadow-xl">
+    // 전체 배경도 강제로 밝은 색 유지
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-gray-100">
+      <div className="max-w-md w-full space-y-8 p-8 md:p-10 rounded-3xl shadow-xl bg-white">
         <div className="text-center flex flex-col items-center">
           <img
             src="/images/mainlogo.jpg"
             alt="수원하나교회"
-            className="h-14 w-auto mb-8"
+            className="h-14 w-auto mb-8 rounded-lg"
           />
         </div>
 
@@ -201,27 +218,26 @@ export default function LoginPage() {
                 </div>
               )}
               <div>
-                <label className="block text-sm font-bold text-gray-600 mb-1.5 ml-1">
-                  이메일
-                </label>
+                <label className={labelStyle}>이메일</label>
                 <input
                   type="email"
                   required
                   autoComplete="username"
-                  className={inputStyle} // 회색 테두리 적용
+                  className={inputStyle}
+                  // ★ 브라우저 다크모드 무시 설정
+                  style={{ colorScheme: "light" }}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@email.com"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-600 mb-1.5 ml-1">
-                  비밀번호
-                </label>
+                <label className={labelStyle}>비밀번호</label>
                 <input
                   type="password"
                   required
-                  className={inputStyle} // 회색 테두리 적용
+                  className={inputStyle}
+                  style={{ colorScheme: "light" }}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="비밀번호 입력"
@@ -255,155 +271,14 @@ export default function LoginPage() {
         {/* ================= 회원가입 화면 ================= */}
         {view === "signup" && (
           <div className="mt-4">
-            {/* --- STEP 1: 인증 시작 화면 (깔끔한 앱 스타일) --- */}
-            {!isVerificationStarted ? (
-              <div className="text-center space-y-8 animate-fadeIn py-4">
-                {/* 아이콘 + 텍스트 */}
-                <div className="flex flex-col items-center gap-4">
-                  {/* <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-2">
-                    <svg
-                      className="w-10 h-10 text-blue-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.131A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.567-4.168"
-                      />
-                    </svg>
-                  </div> */}
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      본인인증을 진행해주세요
-                    </h2>
-                    <p className="text-gray-500 leading-relaxed">
-                      안전한 서비스 사용을 위해
-                      <br />
-                      휴대폰 번호 인증이 필요합니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsVerificationStarted(true)}
-                    className="w-full py-4 bg-indigo-600 text-white text-lg font-bold rounded-2xl shadow-lg hover:bg-indigo-700 hover:shadow-indigo-200 transition-all transform hover:-translate-y-1"
-                  >
-                    휴대폰으로 인증하기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={toggleView}
-                    className="w-full py-3 text-gray-500 font-medium hover:text-gray-800 transition"
-                  >
-                    다음에 하기 (취소)
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* --- STEP 2: 인증 진행 & 정보 입력 (박스 제거, 클린폼) --- */
-              <form
-                onSubmit={handleSignUp}
-                className="animate-fadeIn space-y-6"
-              >
-                {errorMsg && (
-                  <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-xl font-medium">
-                    {errorMsg}
-                  </div>
-                )}
-
-                {/* 휴대폰 인증 섹션 (테두리 박스 제거) */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-gray-900">
-                    휴대폰 번호 입력
-                  </h3>
-
-                  {/* 번호 입력 & 버튼 */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className={inputStyle}
-                      value={phone}
-                      placeholder="010-1234-5678"
-                      maxLength={13}
-                      disabled={isCodeSent || isVerified}
-                      onChange={(e) => setPhone(formatPhone(e.target.value))}
-                    />
-                    {!isVerified && !isCodeSent && (
-                      <button
-                        type="button"
-                        onClick={handleSendCode}
-                        disabled={loading || phone.length < 12}
-                        className="px-5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 whitespace-nowrap shadow-md transition-colors"
-                      >
-                        인증요청
-                      </button>
-                    )}
-                    {(isCodeSent || isVerified) && !isVerified && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCodeSent(false);
-                          setVerifyCode("");
-                        }}
-                        className="px-5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 whitespace-nowrap"
-                      >
-                        재입력
-                      </button>
-                    )}
-                  </div>
-
-                  {/* 인증번호 입력창 (발송 시 등장) */}
-                  {isCodeSent && !isVerified && (
-                    <div className="animate-slideDown space-y-2">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className={`${inputStyle} pr-24 tracking-widest font-bold text-lg`}
-                          value={verifyCode}
-                          placeholder="인증번호 6자리"
-                          maxLength={6}
-                          onChange={(e) =>
-                            setVerifyCode(e.target.value.replace(/[^0-9]/g, ""))
-                          }
-                        />
-                        <div className="absolute right-4 top-4 flex items-center gap-3">
-                          <span className="text-red-500 font-bold font-mono text-sm">
-                            {formatTime(timeLeft)}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleVerifyCode}
-                        disabled={loading || verifyCode.length < 6}
-                        className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 shadow-md transition-colors mt-2"
-                      >
-                        인증번호 확인
-                      </button>
-                      <p className="text-xs text-gray-500 text-center pt-2">
-                        문자가 안 오나요?{" "}
-                        <span
-                          className="underline cursor-pointer text-indigo-600 font-bold"
-                          onClick={handleSendCode}
-                        >
-                          인증번호 재전송
-                        </span>
-                      </p>
-                    </div>
-                  )}
-
-                  {/* 인증 성공 표시 */}
-                  {isVerified && (
-                    <div className="py-3 px-4 bg-green-50 rounded-xl border border-green-100 flex items-center gap-2 text-green-700 font-bold animate-fadeIn">
+            {!isVerified ? (
+              !isVerificationStarted ? (
+                // 1. 대기 화면
+                <div className="text-center space-y-8 animate-fadeIn py-4">
+                  <div className="flex flex-col items-center gap-4">
+                    {/* <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-2">
                       <svg
-                        className="w-5 h-5 bg-green-600 text-white rounded-full p-0.5"
+                        className="w-10 h-10 text-blue-600"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -411,106 +286,253 @@ export default function LoginPage() {
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          strokeWidth="3"
-                          d="M5 13l4 4L19 7"
+                          strokeWidth="2"
+                          d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.131A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.567-4.168"
                         />
                       </svg>
-                      인증이 완료되었습니다.
-                    </div>
-                  )}
-                </div>
-
-                {/* --- 3. 가입 정보 입력 (인증 후 등장) --- */}
-                {isVerified && (
-                  <div className="space-y-4 animate-slideUp pt-4 border-t border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">
-                      회원정보 입력
-                    </h3>
+                    </div> */}
                     <div>
-                      <label className="block text-sm font-bold text-gray-600 mb-1.5 ml-1">
-                        이름
-                      </label>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                        본인인증을 진행해주세요
+                      </h2>
+                      <p className="text-gray-500 leading-relaxed">
+                        안전한 서비스 사용을 위해
+                        <br />
+                        휴대폰 번호 인증이 필요합니다.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsVerificationStarted(true)}
+                      className="w-full py-4 bg-indigo-600 text-white text-lg font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all transform hover:-translate-y-1"
+                    >
+                      휴대폰으로 인증하기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleView}
+                      className="w-full py-3 text-gray-500 font-medium hover:text-gray-800 transition"
+                    >
+                      다음에 하기 (취소)
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // 2. 인증 입력 화면
+                <div className="animate-fadeIn space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      휴대폰 번호 입력 - 테스트 중(인증번호 123456)
+                    </h3>
+                    <div className="flex gap-2">
                       <input
                         type="text"
-                        required
+                        inputMode="numeric"
                         className={inputStyle}
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="실명 입력"
+                        style={{ colorScheme: "light" }}
+                        value={phone}
+                        placeholder="010-1234-5678"
+                        maxLength={13}
+                        disabled={isCodeSent}
+                        onChange={(e) => setPhone(formatPhone(e.target.value))}
                       />
+                      {!isCodeSent && (
+                        <button
+                          type="button"
+                          onClick={handleSendCode}
+                          disabled={loading || phone.length < 12}
+                          className="px-5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 whitespace-nowrap shadow-md transition-colors"
+                        >
+                          인증요청
+                        </button>
+                      )}
+                      {isCodeSent && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCodeSent(false);
+                            setVerifyCode("");
+                          }}
+                          className="px-5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 whitespace-nowrap"
+                        >
+                          재입력
+                        </button>
+                      )}
                     </div>
-                    <div>
-                      <Select
-                        label="직분"
-                        value={position}
-                        onChange={setPosition}
-                        options={[
-                          "셀리더",
-                          "진장/코치",
-                          "사역자",
-                          "디렉터",
-                          "일반",
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-600 mb-1.5 ml-1">
-                        이메일 (아이디)
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        className={inputStyle}
-                        placeholder="example@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-600 mb-1.5 ml-1">
-                        비밀번호
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        className={inputStyle}
-                        placeholder="6자리 이상 입력"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </div>
+
+                    {isCodeSent && (
+                      <div className="animate-slideDown space-y-2">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className={`${inputStyle} pr-24 tracking-widest font-bold text-lg`}
+                            style={{ colorScheme: "light" }}
+                            value={verifyCode}
+                            placeholder="인증번호 6자리(123456)"
+                            maxLength={6}
+                            onChange={(e) =>
+                              setVerifyCode(
+                                e.target.value.replace(/[^0-9]/g, ""),
+                              )
+                            }
+                          />
+                          <div className="absolute right-4 top-4 flex items-center gap-3">
+                            <span className="text-red-500 font-bold font-mono text-sm">
+                              {formatTime(timeLeft)}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleVerifyCode}
+                          disabled={loading || verifyCode.length < 6}
+                          className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 shadow-md transition-colors mt-2"
+                        >
+                          인증번호 확인
+                        </button>
+                        <p className="text-xs text-gray-500 text-center pt-2">
+                          문자가 안 오나요?{" "}
+                          <span
+                            className="underline cursor-pointer text-indigo-600 font-bold"
+                            onClick={handleSendCode}
+                          >
+                            인증번호 재전송
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsVerificationStarted(false)}
+                    className="w-full py-3 text-gray-400 font-medium hover:text-gray-600 text-sm"
+                  >
+                    뒤로 가기
+                  </button>
+                </div>
+              )
+            ) : (
+              /* --- CASE 3: 인증 완료 (가입 폼) --- */
+              <form
+                onSubmit={handleSignUp}
+                className="animate-fadeIn space-y-5"
+              >
+                {errorMsg && (
+                  <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-xl font-medium">
+                    {errorMsg}
                   </div>
                 )}
 
-                <div className="pt-4">
-                  {isVerified ? (
-                    <div className="space-y-3">
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl hover:bg-blue-700 transition shadow-lg hover:shadow-xl"
+                <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+                  회원가입 정보 입력
+                </h3>
+
+                {/* 이름 */}
+                <div>
+                  <label className={labelStyle}>이름</label>
+                  <input
+                    type="text"
+                    required
+                    className={inputStyle}
+                    style={{ colorScheme: "light" }}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="실명 입력"
+                  />
+                </div>
+
+                {/* 휴대폰 번호 (수정불가) - 회색 배경이 명확하게 보이도록 처리 */}
+                <div>
+                  <label className={labelStyle}>휴대폰 번호</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      readOnly
+                      className={`${readOnlyStyle} pr-12`}
+                      style={{ colorScheme: "light" }} // ★ 다크모드 방지
+                      value={phone}
+                    />
+                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-green-500">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="w-7 h-7"
                       >
-                        {loading ? "가입 처리 중..." : "회원가입 완료"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={toggleView}
-                        className="w-full py-3 text-gray-400 font-medium hover:text-gray-600"
-                      >
-                        취소
-                      </button>
+                        <path
+                          fillRule="evenodd"
+                          d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
                     </div>
-                  ) : (
-                    !isCodeSent && (
-                      <button
-                        type="button"
-                        onClick={() => setIsVerificationStarted(false)}
-                        className="w-full py-3 text-gray-400 font-medium hover:text-gray-600 text-sm"
-                      >
-                        뒤로 가기
-                      </button>
-                    )
-                  )}
+                  </div>
+                </div>
+
+                {/* 직분 (커스텀 Select) */}
+                <div>
+                  {/* Select 컴포넌트에 라벨 prop 전달 X, 직접 그림 */}
+                  <label className={labelStyle}>직분</label>
+                  <Select
+                    value={position}
+                    onChange={setPosition}
+                    options={[
+                      "사역자",
+                      "셀리더",
+                      "진장/코치",
+                      "디렉터",
+                      "일반",
+                    ]}
+                    className={inputStyle} // input과 동일한 스타일 적용
+                  />
+                </div>
+
+                {/* 이메일 */}
+                <div>
+                  <label className={labelStyle}>이메일 (아이디)</label>
+                  <input
+                    type="email"
+                    required
+                    className={inputStyle}
+                    style={{ colorScheme: "light" }}
+                    placeholder="example@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+
+                {/* 비밀번호 */}
+                <div>
+                  <label className={labelStyle}>비밀번호</label>
+                  <input
+                    type="password"
+                    required
+                    className={inputStyle}
+                    style={{ colorScheme: "light" }}
+                    placeholder="6자리 이상 입력"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+
+                <div className="pt-4 space-y-3">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl hover:bg-blue-700 transition shadow-lg hover:shadow-xl"
+                  >
+                    {loading ? "가입 처리 중..." : "회원가입 완료"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleView}
+                    className="w-full py-3 text-gray-400 font-medium hover:text-gray-600"
+                  >
+                    취소
+                  </button>
                 </div>
               </form>
             )}
