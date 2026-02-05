@@ -7,11 +7,13 @@ import { ko } from "date-fns/locale";
 import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import { showConfirm } from "@/utils/alert";
-import imageCompression from "browser-image-compression";
 
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import DetailModal from "@/components/vehicle/DetailModal";
+import { HOLIDAYS } from "@/constants/holidays";
+import "@/styles/calendar.css";
 // --- [이미지 설정] 차량별 이미지 매핑 ---
-// public/images/cars 폴더 안에 해당 이미지들을 넣어주세요.
-// 이미지가 없으면 기본값(빈칸)으로 나옵니다.
 const VEHICLE_IMAGES: Record<string, string> = {
   스타렉스: "/images/cars/starex.webp",
   스타리아: "/images/cars/staria.avif",
@@ -26,7 +28,7 @@ const VEHICLE_IMAGES: Record<string, string> = {
 type Vehicle = {
   id: number;
   name: string;
-  description: string; // 차량번호
+  description: string;
   current_mileage: number;
   color: string;
 };
@@ -65,6 +67,9 @@ export default function VehicleReservationPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // [추가] 캘린더 표시 여부 상태
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // 예약 폼
   const [form, setForm] = useState({
@@ -142,6 +147,19 @@ export default function VehicleReservationPage() {
     fetchData();
   }, []);
 
+  // [추가] 캘린더 날짜 변경 핸들러
+  const handleRangeChange = (value: any) => {
+    if (Array.isArray(value) && value.length === 2) {
+      const [start, end] = value;
+      setForm((prev) => ({
+        ...prev,
+        start_date: format(start, "yyyy-MM-dd"),
+        end_date: format(end, "yyyy-MM-dd"),
+      }));
+      setShowCalendar(false); // 선택 후 닫기
+    }
+  };
+
   // --- 예약하기 ---
   const handleReserve = async () => {
     if (
@@ -189,77 +207,6 @@ export default function VehicleReservationPage() {
     }
   };
 
-  // --- 운행 시작/종료 ---
-  const handleVehicleAction = async (
-    action: "checkin" | "checkout",
-    file: File,
-  ) => {
-    if (!selectedLog) return;
-
-    if (action === "checkin" && checkinMileage === "")
-      return toast.error("출발 누적거리를 입력해주세요.");
-    if (action === "checkout") {
-      if (checkoutForm.mileage === "")
-        return toast.error("도착 누적거리를 입력해주세요.");
-      if (!checkoutForm.parking)
-        return toast.error("주차 위치를 입력해주세요.");
-    }
-
-    setUploading(true);
-    try {
-      const compressedFile = await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-      });
-      const fileName = `${selectedLog.id}_${action}_${Date.now()}.jpg`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("vehicle-photos")
-        .upload(fileName, compressedFile);
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("vehicle-photos").getPublicUrl(fileName);
-
-      const updates: any = {};
-      if (action === "checkin") {
-        updates.vehicle_status = "in_use";
-        updates.checkin_photo_url = publicUrl;
-        updates.start_mileage = Number(checkinMileage);
-      } else {
-        updates.vehicle_status = "returned";
-        updates.checkout_photo_url = publicUrl;
-        updates.end_mileage = Number(checkoutForm.mileage);
-        updates.cleanup_status = checkoutForm.cleanup;
-        updates.parking_location = checkoutForm.parking;
-        updates.vehicle_condition = checkoutForm.condition;
-      }
-
-      const { error: dbError } = await supabase
-        .from("reservations")
-        .update(updates)
-        .eq("id", selectedLog.id);
-      if (dbError) throw dbError;
-
-      if (action === "checkout") {
-        await supabase
-          .from("resources")
-          .update({ current_mileage: Number(checkoutForm.mileage) })
-          .eq("id", selectedLog.resource_id);
-      }
-
-      toast.success(action === "checkin" ? "운행 시작!" : "운행 종료!");
-      setIsDetailModalOpen(false);
-      fetchData();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-7xl mx-auto p-2 pb-20 space-y-6">
       {/* 헤더 */}
@@ -276,7 +223,6 @@ export default function VehicleReservationPage() {
           onClick={() => setIsReserveModalOpen(true)}
           className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer"
         >
-          {/* 플러스 아이콘 */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -301,7 +247,7 @@ export default function VehicleReservationPage() {
           const currentUsage = logs.find(
             (l) => l.resource_id === v.id && l.vehicle_status === "in_use",
           );
-          const carImage = VEHICLE_IMAGES[v.name]; // 차량 이미지 가져오기
+          const carImage = VEHICLE_IMAGES[v.name];
 
           return (
             <div
@@ -309,7 +255,11 @@ export default function VehicleReservationPage() {
               className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group hover:border-blue-300 transition"
             >
               <div
-                className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-xs font-bold z-10 ${currentUsage ? "bg-green-100 text-green-700 animate-pulse" : "bg-gray-100 text-gray-500"}`}
+                className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-xs font-bold z-10 ${
+                  currentUsage
+                    ? "bg-green-100 text-green-700 animate-pulse"
+                    : "bg-gray-100 text-gray-500"
+                }`}
               >
                 {currentUsage ? "운행중" : "대기중"}
               </div>
@@ -321,26 +271,21 @@ export default function VehicleReservationPage() {
                 </p>
               </div>
 
-              {/* ★ 2. 차량 이미지 (있을 경우만 표시) */}
               {carImage ? (
                 <img
                   src={carImage}
                   alt={v.name}
                   className={`absolute h-auto object-contain opacity-90 transition-transform duration-300
-    ${
-      v.name.includes("스타리아")
-        ? // ★ 수정됨: 기본 1.25배 -> 호버 시 1.35배로 커지게 설정 (group-hover:scale-[1.35])
-          "w-32 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
-        : v.name.includes("쏘나타")
-          ? // 쏘나타는 기본 크기 -> 호버 시 1.1배
-            "w-34 -right-2 -bottom-1 group-hover:scale-110"
-          : // 나머지는 기본 크기 -> 호버 시 1.1배
-            "w-32 -right-2 bottom-1 group-hover:scale-110"
-    }
-  `}
+                    ${
+                      v.name.includes("스타리아")
+                        ? "w-32 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
+                        : v.name.includes("쏘나타")
+                          ? "w-34 -right-2 -bottom-1 group-hover:scale-110"
+                          : "w-32 -right-2 bottom-1 group-hover:scale-110"
+                    }
+                  `}
                 />
               ) : (
-                // 이미지가 없을 때 보여줄 기본 아이콘
                 <div className="absolute right-2 bottom-2 opacity-10 text-gray-400">
                   <svg
                     className="w-24 h-24"
@@ -589,55 +534,120 @@ export default function VehicleReservationPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">
-                시작일
-              </label>
-              <input
-                type="date"
-                className="w-full border p-2 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
-                value={form.start_date}
-                onChange={(e) =>
-                  setForm({ ...form, start_date: e.target.value })
-                }
-              />
+          {/* [수정] 캘린더 통합 부분 */}
+          <div className="relative">
+            <div className="grid grid-cols-2 gap-3">
+              <div
+                onClick={() => setShowCalendar(!showCalendar)}
+                className="cursor-pointer"
+              >
+                <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
+                  시작일
+                </label>
+                <input
+                  type="date"
+                  className="w-full border p-2 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
+                  value={form.start_date}
+                  readOnly
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">
+                  시간
+                </label>
+                <input
+                  type="time"
+                  className="w-full border p-2 rounded-lg  border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
+                  value={form.start_time}
+                  onChange={(e) =>
+                    setForm({ ...form, start_time: e.target.value })
+                  }
+                />
+              </div>
+              <div
+                onClick={() => setShowCalendar(!showCalendar)}
+                className="cursor-pointer"
+              >
+                <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
+                  종료일
+                </label>
+                <input
+                  type="date"
+                  className="w-full border p-2 rounded-lg  border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
+                  value={form.end_date}
+                  readOnly
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">
+                  시간
+                </label>
+                <input
+                  type="time"
+                  className="w-full border p-2 rounded-lg  border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
+                  value={form.end_time}
+                  onChange={(e) =>
+                    setForm({ ...form, end_time: e.target.value })
+                  }
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">
-                시간
-              </label>
-              <input
-                type="time"
-                className="w-full border p-2 rounded-lg  border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
-                value={form.start_time}
-                onChange={(e) =>
-                  setForm({ ...form, start_time: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">
-                종료일
-              </label>
-              <input
-                type="date"
-                className="w-full border p-2 rounded-lg  border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
-                value={form.end_date}
-                onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">
-                시간
-              </label>
-              <input
-                type="time"
-                className="w-full border p-2 rounded-lg  border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
-                value={form.end_time}
-                onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-              />
-            </div>
+
+            {/* 캘린더 팝업 */}
+            {showCalendar && (
+              <div className="absolute z-[50] mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-full max-w-[350px] left-0 md:left-auto md:right-0">
+                <Calendar
+                  onChange={handleRangeChange}
+                  selectRange={true}
+                  value={
+                    form.start_date && form.end_date
+                      ? [new Date(form.start_date), new Date(form.end_date)]
+                      : null
+                  }
+                  formatDay={(locale, date) => format(date, "d")}
+                  calendarType="gregory"
+                  locale="ko-KR"
+                  minDate={new Date()}
+                  tileClassName={({ date, view }) => {
+                    if (view !== "month") return null;
+                    const dateStr = format(date, "yyyy-MM-dd");
+                    if (HOLIDAYS[dateStr]) {
+                      return "holiday-day";
+                    }
+                    const isUnavailable = logs.some(
+                      (req) =>
+                        req.resource_id === form.resource_id && // 현재 선택된 차량의 예약만 체크
+                        (req.vehicle_status === "reserved" ||
+                          req.vehicle_status === "in_use") &&
+                        dateStr >=
+                          format(new Date(req.start_at), "yyyy-MM-dd") &&
+                        dateStr <= format(new Date(req.end_at), "yyyy-MM-dd"),
+                    );
+                    if (isUnavailable)
+                      return "!bg-gray-100 !text-gray-400 cursor-not-allowed";
+                  }}
+                  tileDisabled={({ date, view }) => {
+                    if (view !== "month") return false;
+                    const dateStr = format(date, "yyyy-MM-dd");
+                    return logs.some(
+                      (req) =>
+                        req.resource_id === form.resource_id && // 현재 선택된 차량의 예약만 체크
+                        (req.vehicle_status === "reserved" ||
+                          req.vehicle_status === "in_use") &&
+                        dateStr >=
+                          format(new Date(req.start_at), "yyyy-MM-dd") &&
+                        dateStr <= format(new Date(req.end_at), "yyyy-MM-dd"),
+                    );
+                  }}
+                />
+                <button
+                  onClick={() => setShowCalendar(false)}
+                  className="w-full mt-2 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600 font-bold"
+                >
+                  닫기
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -699,484 +709,14 @@ export default function VehicleReservationPage() {
       </Modal>
 
       {/* --- 모달: 운행 일지 상세 및 체크인/아웃 --- */}
-      <Modal
+
+      <DetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        title="운행 일지 상세"
-        footer={
-          <button
-            onClick={() => setIsDetailModalOpen(false)}
-            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-lg font-bold transition"
-          >
-            닫기
-          </button>
-        }
-      >
-        {selectedLog && (
-          <div className="space-y-6">
-            {/* 1. 기본 정보 (카드 형태) */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-slate-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  기본 정보
-                </span>
-                <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded ${
-                    selectedLog.vehicle_status === "in_use"
-                      ? "bg-green-100 text-green-700"
-                      : selectedLog.vehicle_status === "returned"
-                        ? "bg-slate-200 text-slate-600"
-                        : "bg-blue-100 text-blue-700"
-                  }`}
-                >
-                  {selectedLog.vehicle_status === "in_use"
-                    ? "운행중"
-                    : selectedLog.vehicle_status === "returned"
-                      ? "반납완료"
-                      : "예약중"}
-                </span>
-              </div>
-              <div className="p-4 space-y-3 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 w-20">차량</span>
-                  <span className="font-medium text-slate-900 text-right flex-1">
-                    {selectedLog.resources?.name}{" "}
-                    <span className="text-slate-400 text-xs">
-                      ({selectedLog.resources?.description})
-                    </span>
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 w-20">운전자</span>
-                  <span className="font-medium text-slate-900 text-right flex-1">
-                    {selectedLog.driver_name}{" "}
-                    <span className="text-slate-400 text-xs">
-                      ({selectedLog.department})
-                    </span>
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 w-20">목적지</span>
-                  <span className="font-medium text-slate-900 text-right flex-1">
-                    {selectedLog.destination}
-                  </span>
-                </div>
-                <div className="flex justify-between items-start pt-2 border-t border-slate-100 mt-2">
-                  <span className="text-slate-500 w-20 mt-0.5">일시</span>
-                  <div className="text-right">
-                    <div className="font-bold text-slate-800">
-                      {format(new Date(selectedLog.start_at), "MM.dd HH:mm")}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      ~ {format(new Date(selectedLog.end_at), "MM.dd HH:mm")}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. 운행 결과 (반납 완료 시) */}
-            {selectedLog.vehicle_status === "returned" && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                  <span className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-green-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    운행 결과
-                  </span>
-                </div>
-                <div className="p-4 space-y-3 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">주행거리</span>
-                    <span className="font-bold text-blue-600 text-base">
-                      {(
-                        selectedLog.end_mileage! - selectedLog.start_mileage!
-                      ).toLocaleString()}{" "}
-                      <span className="text-sm font-normal text-slate-500">
-                        km
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">정리상태</span>
-                    <span
-                      className={`font-bold ${selectedLog.cleanup_status ? "text-green-600" : "text-red-500"}`}
-                    >
-                      {selectedLog.cleanup_status ? "양호" : "미흡"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">주차위치</span>
-                    <span className="font-medium text-slate-900">
-                      {selectedLog.parking_location}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-slate-100">
-                    <span className="text-slate-500 block mb-1 text-xs">
-                      차량 상태 메모
-                    </span>
-                    <div className="bg-slate-50 p-2 rounded text-slate-700 text-xs min-h-[40px]">
-                      {selectedLog.vehicle_condition || "특이사항 없음"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 3. 액션 영역 (운행 시작/종료) */}
-            {selectedLog.user_id === currentUser && (
-              <div className="space-y-4">
-                {/* A. 운행 시작 */}
-                {selectedLog.vehicle_status === "reserved" && (
-                  <div className="border-2 border-blue-100 bg-blue-50/50 p-5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-4 text-blue-800 font-bold">
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                        />
-                      </svg>
-                      운행 시작 (Check-in)
-                    </div>
-                    <div className="mb-4">
-                      <label className="block text-xs text-blue-600 font-bold mb-1">
-                        현재 계기판 거리 (km)
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="예: 54000"
-                        className="w-full p-3 border border-blue-200 rounded-lg font-mono text-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        onChange={(e) =>
-                          setCheckinMileage(Number(e.target.value))
-                        }
-                      />
-                    </div>
-                    <label
-                      className={`w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3.5 rounded-lg font-bold text-sm cursor-pointer transition shadow-md hover:bg-blue-700 active:scale-[0.98] ${uploading ? "opacity-70 cursor-wait" : ""}`}
-                    >
-                      {uploading ? (
-                        <>
-                          <svg
-                            className="animate-spin h-4 w-4 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          업로드 중...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                          차량 촬영 및 운행 시작
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        disabled={uploading}
-                        onChange={(e) =>
-                          e.target.files?.[0] &&
-                          handleVehicleAction("checkin", e.target.files[0])
-                        }
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {/* B. 운행 종료 */}
-                {selectedLog.vehicle_status === "in_use" && (
-                  <div className="border-2 border-green-100 bg-green-50/50 p-5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-4 text-green-800 font-bold">
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      운행 종료 (Check-out)
-                    </div>
-
-                    <div className="space-y-4 mb-5">
-                      <div>
-                        <label className="block text-xs text-green-700 font-bold mb-1">
-                          도착 계기판 거리 (km)
-                        </label>
-                        <input
-                          type="number"
-                          placeholder={`출발: ${selectedLog.start_mileage?.toLocaleString()}`}
-                          className="w-full p-3 border border-green-200 rounded-lg font-mono text-lg focus:ring-2 focus:ring-green-500 outline-none"
-                          onChange={(e) =>
-                            setCheckoutForm({
-                              ...checkoutForm,
-                              mileage: Number(e.target.value),
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-green-100 shadow-sm">
-                        <span className="text-sm font-bold text-slate-700">
-                          내부 정리 및 쓰레기 청소
-                        </span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={checkoutForm.cleanup}
-                            onChange={(e) =>
-                              setCheckoutForm({
-                                ...checkoutForm,
-                                cleanup: e.target.checked,
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                        </label>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-green-700 font-bold mb-1">
-                          주차 위치
-                        </label>
-                        <input
-                          type="text"
-                          value={checkoutForm.parking}
-                          onChange={(e) =>
-                            setCheckoutForm({
-                              ...checkoutForm,
-                              parking: e.target.value,
-                            })
-                          }
-                          className="w-full p-3 border border-green-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-green-700 font-bold mb-1">
-                          차량 이상 유무 (스크래치 등)
-                        </label>
-                        <textarea
-                          value={checkoutForm.condition}
-                          onChange={(e) =>
-                            setCheckoutForm({
-                              ...checkoutForm,
-                              condition: e.target.value,
-                            })
-                          }
-                          className="w-full p-3 border border-green-200 rounded-lg h-20 text-sm resize-none focus:ring-2 focus:ring-green-500 outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <label
-                      className={`w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3.5 rounded-lg font-bold text-sm cursor-pointer transition shadow-md hover:bg-green-700 active:scale-[0.98] ${uploading ? "opacity-70 cursor-wait" : ""}`}
-                    >
-                      {uploading ? (
-                        <>
-                          <svg
-                            className="animate-spin h-4 w-4 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          업로드 중...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                          차량 촬영 및 운행 종료
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        disabled={uploading}
-                        onChange={(e) =>
-                          e.target.files?.[0] &&
-                          handleVehicleAction("checkout", e.target.files[0])
-                        }
-                      />
-                    </label>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 4. 인증 사진 갤러리 */}
-            {(selectedLog.checkin_photo_url ||
-              selectedLog.checkout_photo_url) && (
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                {selectedLog.checkin_photo_url && (
-                  <div
-                    className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-200 group cursor-pointer"
-                    onClick={() => window.open(selectedLog.checkin_photo_url)}
-                  >
-                    <img
-                      src={selectedLog.checkin_photo_url}
-                      className="object-cover w-full h-full opacity-80 group-hover:opacity-100 transition duration-300"
-                      alt="출발 사진"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/20">
-                      <svg
-                        className="w-8 h-8 text-white drop-shadow-lg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                        />
-                      </svg>
-                    </div>
-                    <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">
-                      출발 ({selectedLog.start_mileage?.toLocaleString()}km)
-                    </span>
-                  </div>
-                )}
-                {selectedLog.checkout_photo_url && (
-                  <div
-                    className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-200 group cursor-pointer"
-                    onClick={() => window.open(selectedLog.checkout_photo_url)}
-                  >
-                    <img
-                      src={selectedLog.checkout_photo_url}
-                      className="object-cover w-full h-full opacity-80 group-hover:opacity-100 transition duration-300"
-                      alt="도착 사진"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/20">
-                      <svg
-                        className="w-8 h-8 text-white drop-shadow-lg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                        />
-                      </svg>
-                    </div>
-                    <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">
-                      도착 ({selectedLog.end_mileage?.toLocaleString()}km)
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+        selectedLog={selectedLog}
+        currentUser={currentUser}
+        onRefresh={fetchData}
+      />
     </div>
   );
 }
