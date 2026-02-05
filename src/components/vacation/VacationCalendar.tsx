@@ -359,7 +359,7 @@ export default function VacationCalendar({
           {/* 1. 수정: 모바일에서는 2줄 (날짜 위 / 버튼 아래), PC에서는 1줄 */}
           {/* Grid를 사용하여 모바일 정렬 제어 */}
           <div className="grid grid-cols-2 gap-y-3 sm:flex sm:flex-row sm:justify-between sm:items-center mb-6 w-full relative">
-            {/* 1. 달력/리스트 뷰 모드 버튼 (모바일: 2행 좌측) */}
+            {/* 1. 달력/리스트 토글 */}
             <div className="col-start-1 row-start-2 sm:col-auto sm:row-auto sm:order-1 w-auto sm:w-1/3 flex justify-start">
               <div className="flex bg-gray-100 p-1 rounded-lg">
                 <button
@@ -385,7 +385,7 @@ export default function VacationCalendar({
               </div>
             </div>
 
-            {/* 2. 중앙 날짜 네비게이션 (모바일: 1행 전체 중앙) */}
+            {/* 2. 날짜 네비게이션 */}
             <div className="col-span-2 row-start-1 sm:col-auto sm:row-auto sm:order-2 w-full sm:w-1/3 flex items-center justify-center gap-4">
               <button
                 onClick={() =>
@@ -434,7 +434,7 @@ export default function VacationCalendar({
               </button>
             </div>
 
-            {/* 3. 오늘 + 등록 버튼 (모바일: 2행 우측) */}
+            {/* 3. 오늘 + 등록 버튼 */}
             <div className="col-start-2 row-start-2 sm:col-auto sm:row-auto sm:order-3 w-auto sm:w-1/3 flex items-center justify-end gap-2">
               <button
                 onClick={() => {
@@ -478,7 +478,7 @@ export default function VacationCalendar({
           </div>
 
           {calendarViewMode === "month" ? (
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden min-h-[350px]">
               <Calendar
                 onChange={(v) => setDate(v as Date)}
                 value={date}
@@ -540,7 +540,7 @@ export default function VacationCalendar({
               />
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar min-h-[300px]">
               {(() => {
                 const currentMonthData = myRequests.filter((req) => {
                   const reqStart = parseISO(req.start_date);
@@ -687,7 +687,9 @@ export default function VacationCalendar({
           )}
         </div>
 
+        {/* 오른쪽: 통계 & 최근 신청 내역 */}
         <div className="lg:flex-1 w-full flex flex-col gap-6 h-auto lg:h-[650px]">
+          {/* 내 연차 현황 */}
           <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
               내 연차 현황 ({new Date().getFullYear()})
@@ -719,12 +721,13 @@ export default function VacationCalendar({
             </div>
           </div>
 
-          {/* 3. 수정: 최근 신청 내역 높이 고정 및 스크롤 (모바일 300px, PC auto) */}
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 flex-1 overflow-hidden flex flex-col h-[300px] lg:h-auto">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 font-bold text-gray-700">
+          {/* ★ 수정: 높이 설정 변경 (모바일: 자동 / PC: 자동 + 스크롤) */}
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 flex-1 overflow-hidden flex flex-col min-h-[300px] h-auto lg:h-full">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 font-bold text-gray-700 shrink-0">
               최근 신청 내역
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {/* max-h를 주어 모바일에서 무한히 늘어나는 것을 방지하고 내부 스크롤 유도 */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[400px] lg:max-h-none">
               {sortedMyRequests.length === 0 ? (
                 <div className="text-center py-10 text-xs text-gray-400">
                   내역이 없습니다.
@@ -788,7 +791,7 @@ export default function VacationCalendar({
         </div>
       </div>
 
-      {/* 기안 작성 모달 */}
+      {/* 기안 작성 모달 (기존 코드 유지) */}
       <Modal
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
@@ -893,7 +896,7 @@ export default function VacationCalendar({
         </div>
       </Modal>
 
-      {/* 내 신청 상세 모달 - 디자인 개선 & 날짜 추가 */}
+      {/* 내 신청 상세 모달 - 디자인 개선 & 날짜 조건부 표시 */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -954,7 +957,6 @@ export default function VacationCalendar({
               <div className="mt-3 flex flex-col items-center gap-1 text-sm opacity-80">
                 {selectedRequest.status === "approved" &&
                 selectedRequest.approved_at ? (
-                  // 1. 승인 상태이고 승인일이 있는 경우 -> 승인일만 표시
                   <span className="text-green-800 font-medium">
                     승인일:{" "}
                     {format(
@@ -964,7 +966,6 @@ export default function VacationCalendar({
                   </span>
                 ) : selectedRequest.status === "rejected" &&
                   selectedRequest.rejected_at ? (
-                  // 2. 반려 상태이고 반려일이 있는 경우 -> 반려일만 표시
                   <span className="text-red-800 font-medium">
                     반려일:{" "}
                     {format(
@@ -973,7 +974,6 @@ export default function VacationCalendar({
                     )}
                   </span>
                 ) : (
-                  // 3. 대기중이거나(pending) 날짜 데이터가 없는 경우 -> 신청일 표시
                   <span className="text-gray-600 font-medium">
                     신청일:{" "}
                     {selectedRequest.created_at
@@ -1003,6 +1003,7 @@ export default function VacationCalendar({
                   </span>
                 </div>
               </div>
+
               {selectedRequest.status !== "pending" && (
                 <InfoRow
                   label="신청일"
