@@ -13,6 +13,7 @@ import {
   setMinutes,
   differenceInMinutes,
   isSameDay,
+  getDay,
   addMinutes,
   addWeeks,
   isBefore,
@@ -21,7 +22,6 @@ import { ko } from "date-fns/locale";
 import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import { showConfirm } from "@/utils/alert";
-import imageCompression from "browser-image-compression";
 
 // --- 타입 정의 ---
 type Resource = {
@@ -46,14 +46,10 @@ type Reservation = {
     position: string;
   };
   isFixed?: boolean;
-  // 추가된 필드들
   group_id?: string;
-  vehicle_status?: "reserved" | "in_use" | "returned";
-  checkin_photo_url?: string;
-  checkout_photo_url?: string;
 };
 
-// --- 설정 ---
+// --- 설정: 07:00 ~ 23:00 ---
 const START_HOUR = 7;
 const END_HOUR = 23;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
@@ -61,18 +57,22 @@ const TIME_SLOTS = Array.from(
   { length: TOTAL_HOURS },
   (_, i) => START_HOUR + i,
 );
+
+// PC용 가로 그리드 설정
 const HOUR_WIDTH_PC = 120;
 const TIMELINE_WIDTH_PC = TOTAL_HOURS * HOUR_WIDTH_PC;
+
+// 모바일용 세로 그리드 설정
 const HOUR_HEIGHT_MOBILE = 80;
 
+// ★ 차량 탭 제거됨
 const TABS = [
-  { id: "church", label: "교회" },
+  { id: "church", label: "교회 (예배실)" },
   { id: "edu1", label: "교육관 1" },
   { id: "edu2", label: "교육관 2" },
-  { id: "vehicle", label: "차량" },
 ];
 
-export default function ReservationPage() {
+export default function FacilityReservationPage() {
   const supabase = createClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState("church");
@@ -81,38 +81,39 @@ export default function ReservationPage() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
+  // 모바일용 선택된 자원 ID
   const [mobileSelectedResId, setMobileSelectedResId] = useState<number | null>(
     null,
   );
+
+  // 달력 팝업
   const [showDatePicker, setShowDatePicker] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
 
-  // 예약 모달 상태
+  // 예약 모달
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedResId, setSelectedResId] = useState<number | null>(null);
   const [form, setForm] = useState({
     start_time: "10:00",
     end_time: "12:00",
     purpose: "",
-    isRecurring: false, // 정기 예약 체크 여부
-    recurringEndDate: format(addWeeks(new Date(), 4), "yyyy-MM-dd"), // 기본 4주 뒤
+    isRecurring: false,
+    recurringEndDate: format(addWeeks(new Date(), 4), "yyyy-MM-dd"),
   });
 
-  // 상세 모달 상태
+  // 상세 모달
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] =
     useState<Reservation | null>(null);
-  const [uploading, setUploading] = useState(false); // 사진 업로드 중 표시
 
-  // 드래그 선택 상태
+  // 구간 선택 상태 (Start Click)
   const [selectingStart, setSelectingStart] = useState<{
     resId: number;
     time: Date;
-    visualPos: number;
+    visualPos: number; // PC: left(px), Mobile: top(px)
   } | null>(null);
 
-  // 데이터 조회
   const fetchData = async () => {
     setLoading(true);
     const {
@@ -120,10 +121,12 @@ export default function ReservationPage() {
     } = await supabase.auth.getUser();
     if (user) setCurrentUser(user.id);
 
+    // ★ 차량 카테고리 제외하고 불러오기 (선택사항, 탭으로 필터링되지만 DB단에서도 거르면 좋음)
     const { data: resData } = await supabase
       .from("resources")
       .select("*")
       .eq("is_active", true)
+      .neq("category", "vehicle") // 차량 제외
       .order("id");
     if (resData) setResources(resData);
 
@@ -140,7 +143,50 @@ export default function ReservationPage() {
       .neq("status", "cancelled");
 
     let loadedReservations: Reservation[] = rsvData ? (rsvData as any) : [];
-    setReservations([...loadedReservations]); // 고정 스케줄은 DB에 넣거나 여기서 병합
+
+    // 고정 스케줄 로직 (기존 유지)
+    const dayOfWeek = getDay(currentDate);
+    const fixedSchedules: Reservation[] = [];
+    const mainHall = resData?.find((r) => r.name.includes("본당"));
+
+    if (mainHall) {
+      if (dayOfWeek === 0) {
+        // 주일
+        const start = new Date(currentDate);
+        start.setHours(8, 0, 0);
+        const end = new Date(currentDate);
+        end.setHours(16, 0, 0);
+        fixedSchedules.push({
+          id: `fixed_sun_${mainHall.id}`,
+          resource_id: mainHall.id,
+          user_id: "system",
+          start_at: start.toISOString(),
+          end_at: end.toISOString(),
+          purpose: "주일 예배",
+          status: "fixed",
+          isFixed: true,
+        });
+      }
+      if (dayOfWeek === 5) {
+        // 금요일
+        const start = new Date(currentDate);
+        start.setHours(19, 0, 0);
+        const end = new Date(currentDate);
+        end.setHours(23, 0, 0);
+        fixedSchedules.push({
+          id: `fixed_fri_${mainHall.id}`,
+          resource_id: mainHall.id,
+          user_id: "system",
+          start_at: start.toISOString(),
+          end_at: end.toISOString(),
+          purpose: "금요 성령집회",
+          status: "fixed",
+          isFixed: true,
+        });
+      }
+    }
+
+    setReservations([...loadedReservations, ...fixedSchedules]);
     setLoading(false);
   };
 
@@ -148,13 +194,14 @@ export default function ReservationPage() {
     fetchData();
   }, [currentDate]);
 
+  // 탭 변경 시 모바일 선택 자원 초기화
   useEffect(() => {
     const firstRes = resources.find((r) => r.category === activeTab);
     if (firstRes) setMobileSelectedResId(firstRes.id);
     else setMobileSelectedResId(null);
   }, [activeTab, resources]);
 
-  // --- 예약 생성 핸들러 (정기 예약 로직 포함) ---
+  // --- 예약 핸들러 ---
   const handleReserve = async () => {
     if (!selectedResId || !form.purpose)
       return toast.error("내용을 입력해주세요.");
@@ -171,16 +218,14 @@ export default function ReservationPage() {
 
     // 예약 데이터 생성
     const reservationsToInsert = [];
-    const groupId = form.isRecurring ? crypto.randomUUID() : null; // 정기 예약이면 그룹 ID 생성
+    const groupId = form.isRecurring ? crypto.randomUUID() : null;
 
     if (form.isRecurring) {
-      // 정기 예약: 종료일까지 1주일씩 더해가며 생성
       let iterStart = new Date(baseStart);
       let iterEnd = new Date(baseEnd);
       const limitDate = new Date(form.recurringEndDate);
       limitDate.setHours(23, 59, 59);
 
-      // 안전장치: 최대 6개월까지만 허용
       const maxLimit = addWeeks(new Date(), 26);
       if (isBefore(maxLimit, limitDate)) {
         return toast.error("정기 예약은 최대 6개월까지만 가능합니다.");
@@ -194,20 +239,19 @@ export default function ReservationPage() {
           end_at: iterEnd.toISOString(),
           purpose: form.purpose,
           group_id: groupId,
-          vehicle_status: activeTab === "vehicle" ? "reserved" : undefined,
+          // vehicle_status 제거됨
         });
         iterStart = addDays(iterStart, 7);
         iterEnd = addDays(iterEnd, 7);
       }
     } else {
-      // 일반 예약
       reservationsToInsert.push({
         resource_id: selectedResId,
         user_id: currentUser,
         start_at: baseStart.toISOString(),
         end_at: baseEnd.toISOString(),
         purpose: form.purpose,
-        vehicle_status: activeTab === "vehicle" ? "reserved" : undefined,
+        // vehicle_status 제거됨
       });
     }
 
@@ -230,80 +274,29 @@ export default function ReservationPage() {
     }
   };
 
-  // --- 차량 관리: 사진 업로드 핸들러 ---
-  const handleVehicleAction = async (
-    action: "checkin" | "checkout",
-    file: File,
-  ) => {
-    if (!selectedReservation) return;
-    setUploading(true);
+  const handleCancel = async () => {
+    if (!selectedReservation || selectedReservation.isFixed) return;
 
-    try {
-      // 1. 이미지 압축 옵션 설정
-      const options = {
-        maxSizeMB: 1, // 최대 1MB
-        maxWidthOrHeight: 1920, // 최대 해상도 (FHD급)
-        useWebWorker: true, // 성능 향상을 위해 웹 워커 사용
-        fileType: "image/jpeg", // 강제로 jpeg 변환 (호환성)
-      };
+    const confirmMsg = selectedReservation.group_id
+      ? "정기 예약 건입니다. 해당 날짜만 취소하시겠습니까?"
+      : "예약을 취소하시겠습니까?";
 
-      // 2. 압축 진행
-      // toast.loading으로 압축 중임을 알리면 더 좋습니다 (선택사항)
-      const compressedFile = await imageCompression(file, options);
+    if (!(await showConfirm(confirmMsg))) return;
 
-      // (디버깅용: 원래 크기와 압축된 크기 비교 로그)
-      console.log(`Original: ${file.size / 1024 / 1024} MB`);
-      console.log(`Compressed: ${compressedFile.size / 1024 / 1024} MB`);
+    const { error } = await supabase
+      .from("reservations")
+      .update({ status: "cancelled" })
+      .eq("id", selectedReservation.id);
 
-      // 3. Storage에 업로드 (compressedFile을 사용)
-      // 파일명에 확장자는 jpg로 고정하거나 원본 확장자 사용
-      const fileExt = "jpg";
-      const fileName = `${selectedReservation.id}_${action}_${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("vehicle-photos")
-        .upload(fileName, compressedFile); // ★ 여기가 file -> compressedFile 로 변경됨
-
-      if (uploadError) throw uploadError;
-
-      // 4. Public URL 조회
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("vehicle-photos").getPublicUrl(fileName);
-
-      // 5. DB 상태 업데이트
-      const updates: any = {};
-      if (action === "checkin") {
-        updates.vehicle_status = "in_use";
-        updates.checkin_photo_url = publicUrl;
-      } else {
-        updates.vehicle_status = "returned";
-        updates.checkout_photo_url = publicUrl;
-      }
-
-      const { error: dbError } = await supabase
-        .from("reservations")
-        .update(updates)
-        .eq("id", selectedReservation.id);
-
-      if (dbError) throw dbError;
-
-      toast.success(
-        action === "checkin"
-          ? "차량 운행을 시작합니다."
-          : "반납이 완료되었습니다.",
-      );
+    if (error) toast.error("취소 실패");
+    else {
+      toast.success("취소되었습니다.");
       setDetailModalOpen(false);
       fetchData();
-    } catch (e: any) {
-      toast.error("업로드 실패: " + e.message);
-      console.error(e);
-    } finally {
-      setUploading(false);
     }
   };
 
-  // --- 기존 유틸 함수들 ---
+  // 스타일 계산 (PC: Left/Width)
   const getPCBarStyle = (startStr: string, endStr: string) => {
     const start = new Date(startStr);
     const end = new Date(endStr);
@@ -322,6 +315,7 @@ export default function ReservationPage() {
     return { left: `${Math.max(0, left)}px`, width: `${width}px` };
   };
 
+  // 스타일 계산 (Mobile: Top/Height)
   const getMobileBarStyle = (startStr: string, endStr: string) => {
     const start = new Date(startStr);
     const end = new Date(endStr);
@@ -403,29 +397,6 @@ export default function ReservationPage() {
     setIsModalOpen(true);
   };
 
-  const handleCancel = async () => {
-    if (!selectedReservation || selectedReservation.isFixed) return;
-
-    // 정기 예약인지 확인 후 메시지 다르게
-    const confirmMsg = selectedReservation.group_id
-      ? "정기 예약 건입니다. 해당 날짜만 취소하시겠습니까?"
-      : "예약을 취소하시겠습니까?";
-
-    if (!(await showConfirm(confirmMsg))) return;
-
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: "cancelled" })
-      .eq("id", selectedReservation.id);
-
-    if (error) toast.error("취소 실패");
-    else {
-      toast.success("취소되었습니다.");
-      setDetailModalOpen(false);
-      fetchData();
-    }
-  };
-
   return (
     <div className="w-full h-full flex flex-col p-1 pb-10">
       {/* DatePicker Popup */}
@@ -457,7 +428,7 @@ export default function ReservationPage() {
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            시설 및 차량 예약
+            시설 예약
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             <span className="font-bold text-blue-600">시작 시간</span>을 누르고,{" "}
@@ -465,8 +436,6 @@ export default function ReservationPage() {
             예약됩니다.
           </p>
         </div>
-
-        {/* 날짜 네비게이션 */}
         <div className="flex items-center justify-between bg-white border border-gray-300 rounded-lg shadow-sm p-1 w-full md:w-auto">
           <button
             onClick={() => setCurrentDate(subDays(currentDate, 1))}
@@ -552,7 +521,7 @@ export default function ReservationPage() {
                 </option>
               ))}
               {filteredResources.length === 0 && (
-                <option value="">자원 없음</option>
+                <option value="">등록된 자원 없음</option>
               )}
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -729,7 +698,6 @@ export default function ReservationPage() {
                       <span className="text-sm font-bold text-gray-900 break-keep text-center">
                         {res.name}
                       </span>
-                      {/* 자원 설명 추가 */}
                       <span className="text-[10px] text-gray-500 text-center mt-1 leading-tight break-keep px-1 bg-gray-50 rounded border border-gray-100 w-full py-0.5">
                         {res.description}
                       </span>
@@ -820,7 +788,7 @@ export default function ReservationPage() {
           setIsModalOpen(false);
           setSelectingStart(null);
         }}
-        title="예약 하기"
+        title="시설 예약"
         footer={
           <div className="flex gap-2 w-full">
             <button
@@ -912,224 +880,72 @@ export default function ReservationPage() {
         </div>
       </Modal>
 
-      {/* 상세 모달 (차량 관리 포함) */}
-      {/* 상세 모달 (차량 관리 UI 개선) */}
+      {/* 상세 모달 (차량 관리 제거됨) */}
       <Modal
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
-        title="예약 상세 정보"
+        title="예약 상세"
         footer={null}
       >
         {selectedReservation && (
           <div className="space-y-6 pt-2">
-            {/* 1. 기본 정보 섹션 (카드 형태) */}
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-              <div className="flex items-center gap-4 mb-4 border-b border-gray-100 pb-4">
-                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xl border border-blue-100">
-                  {selectedReservation.profiles?.full_name.slice(0, 1)}
+            <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xl">
+                {selectedReservation.profiles?.full_name.slice(0, 1)}
+              </div>
+              <div>
+                <div className="font-bold text-gray-900 text-lg">
+                  {selectedReservation.profiles?.full_name}
                 </div>
-                <div>
-                  <div className="font-bold text-gray-900 text-lg">
-                    {selectedReservation.profiles?.full_name}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {selectedReservation.profiles?.position}
-                  </div>
-                </div>
-                {/* 상태 뱃지 */}
-                <div className="ml-auto">
-                  {selectedReservation.vehicle_status === "in_use" && (
-                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
-                      운행중
-                    </span>
-                  )}
-                  {selectedReservation.vehicle_status === "returned" && (
-                    <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-xs font-bold">
-                      반납완료
-                    </span>
-                  )}
-                  {selectedReservation.vehicle_status === "reserved" &&
-                    !selectedReservation.group_id && (
-                      <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
-                        예약중
-                      </span>
-                    )}
+                <div className="text-sm text-gray-500">
+                  {selectedReservation.profiles?.position}
                 </div>
               </div>
+              {selectedReservation.group_id && (
+                <span className="ml-auto bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">
+                  정기예약
+                </span>
+              )}
+            </div>
 
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">차량/장소</span>
-                  <span className="font-bold text-gray-900">
-                    {
-                      resources.find(
-                        (r) => r.id === selectedReservation.resource_id,
-                      )?.name
-                    }
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">시간</span>
-                  <span className="font-bold text-blue-600">
-                    {format(new Date(selectedReservation.start_at), "HH:mm")} ~{" "}
-                    {format(new Date(selectedReservation.end_at), "HH:mm")}
-                  </span>
-                </div>
-                <div className="pt-2 border-t border-gray-50">
-                  <span className="text-gray-500 block mb-1">사용 목적</span>
-                  <span className="text-gray-900 block bg-gray-50 p-2 rounded text-xs leading-relaxed">
-                    {selectedReservation.purpose}
-                  </span>
-                </div>
+            <div className="space-y-3 text-base">
+              <div className="flex">
+                <span className="w-24 text-gray-500 font-medium">장소</span>
+                <span className="text-gray-900 font-bold">
+                  {
+                    resources.find(
+                      (r) => r.id === selectedReservation.resource_id,
+                    )?.name
+                  }
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-gray-500 font-medium">시간</span>
+                <span className="font-bold text-blue-600">
+                  {format(new Date(selectedReservation.start_at), "HH:mm")} ~{" "}
+                  {format(new Date(selectedReservation.end_at), "HH:mm")}
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-gray-500 font-medium">목적</span>
+                <span className="text-gray-900 whitespace-pre-wrap">
+                  {selectedReservation.purpose}
+                </span>
               </div>
             </div>
 
-            {/* 2. 차량 운행 관리 (본인일 때만 표시) */}
-            {activeTab === "vehicle" &&
-              selectedReservation.user_id === currentUser && (
-                <div className="space-y-4">
-                  {/* CASE A: 탑승 전 (체크인) */}
-                  {selectedReservation.vehicle_status === "reserved" && (
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-200">
-                      <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
-                        차량 이용 시작
-                      </h4>
-                      <p className="text-blue-100 text-xs mb-4">
-                        안전한 운행을 위해 <strong>계기판(주행거리)</strong>과{" "}
-                        <strong>차량 외관</strong>을 촬영해주세요.
-                      </p>
-
-                      <label
-                        className={`block w-full bg-white text-blue-600 py-4 rounded-xl font-bold text-center cursor-pointer transition transform active:scale-95 shadow-md flex items-center justify-center gap-2 ${uploading ? "opacity-50 cursor-wait" : "hover:bg-blue-50"}`}
-                      >
-                        {uploading ? "업로드 중..." : "탑승 사진 촬영하기"}
-
-                        {/* 모바일 카메라 강제 실행: capture="environment" */}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          disabled={uploading}
-                          onChange={(e) =>
-                            e.target.files?.[0] &&
-                            handleVehicleAction("checkin", e.target.files[0])
-                          }
-                        />
-                      </label>
-                    </div>
-                  )}
-
-                  {/* CASE B: 운행 중 (반납) */}
-                  {selectedReservation.vehicle_status === "in_use" && (
-                    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-5 text-white shadow-lg shadow-green-200">
-                      <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
-                        운행 종료 및 반납
-                      </h4>
-                      <p className="text-green-100 text-xs mb-4">
-                        주차 후 <strong>주유량(계기판)</strong>과{" "}
-                        <strong>주차된 위치</strong>가 보이게 찍어주세요.
-                      </p>
-
-                      {/* 이전 사진 보기 (옵션) */}
-                      {selectedReservation.checkin_photo_url && (
-                        <div className="mb-4 bg-black/20 rounded-lg p-2 flex items-center gap-2 text-xs">
-                          <span>탑승 사진 확인: </span>
-                          <a
-                            href={selectedReservation.checkin_photo_url}
-                            target="_blank"
-                            className="underline font-bold text-white"
-                          >
-                            보기
-                          </a>
-                        </div>
-                      )}
-
-                      <label
-                        className={`block w-full bg-white text-green-600 py-4 rounded-xl font-bold text-center cursor-pointer transition transform active:scale-95 shadow-md flex items-center justify-center gap-2 ${uploading ? "opacity-50 cursor-wait" : "hover:bg-green-50"}`}
-                      >
-                        {uploading ? (
-                          <span className="animate-spin text-xl">⏳</span>
-                        ) : (
-                          <span className="text-2xl">📸</span>
-                        )}
-                        {uploading ? "업로드 중..." : "반납 사진 촬영하기"}
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          disabled={uploading}
-                          onChange={(e) =>
-                            e.target.files?.[0] &&
-                            handleVehicleAction("checkout", e.target.files[0])
-                          }
-                        />
-                      </label>
-                    </div>
-                  )}
-
-                  {/* CASE C: 반납 완료 */}
-                  {selectedReservation.vehicle_status === "returned" && (
-                    <div className="bg-gray-100 p-5 rounded-2xl border border-gray-200">
-                      <div className="text-center mb-4">
-                        <div className="inline-block p-3 bg-gray-200 rounded-full mb-2">
-                          ✅
-                        </div>
-                        <h4 className="font-bold text-gray-700">
-                          반납이 완료되었습니다.
-                        </h4>
-                        <p className="text-xs text-gray-500">
-                          이용해 주셔서 감사합니다.
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        {selectedReservation.checkin_photo_url && (
-                          <a
-                            href={selectedReservation.checkin_photo_url}
-                            target="_blank"
-                            className="flex-1 bg-white py-2 rounded-lg text-xs border text-center font-medium text-gray-600 hover:bg-gray-50"
-                          >
-                            탑승 사진 보기
-                          </a>
-                        )}
-                        {selectedReservation.checkout_photo_url && (
-                          <a
-                            href={selectedReservation.checkout_photo_url}
-                            target="_blank"
-                            className="flex-1 bg-white py-2 rounded-lg text-xs border text-center font-medium text-gray-600 hover:bg-gray-50"
-                          >
-                            반납 사진 보기
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <div className="flex gap-2 mt-6 border-t border-gray-100 pt-4">
+              {selectedReservation.user_id === currentUser && (
+                <button
+                  onClick={handleCancel}
+                  className="flex-1 bg-red-50 text-red-600 py-3 rounded-lg font-bold hover:bg-red-100"
+                >
+                  예약 취소
+                </button>
               )}
-
-            {/* 하단 닫기/취소 버튼 */}
-            <div className="flex gap-2 mt-2 pt-4 border-t border-gray-100">
-              {selectedReservation.user_id === currentUser &&
-                selectedReservation.vehicle_status !== "returned" && (
-                  <button
-                    onClick={() => {
-                      const msg = selectedReservation.group_id
-                        ? "이 날짜의 예약만 취소됩니다. 진행할까요?"
-                        : "예약을 취소하시겠습니까?";
-                      showConfirm(msg).then((res) => {
-                        if (res) handleCancel();
-                      });
-                    }}
-                    className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold text-sm hover:bg-red-100 transition"
-                  >
-                    예약 취소
-                  </button>
-                )}
               <button
                 onClick={() => setDetailModalOpen(false)}
-                className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-bold text-sm hover:bg-gray-200 transition"
+                className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200"
               >
                 닫기
               </button>
