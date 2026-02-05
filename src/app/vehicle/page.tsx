@@ -595,7 +595,7 @@ export default function VehicleReservationPage() {
 
             {/* 캘린더 팝업 */}
             {showCalendar && (
-              <div className="absolute z-[50] mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-full max-w-[350px] left-0 md:left-auto md:right-0">
+              <div className="absolute top-full left-0 z-50 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-full max-w-[350px]">
                 <Calendar
                   onChange={handleRangeChange}
                   selectRange={true}
