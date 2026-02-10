@@ -373,7 +373,7 @@ export default function VehicleReservationPage() {
         {/* 내용 영역 (스크롤 가능) */}
         <div className="flex-1 overflow-auto custom-scrollbar relative w-full">
           {/* PC View */}
-          <div className="hidden md:block min-w-full inline-block align-middle">
+          <div className="hidden md:block w-full">
             <table className="min-w-full text-sm text-left whitespace-nowrap relative">
               <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200 sticky top-0 z-10 shadow-sm">
                 <tr>
@@ -481,7 +481,7 @@ export default function VehicleReservationPage() {
           </div>
 
           {/* Mobile View */}
-          <div className="md:hidden divide-y divide-gray-100">
+          <div className="block md:hidden divide-y divide-gray-100">
             {logs.map((log) => (
               <div
                 key={log.id}
