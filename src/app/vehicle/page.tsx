@@ -59,7 +59,7 @@ export default function VehicleReservationPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
-
+  const [activeCardId, setActiveCardId] = useState<number | null>(null); // 모바일 터치용 상태
   // 모달 상태
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -258,23 +258,40 @@ export default function VehicleReservationPage() {
             (l) => l.resource_id === v.id && l.vehicle_status === "in_use",
           );
           const carImage = VEHICLE_IMAGES[v.name];
-
+          const isActive = activeCardId === v.id;
           return (
             <div
               key={v.id}
+              onClick={() => setActiveCardId(isActive ? null : v.id)}
+              onMouseLeave={() => setActiveCardId(null)}
               tabIndex={0}
               className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group transition outline-none"
             >
-              {/* === [디자인 수정] 마우스 오버 오버레이 & 버튼 === */}
-              <div className="absolute inset-0 z-20 bg-slate-900/40 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 p-6">
+              <div
+                className={`absolute inset-0 z-20 bg-slate-900/40 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 p-6
+                ${
+                  isActive
+                    ? "opacity-100 visible" // 모바일: 터치 시 보임
+                    : "opacity-0 invisible group-hover:opacity-100 group-hover:visible" // PC: 호버 시 보임
+                }
+                `}
+              >
                 <button
-                  onClick={() => handleReserveWithCar(v.id)}
-                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation(); // 카드 닫힘 방지
+                    handleReserveWithCar(v.id);
+                    setActiveCardId(null); // 액션 후 닫기
+                  }}
+                  className="w-full py-3 bg-blue-700 hover:bg-blue-600 text-white text-sm font-semibold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   예약하기
                 </button>
                 <button
-                  onClick={() => handleOpenHistory(v)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // 카드 닫힘 방지
+                    handleOpenHistory(v);
+                    setActiveCardId(null); // 액션 후 닫기
+                  }}
                   className="w-full py-3 bg-white hover:bg-gray-50 text-slate-800 text-sm font-semibold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   운행기록
