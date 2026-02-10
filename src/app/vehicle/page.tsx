@@ -10,6 +10,7 @@ import "react-calendar/dist/Calendar.css";
 import DetailModal from "@/components/vehicle/DetailModal";
 import VehicleReserveModal from "@/components/vehicle/VehicleReserveModal";
 import "@/styles/calendar.css";
+import HistoryModal from "@/components/vehicle/HistoryModal";
 // --- [이미지 설정] 차량별 이미지 매핑 ---
 const VEHICLE_IMAGES: Record<string, string> = {
   스타렉스: "/images/cars/starex.webp",
@@ -63,7 +64,22 @@ export default function VehicleReservationPage() {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null);
-  const [uploading, setUploading] = useState(false);
+  //  차량별 운행일지
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedVehicleHistory, setSelectedVehicleHistory] =
+    useState<Vehicle | null>(null);
+
+  // 특정 차량 선택해서 예약 모달 열기
+  const handleReserveWithCar = (carId: number) => {
+    setForm((prev) => ({ ...prev, resource_id: carId }));
+    setIsReserveModalOpen(true);
+  };
+
+  // 특정 차량 운행일지 모달 열기
+  const handleOpenHistory = (vehicle: Vehicle) => {
+    setSelectedVehicleHistory(vehicle);
+    setIsHistoryModalOpen(true);
+  };
 
   // 예약 폼
   const [form, setForm] = useState({
@@ -78,16 +94,16 @@ export default function VehicleReservationPage() {
     department: "",
   });
 
-  // 반납 폼
-  const [checkoutForm, setCheckoutForm] = useState({
-    mileage: "" as number | "",
-    cleanup: true,
-    parking: "교회 주차장",
-    condition: "이상 없음",
-  });
+  // // 반납 폼
+  // const [checkoutForm, setCheckoutForm] = useState({
+  //   mileage: "" as number | "",
+  //   cleanup: true,
+  //   parking: "교회 주차장",
+  //   condition: "이상 없음",
+  // });
 
-  // 출발 폼
-  const [checkinMileage, setCheckinMileage] = useState<number | "">("");
+  // // 출발 폼
+  // const [checkinMileage, setCheckinMileage] = useState<number | "">("");
 
   // 데이터 로드
   const fetchData = async () => {
@@ -246,8 +262,26 @@ export default function VehicleReservationPage() {
           return (
             <div
               key={v.id}
-              className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group hover:border-blue-300 transition"
+              tabIndex={0}
+              className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group transition outline-none"
             >
+              {/* === [디자인 수정] 마우스 오버 오버레이 & 버튼 === */}
+              <div className="absolute inset-0 z-20 bg-slate-900/40 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 p-6">
+                <button
+                  onClick={() => handleReserveWithCar(v.id)}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  예약하기
+                </button>
+                <button
+                  onClick={() => handleOpenHistory(v)}
+                  className="w-full py-3 bg-white hover:bg-gray-50 text-slate-800 text-sm font-semibold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  운행기록
+                </button>
+              </div>
+
+              {/* 상태 뱃지 */}
               <div
                 className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-xs font-bold z-10 ${
                   currentUsage
@@ -258,46 +292,51 @@ export default function VehicleReservationPage() {
                 {currentUsage ? "운행중" : "대기중"}
               </div>
 
+              {/* 차량 정보 */}
               <div className="z-10">
-                <h3 className="text-lg font-bold text-gray-900">{v.name}</h3>
-                <p className="text-sm text-gray-500 font-mono tracking-tight">
+                <h3 className="text-[17px] font-semibold text-gray-900 tracking-tight leading-tight">
+                  {v.name}
+                </h3>
+                <p className="text-[13px] text-gray-400 font-medium tracking-tight mt-0.5 font-mono">
                   {v.description}
                 </p>
               </div>
 
+              {/* 차량 이미지 */}
               {carImage ? (
                 <img
                   src={carImage}
                   alt={v.name}
-                  className={`absolute h-auto object-contain opacity-90 transition-transform duration-300
-                    ${
-                      v.name.includes("스타리아")
-                        ? "w-32 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
-                        : v.name.includes("쏘나타")
-                          ? "w-34 -right-2 -bottom-1 group-hover:scale-110"
-                          : "w-32 -right-2 bottom-1 group-hover:scale-110"
-                    }
+                  className={`absolute h-auto object-contain opacity-90 transition-transform duration-500 ease-out group-hover:scale-105
+                     ${
+                       v.name.includes("스타리아")
+                         ? "w-32 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
+                         : v.name.includes("쏘나타")
+                           ? "w-34 -right-2 -bottom-1 group-hover:scale-110"
+                           : "w-32 -right-2 bottom-1 group-hover:scale-110"
+                     }
                   `}
                 />
               ) : (
-                <div className="absolute right-2 bottom-2 opacity-10 text-gray-400">
-                  <svg
-                    className="w-24 h-24"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v5a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0h1a1 1 0 001-1V9a2 2 0 00-2-2h-6z" />
-                  </svg>
+                <div className="absolute right-4 bottom-4 opacity-5 text-gray-900">
+                  {/* 이미지가 없을 때 텍스트로 대체하거나 빈 공간 */}
+                  <span className="text-4xl font-black">CAR</span>
                 </div>
               )}
 
+              {/* 하단 누적거리 정보 */}
               <div className="z-10 mt-auto">
-                <p className="text-xs text-gray-400 mb-0.5">누적거리</p>
-                <p className="text-xl font-extrabold text-gray-800 bg-white/80 inline-block px-1 rounded backdrop-blur-sm">
-                  {v.current_mileage?.toLocaleString()}{" "}
-                  <span className="text-sm font-normal text-gray-500">km</span>
+                <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
+                  누적 주행거리
                 </p>
+                <div className="inline-flex items-baseline gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 -ml-1.5 rounded-lg">
+                  <span className="text-[18px] font-semibold text-slate-800 tracking-tight">
+                    {v.current_mileage?.toLocaleString()}
+                  </span>
+                  <span className="text-[12px] font-medium text-gray-500">
+                    km
+                  </span>
+                </div>
               </div>
             </div>
           );
@@ -497,13 +536,20 @@ export default function VehicleReservationPage() {
         handleRangeChange={handleRangeChange}
       />
       {/* --- 모달: 운행 일지 상세 및 체크인/아웃 --- */}
-
       <DetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         selectedLog={selectedLog}
         currentUser={currentUser}
         onRefresh={fetchData}
+      />
+
+      {/* --- 모달: 차량별 운행 기록 --- */}
+      <HistoryModal
+        isHistoryModalOpen={isHistoryModalOpen}
+        setIsHistoryModalOpen={setIsHistoryModalOpen}
+        selectedVehicleHistory={selectedVehicleHistory}
+        logs={logs}
       />
     </div>
   );
