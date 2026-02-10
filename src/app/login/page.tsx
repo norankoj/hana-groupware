@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [view, setView] = useState<"login" | "signup">("login");
@@ -28,6 +29,14 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // admin url로 타고 들어올 경우 관리자 권한 없다는 메시지 띄우기
+  useEffect(() => {
+    if (searchParams.get("error") === "unauthorized") {
+      toast.error("관리자 권한이 필요한 페이지입니다.");
+      window.history.replaceState(null, "", "/login");
+    }
+  }, [searchParams]);
 
   // 타이머 로직
   useEffect(() => {
@@ -190,7 +199,6 @@ export default function LoginPage() {
   `;
 
   // 3. 읽기 전용 스타일 (인증 완료된 전화번호)
-  // ★ 수정: bg-gray-200으로 더 진하게 해서 눈에 확 띄게 만듦
   const readOnlyStyle = `
     w-full px-4 py-3.5 rounded-xl text-base outline-none cursor-default font-medium
     bg-gray-200 border border-gray-300 text-gray-500
@@ -276,21 +284,6 @@ export default function LoginPage() {
                 // 1. 대기 화면
                 <div className="text-center space-y-8 animate-fadeIn py-4">
                   <div className="flex flex-col items-center gap-4">
-                    {/* <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-2">
-                      <svg
-                        className="w-10 h-10 text-blue-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.131A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.567-4.168"
-                        />
-                      </svg>
-                    </div> */}
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900 mb-2">
                         본인인증을 진행해주세요
@@ -444,7 +437,7 @@ export default function LoginPage() {
                   />
                 </div>
 
-                {/* 휴대폰 번호 (수정불가) - 회색 배경이 명확하게 보이도록 처리 */}
+                {/* 휴대폰 번호 (수정불가) */}
                 <div>
                   <label className={labelStyle}>휴대폰 번호</label>
                   <div className="relative">

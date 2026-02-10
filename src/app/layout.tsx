@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 import ChannelTalk from "@/components/ChannelTalk";
+import AuthListener from "@/components/AuthListener";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -13,23 +14,21 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: "/images/icon-192x192.png",
-    apple: "/images/icon-192x192.png", // 아이폰 전용
+    apple: "/images/icon-192x192.png",
   },
-
   appleWebApp: {
-    capable: true, // 홈 화면 추가 시 앱처럼 보이기 (주소창 숨김)
-    title: "그룹웨어", // 홈 화면 아이콘 이름
-    statusBarStyle: "default", // 상단 상태바 색상 (default / black / black-translucent)
+    capable: true,
+    title: "그룹웨어",
+    statusBarStyle: "default",
   },
 };
 
-//뷰포트 설정 추가 (모바일에서 확대/축소 막고 앱처럼 보이게)
 export const viewport: Viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // 확대 금지 (앱 느낌)
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -41,6 +40,7 @@ export default function RootLayout({
     <html lang="ko">
       <body className={inter.className}>
         <ClientLayout>
+          <AuthListener />
           {children}
           <ChannelTalk />
         </ClientLayout>
