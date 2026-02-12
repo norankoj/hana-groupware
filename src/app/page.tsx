@@ -260,7 +260,7 @@ export default function Home() {
     <div className="space-y-8">
       <style>{calendarCustomStyles}</style>
 
-      {/* --- [섹션 1] 배너 + 알림 --- */}
+      {/* --- [섹션 1] 배너 + 알림 (항상 상단) --- */}
       <section className="flex flex-col xl:flex-row gap-6">
         {/* 1. 웰컴 배너 */}
         <div className="flex-1 bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-8 text-white shadow-md relative overflow-hidden min-h-[160px] flex flex-col justify-center">
@@ -286,7 +286,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 2. 알림 카드 섹션 */}
+        {/* 2. 알림 카드 */}
         <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">
           {profile?.is_approver && (
             <Link
@@ -332,7 +332,6 @@ export default function Home() {
             </Link>
           )}
 
-          {/* 내 결재 진행 */}
           {canViewCalendar && (
             <Link
               href="/vacation"
@@ -374,37 +373,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- [섹션 2] 오늘의 일정 (시설 & 차량) --- */}
+      {/* --- [섹션 2 & 3] 메인 레이아웃 (반응형) --- */}
+      {/* - Mobile/Laptop (기본): Flex Column -> 위젯(위) + 달력(아래)
+        - 2XL (대형화면): Flex Row -> 달력(왼쪽) + 위젯(오른쪽) 
+      */}
       {canViewCalendar && (
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 1. 오늘의 시설 예약 위젯 */}
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full min-h-[220px]">
-            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                    />
-                  </svg>
-                </span>
-                오늘의 시설 예약
-              </h3>
-              <Link
-                href="/reservation"
-                className="text-sm text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
-              >
-                전체보기
+        <div className="flex flex-col 2xl:flex-row gap-6">
+          {/* A. 달력 섹션 (Mobile: 2순위 / 2XL: 1순위-왼쪽) */}
+          <section className="flex-1 order-2 2xl:order-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[780px]">
+            {/* 타이틀 헤더 */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0">
+              <div className="flex items-center gap-2">
                 <svg
-                  className="w-4 h-4"
+                  className="w-5 h-5 text-blue-600"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -413,482 +394,70 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M9 5l7 7-7 7"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-              </Link>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[140px]">
-              {todayFacilities.length > 0 ? (
-                <ul className="space-y-2">
-                  {todayFacilities.map((res) => (
-                    <li
-                      key={res.id}
-                      className="group p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 min-w-0 mr-3">
-                          <div className="font-bold text-gray-800 text-sm mb-0.5 truncate">
-                            {res.resources.name}
-                          </div>
-                          <div className="text-xs text-gray-500 truncate">
-                            {res.profiles?.full_name} · {res.purpose}
-                          </div>
-                        </div>
-                        <div className="text-right whitespace-nowrap">
-                          <span className="block font-bold text-blue-600 text-sm">
-                            {format(new Date(res.start_at), "HH:mm")}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            ~{format(new Date(res.end_at), "HH:mm")}
-                          </span>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 min-h-[100px]">
-                  <svg
-                    className="w-10 h-10 opacity-20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <p className="text-sm">오늘 예약된 일정이 없습니다.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 2. 오늘의 차량 예약 위젯 (파란색 테마 적용) */}
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full min-h-[220px]">
-            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 10l2-3h10l2 3h4v6h-2v-1a2 2 0 1 0-4 0v1H9v-1a2 2 0 1 0-4 0v1H3v-6zm4 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm10 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"
-                    />
-                  </svg>
-                </span>
-                오늘의 차량 예약
-              </h3>
-              <Link
-                href="/vehicle"
-                className="text-sm text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
-              >
-                전체보기
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[140px]">
-              {todayVehicles.length > 0 ? (
-                <ul className="space-y-2">
-                  {todayVehicles.map((res) => (
-                    <li
-                      key={res.id}
-                      className="group p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 min-w-0 mr-3">
-                          <div className="font-bold text-gray-800 text-sm mb-0.5 truncate">
-                            {res.resources.name}
-                          </div>
-                          <div className="text-xs text-gray-500 truncate">
-                            {res.profiles?.full_name} · {res.purpose}
-                          </div>
-                        </div>
-                        <div className="text-right whitespace-nowrap">
-                          <span className="block font-bold text-blue-600 text-sm">
-                            {format(new Date(res.start_at), "HH:mm")}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            ~{format(new Date(res.end_at), "HH:mm")}
-                          </span>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 min-h-[100px]">
-                  <svg
-                    className="w-10 h-10 opacity-20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                    />
-                  </svg>
-                  <p className="text-sm">오늘 예약된 차량이 없습니다.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* --- [하단 섹션] 전체 휴가 달력 --- */}
-      {/* ... (기존 달력 코드 유지) ... */}
-      {canViewCalendar && (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[780px]">
-          {/* 타이틀 헤더 */}
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0">
-            <div className="flex items-center gap-2">
-              <svg
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <h3 className="text-lg font-bold text-gray-800 tracking-tight">
-                전체 휴가 일정
-              </h3>
-            </div>
-            <div className="hidden sm:flex items-center gap-4">
-              {teams.map((team) => (
-                <div key={team.id} className="flex items-center gap-1.5">
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full ${TEAM_COLORS[team.id] || "bg-gray-400"}`}
-                  ></span>
-                  <span className="text-sm text-gray-600 font-medium">
-                    {team.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col lg:flex-row flex-1 overflow-visible lg:overflow-hidden">
-            {/* 달력 영역 */}
-            <div className="flex-[2] flex flex-col border-r border-gray-200 p-6 min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-y-4 mb-4 w-full">
-                <div className="order-1 w-auto sm:w-1/3 flex justify-start">
-                  <div className="flex bg-gray-100 p-1 rounded-lg">
-                    <button
-                      onClick={() => setCalendarViewMode("month")}
-                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "month" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
-                    >
-                      달력
-                    </button>
-                    <button
-                      onClick={() => setCalendarViewMode("list")}
-                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "list" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
-                    >
-                      리스트
-                    </button>
+                <h3 className="text-lg font-bold text-gray-800 tracking-tight">
+                  전체 휴가 일정
+                </h3>
+              </div>
+              <div className="hidden sm:flex items-center gap-4">
+                {teams.map((team) => (
+                  <div key={team.id} className="flex items-center gap-1.5">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${TEAM_COLORS[team.id] || "bg-gray-400"}`}
+                    ></span>
+                    <span className="text-sm text-gray-600 font-medium">
+                      {team.name}
+                    </span>
                   </div>
-                </div>
-                <div className="order-2 sm:order-3 w-auto sm:w-1/3 flex justify-end">
-                  <button
-                    onClick={() => {
-                      const now = new Date();
-                      setDate(now);
-                      setActiveStartDate(now);
-                      updateSelectedVacations(now, allVacations);
-                    }}
-                    className="px-3 py-1.5 text-sm font-bold bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition border border-blue-100"
-                  >
-                    오늘
-                  </button>
-                </div>
-                <div className="order-3 sm:order-2 w-full sm:w-1/3 flex items-center justify-center gap-4 mt-2 sm:mt-0">
-                  <button
-                    onClick={() =>
-                      setActiveStartDate(subMonths(activeStartDate, 1))
-                    }
-                    className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M15 19l-7-7 7-7"
-                      />
-                    </svg>
-                  </button>
-                  <h2 className="text-xl font-bold text-gray-800 tracking-tight min-w-[110px] text-center">
-                    {format(activeStartDate, "yyyy년 M월")}
-                  </h2>
-                  <button
-                    onClick={() =>
-                      setActiveStartDate(addMonths(activeStartDate, 1))
-                    }
-                    className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-hidden relative h-full min-h-[500px] flex flex-col">
-                {calendarViewMode === "month" ? (
-                  <Calendar
-                    onChange={onDateChange}
-                    value={date}
-                    activeStartDate={activeStartDate}
-                    onActiveStartDateChange={({ activeStartDate }) =>
-                      activeStartDate && setActiveStartDate(activeStartDate)
-                    }
-                    calendarType="gregory"
-                    formatDay={(locale, date) => format(date, "d")}
-                    prevLabel={null}
-                    nextLabel={null}
-                    prev2Label={null}
-                    next2Label={null}
-                    tileClassName={({ date, view }) => {
-                      if (
-                        view === "month" &&
-                        HOLIDAYS[format(date, "yyyy-MM-dd")]
-                      )
-                        return "holiday-day";
-                    }}
-                    tileContent={({ date, view }) => {
-                      if (view === "month") {
-                        const dateStr = format(date, "yyyy-MM-dd");
-                        const holiday = HOLIDAYS[dateStr];
-                        const vacationsOnDay = holiday
-                          ? []
-                          : allVacations.filter(
-                              (v) =>
-                                dateStr >= v.start_date &&
-                                dateStr <= v.end_date,
-                            );
-                        const maxDisplay = 3;
-                        const displayVacations = vacationsOnDay.slice(
-                          0,
-                          maxDisplay,
-                        );
-                        const overflowCount =
-                          vacationsOnDay.length - maxDisplay;
-                        return (
-                          <div className="flex flex-col items-center w-full h-full pt-1 overflow-hidden">
-                            {holiday && (
-                              <div className="text-[10px] text-red-500 font-medium truncate px-1 w-full text-center mt-0.5">
-                                {holiday}
-                              </div>
-                            )}
-                            <div className="w-full flex flex-col gap-0.5 mt-1 px-0.5">
-                              {displayVacations.map((v, i) => {
-                                const style =
-                                  TEAM_STYLES[v.profiles.team_id] ||
-                                  DEFAULT_STYLE;
-                                return (
-                                  <div
-                                    key={v.id + i}
-                                    className={`text-[9px] ${style.bg} ${style.text} border ${style.border} rounded px-1 py-0.5 truncate text-center font-medium`}
-                                  >
-                                    {v.profiles.full_name}
-                                  </div>
-                                );
-                              })}
-                              {overflowCount > 0 && (
-                                <div className="text-[9px] text-gray-400 text-center font-medium">
-                                  +{overflowCount}명
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="h-full overflow-y-auto divide-y divide-gray-100 custom-scrollbar pr-2">
-                    {(() => {
-                      const daysInMonth = eachDayOfInterval({
-                        start: startOfMonth(activeStartDate),
-                        end: endOfMonth(activeStartDate),
-                      });
-                      return daysInMonth.map((day) => {
-                        const dateStr = format(day, "yyyy-MM-dd");
-                        const dayNum = format(day, "d");
-                        const dayLabel = format(day, "EEE", { locale: ko });
-                        const isWeekend =
-                          day.getDay() === 0 || day.getDay() === 6;
-                        const holiday = HOLIDAYS[dateStr];
-                        const vacationsOnDay = allVacations.filter(
-                          (v) =>
-                            dateStr >= v.start_date && dateStr <= v.end_date,
-                        );
-                        return (
-                          <div
-                            key={dateStr}
-                            onClick={() => {
-                              setDate(day);
-                              updateSelectedVacations(day, allVacations);
-                            }}
-                            className={`py-3 px-3 flex items-start justify-between transition-colors cursor-pointer ${format(date, "yyyy-MM-dd") === dateStr ? "bg-blue-50" : "hover:bg-gray-50"} ${holiday ? "bg-red-50/30" : ""}`}
-                          >
-                            <div className="flex items-center gap-4 w-20 flex-shrink-0">
-                              <span
-                                className={`text-lg font-bold ${isWeekend || holiday ? "text-red-500" : "text-gray-800"}`}
-                              >
-                                {dayNum}
-                              </span>
-                              <span
-                                className={`text-xs uppercase font-medium ${isWeekend || holiday ? "text-red-400" : "text-gray-400"}`}
-                              >
-                                {dayLabel}
-                              </span>
-                            </div>
-                            <div className="flex-1 flex flex-wrap gap-2">
-                              {holiday && (
-                                <div className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded-md inline-block">
-                                  🎉 {holiday}
-                                </div>
-                              )}
-                              {vacationsOnDay.map((v) => {
-                                const style =
-                                  TEAM_STYLES[v.profiles.team_id] ||
-                                  DEFAULT_STYLE;
-                                return (
-                                  <div
-                                    key={v.id}
-                                    className={`px-2 py-1 rounded-md inline-flex items-center gap-1 text-xs font-bold border ${style.bg} ${style.text} ${style.border}`}
-                                  >
-                                    {v.profiles.full_name}{" "}
-                                    <span className="text-[10px] opacity-75">
-                                      | {v.type}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                )}
+                ))}
               </div>
             </div>
 
-            {/* 사이드 패널 */}
-            <div className="w-full lg:w-80 bg-white flex flex-col h-auto lg:h-full lg:border-l border-t lg:border-t-0 border-gray-200">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 h-[72px] shrink-0">
-                <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                  {format(date, "M월 d일 (EEE)", { locale: ko })}
-                </h4>
-                <span className="text-xs font-medium text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
-                  총 {selectedVacations.length}명
-                </span>
-              </div>
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-                {selectedVacations.length > 0 ? (
-                  <ul className="divide-y divide-gray-100">
-                    {selectedVacations.map((v) => (
-                      <li
-                        key={v.id}
-                        className="group flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+            <div className="flex flex-col lg:flex-row flex-1 overflow-visible lg:overflow-hidden">
+              {/* 달력 영역 */}
+              <div className="flex-[2] flex flex-col border-r border-gray-200 p-6 min-w-0">
+                {/* 달력 상단 네비게이션 */}
+                <div className="flex flex-wrap items-center justify-between gap-y-4 mb-4 w-full">
+                  <div className="order-1 w-auto sm:w-1/3 flex justify-start">
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                      <button
+                        onClick={() => setCalendarViewMode("month")}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "month" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
                       >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs border border-gray-200">
-                            {v.profiles.full_name.slice(0, 1)}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm font-bold text-gray-900 truncate">
-                                {v.profiles.full_name}
-                              </span>
-                              <span className="text-[10px] text-gray-400">
-                                {v.profiles.position}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${TEAM_COLORS[v.profiles.team_id] || "bg-gray-400"}`}
-                              ></span>
-                              <span className="text-xs text-gray-500 truncate">
-                                {v.profiles.teams?.name || "미배정"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0 pl-2">
-                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
-                            {v.type}
-                          </span>
-                          <span className="text-[11px] text-gray-400 font-medium tabular-nums tracking-tight">
-                            {v.start_date === v.end_date ? (
-                              "하루 종일"
-                            ) : (
-                              <>
-                                {v.start_date.slice(5).replace("-", ".")}~
-                                {v.end_date.slice(5).replace("-", ".")}
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="h-32 lg:h-full flex flex-col items-center justify-center text-center opacity-60">
-                    <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-3 border border-gray-100">
+                        달력
+                      </button>
+                      <button
+                        onClick={() => setCalendarViewMode("list")}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "list" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
+                      >
+                        리스트
+                      </button>
+                    </div>
+                  </div>
+                  <div className="order-2 sm:order-3 w-auto sm:w-1/3 flex justify-end">
+                    <button
+                      onClick={() => {
+                        const now = new Date();
+                        setDate(now);
+                        setActiveStartDate(now);
+                        updateSelectedVacations(now, allVacations);
+                      }}
+                      className="px-3 py-1.5 text-sm font-bold bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition border border-blue-100"
+                    >
+                      오늘
+                    </button>
+                  </div>
+                  <div className="order-3 sm:order-2 w-full sm:w-1/3 flex items-center justify-center gap-4 mt-2 sm:mt-0">
+                    <button
+                      onClick={() =>
+                        setActiveStartDate(subMonths(activeStartDate, 1))
+                      }
+                      className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
+                    >
                       <svg
-                        className="w-6 h-6 text-gray-300"
+                        className="w-5 h-5"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -896,20 +465,460 @@ export default function Home() {
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          strokeWidth={2.5}
+                          d="M15 19l-7-7 7-7"
                         />
                       </svg>
-                    </div>
-                    <p className="text-sm font-medium text-gray-400">
-                      휴가자가 없습니다
-                    </p>
+                    </button>
+                    <h2 className="text-xl font-bold text-gray-800 tracking-tight min-w-[110px] text-center">
+                      {format(activeStartDate, "yyyy년 M월")}
+                    </h2>
+                    <button
+                      onClick={() =>
+                        setActiveStartDate(addMonths(activeStartDate, 1))
+                      }
+                      className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
                   </div>
-                )}
+                </div>
+
+                {/* 달력 컴포넌트 */}
+                <div className="flex-1 overflow-hidden relative h-full min-h-[500px] flex flex-col">
+                  {calendarViewMode === "month" ? (
+                    <Calendar
+                      onChange={onDateChange}
+                      value={date}
+                      activeStartDate={activeStartDate}
+                      onActiveStartDateChange={({ activeStartDate }) =>
+                        activeStartDate && setActiveStartDate(activeStartDate)
+                      }
+                      calendarType="gregory"
+                      formatDay={(locale, date) => format(date, "d")}
+                      prevLabel={null}
+                      nextLabel={null}
+                      prev2Label={null}
+                      next2Label={null}
+                      tileClassName={({ date, view }) => {
+                        if (
+                          view === "month" &&
+                          HOLIDAYS[format(date, "yyyy-MM-dd")]
+                        )
+                          return "holiday-day";
+                      }}
+                      tileContent={({ date, view }) => {
+                        if (view === "month") {
+                          const dateStr = format(date, "yyyy-MM-dd");
+                          const holiday = HOLIDAYS[dateStr];
+                          const vacationsOnDay = holiday
+                            ? []
+                            : allVacations.filter(
+                                (v) =>
+                                  dateStr >= v.start_date &&
+                                  dateStr <= v.end_date,
+                              );
+                          const maxDisplay = 3;
+                          const displayVacations = vacationsOnDay.slice(
+                            0,
+                            maxDisplay,
+                          );
+                          const overflowCount =
+                            vacationsOnDay.length - maxDisplay;
+                          return (
+                            <div className="flex flex-col items-center w-full h-full pt-1 overflow-hidden">
+                              {holiday && (
+                                <div className="text-[10px] text-red-500 font-medium truncate px-1 w-full text-center mt-0.5">
+                                  {holiday}
+                                </div>
+                              )}
+                              <div className="w-full flex flex-col gap-0.5 mt-1 px-0.5">
+                                {displayVacations.map((v, i) => {
+                                  const style =
+                                    TEAM_STYLES[v.profiles.team_id] ||
+                                    DEFAULT_STYLE;
+                                  return (
+                                    <div
+                                      key={v.id + i}
+                                      className={`text-[9px] ${style.bg} ${style.text} border ${style.border} rounded px-1 py-0.5 truncate text-center font-medium`}
+                                    >
+                                      {v.profiles.full_name}
+                                    </div>
+                                  );
+                                })}
+                                {overflowCount > 0 && (
+                                  <div className="text-[9px] text-gray-400 text-center font-medium">
+                                    +{overflowCount}명
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="h-full overflow-y-auto divide-y divide-gray-100 custom-scrollbar pr-2">
+                      {(() => {
+                        const daysInMonth = eachDayOfInterval({
+                          start: startOfMonth(activeStartDate),
+                          end: endOfMonth(activeStartDate),
+                        });
+                        return daysInMonth.map((day) => {
+                          const dateStr = format(day, "yyyy-MM-dd");
+                          const dayNum = format(day, "d");
+                          const dayLabel = format(day, "EEE", { locale: ko });
+                          const isWeekend =
+                            day.getDay() === 0 || day.getDay() === 6;
+                          const holiday = HOLIDAYS[dateStr];
+                          const vacationsOnDay = allVacations.filter(
+                            (v) =>
+                              dateStr >= v.start_date && dateStr <= v.end_date,
+                          );
+                          return (
+                            <div
+                              key={dateStr}
+                              onClick={() => {
+                                setDate(day);
+                                updateSelectedVacations(day, allVacations);
+                              }}
+                              className={`py-3 px-3 flex items-start justify-between transition-colors cursor-pointer ${format(date, "yyyy-MM-dd") === dateStr ? "bg-blue-50" : "hover:bg-gray-50"} ${holiday ? "bg-red-50/30" : ""}`}
+                            >
+                              <div className="flex items-center gap-4 w-20 flex-shrink-0">
+                                <span
+                                  className={`text-lg font-bold ${isWeekend || holiday ? "text-red-500" : "text-gray-800"}`}
+                                >
+                                  {dayNum}
+                                </span>
+                                <span
+                                  className={`text-xs uppercase font-medium ${isWeekend || holiday ? "text-red-400" : "text-gray-400"}`}
+                                >
+                                  {dayLabel}
+                                </span>
+                              </div>
+                              <div className="flex-1 flex flex-wrap gap-2">
+                                {holiday && (
+                                  <div className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded-md inline-block">
+                                    🎉 {holiday}
+                                  </div>
+                                )}
+                                {vacationsOnDay.map((v) => {
+                                  const style =
+                                    TEAM_STYLES[v.profiles.team_id] ||
+                                    DEFAULT_STYLE;
+                                  return (
+                                    <div
+                                      key={v.id}
+                                      className={`px-2 py-1 rounded-md inline-flex items-center gap-1 text-xs font-bold border ${style.bg} ${style.text} ${style.border}`}
+                                    >
+                                      {v.profiles.full_name}{" "}
+                                      <span className="text-[10px] opacity-75">
+                                        | {v.type}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 사이드 패널 (상세 목록) */}
+              <div className="w-full lg:w-80 bg-white flex flex-col h-auto lg:h-full lg:border-l border-t lg:border-t-0 border-gray-200">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 h-[72px] shrink-0">
+                  <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                    {format(date, "M월 d일 (EEE)", { locale: ko })}
+                  </h4>
+                  <span className="text-xs font-medium text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
+                    총 {selectedVacations.length}명
+                  </span>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+                  {selectedVacations.length > 0 ? (
+                    <ul className="divide-y divide-gray-100">
+                      {selectedVacations.map((v) => (
+                        <li
+                          key={v.id}
+                          className="group flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs border border-gray-200">
+                              {v.profiles.full_name.slice(0, 1)}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-bold text-gray-900 truncate">
+                                  {v.profiles.full_name}
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  {v.profiles.position}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${TEAM_COLORS[v.profiles.team_id] || "bg-gray-400"}`}
+                                ></span>
+                                <span className="text-xs text-gray-500 truncate">
+                                  {v.profiles.teams?.name || "미배정"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0 pl-2">
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
+                              {v.type}
+                            </span>
+                            <span className="text-[11px] text-gray-400 font-medium tabular-nums tracking-tight">
+                              {v.start_date === v.end_date ? (
+                                "하루 종일"
+                              ) : (
+                                <>
+                                  {v.start_date.slice(5).replace("-", ".")}~
+                                  {v.end_date.slice(5).replace("-", ".")}
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="h-32 lg:h-full flex flex-col items-center justify-center text-center opacity-60">
+                      <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-3 border border-gray-100">
+                        <svg
+                          className="w-6 h-6 text-gray-300"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-medium text-gray-400">
+                        휴가자가 없습니다
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* B. 위젯 섹션 (Mobile: 1순위 / 2XL: 2순위-오른쪽) */}
+          <div className="order-1 2xl:order-2 w-full 2xl:w-[420px] shrink-0">
+            {/* Mobile/Laptop: 가로 배치, 2XL: 세로 배치 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-1 gap-6 h-auto">
+              {/* 1. 오늘의 시설 예약 위젯 */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
+                <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                    </span>
+                    오늘의 시설 예약
+                  </h3>
+                  <Link
+                    href="/reservation"
+                    className="text-sm text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    전체보기
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px] 2xl:max-h-[320px] min-h-[200px]">
+                  {todayFacilities.length > 0 ? (
+                    <ul className="space-y-3">
+                      {todayFacilities.map((res) => (
+                        <li
+                          key={res.id}
+                          className="group p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1 min-w-0 mr-3">
+                              <div className="font-bold text-gray-800 text-sm mb-0.5 truncate">
+                                {res.resources.name}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {res.profiles?.full_name} · {res.purpose}
+                              </div>
+                            </div>
+                            <div className="text-right whitespace-nowrap">
+                              <span className="block font-bold text-blue-600 text-sm">
+                                {format(new Date(res.start_at), "HH:mm")}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                ~{format(new Date(res.end_at), "HH:mm")}
+                              </span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 min-h-[150px]">
+                      <svg
+                        className="w-10 h-10 opacity-20"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <p className="text-sm">오늘 예약된 일정이 없습니다.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. 오늘의 차량 예약 위젯 */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
+                <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
+                        />
+                        <circle cx="9" cy="17" r="2" />
+                        <circle cx="19" cy="17" r="2" />
+                      </svg>
+                    </span>
+                    오늘의 차량 예약
+                  </h3>
+                  <Link
+                    href="/vehicle"
+                    className="text-sm text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    전체보기
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px] 2xl:max-h-[320px] min-h-[250px]">
+                  {todayVehicles.length > 0 ? (
+                    <ul className="space-y-3">
+                      {todayVehicles.map((res) => (
+                        <li
+                          key={res.id}
+                          className="group p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1 min-w-0 mr-3">
+                              <div className="font-bold text-gray-800 text-sm mb-0.5 truncate">
+                                {res.resources.name}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {res.profiles?.full_name} · {res.purpose}
+                              </div>
+                            </div>
+                            <div className="text-right whitespace-nowrap">
+                              <span className="block font-bold text-blue-600 text-sm">
+                                {format(new Date(res.start_at), "HH:mm")}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                ~{format(new Date(res.end_at), "HH:mm")}
+                              </span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 min-h-[150px]">
+                      <svg
+                        className="w-10 h-10 opacity-20"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                        />
+                      </svg>
+                      <p className="text-sm">오늘 예약된 차량이 없습니다.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
       )}
     </div>
   );
