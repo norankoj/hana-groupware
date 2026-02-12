@@ -17,13 +17,38 @@ import {
   addMinutes,
   addWeeks,
   isBefore,
+  areIntervalsOverlapping,
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import { showConfirm } from "@/utils/alert";
+import { HOLIDAYS } from "@/constants/holidays";
 
-// --- 타입 정의 ---
+const customCalendarStyles = `
+  .react-calendar__navigation {
+    display: flex !important;
+    height: 44px;
+    margin-bottom: 10px;
+  }
+  .react-calendar__navigation button {
+    min-width: 44px;
+    background: none;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .react-calendar__month-view__weekdays {
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+  .react-calendar__month-view__days__day {
+    padding: 10px;
+  }
+`;
+
 type Resource = {
   id: number;
   name: string;
@@ -40,7 +65,7 @@ type Reservation = {
   start_at: string;
   end_at: string;
   purpose: string;
-  status: string; // reserved, cancelled
+  status: string;
   profiles?: {
     full_name: string;
     position: string;
@@ -49,7 +74,7 @@ type Reservation = {
   group_id?: string;
 };
 
-// --- 설정: 07:00 ~ 23:00 ---
+// --- [설정] ---
 const START_HOUR = 7;
 const END_HOUR = 23;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
@@ -58,14 +83,10 @@ const TIME_SLOTS = Array.from(
   (_, i) => START_HOUR + i,
 );
 
-// PC용 가로 그리드 설정
-const HOUR_WIDTH_PC = 120;
-const TIMELINE_WIDTH_PC = TOTAL_HOURS * HOUR_WIDTH_PC;
+const HOUR_HEIGHT = 40;
+const HEADER_HEIGHT_PX = 45;
+const TOTAL_GRID_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT;
 
-// 모바일용 세로 그리드 설정
-const HOUR_HEIGHT_MOBILE = 80;
-
-// ★ 차량 탭 제거됨
 const TABS = [
   { id: "church", label: "교회 (예배실)" },
   { id: "edu1", label: "교육관 1" },
@@ -81,17 +102,15 @@ export default function FacilityReservationPage() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
-  // 모바일용 선택된 자원 ID
   const [mobileSelectedResId, setMobileSelectedResId] = useState<number | null>(
     null,
   );
 
-  // 달력 팝업
   const [showDatePicker, setShowDatePicker] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
+  const [showRecurringDatePicker, setShowRecurringDatePicker] = useState(false);
 
-  // 예약 모달
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedResId, setSelectedResId] = useState<number | null>(null);
   const [form, setForm] = useState({
@@ -102,16 +121,14 @@ export default function FacilityReservationPage() {
     recurringEndDate: format(addWeeks(new Date(), 4), "yyyy-MM-dd"),
   });
 
-  // 상세 모달
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] =
     useState<Reservation | null>(null);
 
-  // 구간 선택 상태 (Start Click)
   const [selectingStart, setSelectingStart] = useState<{
     resId: number;
     time: Date;
-    visualPos: number; // PC: left(px), Mobile: top(px)
+    visualPos: number;
   } | null>(null);
 
   const fetchData = async () => {
@@ -121,12 +138,11 @@ export default function FacilityReservationPage() {
     } = await supabase.auth.getUser();
     if (user) setCurrentUser(user.id);
 
-    // ★ 차량 카테고리 제외하고 불러오기 (선택사항, 탭으로 필터링되지만 DB단에서도 거르면 좋음)
     const { data: resData } = await supabase
       .from("resources")
       .select("*")
       .eq("is_active", true)
-      .neq("category", "vehicle") // 차량 제외
+      .neq("category", "vehicle")
       .order("id");
     if (resData) setResources(resData);
 
@@ -144,14 +160,12 @@ export default function FacilityReservationPage() {
 
     let loadedReservations: Reservation[] = rsvData ? (rsvData as any) : [];
 
-    // 고정 스케줄 로직 (기존 유지)
     const dayOfWeek = getDay(currentDate);
     const fixedSchedules: Reservation[] = [];
     const mainHall = resData?.find((r) => r.name.includes("본당"));
 
     if (mainHall) {
       if (dayOfWeek === 0) {
-        // 주일
         const start = new Date(currentDate);
         start.setHours(8, 0, 0);
         const end = new Date(currentDate);
@@ -168,7 +182,6 @@ export default function FacilityReservationPage() {
         });
       }
       if (dayOfWeek === 5) {
-        // 금요일
         const start = new Date(currentDate);
         start.setHours(19, 0, 0);
         const end = new Date(currentDate);
@@ -194,14 +207,29 @@ export default function FacilityReservationPage() {
     fetchData();
   }, [currentDate]);
 
-  // 탭 변경 시 모바일 선택 자원 초기화
   useEffect(() => {
     const firstRes = resources.find((r) => r.category === activeTab);
     if (firstRes) setMobileSelectedResId(firstRes.id);
     else setMobileSelectedResId(null);
   }, [activeTab, resources]);
 
-  // --- 예약 핸들러 ---
+  const checkOverlap = async (
+    resourceId: number,
+    start: Date,
+    end: Date,
+  ): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from("reservations")
+      .select("id")
+      .eq("resource_id", resourceId)
+      .neq("status", "cancelled")
+      .lt("start_at", end.toISOString())
+      .gt("end_at", start.toISOString());
+
+    if (error) return true;
+    return data && data.length > 0;
+  };
+
   const handleReserve = async () => {
     if (!selectedResId || !form.purpose)
       return toast.error("내용을 입력해주세요.");
@@ -216,7 +244,6 @@ export default function FacilityReservationPage() {
     const [eH, eM] = form.end_time.split(":").map(Number);
     baseEnd.setHours(eH, eM, 0);
 
-    // 예약 데이터 생성
     const reservationsToInsert = [];
     const groupId = form.isRecurring ? crypto.randomUUID() : null;
 
@@ -232,6 +259,17 @@ export default function FacilityReservationPage() {
       }
 
       while (iterStart <= limitDate) {
+        const isOverlapped = await checkOverlap(
+          selectedResId,
+          iterStart,
+          iterEnd,
+        );
+        if (isOverlapped) {
+          return toast.error(
+            `${format(iterStart, "M월 d일")}에 이미 예약이 있습니다.`,
+          );
+        }
+
         reservationsToInsert.push({
           resource_id: selectedResId,
           user_id: currentUser,
@@ -239,19 +277,26 @@ export default function FacilityReservationPage() {
           end_at: iterEnd.toISOString(),
           purpose: form.purpose,
           group_id: groupId,
-          // vehicle_status 제거됨
         });
         iterStart = addDays(iterStart, 7);
         iterEnd = addDays(iterEnd, 7);
       }
     } else {
+      const isOverlapped = await checkOverlap(
+        selectedResId,
+        baseStart,
+        baseEnd,
+      );
+      if (isOverlapped) {
+        return toast.error("해당 시간에 이미 예약이 있습니다.");
+      }
+
       reservationsToInsert.push({
         resource_id: selectedResId,
         user_id: currentUser,
         start_at: baseStart.toISOString(),
         end_at: baseEnd.toISOString(),
         purpose: form.purpose,
-        // vehicle_status 제거됨
       });
     }
 
@@ -274,14 +319,9 @@ export default function FacilityReservationPage() {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancelOne = async () => {
     if (!selectedReservation || selectedReservation.isFixed) return;
-
-    const confirmMsg = selectedReservation.group_id
-      ? "정기 예약 건입니다. 해당 날짜만 취소하시겠습니까?"
-      : "예약을 취소하시겠습니까?";
-
-    if (!(await showConfirm(confirmMsg))) return;
+    if (!(await showConfirm("이 예약만 취소하시겠습니까?"))) return;
 
     const { error } = await supabase
       .from("reservations")
@@ -296,27 +336,29 @@ export default function FacilityReservationPage() {
     }
   };
 
-  // 스타일 계산 (PC: Left/Width)
-  const getPCBarStyle = (startStr: string, endStr: string) => {
-    const start = new Date(startStr);
-    const end = new Date(endStr);
-    const gridStart = setHours(
-      setMinutes(new Date(currentDate), 0),
-      START_HOUR,
-    );
-    let startDiff = differenceInMinutes(start, gridStart);
-    let duration = differenceInMinutes(end, start);
-    if (startDiff < 0) {
-      duration += startDiff;
-      startDiff = 0;
+  const handleCancelAll = async () => {
+    if (!selectedReservation || !selectedReservation.group_id) return;
+    if (
+      !(await showConfirm(
+        "정기 예약 전체(과거 포함)를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
+      ))
+    )
+      return;
+
+    const { error } = await supabase
+      .from("reservations")
+      .update({ status: "cancelled" })
+      .eq("group_id", selectedReservation.group_id);
+
+    if (error) toast.error("전체 취소 실패");
+    else {
+      toast.success("전체 일정이 취소되었습니다.");
+      setDetailModalOpen(false);
+      fetchData();
     }
-    const left = (startDiff / 60) * HOUR_WIDTH_PC;
-    const width = (duration / 60) * HOUR_WIDTH_PC;
-    return { left: `${Math.max(0, left)}px`, width: `${width}px` };
   };
 
-  // 스타일 계산 (Mobile: Top/Height)
-  const getMobileBarStyle = (startStr: string, endStr: string) => {
+  const getVerticalBarStyle = (startStr: string, endStr: string) => {
     const start = new Date(startStr);
     const end = new Date(endStr);
     const gridStart = setHours(
@@ -329,9 +371,9 @@ export default function FacilityReservationPage() {
       duration += startDiff;
       startDiff = 0;
     }
-    const top = (startDiff / 60) * HOUR_HEIGHT_MOBILE;
-    const height = (duration / 60) * HOUR_HEIGHT_MOBILE;
-    return { top: `${Math.max(0, top)}px`, height: `${height}px` };
+    const top = (startDiff / 60) * HOUR_HEIGHT;
+    const height = (duration / 60) * HOUR_HEIGHT;
+    return { top: `${Math.max(0, top)}px`, height: `${Math.max(0, height)}px` };
   };
 
   const nowMinutes = (() => {
@@ -354,12 +396,7 @@ export default function FacilityReservationPage() {
     }
   };
 
-  const handleSlotClick = (
-    resId: number,
-    hour: number,
-    minute: number,
-    isMobile: boolean,
-  ) => {
+  const handleSlotClick = (resId: number, hour: number, minute: number) => {
     const clickedTime = new Date(currentDate);
     clickedTime.setHours(hour, minute, 0);
 
@@ -368,9 +405,8 @@ export default function FacilityReservationPage() {
         clickedTime,
         setHours(setMinutes(new Date(currentDate), 0), START_HOUR),
       );
-      const visualPos = isMobile
-        ? (diffMin / 60) * HOUR_HEIGHT_MOBILE
-        : (diffMin / 60) * HOUR_WIDTH_PC;
+      const visualPos = (diffMin / 60) * HOUR_HEIGHT;
+
       setSelectingStart({ resId, time: clickedTime, visualPos });
       toast("종료 시간을 선택해주세요.", { icon: "⏱️" });
       return;
@@ -398,8 +434,10 @@ export default function FacilityReservationPage() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col p-1 pb-10">
-      {/* DatePicker Popup */}
+    <div className="w-full flex flex-col p-1 pb-10">
+      <style>{customCalendarStyles}</style>
+
+      {/* DatePicker */}
       {showDatePicker && (
         <div
           className="fixed inset-0 z-[9998]"
@@ -418,14 +456,16 @@ export default function FacilityReservationPage() {
             }}
             value={currentDate}
             formatDay={(_, date) => format(date, "d")}
+            formatMonthYear={(locale, date) => format(date, "yyyy. MM")}
             calendarType="gregory"
             locale="ko-KR"
+            minDetail="year" // '년' 뷰까지 가서 월을 선택할 수 있게 설정
           />
         </div>
       )}
 
       {/* Header */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
             시설 예약
@@ -491,302 +531,206 @@ export default function FacilityReservationPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200 overflow-x-auto">
+      <div className="flex gap-1 mb-2 border-b border-gray-200 overflow-x-auto px-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`}
+            className={`px-5 py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 ${
+              activeTab === tab.id
+                ? "border-blue-600 text-blue-600 bg-blue-50/50"
+                : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            }`}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Mobile View */}
-      <div className="block md:hidden flex-1 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-gray-100 bg-gray-50">
-          <label className="block text-xs font-bold text-gray-500 mb-1.5">
-            예약할 장소 선택
-          </label>
-          <div className="relative">
-            <select
-              value={mobileSelectedResId || ""}
-              onChange={(e) => setMobileSelectedResId(Number(e.target.value))}
-              className="w-full appearance-none bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 pr-8 font-bold"
-            >
-              {filteredResources.map((res) => (
-                <option key={res.id} value={res.id}>
-                  {res.name}
-                </option>
-              ))}
-              {filteredResources.length === 0 && (
-                <option value="">등록된 자원 없음</option>
-              )}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-              <svg
-                className="fill-current h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-              >
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-              </svg>
-            </div>
-          </div>
-          {mobileSelectedResId && (
-            <p className="mt-2 text-xs text-gray-500 px-1 bg-gray-50 p-2 rounded border border-gray-100">
-              ℹ️{" "}
-              {
-                filteredResources.find((r) => r.id === mobileSelectedResId)
-                  ?.description
-              }
-            </p>
-          )}
-        </div>
-        <div className="flex-1 overflow-y-auto relative custom-scrollbar">
-          <div
-            className="relative"
-            style={{ height: TOTAL_HOURS * HOUR_HEIGHT_MOBILE }}
+      {/* Grid Container */}
+      <div
+        className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col relative overflow-auto custom-scrollbar pb-px"
+        style={{ height: "750px", maxHeight: "calc(100vh - 200px)" }}
+      >
+        {/* 모바일 자원 선택 */}
+        <div className="block md:hidden p-4 border-b border-gray-100 bg-gray-50 sticky top-0 z-20">
+          <select
+            value={mobileSelectedResId || ""}
+            onChange={(e) => setMobileSelectedResId(Number(e.target.value))}
+            className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 font-bold"
           >
-            {TIME_SLOTS.map((hour, i) => (
-              <div
-                key={hour}
-                className="absolute w-full border-b border-gray-100 flex"
-                style={{
-                  top: i * HOUR_HEIGHT_MOBILE,
-                  height: HOUR_HEIGHT_MOBILE,
-                }}
-              >
-                <div className="w-16 shrink-0 border-r border-gray-100 bg-gray-50 text-xs font-bold text-gray-500 flex items-start justify-center pt-2">
-                  {hour}:00
-                </div>
-                <div className="flex-1 flex flex-col relative">
-                  <div
-                    className="flex-1 border-b border-gray-50 border-dashed cursor-pointer hover:bg-blue-50/50"
-                    onClick={() =>
-                      mobileSelectedResId &&
-                      handleSlotClick(mobileSelectedResId, hour, 0, true)
-                    }
-                  ></div>
-                  <div
-                    className="flex-1 cursor-pointer hover:bg-blue-50/50"
-                    onClick={() =>
-                      mobileSelectedResId &&
-                      handleSlotClick(mobileSelectedResId, hour, 30, true)
-                    }
-                  ></div>
-                </div>
-              </div>
+            {filteredResources.map((res) => (
+              <option key={res.id} value={res.id}>
+                {res.name}
+              </option>
             ))}
-            {nowMinutes >= 0 && (
-              <div
-                className="absolute left-16 right-0 border-t-2 border-red-500 z-20 pointer-events-none flex items-center"
-                style={{ top: (nowMinutes / 60) * HOUR_HEIGHT_MOBILE }}
-              >
-                <div className="w-2 h-2 bg-red-500 rounded-full -ml-1"></div>
-              </div>
+            {filteredResources.length === 0 && (
+              <option value="">등록된 자원 없음</option>
             )}
-            {selectingStart && selectingStart.resId === mobileSelectedResId && (
-              <div
-                className="absolute left-16 right-0 bg-blue-400/30 border-y-2 border-blue-500 animate-pulse z-10 pointer-events-none flex items-center justify-center"
-                style={{
-                  top: selectingStart.visualPos,
-                  height: HOUR_HEIGHT_MOBILE / 2,
-                }}
-              >
-                <span className="text-xs font-bold text-blue-700 bg-white/80 px-2 rounded-full shadow-sm">
-                  시작
-                </span>
-              </div>
-            )}
-            {mobileSelectedResId &&
-              reservations
-                .filter((r) => r.resource_id === mobileSelectedResId)
-                .map((r) => {
-                  const style = getMobileBarStyle(r.start_at, r.end_at);
-                  const isMyRes = r.user_id === currentUser;
-                  const resColor =
-                    resources.find((res) => res.id === mobileSelectedResId)
-                      ?.color || "#3B82F6";
-                  return (
-                    <div
-                      key={r.id}
-                      className={`absolute left-16 right-2 rounded-md shadow-sm px-2 text-white text-xs z-20 flex flex-col justify-center border border-white/20 ${isMyRes ? "brightness-110 ring-1 ring-white" : "opacity-90"}`}
-                      style={{
-                        top: style.top,
-                        height: style.height,
-                        backgroundColor: r.isFixed ? "#f3f4f6" : resColor,
-                        color: r.isFixed ? "#9ca3af" : "white",
-                        cursor: r.isFixed ? "default" : "pointer",
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!r.isFixed) {
-                          setSelectedReservation(r);
-                          setDetailModalOpen(true);
-                        }
-                      }}
-                    >
-                      <div className="font-bold truncate">
-                        {r.profiles?.full_name}
-                      </div>
-                      <div className="truncate opacity-90 text-[10px]">
-                        {r.purpose}
-                      </div>
-                    </div>
-                  );
-                })}
-          </div>
+          </select>
         </div>
-      </div>
 
-      {/* PC View */}
-      <div className="hidden md:flex flex-1 border border-gray-200 rounded-xl shadow-sm bg-white overflow-hidden flex-col relative select-none">
-        <div className="flex-1 overflow-x-auto custom-scrollbar">
-          <div
-            className="min-w-[120px] flex flex-col h-full"
-            style={{ width: 120 + TIMELINE_WIDTH_PC }}
-          >
-            <div className="flex border-b border-gray-200 bg-gray-50 h-10 shrink-0 sticky top-0 z-30">
-              <div className="w-[120px] shrink-0 p-2 text-xs font-bold text-gray-500 text-center border-r border-gray-200 bg-gray-50 sticky left-0 z-40 flex items-center justify-center">
-                자원명
-              </div>
-              <div className="flex" style={{ width: TIMELINE_WIDTH_PC }}>
-                {TIME_SLOTS.map((hour) => (
-                  <div
-                    key={hour}
-                    className="flex-1 text-[10px] text-gray-500 font-medium text-center border-l border-gray-200 py-2 first:border-l-0"
-                  >
-                    {hour}시
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="relative flex-1 bg-white">
-              <div className="absolute inset-0 flex pl-[120px] pointer-events-none h-full z-0">
-                {TIME_SLOTS.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 border-l ${i === 0 ? "border-transparent" : "border-gray-200"} h-full flex`}
-                  >
-                    <div className="w-1/2 border-r border-gray-50 h-full"></div>
-                  </div>
-                ))}
-              </div>
-              {nowMinutes >= 0 && (
+        {/* 스케줄러 영역 */}
+        <div className="flex relative min-w-full">
+          <div className="sticky left-0 z-30 bg-white border-r border-gray-200 w-16 shrink-0 flex flex-col shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+            <div
+              className="border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-40"
+              style={{ height: HEADER_HEIGHT_PX }}
+            ></div>
+
+            <div
+              className="relative border-b border-gray-200"
+              style={{ height: TOTAL_GRID_HEIGHT }}
+            >
+              {TIME_SLOTS.map((hour, i) => (
                 <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20 pointer-events-none"
+                  key={hour}
+                  className="absolute w-full flex items-start justify-center pr-1"
                   style={{
-                    left: `calc(120px + ${(nowMinutes / 60) * HOUR_WIDTH_PC}px)`,
+                    top: i * HOUR_HEIGHT,
+                    height: HOUR_HEIGHT,
                   }}
                 >
-                  <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm"></div>
-                </div>
-              )}
-              {filteredResources.length === 0 ? (
-                <div className="py-20 text-center text-gray-400 sticky left-0 w-screen">
-                  등록된 자원이 없습니다.
-                </div>
-              ) : (
-                filteredResources.map((res) => (
-                  <div
-                    key={res.id}
-                    className="flex h-20 border-b border-gray-100 hover:bg-gray-50/20 transition relative group z-10"
+                  <span
+                    className={`text-xs font-bold text-gray-400 bg-white px-1 relative z-10 ${
+                      i === 0 ? "top-0" : "-top-3"
+                    }`}
                   >
-                    <div className="w-[120px] shrink-0 border-r border-gray-200 bg-white group-hover:bg-gray-50 flex flex-col items-center justify-center p-2 sticky left-0 z-30">
-                      <span className="text-sm font-bold text-gray-900 break-keep text-center">
-                        {res.name}
-                      </span>
-                      <span className="text-[10px] text-gray-500 text-center mt-1 leading-tight break-keep px-1 bg-gray-50 rounded border border-gray-100 w-full py-0.5">
-                        {res.description}
-                      </span>
-                    </div>
-                    <div
-                      className="relative h-full flex"
-                      style={{ width: TIMELINE_WIDTH_PC }}
-                    >
-                      {selectingStart && selectingStart.resId === res.id && (
-                        <div
-                          className="absolute top-1 bottom-1 bg-blue-400/30 border-2 border-blue-500 animate-pulse rounded z-10 pointer-events-none"
-                          style={{
-                            left: `${selectingStart.visualPos}px`,
-                            width: `${HOUR_WIDTH_PC / 2}px`,
-                          }}
-                        >
-                          <span className="text-[10px] font-bold text-blue-700 bg-white/80 px-1 rounded absolute top-1 left-1">
-                            시작
-                          </span>
-                        </div>
-                      )}
-                      {TIME_SLOTS.map((hour) => (
-                        <div key={hour} className="flex-1 flex h-full">
-                          <div
-                            className="w-1/2 h-full cursor-pointer hover:bg-blue-500/5 active:bg-blue-500/10 transition-colors"
-                            onClick={() =>
-                              handleSlotClick(res.id, hour, 0, false)
-                            }
-                          ></div>
-                          <div
-                            className="w-1/2 h-full cursor-pointer hover:bg-blue-500/5 active:bg-blue-500/10 transition-colors"
-                            onClick={() =>
-                              handleSlotClick(res.id, hour, 30, false)
-                            }
-                          ></div>
-                        </div>
-                      ))}
-                      {reservations
-                        .filter((r) => r.resource_id === res.id)
-                        .map((r) => {
-                          const style = getPCBarStyle(r.start_at, r.end_at);
-                          const isMyRes = r.user_id === currentUser;
-                          return (
-                            <div
-                              key={r.id}
-                              className={`absolute top-2 bottom-2 rounded shadow-sm flex items-center px-2 text-xs font-medium z-20 hover:scale-[1.01] transition border border-white/20 overflow-hidden pointer-events-auto ${isMyRes ? "brightness-110 ring-1 ring-white" : "opacity-90"}`}
-                              style={{
-                                left: style.left,
-                                width: style.width,
-                                backgroundColor: r.isFixed
-                                  ? "#f3f4f6"
-                                  : res.color,
-                                color: r.isFixed ? "#9ca3af" : "white",
-                                cursor: r.isFixed ? "not-allowed" : "pointer",
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!r.isFixed) {
-                                  setSelectedReservation(r);
-                                  setDetailModalOpen(true);
-                                }
-                              }}
-                            >
-                              <span className="font-bold truncate mr-1">
-                                {r.profiles?.full_name}
-                              </span>
-                              {!r.isFixed && (
-                                <span className="truncate opacity-80 text-[10px] hidden lg:inline">
-                                  - {r.purpose}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                ))
-              )}
+                    {hour}
+                  </span>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* 2. 자원 컬럼들 */}
+          <div className="flex flex-1 min-w-0">
+            {(filteredResources.length > 0 ? filteredResources : [])
+              .filter((r) => {
+                if (typeof window !== "undefined" && window.innerWidth < 768)
+                  return r.id === mobileSelectedResId;
+                return true;
+              })
+              .map((res) => (
+                <div
+                  key={res.id}
+                  className="flex-1 min-w-[160px] border-r border-gray-200 relative flex flex-col"
+                >
+                  {/* 자원 헤더 (Sticky Top) z-30 */}
+                  <div
+                    className="sticky top-0 z-30 bg-gray-50 border-b border-gray-200 p-1 text-center flex items-center justify-center shrink-0 shadow-sm"
+                    style={{ height: HEADER_HEIGHT_PX }}
+                  >
+                    <span className="text-sm font-bold text-gray-900 truncate">
+                      {res.name}
+                    </span>
+                  </div>
+
+                  {/* 시간 그리드 */}
+                  <div
+                    className="relative border-b border-gray-200"
+                    style={{ height: TOTAL_GRID_HEIGHT }}
+                  >
+                    {TIME_SLOTS.map((hour, i) => (
+                      <div
+                        key={hour}
+                        className="absolute w-full border-b border-gray-100 flex flex-col"
+                        style={{
+                          top: i * HOUR_HEIGHT,
+                          height: HOUR_HEIGHT,
+                        }}
+                      >
+                        <div
+                          className="flex-1 border-b border-gray-50 border-dashed cursor-pointer hover:bg-blue-50/50 transition-colors"
+                          onClick={() => handleSlotClick(res.id, hour, 0)}
+                        ></div>
+                        <div
+                          className="flex-1 cursor-pointer hover:bg-blue-50/50 transition-colors"
+                          onClick={() => handleSlotClick(res.id, hour, 30)}
+                        ></div>
+                      </div>
+                    ))}
+
+                    {selectingStart && selectingStart.resId === res.id && (
+                      <div
+                        className="absolute left-1 right-1 bg-blue-400/30 border-2 border-blue-500 rounded animate-pulse z-10 pointer-events-none flex items-center justify-center"
+                        style={{
+                          top: selectingStart.visualPos,
+                          height: HOUR_HEIGHT / 2,
+                        }}
+                      >
+                        <span className="text-[10px] font-bold text-blue-700 bg-white/80 px-1 rounded">
+                          시작
+                        </span>
+                      </div>
+                    )}
+
+                    {reservations
+                      .filter((r) => r.resource_id === res.id)
+                      .map((r) => {
+                        const style = getVerticalBarStyle(r.start_at, r.end_at);
+                        const isMyRes = r.user_id === currentUser;
+                        return (
+                          <div
+                            key={r.id}
+                            className={`absolute left-1 right-1 rounded-md shadow-sm px-2 py-1 text-white text-xs z-10 flex flex-col justify-center border border-white/20 overflow-hidden hover:scale-[1.02] transition-transform ${isMyRes ? "brightness-110 ring-1 ring-white" : "opacity-90"}`}
+                            style={{
+                              top: style.top,
+                              height: style.height,
+                              backgroundColor: r.isFixed
+                                ? "#f3f4f6"
+                                : res.color,
+                              color: r.isFixed ? "#9ca3af" : "white",
+                              cursor: r.isFixed ? "default" : "pointer",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!r.isFixed) {
+                                setSelectedReservation(r);
+                                setDetailModalOpen(true);
+                              }
+                            }}
+                          >
+                            <div className="font-bold truncate">
+                              {r.profiles?.full_name}
+                            </div>
+                            {!r.isFixed && (
+                              <div className="truncate opacity-90 text-[10px] whitespace-pre-wrap leading-tight">
+                                {r.purpose}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                    {nowMinutes >= 0 && (
+                      <div
+                        className="absolute left-0 right-0 border-t-2 border-red-500 z-20 pointer-events-none flex items-center"
+                        style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}
+                      >
+                        <div className="w-2 h-2 bg-red-500 rounded-full -ml-1"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+            {filteredResources.length === 0 && (
+              <div className="flex-1 flex items-center justify-center text-gray-400 bg-gray-50 h-[300px]">
+                등록된 자원이 없습니다.
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 예약하기 모달 (정기 예약 포함) */}
+      {/* 예약하기 모달 */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setSelectingStart(null);
+          setShowRecurringDatePicker(false);
         }}
         title="시설 예약"
         footer={
@@ -801,6 +745,7 @@ export default function FacilityReservationPage() {
               onClick={() => {
                 setIsModalOpen(false);
                 setSelectingStart(null);
+                setShowRecurringDatePicker(false);
               }}
               className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
             >
@@ -856,18 +801,61 @@ export default function FacilityReservationPage() {
             </label>
           </div>
           {form.isRecurring && (
-            <div className="animate-fadeIn">
+            <div className="animate-fadeIn relative">
               <label className="block text-xs font-bold text-gray-500 mb-1">
                 반복 종료일 (최대 6개월)
               </label>
-              <input
-                type="date"
-                value={form.recurringEndDate}
-                onChange={(e) =>
-                  setForm({ ...form, recurringEndDate: e.target.value })
+              <div
+                onClick={() =>
+                  setShowRecurringDatePicker(!showRecurringDatePicker)
                 }
-                className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
-              />
+                className="cursor-pointer"
+              >
+                <input
+                  type="date"
+                  value={form.recurringEndDate}
+                  readOnly
+                  className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white cursor-pointer pointer-events-none"
+                />
+              </div>
+              {showRecurringDatePicker && (
+                <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-full max-w-[350px]">
+                  <Calendar
+                    onChange={(val) => {
+                      setForm({
+                        ...form,
+                        recurringEndDate: format(val as Date, "yyyy-MM-dd"),
+                      });
+                      setShowRecurringDatePicker(false);
+                    }}
+                    value={new Date(form.recurringEndDate)}
+                    formatDay={(_, date) => format(date, "d")}
+                    calendarType="gregory"
+                    locale="ko-KR"
+                    minDate={new Date()}
+                    maxDate={addWeeks(new Date(), 26)}
+                    tileClassName={({ date, view }) => {
+                      if (view !== "month") return null;
+                      const dateStr = format(date, "yyyy-MM-dd");
+                      if (HOLIDAYS[dateStr]) {
+                        return "holiday-day";
+                      }
+                    }}
+                    tileDisabled={({ date, view }) => {
+                      if (view !== "month") return false;
+                      const dateStr = format(date, "yyyy-MM-dd");
+                      return !!HOLIDAYS[dateStr];
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRecurringDatePicker(false)}
+                    className="w-full mt-2 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600 font-bold"
+                  >
+                    닫기
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -880,7 +868,7 @@ export default function FacilityReservationPage() {
         </div>
       </Modal>
 
-      {/* 상세 모달 (차량 관리 제거됨) */}
+      {/* 상세 모달 */}
       <Modal
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
@@ -934,18 +922,37 @@ export default function FacilityReservationPage() {
               </div>
             </div>
 
-            <div className="flex gap-2 mt-6 border-t border-gray-100 pt-4">
+            <div className="mt-6 border-t border-gray-100 pt-4 space-y-2">
               {selectedReservation.user_id === currentUser && (
-                <button
-                  onClick={handleCancel}
-                  className="flex-1 bg-red-50 text-red-600 py-3 rounded-lg font-bold hover:bg-red-100"
-                >
-                  예약 취소
-                </button>
+                <>
+                  {selectedReservation.group_id ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleCancelOne}
+                        className="flex-1 bg-red-50 text-red-600 py-3 rounded-lg font-bold hover:bg-red-100 transition text-sm"
+                      >
+                        이 예약만 취소
+                      </button>
+                      <button
+                        onClick={handleCancelAll}
+                        className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition text-sm"
+                      >
+                        전체 일정 취소
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleCancelOne}
+                      className="w-full bg-red-50 text-red-600 py-3 rounded-lg font-bold hover:bg-red-100 transition"
+                    >
+                      예약 취소
+                    </button>
+                  )}
+                </>
               )}
               <button
                 onClick={() => setDetailModalOpen(false)}
-                className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200"
+                className="w-full bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
               >
                 닫기
               </button>
