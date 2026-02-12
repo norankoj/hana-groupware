@@ -19,7 +19,6 @@ import { ko } from "date-fns/locale";
 
 import { HOLIDAYS } from "@/constants/holidays";
 
-// --- [스타일 추가] ---
 const calendarCustomStyles = `
   .react-calendar { width: 100%; height: 100%; border: none; font-family: inherit; display: flex; flex-direction: column; }
   .react-calendar__viewContainer { flex: 1; display: flex; flex-direction: column; }
@@ -29,7 +28,6 @@ const calendarCustomStyles = `
   @media (max-width: 640px) { .react-calendar__tile { min-height: 80px; } }
 `;
 
-// 타입 정의 (기존 유지 + FacilityReservation 추가)
 type Profile = {
   id: string;
   full_name: string;
@@ -60,8 +58,7 @@ type TeamInfo = {
   name: string;
 };
 
-// 시설 예약 타입
-type FacilityReservation = {
+type TodayReservation = {
   id: number;
   start_at: string;
   end_at: string;
@@ -114,7 +111,6 @@ export default function Home() {
   const [myPendingCount, setMyPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // 달력 관련 상태
   const [allVacations, setAllVacations] = useState<VacationInfo[]>([]);
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [date, setDate] = useState<Date>(new Date());
@@ -126,9 +122,11 @@ export default function Home() {
     [],
   );
   const [parkingText, setParkingText] = useState("");
-  const [todayFacilities, setTodayFacilities] = useState<FacilityReservation[]>(
+
+  const [todayFacilities, setTodayFacilities] = useState<TodayReservation[]>(
     [],
   );
+  const [todayVehicles, setTodayVehicles] = useState<TodayReservation[]>([]);
 
   useEffect(() => {
     const today = new Date();
@@ -159,7 +157,6 @@ export default function Home() {
         setProfile(profileData as any);
         const myRole = profileData.role;
 
-        // 결재 대기 카운트
         if (
           myRole === "admin" ||
           myRole === "director" ||
@@ -179,7 +176,6 @@ export default function Home() {
         setMyPendingCount(myCount || 0);
 
         if (ALLOWED_ROLES.includes(myRole)) {
-          // 휴가 데이터 로드
           const { data: vacData } = await supabase
             .from("vacation_requests")
             .select(
@@ -199,13 +195,12 @@ export default function Home() {
           }
           if (teamData) setTeams(teamData);
 
-          // 오늘의 시설 예약 로드
           const todayStart = new Date();
           todayStart.setHours(0, 0, 0, 0);
           const todayEnd = new Date();
           todayEnd.setHours(23, 59, 59, 999);
 
-          const { data: facilityData } = await supabase
+          const { data: reservationData } = await supabase
             .from("reservations")
             .select(
               `id, start_at, end_at, purpose, resources(name, category), profiles:user_id(full_name)`,
@@ -213,14 +208,18 @@ export default function Home() {
             .neq("status", "cancelled")
             .gte("start_at", todayStart.toISOString())
             .lte("start_at", todayEnd.toISOString())
-            .neq("resources.category", "vehicle") // 차량 제외 (시설만)
             .order("start_at");
 
-          // 자원 정보가 없는(조인 실패 등) 데이터 필터링
-          const validFacilities = (facilityData || []).filter(
-            (f) => f.resources,
-          );
-          setTodayFacilities(validFacilities as any);
+          if (reservationData) {
+            const facilities = reservationData.filter(
+              (r) => r.resources?.category !== "vehicle" && r.resources,
+            );
+            const vehicles = reservationData.filter(
+              (r) => r.resources?.category === "vehicle" && r.resources,
+            );
+            setTodayFacilities(facilities as any);
+            setTodayVehicles(vehicles as any);
+          }
         }
       }
       setLoading(false);
@@ -256,14 +255,12 @@ export default function Home() {
     );
 
   const canViewCalendar = profile && ALLOWED_ROLES.includes(profile.role);
-  const canViewVehicle = profile && ALLOWED_ROLES.includes(profile.role);
-  const canViewVacation = profile && ALLOWED_ROLES.includes(profile.role);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <style>{calendarCustomStyles}</style>
 
-      {/* --- [상단 섹션] 배너 + 알림 카드 --- */}
+      {/* --- [섹션 1] 배너 + 알림 --- */}
       <section className="flex flex-col xl:flex-row gap-6">
         {/* 1. 웰컴 배너 */}
         <div className="flex-1 bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-8 text-white shadow-md relative overflow-hidden min-h-[160px] flex flex-col justify-center">
@@ -289,17 +286,17 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 2. 알림 카드 섹션 (결재 대기) */}
+        {/* 2. 알림 카드 섹션 */}
         <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">
           {profile?.is_approver && (
             <Link
               href="/vacation?tab=approve"
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-64 flex flex-col justify-between"
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-64 flex flex-col justify-between min-h-[160px]"
             >
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-1">
-                    결재 대기 문서
+                    결재 대기
                   </p>
                   <h3 className="text-3xl font-extrabold text-gray-900">
                     {pendingCount}{" "}
@@ -335,15 +332,16 @@ export default function Home() {
             </Link>
           )}
 
-          {canViewVacation && (
+          {/* 내 결재 진행 */}
+          {canViewCalendar && (
             <Link
               href="/vacation"
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-72 xl:w-64 flex flex-col justify-between h-full"
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-64 flex flex-col justify-between min-h-[160px]"
             >
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-1">
-                    내 진행중인 결재
+                    내 결재 진행
                   </p>
                   <h3 className="text-3xl font-extrabold text-gray-900">
                     {myPendingCount}{" "}
@@ -375,85 +373,195 @@ export default function Home() {
           )}
         </div>
       </section>
-      <section className="flex flex-col xl:flex-row gap-6">
-        {canViewCalendar && (
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full sm:w-80 xl:w-96 flex flex-col">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span>
+
+      {/* --- [섹션 2] 오늘의 일정 (시설 & 차량) --- */}
+      {canViewCalendar && (
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 1. 오늘의 시설 예약 위젯 */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full min-h-[220px]">
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
+                </span>
                 오늘의 시설 예약
               </h3>
               <Link
                 href="/reservation"
-                className="text-xs text-gray-400 hover:text-blue-600 font-medium"
+                className="text-sm text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
               >
-                전체보기 &rarr;
+                전체보기
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
               </Link>
             </div>
+
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[140px]">
               {todayFacilities.length > 0 ? (
                 <ul className="space-y-2">
                   {todayFacilities.map((res) => (
                     <li
                       key={res.id}
-                      className="text-sm bg-gray-50 p-2.5 rounded-lg border border-gray-100 flex items-center justify-between group hover:bg-blue-50/50 transition"
+                      className="group p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default"
                     >
-                      <div className="flex flex-col">
-                        <span className="font-bold text-gray-800">
-                          {res.resources.name}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {res.profiles?.full_name} · {res.purpose}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="block font-bold text-blue-600 text-xs">
-                          {format(new Date(res.start_at), "HH:mm")}
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          ~{format(new Date(res.end_at), "HH:mm")}
-                        </span>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0 mr-3">
+                          <div className="font-bold text-gray-800 text-sm mb-0.5 truncate">
+                            {res.resources.name}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {res.profiles?.full_name} · {res.purpose}
+                          </div>
+                        </div>
+                        <div className="text-right whitespace-nowrap">
+                          <span className="block font-bold text-blue-600 text-sm">
+                            {format(new Date(res.start_at), "HH:mm")}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            ~{format(new Date(res.end_at), "HH:mm")}
+                          </span>
+                        </div>
                       </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm">
-                  <p>오늘 예약된 일정이 없습니다.</p>
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 min-h-[100px]">
+                  <svg
+                    className="w-10 h-10 opacity-20"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <p className="text-sm">오늘 예약된 일정이 없습니다.</p>
                 </div>
               )}
             </div>
           </div>
-        )}
-        {canViewVehicle && (
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full sm:w-80 xl:w-96 flex flex-col">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <span className="w-1.5 h-4 bg-green-500 rounded-full"></span>
+
+          {/* 2. 오늘의 차량 예약 위젯 (파란색 테마 적용) */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full min-h-[220px]">
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10l2-3h10l2 3h4v6h-2v-1a2 2 0 1 0-4 0v1H9v-1a2 2 0 1 0-4 0v1H3v-6zm4 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm10 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"
+                    />
+                  </svg>
+                </span>
                 오늘의 차량 예약
               </h3>
               <Link
                 href="/vehicle"
-                className="text-xs text-gray-400 hover:text-green-600 font-medium"
+                className="text-sm text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
               >
-                전체보기 &rarr;
+                전체보기
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
               </Link>
             </div>
-          </div>
-        )}
-        <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">
-          {canViewVehicle && (
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full  sm:w-72 xl:w-64 flex flex-col">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                  <span className="w-1.5 h-4 bg-green-500 rounded-full"></span>
-                  미정
-                </h3>
-              </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[140px]">
+              {todayVehicles.length > 0 ? (
+                <ul className="space-y-2">
+                  {todayVehicles.map((res) => (
+                    <li
+                      key={res.id}
+                      className="group p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0 mr-3">
+                          <div className="font-bold text-gray-800 text-sm mb-0.5 truncate">
+                            {res.resources.name}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {res.profiles?.full_name} · {res.purpose}
+                          </div>
+                        </div>
+                        <div className="text-right whitespace-nowrap">
+                          <span className="block font-bold text-blue-600 text-sm">
+                            {format(new Date(res.start_at), "HH:mm")}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            ~{format(new Date(res.end_at), "HH:mm")}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 min-h-[100px]">
+                  <svg
+                    className="w-10 h-10 opacity-20"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                    />
+                  </svg>
+                  <p className="text-sm">오늘 예약된 차량이 없습니다.</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       {/* --- [하단 섹션] 전체 휴가 달력 --- */}
       {/* ... (기존 달력 코드 유지) ... */}
