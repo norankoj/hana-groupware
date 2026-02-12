@@ -19,57 +19,17 @@ import { ko } from "date-fns/locale";
 
 import { HOLIDAYS } from "@/constants/holidays";
 
-// --- [스타일 추가] 달력 칸 늘리기 & 모바일 최적화 ---
+// --- [스타일 추가] ---
 const calendarCustomStyles = `
-  /* 캘린더 전체 높이 사용 */
-  .react-calendar { 
-    width: 100%;
-    height: 100%;
-    border: none;
-    font-family: inherit;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  /* 뷰 컨테이너가 남은 공간을 다 차지하도록 설정 */
-  .react-calendar__viewContainer {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* 월간 뷰가 남은 공간을 다 차지하도록 설정 */
-  .react-calendar__month-view {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* 요일/날짜 영역이 남은 공간을 다 차지하도록 설정 */
-  .react-calendar__month-view__days {
-    flex: 1 !important;
-    height: 100%;
-  }
-
-  /* 개별 날짜 타일이 공간을 균등하게 나눠가짐 (핵심!) */
-  .react-calendar__tile {
-    flex: 1 0 auto !important; /* 위아래로 늘어남 */
-    height: auto !important;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    padding: 0.5rem 0.25rem !important;
-  }
-
-  /* 모바일에서 글씨 크기 조절 */
-  @media (max-width: 640px) {
-    .react-calendar__tile {
-      min-height: 80px; /* 모바일 최소 높이 보장 */
-    }
-  }
+  .react-calendar { width: 100%; height: 100%; border: none; font-family: inherit; display: flex; flex-direction: column; }
+  .react-calendar__viewContainer { flex: 1; display: flex; flex-direction: column; }
+  .react-calendar__month-view { flex: 1; display: flex; flex-direction: column; }
+  .react-calendar__month-view__days { flex: 1 !important; height: 100%; }
+  .react-calendar__tile { flex: 1 0 auto !important; height: auto !important; display: flex; flex-direction: column; justify-content: flex-start; padding: 0.5rem 0.25rem !important; }
+  @media (max-width: 640px) { .react-calendar__tile { min-height: 80px; } }
 `;
 
-// 타입 정의
+// 타입 정의 (기존 유지 + FacilityReservation 추가)
 type Profile = {
   id: string;
   full_name: string;
@@ -100,9 +60,18 @@ type TeamInfo = {
   name: string;
 };
 
+// 시설 예약 타입
+type FacilityReservation = {
+  id: number;
+  start_at: string;
+  end_at: string;
+  purpose: string;
+  resources: { name: string; category: string };
+  profiles: { full_name: string };
+};
+
 const ALLOWED_ROLES = ["admin", "director", "staff"];
 
-// 팀별 색상 설정
 const TEAM_STYLES: Record<
   number,
   { bg: string; text: string; border: string }
@@ -125,9 +94,9 @@ const TEAM_STYLES: Record<
 };
 
 const TEAM_COLORS: Record<number, string> = {
-  4: "bg-purple-500", // 사역팀
-  5: "bg-emerald-500", // 미디어팀
-  6: "bg-yellow-400", // 행정팀
+  4: "bg-purple-500",
+  5: "bg-emerald-500",
+  6: "bg-yellow-400",
 };
 
 const DEFAULT_STYLE = {
@@ -148,17 +117,18 @@ export default function Home() {
   // 달력 관련 상태
   const [allVacations, setAllVacations] = useState<VacationInfo[]>([]);
   const [teams, setTeams] = useState<TeamInfo[]>([]);
-
   const [date, setDate] = useState<Date>(new Date());
   const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
   const [calendarViewMode, setCalendarViewMode] = useState<"month" | "list">(
     "month",
   );
-
   const [selectedVacations, setSelectedVacations] = useState<VacationInfo[]>(
     [],
   );
   const [parkingText, setParkingText] = useState("");
+  const [todayFacilities, setTodayFacilities] = useState<FacilityReservation[]>(
+    [],
+  );
 
   useEffect(() => {
     const today = new Date();
@@ -189,6 +159,7 @@ export default function Home() {
         setProfile(profileData as any);
         const myRole = profileData.role;
 
+        // 결재 대기 카운트
         if (
           myRole === "admin" ||
           myRole === "director" ||
@@ -208,13 +179,11 @@ export default function Home() {
         setMyPendingCount(myCount || 0);
 
         if (ALLOWED_ROLES.includes(myRole)) {
+          // 휴가 데이터 로드
           const { data: vacData } = await supabase
             .from("vacation_requests")
             .select(
-              `
-              id, start_date, end_date, type,
-              profiles:user_id ( full_name, position, team_id, teams:team_id(name) )
-            `,
+              `id, start_date, end_date, type, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
             )
             .eq("status", "approved")
             .order("start_date");
@@ -229,6 +198,29 @@ export default function Home() {
             updateSelectedVacations(new Date(), vacData as any);
           }
           if (teamData) setTeams(teamData);
+
+          // 오늘의 시설 예약 로드
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+
+          const { data: facilityData } = await supabase
+            .from("reservations")
+            .select(
+              `id, start_at, end_at, purpose, resources(name, category), profiles:user_id(full_name)`,
+            )
+            .neq("status", "cancelled")
+            .gte("start_at", todayStart.toISOString())
+            .lte("start_at", todayEnd.toISOString())
+            .neq("resources.category", "vehicle") // 차량 제외 (시설만)
+            .order("start_at");
+
+          // 자원 정보가 없는(조인 실패 등) 데이터 필터링
+          const validFacilities = (facilityData || []).filter(
+            (f) => f.resources,
+          );
+          setTodayFacilities(validFacilities as any);
         }
       }
       setLoading(false);
@@ -246,7 +238,6 @@ export default function Home() {
     vacations: VacationInfo[],
   ) => {
     const dateStr = format(targetDate, "yyyy-MM-dd");
-
     if (HOLIDAYS[dateStr]) {
       setSelectedVacations([]);
       return;
@@ -265,15 +256,16 @@ export default function Home() {
     );
 
   const canViewCalendar = profile && ALLOWED_ROLES.includes(profile.role);
+  const canViewVehicle = profile && ALLOWED_ROLES.includes(profile.role);
+  const canViewVacation = profile && ALLOWED_ROLES.includes(profile.role);
 
   return (
-    <div className="space-y-8">
-      {/* 스타일 주입 (달력 칸 늘리기용) */}
+    <div className="space-y-6">
       <style>{calendarCustomStyles}</style>
 
       {/* --- [상단 섹션] 배너 + 알림 카드 --- */}
       <section className="flex flex-col xl:flex-row gap-6">
-        {/* 1. 웰컴 메시지 배너 */}
+        {/* 1. 웰컴 배너 */}
         <div className="flex-1 bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-8 text-white shadow-md relative overflow-hidden min-h-[160px] flex flex-col justify-center">
           <div className="relative z-10">
             <h2 className="text-3xl font-bold mb-2">
@@ -297,12 +289,12 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 2. 알림 카드 섹션 */}
-        <div className="flex flex-col sm:flex-row xl:flex-row gap-6 flex-shrink-0 w-full xl:w-auto">
+        {/* 2. 알림 카드 섹션 (결재 대기) */}
+        <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">
           {profile?.is_approver && (
             <Link
               href="/vacation?tab=approve"
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-72 xl:w-64 flex flex-col justify-between h-full"
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-64 flex flex-col justify-between"
             >
               <div className="flex justify-between items-start">
                 <div>
@@ -343,9 +335,7 @@ export default function Home() {
             </Link>
           )}
 
-          {(profile?.role === "staff" ||
-            profile?.role === "director" ||
-            profile?.role === "admin") && (
+          {canViewVacation && (
             <Link
               href="/vacation"
               className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-72 xl:w-64 flex flex-col justify-between h-full"
@@ -385,8 +375,88 @@ export default function Home() {
           )}
         </div>
       </section>
+      <section className="flex flex-col xl:flex-row gap-6">
+        {canViewCalendar && (
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full sm:w-80 xl:w-96 flex flex-col">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span>
+                오늘의 시설 예약
+              </h3>
+              <Link
+                href="/reservation"
+                className="text-xs text-gray-400 hover:text-blue-600 font-medium"
+              >
+                전체보기 &rarr;
+              </Link>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[140px]">
+              {todayFacilities.length > 0 ? (
+                <ul className="space-y-2">
+                  {todayFacilities.map((res) => (
+                    <li
+                      key={res.id}
+                      className="text-sm bg-gray-50 p-2.5 rounded-lg border border-gray-100 flex items-center justify-between group hover:bg-blue-50/50 transition"
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-800">
+                          {res.resources.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {res.profiles?.full_name} · {res.purpose}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block font-bold text-blue-600 text-xs">
+                          {format(new Date(res.start_at), "HH:mm")}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          ~{format(new Date(res.end_at), "HH:mm")}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm">
+                  <p>오늘 예약된 일정이 없습니다.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {canViewVehicle && (
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full sm:w-80 xl:w-96 flex flex-col">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-green-500 rounded-full"></span>
+                오늘의 차량 예약
+              </h3>
+              <Link
+                href="/vehicle"
+                className="text-xs text-gray-400 hover:text-green-600 font-medium"
+              >
+                전체보기 &rarr;
+              </Link>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">
+          {canViewVehicle && (
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full  sm:w-72 xl:w-64 flex flex-col">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                  <span className="w-1.5 h-4 bg-green-500 rounded-full"></span>
+                  미정
+                </h3>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* --- [하단 섹션] 전체 휴가 달력 --- */}
+      {/* ... (기존 달력 코드 유지) ... */}
       {canViewCalendar && (
         <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[780px]">
           {/* 타이틀 헤더 */}
@@ -413,9 +483,7 @@ export default function Home() {
               {teams.map((team) => (
                 <div key={team.id} className="flex items-center gap-1.5">
                   <span
-                    className={`w-2.5 h-2.5 rounded-full ${
-                      TEAM_COLORS[team.id] || "bg-gray-400"
-                    }`}
+                    className={`w-2.5 h-2.5 rounded-full ${TEAM_COLORS[team.id] || "bg-gray-400"}`}
                   ></span>
                   <span className="text-sm text-gray-600 font-medium">
                     {team.name}
@@ -425,40 +493,26 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 콘텐츠 영역 (달력 + 사이드패널) */}
           <div className="flex flex-col lg:flex-row flex-1 overflow-visible lg:overflow-hidden">
             {/* 달력 영역 */}
             <div className="flex-[2] flex flex-col border-r border-gray-200 p-6 min-w-0">
-              {/* ★ 헤더 레이아웃 수정: 모바일에서는 Flex Wrap을 사용하여 줄바꿈 및 순서 제어 ★ */}
               <div className="flex flex-wrap items-center justify-between gap-y-4 mb-4 w-full">
-                {/* 1. 달력/리스트 토글 (모바일: 왼쪽 상단, PC: 왼쪽) */}
                 <div className="order-1 w-auto sm:w-1/3 flex justify-start">
                   <div className="flex bg-gray-100 p-1 rounded-lg">
                     <button
                       onClick={() => setCalendarViewMode("month")}
-                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                        calendarViewMode === "month"
-                          ? "bg-white text-blue-600 shadow-sm font-bold"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "month" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
                     >
                       달력
                     </button>
                     <button
                       onClick={() => setCalendarViewMode("list")}
-                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                        calendarViewMode === "list"
-                          ? "bg-white text-blue-600 shadow-sm font-bold"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${calendarViewMode === "list" ? "bg-white text-blue-600 shadow-sm font-bold" : "text-gray-500 hover:text-gray-700"}`}
                     >
                       리스트
                     </button>
                   </div>
                 </div>
-
-                {/* 2. 오늘 버튼 (모바일: 오른쪽 상단, PC: 오른쪽) */}
-                {/* sm:order-3을 줘서 PC에서는 맨 오른쪽으로 이동 */}
                 <div className="order-2 sm:order-3 w-auto sm:w-1/3 flex justify-end">
                   <button
                     onClick={() => {
@@ -472,9 +526,6 @@ export default function Home() {
                     오늘
                   </button>
                 </div>
-
-                {/* 3. 날짜 네비게이션 (모바일: 다음 줄 가운데, PC: 가운데) */}
-                {/* w-full로 모바일에서 한 줄 차지, sm:w-1/3으로 PC에서 가운데 차지 */}
                 <div className="order-3 sm:order-2 w-full sm:w-1/3 flex items-center justify-center gap-4 mt-2 sm:mt-0">
                   <button
                     onClick={() =>
@@ -496,11 +547,9 @@ export default function Home() {
                       />
                     </svg>
                   </button>
-
                   <h2 className="text-xl font-bold text-gray-800 tracking-tight min-w-[110px] text-center">
                     {format(activeStartDate, "yyyy년 M월")}
                   </h2>
-
                   <button
                     onClick={() =>
                       setActiveStartDate(addMonths(activeStartDate, 1))
@@ -524,8 +573,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 메인 콘텐츠 (달력/리스트) */}
-              {/* flex-1과 h-full을 주어 부모 높이만큼 늘어나게 함 */}
               <div className="flex-1 overflow-hidden relative h-full min-h-[500px] flex flex-col">
                 {calendarViewMode === "month" ? (
                   <Calendar
@@ -552,7 +599,6 @@ export default function Home() {
                       if (view === "month") {
                         const dateStr = format(date, "yyyy-MM-dd");
                         const holiday = HOLIDAYS[dateStr];
-
                         const vacationsOnDay = holiday
                           ? []
                           : allVacations.filter(
@@ -567,7 +613,6 @@ export default function Home() {
                         );
                         const overflowCount =
                           vacationsOnDay.length - maxDisplay;
-
                         return (
                           <div className="flex flex-col items-center w-full h-full pt-1 overflow-hidden">
                             {holiday && (
@@ -607,7 +652,6 @@ export default function Home() {
                         start: startOfMonth(activeStartDate),
                         end: endOfMonth(activeStartDate),
                       });
-
                       return daysInMonth.map((day) => {
                         const dateStr = format(day, "yyyy-MM-dd");
                         const dayNum = format(day, "d");
@@ -615,12 +659,10 @@ export default function Home() {
                         const isWeekend =
                           day.getDay() === 0 || day.getDay() === 6;
                         const holiday = HOLIDAYS[dateStr];
-
                         const vacationsOnDay = allVacations.filter(
                           (v) =>
                             dateStr >= v.start_date && dateStr <= v.end_date,
                         );
-
                         return (
                           <div
                             key={dateStr}
@@ -628,11 +670,7 @@ export default function Home() {
                               setDate(day);
                               updateSelectedVacations(day, allVacations);
                             }}
-                            className={`py-3 px-3 flex items-start justify-between transition-colors cursor-pointer ${
-                              format(date, "yyyy-MM-dd") === dateStr
-                                ? "bg-blue-50"
-                                : "hover:bg-gray-50"
-                            } ${holiday ? "bg-red-50/30" : ""}`}
+                            className={`py-3 px-3 flex items-start justify-between transition-colors cursor-pointer ${format(date, "yyyy-MM-dd") === dateStr ? "bg-blue-50" : "hover:bg-gray-50"} ${holiday ? "bg-red-50/30" : ""}`}
                           >
                             <div className="flex items-center gap-4 w-20 flex-shrink-0">
                               <span
@@ -678,7 +716,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 사이드 패널 (상세 목록) */}
+            {/* 사이드 패널 */}
             <div className="w-full lg:w-80 bg-white flex flex-col h-auto lg:h-full lg:border-l border-t lg:border-t-0 border-gray-200">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 h-[72px] shrink-0">
                 <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
@@ -689,7 +727,6 @@ export default function Home() {
                   총 {selectedVacations.length}명
                 </span>
               </div>
-
               <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
                 {selectedVacations.length > 0 ? (
                   <ul className="divide-y divide-gray-100">
@@ -713,10 +750,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  TEAM_COLORS[v.profiles.team_id] ||
-                                  "bg-gray-400"
-                                }`}
+                                className={`w-1.5 h-1.5 rounded-full ${TEAM_COLORS[v.profiles.team_id] || "bg-gray-400"}`}
                               ></span>
                               <span className="text-xs text-gray-500 truncate">
                                 {v.profiles.teams?.name || "미배정"}
