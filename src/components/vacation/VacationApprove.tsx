@@ -151,7 +151,7 @@ export default function VacationApprove({
               placeholder="이름을 입력하세요"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full p-3 pl-10 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-600 focus:ring-1 text-sm"
+              className="w-full p-3 pl-10 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-600 text-sm"
             />
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"

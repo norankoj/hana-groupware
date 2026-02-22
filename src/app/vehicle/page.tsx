@@ -368,9 +368,9 @@ export default function VehicleReservationPage() {
       </div>
 
       {/* 운행 일지 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col ">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
         {/* 검색 및 필터 헤더 */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center">
+        <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center shrink-0">
           <div className="flex items-center gap-2 font-bold text-gray-700">
             <span>운행 일지</span>
             <span className="text-xs text-gray-400 font-normal">
@@ -388,7 +388,7 @@ export default function VehicleReservationPage() {
                   { value: "in_use", label: "운행중" },
                   { value: "returned", label: "반납완료" },
                 ]}
-                className="py-2 text-sm bg-white border-gray-300"
+                className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
               />
             </div>
             <input
@@ -402,18 +402,20 @@ export default function VehicleReservationPage() {
         </div>
 
         {/* 목록 */}
-        <div className="overflow-x-auto">
+        {/* [수정2] flex-1 overflow-auto 추가로 테이블 내부만 스크롤되게 설정 */}
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
           <table className="min-w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+            {/* [수정2] sticky top-0, z-10 추가로 헤더 고정 */}
+            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200 sticky top-0 z-10 shadow-sm">
               <tr>
-                <th className="px-4 py-3">상태</th>
-                <th className="px-4 py-3">차량</th>
-                <th className="px-4 py-3">사용시간</th>
-                <th className="px-4 py-3">사용부서</th>
-                <th className="px-4 py-3">목적지/용도</th>
-                <th className="px-4 py-3">운전자</th>
-                <th className="px-4 py-3 text-right">주행거리</th>
-                <th className="px-4 py-3 text-center">관리</th>
+                <th className="px-4 py-3 bg-gray-50">상태</th>
+                <th className="px-4 py-3 bg-gray-50">차량</th>
+                <th className="px-4 py-3 bg-gray-50">사용시간</th>
+                <th className="px-4 py-3 bg-gray-50">사용부서</th>
+                <th className="px-4 py-3 bg-gray-50">목적지/용도</th>
+                <th className="px-4 py-3 bg-gray-50">운전자</th>
+                <th className="px-4 py-3 bg-gray-50 text-right">주행거리</th>
+                <th className="px-4 py-3 bg-gray-50 text-center">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -484,8 +486,8 @@ export default function VehicleReservationPage() {
           </table>
         </div>
 
-        {/* 페이지네이션 */}
-        <div className="flex justify-center py-4 border-t border-gray-200">
+        {/* 페이지네이션 (shrink-0 추가로 스크롤과 무관하게 하단 고정 유지) */}
+        <div className="flex justify-center py-4 border-t border-gray-200 shrink-0 bg-white">
           <div className="flex gap-1">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}

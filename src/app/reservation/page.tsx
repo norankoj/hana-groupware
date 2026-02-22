@@ -785,7 +785,7 @@ export default function FacilityReservationPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between border p-3 rounded-lg bg-gray-50">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
