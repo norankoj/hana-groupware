@@ -212,10 +212,11 @@ export default function Home() {
 
           if (reservationData) {
             const facilities = reservationData.filter(
-              (r) => r.resources?.category !== "vehicle" && r.resources,
+              (r: any) => r.resources?.category !== "vehicle" && r.resources,
             );
+
             const vehicles = reservationData.filter(
-              (r) => r.resources?.category === "vehicle" && r.resources,
+              (r: any) => r.resources?.category === "vehicle" && r.resources,
             );
             setTodayFacilities(facilities as any);
             setTodayVehicles(vehicles as any);
