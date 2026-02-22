@@ -11,6 +11,8 @@ import DetailModal from "@/components/vehicle/DetailModal";
 import VehicleReserveModal from "@/components/vehicle/VehicleReserveModal";
 import "@/styles/calendar.css";
 import HistoryModal from "@/components/vehicle/HistoryModal";
+import Select from "@/components/Select";
+
 // --- [이미지 설정] 차량별 이미지 매핑 ---
 const VEHICLE_IMAGES: Record<string, string> = {
   스타렉스: "/images/cars/starex.webp",
@@ -22,13 +24,13 @@ const VEHICLE_IMAGES: Record<string, string> = {
   봉고트럭: "/images/cars/bongo.png",
 };
 
-// --- 타입 정의 ---
 type Vehicle = {
   id: number;
   name: string;
   description: string;
   current_mileage: number;
   color: string;
+  insurance_info?: string;
 };
 
 type VehicleLog = {
@@ -46,11 +48,13 @@ type VehicleLog = {
   vehicle_status: "reserved" | "in_use" | "returned";
   checkin_photo_url?: string;
   checkout_photo_url?: string;
+  checkin_exterior_urls?: string[];
+  checkout_exterior_urls?: string[];
   cleanup_status?: boolean;
   parking_location?: string;
   vehicle_condition?: string;
   profiles?: { full_name: string; position: string };
-  resources?: { name: string; description: string };
+  resources?: { name: string; description: string; insurance_info?: string };
 };
 
 export default function VehicleReservationPage() {
@@ -59,29 +63,20 @@ export default function VehicleReservationPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [activeCardId, setActiveCardId] = useState<number | null>(null); // 모바일 터치용 상태
-  // 모달 상태
+  const [activeCardId, setActiveCardId] = useState<number | null>(null);
+
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null);
-  //  차량별 운행일지
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedVehicleHistory, setSelectedVehicleHistory] =
     useState<Vehicle | null>(null);
 
-  // 특정 차량 선택해서 예약 모달 열기
-  const handleReserveWithCar = (carId: number) => {
-    setForm((prev) => ({ ...prev, resource_id: carId }));
-    setIsReserveModalOpen(true);
-  };
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // 특정 차량 운행일지 모달 열기
-  const handleOpenHistory = (vehicle: Vehicle) => {
-    setSelectedVehicleHistory(vehicle);
-    setIsHistoryModalOpen(true);
-  };
-
-  // 예약 폼
   const [form, setForm] = useState({
     resource_id: 0,
     start_date: format(new Date(), "yyyy-MM-dd"),
@@ -94,18 +89,16 @@ export default function VehicleReservationPage() {
     department: "",
   });
 
-  // // 반납 폼
-  // const [checkoutForm, setCheckoutForm] = useState({
-  //   mileage: "" as number | "",
-  //   cleanup: true,
-  //   parking: "교회 주차장",
-  //   condition: "이상 없음",
-  // });
+  const handleReserveWithCar = (carId: number) => {
+    setForm((prev) => ({ ...prev, resource_id: carId }));
+    setIsReserveModalOpen(true);
+  };
 
-  // // 출발 폼
-  // const [checkinMileage, setCheckinMileage] = useState<number | "">("");
+  const handleOpenHistory = (vehicle: Vehicle) => {
+    setSelectedVehicleHistory(vehicle);
+    setIsHistoryModalOpen(true);
+  };
 
-  // 데이터 로드
   const fetchData = async () => {
     setLoading(true);
     const {
@@ -142,7 +135,7 @@ export default function VehicleReservationPage() {
         `
         *,
         profiles:user_id (full_name, position),
-        resources:resource_id (name, description)
+        resources:resource_id (name, description, insurance_info)
       `,
       )
       .in("resource_id", vData?.map((v) => v.id) || [])
@@ -157,7 +150,6 @@ export default function VehicleReservationPage() {
     fetchData();
   }, []);
 
-  // [추가] 캘린더 날짜 변경 핸들러
   const handleRangeChange = (value: any) => {
     if (Array.isArray(value) && value.length === 2) {
       const [start, end] = value;
@@ -166,11 +158,9 @@ export default function VehicleReservationPage() {
         start_date: format(start, "yyyy-MM-dd"),
         end_date: format(end, "yyyy-MM-dd"),
       }));
-      // setShowCalendar(false); // 선택 후 닫기
     }
   };
 
-  // --- 예약하기 ---
   const handleReserve = async () => {
     if (
       !form.purpose ||
@@ -188,6 +178,7 @@ export default function VehicleReservationPage() {
 
     const isOverlapping = logs.some((log) => {
       if (log.resource_id !== form.resource_id) return false;
+      if (log.vehicle_status === "returned") return false;
       const lStart = new Date(log.start_at);
       const lEnd = new Date(log.end_at);
       return startAt < lEnd && endAt > lStart;
@@ -217,6 +208,22 @@ export default function VehicleReservationPage() {
     }
   };
 
+  const filteredLogs = logs.filter((log) => {
+    const matchesStatus =
+      statusFilter === "all" || log.vehicle_status === statusFilter;
+    const matchesSearch =
+      log.driver_name.includes(searchTerm) ||
+      log.resources?.name.includes(searchTerm) ||
+      log.destination.includes(searchTerm);
+    return matchesStatus && matchesSearch;
+  });
+
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const currentLogs = filteredLogs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
   return (
     <div className="w-full max-w-7xl mx-auto p-2 pb-20 space-y-6">
       {/* 헤더 */}
@@ -231,7 +238,7 @@ export default function VehicleReservationPage() {
         </div>
         <button
           onClick={() => setIsReserveModalOpen(true)}
-          className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer"
+          className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -361,140 +368,60 @@ export default function VehicleReservationPage() {
       </div>
 
       {/* 운행 일지 테이블 */}
-      <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
-        {/* 헤더 (고정) */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50 font-bold text-gray-700 flex justify-between items-center shrink-0">
-          <span>📄 운행 일지</span>
-          <span className="text-xs text-gray-400 font-normal">
-            최근 30건 표시
-          </span>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col ">
+        {/* 검색 및 필터 헤더 */}
+        <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center">
+          <div className="flex items-center gap-2 font-bold text-gray-700">
+            <span>운행 일지</span>
+            <span className="text-xs text-gray-400 font-normal">
+              총 {filteredLogs.length}건
+            </span>
+          </div>
+          <div className="flex gap-2 w-full md:w-auto items-center">
+            <div className="w-32">
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { value: "all", label: "전체 상태" },
+                  { value: "reserved", label: "예약중" },
+                  { value: "in_use", label: "운행중" },
+                  { value: "returned", label: "반납완료" },
+                ]}
+                className="py-2 text-sm bg-white border-gray-300"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="차량명, 운전자 검색"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-60 focus:ring-blue-500 focus:border-blue-500 h-[42px]"
+            />
+          </div>
         </div>
 
-        {/* 내용 영역 (스크롤 가능) */}
-        <div className="flex-1 overflow-auto custom-scrollbar relative w-full">
-          {/* PC View */}
-          <div className="hidden md:block w-full">
-            <table className="min-w-full text-sm text-left whitespace-nowrap relative">
-              <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th className="px-4 py-3 bg-gray-50 whitespace-nowrap">
-                    상태
-                  </th>
-                  <th className="px-4 py-3 bg-gray-50 whitespace-nowrap">
-                    차량
-                  </th>
-                  <th className="px-4 py-3 bg-gray-50 whitespace-nowrap">
-                    사용시간
-                  </th>
-                  <th className="px-4 py-3 bg-gray-50 whitespace-nowrap">
-                    사용부서
-                  </th>
-                  <th className="px-4 py-3 bg-gray-50 whitespace-nowrap">
-                    목적지/용도
-                  </th>
-                  <th className="px-4 py-3 bg-gray-50 whitespace-nowrap">
-                    운전자
-                  </th>
-                  <th className="px-4 py-3 bg-gray-50 text-right whitespace-nowrap">
-                    주행거리
-                  </th>
-                  <th className="px-4 py-3 bg-gray-50 text-center whitespace-nowrap">
-                    관리
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50/50 transition">
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-bold ${
-                          log.vehicle_status === "in_use"
-                            ? "bg-green-100 text-green-700"
-                            : log.vehicle_status === "returned"
-                              ? "bg-gray-100 text-gray-500"
-                              : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {log.vehicle_status === "in_use"
-                          ? "운행중"
-                          : log.vehicle_status === "returned"
-                            ? "반납"
-                            : "예약"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
-                        {log.resources?.name}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {log.resources?.description}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <div>{format(new Date(log.start_at), "MM.dd HH:mm")}</div>
-                      <div className="text-xs text-gray-400">
-                        ~ {format(new Date(log.end_at), "MM.dd HH:mm")}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {log.department}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-800">
-                        {log.destination}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate max-w-[150px]">
-                        {log.purpose}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {log.driver_name}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {log.end_mileage && log.start_mileage ? (
-                        <span className="font-bold text-gray-900">
-                          {(
-                            log.end_mileage - log.start_mileage
-                          ).toLocaleString()}{" "}
-                          km
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => {
-                          setSelectedLog(log);
-                          setIsDetailModalOpen(true);
-                        }}
-                        className="text-blue-600 border border-blue-200 px-3 py-1 rounded hover:bg-blue-50 text-xs font-bold transition"
-                      >
-                        상세
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile View */}
-          <div className="block md:hidden divide-y divide-gray-100">
-            {logs.map((log) => (
-              <div
-                key={log.id}
-                onClick={() => {
-                  setSelectedLog(log);
-                  setIsDetailModalOpen(true);
-                }}
-                className="p-4 active:bg-gray-50 cursor-pointer"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
+        {/* 목록 */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left whitespace-nowrap">
+            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3">상태</th>
+                <th className="px-4 py-3">차량</th>
+                <th className="px-4 py-3">사용시간</th>
+                <th className="px-4 py-3">사용부서</th>
+                <th className="px-4 py-3">목적지/용도</th>
+                <th className="px-4 py-3">운전자</th>
+                <th className="px-4 py-3 text-right">주행거리</th>
+                <th className="px-4 py-3 text-center">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {currentLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-gray-50/50 transition">
+                  <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-0.5 rounded text-xs font-bold ${
+                      className={`px-2 py-1 rounded text-xs font-bold ${
                         log.vehicle_status === "in_use"
                           ? "bg-green-100 text-green-700"
                           : log.vehicle_status === "returned"
@@ -505,43 +432,92 @@ export default function VehicleReservationPage() {
                       {log.vehicle_status === "in_use"
                         ? "운행중"
                         : log.vehicle_status === "returned"
-                          ? "반납완료"
-                          : "예약중"}
+                          ? "반납"
+                          : "예약"}
                     </span>
-                    <span className="text-xs font-bold text-gray-700">
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900">
                       {log.resources?.name}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    {format(new Date(log.start_at), "MM.dd (eee)", {
-                      locale: ko,
-                    })}
-                  </span>
-                </div>
-                <h4 className="text-base font-bold text-gray-900 mb-1">
-                  {log.destination}{" "}
-                  <span className="text-sm font-normal text-gray-500">
-                    ({log.driver_name})
-                  </span>
-                </h4>
-                <p className="text-sm text-gray-600 mb-1">
-                  {log.department} · {log.purpose}
-                </p>
-                {log.vehicle_status === "returned" &&
-                  log.end_mileage &&
-                  log.start_mileage && (
-                    <p className="text-xs text-blue-600 font-medium">
-                      주행거리:{" "}
-                      {(log.end_mileage - log.start_mileage).toLocaleString()}{" "}
-                      km
-                    </p>
-                  )}
-              </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    <div>{format(new Date(log.start_at), "MM.dd HH:mm")}</div>
+                    <div className="text-xs text-gray-400">
+                      ~ {format(new Date(log.end_at), "MM.dd HH:mm")}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{log.department}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-800">
+                      {log.destination}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate max-w-[150px]">
+                      {log.purpose}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{log.driver_name}</td>
+                  <td className="px-4 py-3 text-right font-mono">
+                    {log.end_mileage && log.start_mileage ? (
+                      <span className="font-bold text-gray-900">
+                        {(log.end_mileage - log.start_mileage).toLocaleString()}{" "}
+                        km
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => {
+                        setSelectedLog(log);
+                        setIsDetailModalOpen(true);
+                      }}
+                      className="text-slate-600 border border-slate-300 px-3 py-1 rounded hover:bg-slate-50 text-xs font-bold transition"
+                    >
+                      상세
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 페이지네이션 */}
+        <div className="flex justify-center py-4 border-t border-gray-200">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50"
+            >
+              이전
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1 rounded border ${
+                  currentPage === page
+                    ? "bg-slate-800 text-white border-slate-800"
+                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {page}
+              </button>
             ))}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50"
+            >
+              다음
+            </button>
           </div>
         </div>
       </div>
-      {/* --- 모달: 예약하기 --- */}
+
       <VehicleReserveModal
         isOpen={isReserveModalOpen}
         onClose={() => setIsReserveModalOpen(false)}
@@ -552,7 +528,6 @@ export default function VehicleReservationPage() {
         handleReserve={handleReserve}
         handleRangeChange={handleRangeChange}
       />
-      {/* --- 모달: 운행 일지 상세 및 체크인/아웃 --- */}
       <DetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -560,8 +535,6 @@ export default function VehicleReservationPage() {
         currentUser={currentUser}
         onRefresh={fetchData}
       />
-
-      {/* --- 모달: 차량별 운행 기록 --- */}
       <HistoryModal
         isHistoryModalOpen={isHistoryModalOpen}
         setIsHistoryModalOpen={setIsHistoryModalOpen}

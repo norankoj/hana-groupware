@@ -732,7 +732,7 @@ export default function Home() {
             {/* Mobile/Laptop: 가로 배치, 2XL: 세로 배치 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-1 gap-6 h-auto">
               {/* 1. 오늘의 시설 예약 위젯 */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
@@ -824,7 +824,7 @@ export default function Home() {
               </div>
 
               {/* 2. 오늘의 차량 예약 위젯 */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
