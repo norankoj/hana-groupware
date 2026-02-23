@@ -825,7 +825,7 @@ export default function Home() {
               </div>
 
               {/* 2. 오늘의 차량 예약 위젯 */}
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] 2xl:max-h-[320px] min-h-[200px]">
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
@@ -868,7 +868,7 @@ export default function Home() {
                   </Link>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px] 2xl:max-h-[320px] min-h-[250px]">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px] 2xl:max-h-[320px] min-h-[200px]">
                   {todayVehicles.length > 0 ? (
                     <ul className="space-y-3">
                       {todayVehicles.map((res) => (
