@@ -64,6 +64,9 @@ export default function VehicleReservationPage() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [activeCardId, setActiveCardId] = useState<number | null>(null);
 
+  // [신규] 모바일 전용 탭 (예약 vs 운행일지)
+  const [mobileTab, setMobileTab] = useState<"reserve" | "log">("reserve");
+
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null);
@@ -207,6 +210,7 @@ export default function VehicleReservationPage() {
     }
   };
 
+  // 1. 검색 및 상태 필터
   const filteredLogs = logs.filter((log) => {
     const matchesStatus =
       statusFilter === "all" || log.vehicle_status === statusFilter;
@@ -217,27 +221,66 @@ export default function VehicleReservationPage() {
     return matchesStatus && matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const currentLogs = filteredLogs.slice(
+  // 2. 이중 정렬 (1순위: 운행중>예약>반납 / 2순위: 현재 시간과 가장 가까운 순)
+  const sortedLogs = [...filteredLogs].sort((a, b) => {
+    const order = { in_use: 1, reserved: 2, returned: 3 };
+    const statusA = order[a.vehicle_status as keyof typeof order] || 4;
+    const statusB = order[b.vehicle_status as keyof typeof order] || 4;
+
+    if (statusA !== statusB) return statusA - statusB;
+
+    const nowTime = new Date().getTime();
+    const diffA = Math.abs(new Date(a.start_at).getTime() - nowTime);
+    const diffB = Math.abs(new Date(b.start_at).getTime() - nowTime);
+    return diffA - diffB;
+  });
+
+  const totalPages = Math.ceil(sortedLogs.length / itemsPerPage);
+  const currentLogs = sortedLogs.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
 
   return (
     <div className="w-full max-w-7xl mx-auto p-2 pb-20 space-y-6">
+      <div className="md:hidden bg-slate-100 p-1.5 rounded-xl flex shadow-inner mb-2">
+        <button
+          onClick={() => setMobileTab("reserve")}
+          className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
+            mobileTab === "reserve"
+              ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50"
+              : "text-slate-500"
+          }`}
+        >
+          차량 예약하기
+        </button>
+        <button
+          onClick={() => setMobileTab("log")}
+          className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
+            mobileTab === "log"
+              ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50"
+              : "text-slate-500"
+          }`}
+        >
+          차량 운행하기
+        </button>
+      </div>
+
       {/* 헤더 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className={`${mobileTab === "log" ? "hidden md:block" : "block"}`}>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
             차량 운행 관리
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 hidden md:block">
             차량 예약 및 운행 일지를 관리합니다.
           </p>
         </div>
         <button
           onClick={() => setIsReserveModalOpen(true)}
-          className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer"
+          className={`w-full md:w-auto items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 md:py-2.5 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer ${
+            mobileTab === "log" ? "hidden md:flex" : "flex"
+          }`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -257,8 +300,12 @@ export default function VehicleReservationPage() {
         </button>
       </div>
 
-      {/* 차량 대시보드 (카드) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+      {/* --- 차량 대시보드 (카드) --- */}
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6 ${
+          mobileTab === "log" ? "hidden md:grid" : "grid"
+        }`}
+      >
         {vehicles.map((v) => {
           const currentUsage = logs.find(
             (l) => l.resource_id === v.id && l.vehicle_status === "in_use",
@@ -315,7 +362,6 @@ export default function VehicleReservationPage() {
                 {currentUsage ? "운행중" : "대기중"}
               </div>
 
-              {/* 차량 정보 */}
               <div className="z-10">
                 <h3 className="text-[17px] font-semibold text-gray-900 tracking-tight leading-tight">
                   {v.name}
@@ -325,7 +371,6 @@ export default function VehicleReservationPage() {
                 </p>
               </div>
 
-              {/* 차량 이미지 */}
               {carImage ? (
                 <img
                   src={carImage}
@@ -346,7 +391,6 @@ export default function VehicleReservationPage() {
                 </div>
               )}
 
-              {/* 하단 누적거리 정보 */}
               <div className="z-10 mt-auto">
                 <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
                   누적 주행거리
@@ -365,18 +409,22 @@ export default function VehicleReservationPage() {
         })}
       </div>
 
-      {/* 운행 일지 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[600px] md:h-auto">
+      {/* --- 운행 일지 테이블 & 모바일 카드 리스트 --- */}
+      <div
+        className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex-col h-auto md:h-[600px] ${
+          mobileTab === "reserve" ? "hidden md:flex" : "flex"
+        }`}
+      >
         {/* 검색 및 필터 헤더 */}
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center shrink-0">
           <div className="flex items-center gap-2 font-bold text-gray-700">
-            <span>운행 일지</span>
+            <span>📄 운행 일지</span>
             <span className="text-xs text-gray-400 font-normal">
               총 {filteredLogs.length}건
             </span>
           </div>
           <div className="flex gap-2 w-full md:w-auto items-center">
-            <div className="w-32">
+            <div className="w-32 shrink-0">
               <Select
                 value={statusFilter}
                 onChange={setStatusFilter}
@@ -394,111 +442,31 @@ export default function VehicleReservationPage() {
               placeholder="차량명, 운전자 검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-60 focus:ring-blue-500 focus:border-blue-500 h-[42px]"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-60 focus:ring-blue-500 focus:border-blue-500 h-[42px] bg-white outline-none transition"
             />
           </div>
         </div>
 
-        {/* 목록 - 테이블/카드 영역 분리 */}
-        <div className="flex-1 overflow-auto custom-scrollbar relative md:min-h-[400px]">
-          {/* --- 데스크톱 테이블 뷰 (md 이상에서만 블록으로 보임) --- */}
-          <div className="hidden md:block">
-            <table className="min-w-full text-sm text-left whitespace-nowrap">
-              <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th className="px-4 py-3 bg-gray-50">상태</th>
-                  <th className="px-4 py-3 bg-gray-50">차량</th>
-                  <th className="px-4 py-3 bg-gray-50">사용시간</th>
-                  <th className="px-4 py-3 bg-gray-50">사용부서</th>
-                  <th className="px-4 py-3 bg-gray-50">목적지/용도</th>
-                  <th className="px-4 py-3 bg-gray-50">운전자</th>
-                  <th className="px-4 py-3 bg-gray-50 text-right">주행거리</th>
-                  <th className="px-4 py-3 bg-gray-50 text-center">관리</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {currentLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50/50 transition">
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-bold ${
-                          log.vehicle_status === "in_use"
-                            ? "bg-green-100 text-green-700"
-                            : log.vehicle_status === "returned"
-                              ? "bg-gray-100 text-gray-500"
-                              : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {log.vehicle_status === "in_use"
-                          ? "운행중"
-                          : log.vehicle_status === "returned"
-                            ? "반납"
-                            : "예약"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
-                        {log.resources?.name}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <div>{format(new Date(log.start_at), "MM.dd HH:mm")}</div>
-                      <div className="text-xs text-gray-400">
-                        ~ {format(new Date(log.end_at), "MM.dd HH:mm")}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {log.department}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-800">
-                        {log.destination}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate max-w-[150px]">
-                        {log.purpose}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {log.driver_name}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {log.end_mileage && log.start_mileage ? (
-                        <span className="font-bold text-gray-900">
-                          {(
-                            log.end_mileage - log.start_mileage
-                          ).toLocaleString()}{" "}
-                          km
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => {
-                          setSelectedLog(log);
-                          setIsDetailModalOpen(true);
-                        }}
-                        className="text-slate-600 border border-slate-300 px-3 py-1 rounded hover:bg-slate-50 text-xs font-bold transition"
-                      >
-                        상세
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* --- 모바일 카드 뷰 (md 미만에서만 블록으로 보임) --- */}
-          <div className="block md:hidden flex-col gap-3 p-3 space-y-3">
-            {currentLogs.map((log) => (
-              <div
-                key={log.id}
-                className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-3"
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <div className="flex items-center gap-2">
+        {/* 목록 (스크롤 영역) */}
+        <div className="flex-1 overflow-visible md:overflow-auto custom-scrollbar relative">
+          {/* --- 1. 데스크톱 테이블 뷰 (md 이상에서만 보임) --- */}
+          <table className="hidden md:table min-w-full text-sm text-left whitespace-nowrap">
+            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+              <tr>
+                <th className="px-4 py-3 bg-gray-50">상태</th>
+                <th className="px-4 py-3 bg-gray-50">차량</th>
+                <th className="px-4 py-3 bg-gray-50">사용시간</th>
+                <th className="px-4 py-3 bg-gray-50">사용부서</th>
+                <th className="px-4 py-3 bg-gray-50">목적지/용도</th>
+                <th className="px-4 py-3 bg-gray-50">운전자</th>
+                <th className="px-4 py-3 bg-gray-50 text-right">주행거리</th>
+                <th className="px-4 py-3 bg-gray-50 text-center">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {currentLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-gray-50/50 transition">
+                  <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded text-xs font-bold ${
                         log.vehicle_status === "in_use"
@@ -514,40 +482,114 @@ export default function VehicleReservationPage() {
                           ? "반납"
                           : "예약"}
                     </span>
-                    <span className="font-bold text-gray-900 text-base">
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900">
+                      {log.resources?.name}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    <div>{format(new Date(log.start_at), "MM.dd HH:mm")}</div>
+                    <div className="text-xs text-gray-400">
+                      ~ {format(new Date(log.end_at), "MM.dd HH:mm")}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{log.department}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-800">
+                      {log.destination}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate max-w-[150px]">
+                      {log.purpose}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{log.driver_name}</td>
+                  <td className="px-4 py-3 text-right font-mono">
+                    {log.end_mileage && log.start_mileage ? (
+                      <span className="font-bold text-gray-900">
+                        {(log.end_mileage - log.start_mileage).toLocaleString()}{" "}
+                        km
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => {
+                        setSelectedLog(log);
+                        setIsDetailModalOpen(true);
+                      }}
+                      className="text-slate-600 border border-slate-300 px-3 py-1 rounded hover:bg-slate-50 text-xs font-bold transition"
+                    >
+                      상세
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* --- 2. 모바일 카드 뷰 (md 미만에서만 블록으로 보임) --- */}
+          <div className="block md:hidden flex-col gap-3 p-3 space-y-3 h-auto">
+            {currentLogs.map((log) => (
+              <div
+                key={log.id}
+                className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm flex flex-col gap-3"
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`px-2.5 py-1 rounded text-xs font-bold ${
+                        log.vehicle_status === "in_use"
+                          ? "bg-green-100 text-green-700"
+                          : log.vehicle_status === "returned"
+                            ? "bg-gray-100 text-gray-500"
+                            : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
+                      {log.vehicle_status === "in_use"
+                        ? "운행중"
+                        : log.vehicle_status === "returned"
+                          ? "반납"
+                          : "예약"}
+                    </span>
+                    <span className="font-bold text-gray-900 text-lg">
                       {log.resources?.name}
                     </span>
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="text-sm text-gray-600 space-y-2 mt-1">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400 text-xs">운행시간</span>
-                    <span className="font-mono text-xs">
+                    <span className="font-mono text-xs font-medium">
                       {format(new Date(log.start_at), "MM.dd HH:mm")} ~{" "}
                       {format(new Date(log.end_at), "HH:mm")}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400 text-xs">운전자</span>
-                    <span>
+                    <span className="font-medium text-gray-800">
                       {log.driver_name}{" "}
-                      <span className="text-gray-400">({log.department})</span>
+                      <span className="text-gray-400 text-xs font-normal">
+                        ({log.department})
+                      </span>
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400 text-xs">주행거리</span>
-                    <span className="font-mono font-semibold">
+                    <span className="font-mono font-bold text-gray-800">
                       {log.end_mileage && log.start_mileage
                         ? `${(log.end_mileage - log.start_mileage).toLocaleString()} km`
                         : "-"}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center justify-between pt-1 border-t border-gray-50 mt-1">
                     <span className="text-gray-400 text-xs w-16 shrink-0">
                       목적지
                     </span>
-                    <span className="truncate text-right">
+                    <span className="truncate text-right font-medium text-gray-800">
                       {log.destination}
                     </span>
                   </div>
@@ -558,53 +600,59 @@ export default function VehicleReservationPage() {
                     setSelectedLog(log);
                     setIsDetailModalOpen(true);
                   }}
-                  className="mt-2 w-full py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg text-sm font-bold text-slate-600 transition"
+                  className="mt-3 w-full py-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg text-sm font-bold text-slate-700 transition shadow-sm"
                 >
-                  상세 보기
+                  운행 상세 보기
                 </button>
               </div>
             ))}
 
             {currentLogs.length === 0 && (
               <div className="text-center py-10 text-gray-400 text-sm">
-                해당하는 운행 기록이 없습니다.
+                조건에 맞는 운행 기록이 없습니다.
               </div>
             )}
           </div>
         </div>
 
         {/* 페이지네이션 */}
-        <div className="flex justify-center py-4 border-t border-gray-200 shrink-0 bg-white">
-          <div className="flex gap-1">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50"
-            >
-              이전
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+        {totalPages > 1 && (
+          <div className="flex justify-center py-4 border-t border-gray-200 shrink-0 bg-white">
+            <div className="flex gap-1">
               <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 rounded border ${
-                  currentPage === page
-                    ? "bg-slate-800 text-white border-slate-800"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                }`}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50"
               >
-                {page}
+                이전
               </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50"
-            >
-              다음
-            </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 rounded border ${
+                      currentPage === page
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50"
+              >
+                다음
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <VehicleReserveModal
