@@ -53,7 +53,7 @@ const InfoRow = ({
     <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center shrink-0 border-r border-gray-200">
       {label}
     </div>
-    <div className="flex-1 p-3 text-sm text-gray-800 flex items-center bg-white">
+    <div className="flex-1 p-3 text-sm text-gray-800 flex items-center bg-white min-w-0">
       {children}
     </div>
   </div>
@@ -84,7 +84,10 @@ export default function DetailModal({
   const [dashPreview, setDashPreview] = useState<string | null>(null);
   const [exteriorFiles, setExteriorFiles] = useState<File[]>([]);
   const [exteriorPreviews, setExteriorPreviews] = useState<string[]>([]);
-  const [zoomImage, setZoomImage] = useState<string | null>(null);
+
+  // 줌 이미지 배열 및 인덱스 관리 (갤러리용)
+  const [zoomImages, setZoomImages] = useState<string[]>([]);
+  const [zoomIndex, setZoomIndex] = useState<number>(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -99,6 +102,8 @@ export default function DetailModal({
         parking: "교회 주차장",
         condition: "이상 없음",
       });
+      setZoomImages([]);
+      setZoomIndex(0);
     }
   }, [isOpen]);
 
@@ -144,7 +149,6 @@ export default function DetailModal({
   const handleSubmit = async (action: "checkin" | "checkout") => {
     if (!selectedLog) return;
 
-    // 유효성 검사 (계기판 & 외관 필수)
     if (action === "checkin") {
       if (checkinMileage === "")
         return toast.error("계기판 거리를 입력해주세요.");
@@ -199,10 +203,17 @@ export default function DetailModal({
       if (error) throw error;
 
       if (action === "checkout") {
-        await supabase
+        const { error: resourceErr } = await supabase
           .from("resources")
           .update({ current_mileage: Number(checkoutForm.mileage) })
           .eq("id", selectedLog.resource_id);
+
+        if (resourceErr) {
+          console.error("차량 누적 거리 업데이트 에러:", resourceErr);
+          toast.error(
+            "운행 일지는 기록되었으나 차량의 총 주행거리 갱신에 실패했습니다.",
+          );
+        }
       }
 
       toast.success("처리되었습니다.");
@@ -213,6 +224,29 @@ export default function DetailModal({
     } finally {
       setUploading(false);
     }
+  };
+
+  // 갤러리 띄우기 함수
+  const openZoom = (url: string) => {
+    const allImages = [
+      selectedLog?.checkin_photo_url,
+      ...(selectedLog?.checkin_exterior_urls || []),
+      selectedLog?.checkout_photo_url,
+      ...(selectedLog?.checkout_exterior_urls || []),
+    ].filter(Boolean) as string[];
+
+    setZoomImages(allImages);
+    setZoomIndex(allImages.indexOf(url));
+  };
+
+  // 이전/다음 이미지 핸들러
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoomIndex((prev) => (prev > 0 ? prev - 1 : zoomImages.length - 1));
+  };
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoomIndex((prev) => (prev < zoomImages.length - 1 ? prev + 1 : 0));
   };
 
   const isMyTurn =
@@ -235,7 +269,6 @@ export default function DetailModal({
             >
               닫기
             </button>
-            {/* [수정] 닫기 버튼 옆에 액션 버튼 배치 */}
             {isMyTurn && (
               <button
                 onClick={() => handleSubmit(actionType)}
@@ -330,7 +363,7 @@ export default function DetailModal({
                             <div
                               key={`in-${i}`}
                               className="w-20 h-20 shrink-0 rounded border border-gray-200 overflow-hidden cursor-pointer"
-                              onClick={() => setZoomImage(url)}
+                              onClick={() => openZoom(url)}
                             >
                               <img
                                 src={url}
@@ -340,7 +373,7 @@ export default function DetailModal({
                             </div>
                           ),
                       )}
-                      <div className="w-px bg-gray-300 mx-1"></div>
+                      <div className="w-px bg-gray-300 mx-1 shrink-0"></div>
                       {[
                         selectedLog.checkout_photo_url,
                         ...(selectedLog.checkout_exterior_urls || []),
@@ -350,7 +383,7 @@ export default function DetailModal({
                             <div
                               key={`out-${i}`}
                               className="w-20 h-20 shrink-0 rounded border border-gray-200 overflow-hidden cursor-pointer"
-                              onClick={() => setZoomImage(url)}
+                              onClick={() => openZoom(url)}
                             >
                               <img
                                 src={url}
@@ -366,7 +399,7 @@ export default function DetailModal({
               </div>
             )}
 
-            {/* 3. 입력 폼 (운행 전/후) - 색상 제거, 깔끔한 스타일 */}
+            {/* 3. 입력 폼 (운행 전/후) */}
             {isMyTurn && (
               <div>
                 <h3 className="text-lg font-bold text-gray-800 mb-4">
@@ -401,9 +434,9 @@ export default function DetailModal({
                     />
                   </div>
 
-                  {/* 사진 업로드 UI */}
+                  {/* 사진 업로드 UI - 모바일 깨짐 방지를 위해 grid-cols-1 md:grid-cols-2 로 수정 */}
                   <div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* 계기판 */}
                       <div>
                         <div className="text-xs font-bold text-gray-500 mb-2 flex justify-between">
@@ -450,7 +483,7 @@ export default function DetailModal({
                         <div className="text-xs font-bold text-gray-500 mb-2">
                           🚗 탑승 전/후 외관 (필수 권장)
                         </div>
-                        <div className="flex gap-2 overflow-x-auto h-full items-start">
+                        <div className="flex gap-2 overflow-x-auto h-full items-start pb-2">
                           <label className="aspect-square h-[100px] flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition shrink-0">
                             <span className="text-2xl text-gray-300">+</span>
                             <input
@@ -551,17 +584,62 @@ export default function DetailModal({
         )}
       </Modal>
 
-      {zoomImage && (
+      {/* 갤러리 (슬라이더) 모달 */}
+      {zoomImages.length > 0 && (
         <div
           className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
-          onClick={() => setZoomImage(null)}
+          onClick={() => setZoomImages([])}
         >
+          {zoomImages.length > 1 && (
+            <button
+              onClick={handlePrevImage}
+              className="absolute left-2 md:left-5 text-white bg-black/50 rounded-full p-2 md:p-3 hover:bg-black/80 z-10 transition cursor-pointer"
+            >
+              <svg
+                className="w-6 h-6 md:w-8 md:h-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+          )}
+
           <img
-            src={zoomImage}
-            className="max-w-full max-h-[90vh] rounded shadow-2xl"
+            src={zoomImages[zoomIndex]}
+            className="max-w-full max-h-[90vh] rounded shadow-2xl object-contain cursor-default"
             alt="zoom"
+            onClick={(e) => e.stopPropagation()}
           />
-          <button className="absolute top-5 right-5 text-white bg-black/50 rounded-full p-2 hover:bg-black/80">
+
+          {zoomImages.length > 1 && (
+            <button
+              onClick={handleNextImage}
+              className="absolute right-2 md:right-5 text-white bg-black/50 rounded-full p-2 md:p-3 hover:bg-black/80 z-10 transition cursor-pointer"
+            >
+              <svg
+                className="w-6 h-6 md:w-8 md:h-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+          )}
+
+          <button className="absolute top-5 right-5 text-white bg-black/50 rounded-full p-2 hover:bg-black/80 z-10 cursor-pointer">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -576,6 +654,12 @@ export default function DetailModal({
               />
             </svg>
           </button>
+
+          {zoomImages.length > 1 && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white bg-black/60 px-4 py-1.5 rounded-full text-sm font-bold tracking-widest z-10">
+              {zoomIndex + 1} / {zoomImages.length}
+            </div>
+          )}
         </div>
       )}
     </>
