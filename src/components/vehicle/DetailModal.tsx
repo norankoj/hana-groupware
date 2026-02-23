@@ -607,7 +607,7 @@ export default function DetailModal({
                           </label>
                           <input
                             type="text"
-                            placeholder="예: 지하 2층 B열"
+                            placeholder="예: 교육관"
                             className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
                             value={checkoutForm.parking}
                             onChange={(e) =>
