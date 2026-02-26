@@ -5,6 +5,7 @@ import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 import ChannelTalk from "@/components/ChannelTalk";
 import AuthListener from "@/components/AuthListener";
+import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "그룹웨어",
+    title: "수원하나교회 그룹웨어",
     statusBarStyle: "default",
   },
 };
@@ -43,6 +44,7 @@ export default function RootLayout({
           <AuthListener />
           {children}
           <ChannelTalk />
+          <PwaInstallPrompt />
         </ClientLayout>
       </body>
     </html>
