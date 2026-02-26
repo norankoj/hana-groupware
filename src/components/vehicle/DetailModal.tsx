@@ -59,8 +59,7 @@ const InfoRow = ({
   </div>
 );
 
-const INSURANCE_MOCK =
-  "KB손해보험 (1544-0114) / 만 26세 이상 / 자차부담금 5만원";
+const INSURANCE_MOCK = "김건웅 간사(010-2344-2859)";
 
 export default function DetailModal({
   isOpen,
@@ -249,6 +248,46 @@ export default function DetailModal({
     setZoomIndex((prev) => (prev < zoomImages.length - 1 ? prev + 1 : 0));
   };
 
+  const renderTextWithPhoneIcon = (text: string) => {
+    if (!text) return null;
+    const phoneRegex = /(\d{2,4}-\d{3,4}-\d{4}|\d{4}-\d{4,5})/g;
+
+    return text.split("\n").map((line, lineIndex) => {
+      const parts = line.split(phoneRegex);
+      return (
+        <div key={lineIndex} className="leading-relaxed">
+          {parts.map((part, partIndex) => {
+            if (part.match(phoneRegex)) {
+              return (
+                <a
+                  key={partIndex}
+                  href={`tel:${part.replace(/-/g, "")}`} // 전화 걸기 링크 (하이픈 제거)
+                  className="inline-flex items-center gap-1 text-blue-600 font-bold hover:text-blue-800 transition bg-blue-50 px-1.5 py-0.5 rounded-md ml-0.5"
+                >
+                  {part}
+                  {/* 📞 전화기 아이콘 */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="w-3.5 h-3.5"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 012.43 8.326 13.019 13.019 0 012 5V3.5z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </a>
+              );
+            }
+            return <span key={partIndex}>{part}</span>;
+          })}
+        </div>
+      );
+    });
+  };
+
   const isMyTurn =
     selectedLog?.user_id === currentUser &&
     selectedLog?.vehicle_status !== "returned";
@@ -278,7 +317,11 @@ export default function DetailModal({
           </span>
         </InfoRow>
         <InfoRow label="보험 정보">
-          {selectedLog?.resources?.insurance_info || INSURANCE_MOCK}
+          <div className="space-y-1.5 w-full">
+            {selectedLog?.resources?.insurance_info &&
+              renderTextWithPhoneIcon(selectedLog.resources.insurance_info)}
+            {renderTextWithPhoneIcon(INSURANCE_MOCK)}
+          </div>
         </InfoRow>
         <InfoRow label="운전자">
           <span className="font-medium">{selectedLog?.driver_name}</span>
@@ -361,12 +404,24 @@ export default function DetailModal({
 
       {/* 3. 입력 폼 (운행 전/후) */}
       {isMyTurn && (
-        <div className="pt-4 border-t border-gray-200">
-          <h3 className="text-xl font-bold text-gray-900 mb-5">
-            {actionType === "checkin" ? "차량 이용 시작" : "차량 반납하기"}
+        <div className="pt-4">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">
+            {actionType === "checkin" ? (
+              <span className="px-3 py-1 rounded bg-green-50 w-max text-lg font-bold text-green-600">
+                이용 시작
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded bg-red-50 w-max text-lg font-bold text-red-600">
+                반납하기
+              </span>
+            )}
           </h3>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-7 space-y-8 shadow-sm">
+          <div
+            className={`bg-white border rounded-2xl p-5 sm:p-7 space-y-8 shadow-sm ${
+              actionType === "checkin" ? "border-green-200" : "border-red-200"
+            }`}
+          >
             {/* 주행거리 */}
             <div>
               <label className="block text-base font-bold text-gray-800 mb-3">
@@ -565,7 +620,7 @@ export default function DetailModal({
                     </label>
                     <input
                       type="text"
-                      placeholder="예: 지하 2층 B열"
+                      placeholder="예: 교육관"
                       className="w-full p-4 border border-gray-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-gray-400 transition bg-white"
                       value={checkoutForm.parking}
                       onChange={(e) =>

@@ -63,13 +63,10 @@ export default function HistoryModal({
           <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex justify-between items-center">
             <div>
               <p className="text-xs font-bold text-orange-600 uppercase mb-1">
-                LAST DRIVER
+                최근 운전자
               </p>
               <h3 className="text-lg font-bold text-gray-800">
                 {lastDriver.driver_name}{" "}
-                <span className="text-sm font-normal text-gray-500">
-                  ({lastDriver.department})
-                </span>
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 {format(new Date(lastDriver.end_at), "yyyy.MM.dd HH:mm")}{" "}
