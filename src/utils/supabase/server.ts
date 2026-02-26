@@ -16,7 +16,10 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, {
+                ...options,
+                maxAge: 60 * 60 * 24 * 365,
+              }),
             );
           } catch {
             // 서버 컴포넌트에서 쿠키를 설정하려고 할 때 발생하는 에러 무시

@@ -59,7 +59,7 @@ const InfoRow = ({
   </div>
 );
 
-const INSURANCE_MOCK = "김건웅 간사(010-2344-2859)";
+const INSURANCE_MOCK = "김건웅 간사 010-2344-2859";
 
 export default function DetailModal({
   isOpen,

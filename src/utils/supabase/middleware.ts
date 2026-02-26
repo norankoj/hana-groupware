@@ -25,7 +25,10 @@ export async function updateSession(request: NextRequest) {
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
+            response.cookies.set(name, value, {
+              ...options,
+              maxAge: 60 * 60 * 24 * 365, // 1년 동안 쿠키 유지
+            }),
           );
         },
       },
