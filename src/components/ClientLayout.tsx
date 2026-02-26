@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import toast, { Toaster } from "react-hot-toast";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 // --- [1] Context 생성 (데이터 공유용) ---
 type Menu = {
@@ -137,6 +138,7 @@ export default function ClientLayout({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -248,13 +250,14 @@ export default function ClientLayout({
         {/* ★ 사이드바 (모바일 & PC 통합) */}
         <aside
           className={`
-            fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ease-in-out
+            fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 flex flex-col duration-300 ease-in-out
             md:translate-x-0 md:static md:inset-auto md:flex
-            ${isMobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full md:w-64"}
-            ${isCollapsed ? "md:w-20" : "md:w-64"}
+            transition-all
+            ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+            w-64 ${isCollapsed ? "md:w-20" : "md:w-64"}
           `}
         >
-          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 flex-shrink-0">
+          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 flex-shrink-0 overflow-hidden">
             {/* PC: 로고, 모바일: 로고 */}
             {(!isCollapsed || isMobileMenuOpen) && (
               <Link
@@ -395,7 +398,10 @@ export default function ClientLayout({
                     내 정보
                   </button>
                   <button
-                    onClick={() => toast("준비 중입니다!", { icon: "🚧" })}
+                    onClick={() => {
+                      setIsPasswordModalOpen(true);
+                      setIsDropdownOpen(false);
+                    }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                   >
                     비밀번호 변경
@@ -444,6 +450,10 @@ export default function ClientLayout({
           {/* 물결 효과 (파동) */}
           {/* <span className="absolute -inset-1 rounded-full bg-orange-400 opacity-30 animate-ping -z-10"></span> */}
         </Link>
+        <ChangePasswordModal
+          isOpen={isPasswordModalOpen}
+          onClose={() => setIsPasswordModalOpen(false)}
+        />
       </div>
     </MenuContext.Provider>
   );
