@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [view, setView] = useState<"login" | "signup">("login");
 
   // --- 상태 관리 ---
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(""); // Email 이짐
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [position, setPosition] = useState("사역자");
@@ -71,12 +71,32 @@ export default function LoginPage() {
 
   // 문자 발송
   const handleSendCode = async () => {
+    if (!name.trim()) return toast.error("이름을 입력해주세요.");
     if (!phone || phone.length < 10)
       return toast.error("휴대폰 번호를 정확히 입력해주세요.");
     const cleanPhone = phone.replace(/-/g, "");
 
     setLoading(true);
     try {
+      const { data: allowedUser, error: dbError } = await supabase
+        .from("allowed_users")
+        .select("*")
+        .eq("name", name.trim())
+        .eq("phone", cleanPhone)
+        .maybeSingle();
+
+      if (!allowedUser) {
+        throw new Error(
+          "사전 등록된 분들만 회원가입이 가능합니다. 관리자에게 문의해주세요.",
+        );
+      }
+
+      if (allowedUser.is_registered) {
+        throw new Error(
+          "이미 가입이 완료된 번호입니다. 로그인을 진행해주세요.",
+        );
+      }
+
       const res = await fetch("/api/sms/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,16 +142,45 @@ export default function LoginPage() {
   };
 
   // 로그인
+  // 로그인 로직
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
+
+    let targetEmail = email.trim(); // email or phone 입력 가능하도록 처리
+
+    // 입력값이 휴대폰 번호 형식인지 확인 (하이픈 제거 후 숫자 10~11자리)
+    const cleanId = email?.replace(/-/g, "");
+    const isPhone = /^[0-9]{10,11}$/.test(cleanId);
+
+    // 1. 번호로 입력했다면 DB에서 이메일로 변환하기
+    if (isPhone) {
+      const { data: foundEmail, error: rpcError } = await supabase.rpc(
+        "get_email_by_phone",
+        {
+          search_phone: cleanId,
+        },
+      );
+
+      if (foundEmail) {
+        targetEmail = foundEmail; // 찾은 이메일로 타겟 변경
+      } else {
+        setErrorMsg("등록된 휴대폰 번호를 찾을 수 없습니다.");
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2. 최종 이메일로 로그인 시도
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: targetEmail,
       password,
     });
-    if (error) setErrorMsg("로그인 실패: 정보를 확인해주세요.");
-    else {
+
+    if (error) {
+      setErrorMsg("로그인 실패: 아이디(번호) 또는 비밀번호를 확인해주세요.");
+    } else {
       router.push("/");
       router.refresh();
     }
@@ -226,13 +275,12 @@ export default function LoginPage() {
                 </div>
               )}
               <div>
-                <label className={labelStyle}>이메일</label>
+                <label className={labelStyle}>이메일 또는 휴대폰 번호</label>
                 <input
-                  type="email"
+                  type="text"
                   required
                   autoComplete="username"
                   className={inputStyle}
-                  // ★ 브라우저 다크모드 무시 설정
                   style={{ colorScheme: "light" }}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -316,43 +364,60 @@ export default function LoginPage() {
                 // 2. 인증 입력 화면
                 <div className="animate-fadeIn space-y-6">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-gray-900">
-                      휴대폰 번호 입력
-                    </h3>
-                    <div className="flex gap-2">
+                    {/* <h3 className="text-lg font-bold text-gray-900">
+                      사전 등록 정보 확인
+                    </h3> */}
+                    <div>
+                      <label className={labelStyle}>이름</label>
                       <input
                         type="text"
-                        inputMode="numeric"
                         className={inputStyle}
                         style={{ colorScheme: "light" }}
-                        value={phone}
-                        placeholder="010-1234-5678"
-                        maxLength={13}
-                        disabled={isCodeSent}
-                        onChange={(e) => setPhone(formatPhone(e.target.value))}
+                        value={name}
+                        disabled={isCodeSent} // 문자 발송 후엔 수정 불가
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="실명 입력"
                       />
-                      {!isCodeSent && (
-                        <button
-                          type="button"
-                          onClick={handleSendCode}
-                          disabled={loading || phone.length < 12}
-                          className="px-5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 whitespace-nowrap shadow-md transition-colors"
-                        >
-                          인증요청
-                        </button>
-                      )}
-                      {isCodeSent && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsCodeSent(false);
-                            setVerifyCode("");
-                          }}
-                          className="px-5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 whitespace-nowrap"
-                        >
-                          재입력
-                        </button>
-                      )}
+                    </div>
+                    <div>
+                      <label className={labelStyle}>휴대폰 번호</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className={inputStyle}
+                          style={{ colorScheme: "light" }}
+                          value={phone}
+                          placeholder="010-1234-5678"
+                          maxLength={13}
+                          disabled={isCodeSent}
+                          onChange={(e) =>
+                            setPhone(formatPhone(e.target.value))
+                          }
+                        />
+                        {!isCodeSent && (
+                          <button
+                            type="button"
+                            onClick={handleSendCode}
+                            disabled={loading || phone.length < 12}
+                            className="px-5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 whitespace-nowrap shadow-md transition-colors"
+                          >
+                            인증요청
+                          </button>
+                        )}
+                        {isCodeSent && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCodeSent(false);
+                              setVerifyCode("");
+                            }}
+                            className="px-5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 whitespace-nowrap"
+                          >
+                            재입력
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {isCodeSent && (

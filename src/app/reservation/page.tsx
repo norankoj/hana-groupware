@@ -732,7 +732,7 @@ export default function FacilityReservationPage() {
           setSelectingStart(null);
           setShowRecurringDatePicker(false);
         }}
-        title="시설 예약"
+        title={`시설 예약 - ${format(currentDate, "yyyy.MM.dd(EEE)", { locale: ko })}`}
         footer={
           <div className="flex gap-2 w-full">
             <button

@@ -115,7 +115,7 @@ export default function LunchPage() {
       <div className="flex justify-center items-center h-screen flex-col gap-4">
         <span className="text-4xl animate-bounce">🍚</span>
         <span className="text-xl font-bold text-indigo-600">
-          11,000원 이하 맛집 탐색 중...
+          재미로만 봐주세요...
         </span>
       </div>
     );
@@ -127,8 +127,7 @@ export default function LunchPage() {
           🍽️ 오늘 점심 뭐먹지?!🤔
         </h1>
         <p className="text-gray-500 text-sm">
-          예산 <span className="text-indigo-600 font-bold">11,000원</span> &{" "}
-          <span className="text-indigo-600 font-bold">30분 거리</span> 기준
+          예산 <span className="text-indigo-600 font-bold">30분 거리</span> 기준
           <br />
           현재{" "}
           <span className="font-bold text-gray-800">'{currentKeyword}'</span>
