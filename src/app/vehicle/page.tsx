@@ -380,8 +380,8 @@ export default function VehicleReservationPage() {
                        v.name.includes("스타리아")
                          ? "w-36 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
                          : v.name.includes("쏘나타")
-                           ? "w-37 -right-2 -bottom-1 group-hover:scale-110"
-                           : "w-35 -right-2 bottom-1 group-hover:scale-110"
+                           ? "w-38 -right-4 -bottom-1 group-hover:scale-110"
+                           : "w-36 -right-4 bottom-1 group-hover:scale-110"
                      }
                   `}
                 />
