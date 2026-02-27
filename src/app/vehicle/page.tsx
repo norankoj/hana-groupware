@@ -378,10 +378,10 @@ export default function VehicleReservationPage() {
                   className={`absolute h-auto object-contain opacity-90 transition-transform duration-500 ease-out group-hover:scale-105
                      ${
                        v.name.includes("스타리아")
-                         ? "w-32 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
+                         ? "w-36 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
                          : v.name.includes("쏘나타")
-                           ? "w-34 -right-2 -bottom-1 group-hover:scale-110"
-                           : "w-32 -right-2 bottom-1 group-hover:scale-110"
+                           ? "w-37 -right-2 -bottom-1 group-hover:scale-110"
+                           : "w-35 -right-2 bottom-1 group-hover:scale-110"
                      }
                   `}
                 />
