@@ -15,11 +15,11 @@ import Select from "@/components/Select";
 // --- [이미지 설정] 차량별 이미지 매핑 ---
 const VEHICLE_IMAGES: Record<string, string> = {
   스타렉스: "/images/cars/starex.webp",
-  스타리아: "/images/cars/staria.avif",
-  스타리아HEV: "/images/cars/staria-hev.avif",
+  스타리아: "/images/cars/staria.webp",
+  스타리아HEV: "/images/cars/staria-hev.webp",
   마티즈: "/images/cars/matiz.webp",
-  모닝: "/images/cars/morning.avif",
-  쏘나타: "/images/cars/sonata.avif",
+  모닝: "/images/cars/morning.webp",
+  쏘나타: "/images/cars/sonata.webp",
   봉고트럭: "/images/cars/bongo.png",
 };
 
