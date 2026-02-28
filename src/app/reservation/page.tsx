@@ -24,6 +24,7 @@ import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import { showConfirm } from "@/utils/alert";
 import { HOLIDAYS } from "@/constants/holidays";
+import Select from "@/components/Select";
 
 const customCalendarStyles = `
   .react-calendar__navigation {
@@ -531,43 +532,80 @@ export default function FacilityReservationPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-2 border-b border-gray-200 overflow-x-auto px-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 ${
-              activeTab === tab.id
-                ? "border-blue-600 text-blue-600 bg-blue-50/50"
-                : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div className="flex items-end justify-between mb-2 border-b border-gray-200 px-1 gap-2">
+        <div className="flex gap-1 overflow-x-auto flex-1 min-w-0 pb-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 sm:px-5 sm:py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 ${
+                activeTab === tab.id
+                  ? "border-blue-600 text-blue-600 bg-blue-50/50"
+                  : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
+        <button
+          onClick={() => {
+            // 현재 활성화된 탭의 첫 번째 시설을 기본값으로 세팅
+            const defaultResId =
+              filteredResources.length > 0
+                ? filteredResources[0].id
+                : resources[0]?.id;
+            setSelectedResId(defaultResId || null);
+            setForm({
+              ...form,
+              start_time: "10:00",
+              end_time: "12:00",
+              purpose: "",
+              isRecurring: false,
+            });
+            setSelectingStart(null);
+            setIsModalOpen(true);
+          }}
+          className="mb-1 shrink-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2.5 sm:px-5 sm:py-2.5 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2.5}
+            stroke="currentColor"
+            className="w-4 h-4"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 4.5v15m7.5-7.5h-15"
+            />
+          </svg>
+          <span className="mt-[1px] hidden sm:block">시설 예약하기</span>
+          <span className="mt-[1px] sm:hidden">예약</span>
+        </button>
+      </div>
       {/* Grid Container */}
       <div
         className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col relative overflow-auto custom-scrollbar pb-px"
         style={{ height: "750px", maxHeight: "calc(100vh - 200px)" }}
       >
         {/* 모바일 자원 선택 */}
-        <div className="block md:hidden p-4 border-b border-gray-100 bg-gray-50 sticky top-0 z-20">
-          <select
-            value={mobileSelectedResId || ""}
-            onChange={(e) => setMobileSelectedResId(Number(e.target.value))}
-            className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 font-bold"
-          >
-            {filteredResources.map((res) => (
-              <option key={res.id} value={res.id}>
-                {res.name}
-              </option>
-            ))}
-            {filteredResources.length === 0 && (
-              <option value="">등록된 자원 없음</option>
-            )}
-          </select>
+        <div className="block md:hidden p-4 border-b border-gray-100 bg-gray-50 sticky top-0 z-50">
+          <Select
+            label="시설 선택"
+            value={String(selectedResId || "")}
+            onChange={(val) => setSelectedResId(Number(val))}
+            placeholder="예약할 시설을 선택해주세요"
+            options={resources.map((res) => ({
+              value: String(res.id),
+              label: res.name,
+              group: TABS.find((t) => t.id === res.category)?.label || "기타",
+            }))}
+            className="w-full h-12 px-3 border border-gray-300 rounded-lg text-lg bg-white"
+          />
         </div>
 
         {/* 스케줄러 영역 */}
@@ -755,8 +793,19 @@ export default function FacilityReservationPage() {
         }
       >
         <div className="space-y-5">
-          <div className="p-3 bg-blue-50 rounded-lg text-base text-blue-800 font-bold text-center border border-blue-100">
-            {resources.find((r) => r.id === selectedResId)?.name}
+          <div>
+            <Select
+              label="시설 선택"
+              value={String(selectedResId || "")}
+              onChange={(val) => setSelectedResId(Number(val))}
+              placeholder="예약할 시설을 선택해주세요"
+              options={resources.map((res) => ({
+                value: String(res.id),
+                label: res.name,
+                group: TABS.find((t) => t.id === res.category)?.label || "기타",
+              }))}
+              className="w-full h-12 px-3 border border-gray-300 rounded-lg text-lg bg-white"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -264,7 +264,10 @@ export default function Home() {
       {/* --- [섹션 1] 배너 + 알림 (항상 상단) --- */}
       <section className="flex flex-col xl:flex-row gap-6">
         {/* 1. 웰컴 배너 */}
-        <div className="flex-1 bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-8 text-white shadow-md relative overflow-hidden min-h-[160px] flex flex-col justify-center">
+        <Link
+          href="/mypage"
+          className="flex-1 bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-8 text-white shadow-md relative overflow-hidden min-h-[160px] flex flex-col justify-center"
+        >
           <div className="relative z-10">
             <h2 className="text-3xl font-bold mb-2">
               안녕하세요, {profile?.full_name}님!
@@ -285,7 +288,7 @@ export default function Home() {
               />
             </svg>
           </div>
-        </div>
+        </Link>
 
         {/* 2. 알림 카드 */}
         <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">

@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 type Option = {
   value: string;
   label: string;
+  group?: string;
 };
 
 type SelectProps = {
@@ -50,9 +51,22 @@ export default function Select({
     (opt) => opt.value === value,
   )?.label;
 
+  // 그룹이 하나라도 있는지 확인
+  const hasGroups = formattedOptions.some((opt) => opt.group);
+
+  // 옵션들을 그룹별로 묶어주는 로직
+  const groupedOptions = formattedOptions.reduce(
+    (acc, opt) => {
+      const groupName = opt.group || "기타";
+      if (!acc[groupName]) acc[groupName] = [];
+      acc[groupName].push(opt);
+      return acc;
+    },
+    {} as Record<string, Option[]>,
+  );
+
   return (
     <div className="relative w-full" ref={containerRef}>
-      {/* 라벨은 외부에서 그릴 수도 있고 내부에서 그릴 수도 있게 처리 */}
       {label && (
         <label className="block text-sm font-bold text-gray-600 mb-1.5 ml-1">
           {label}
@@ -63,8 +77,6 @@ export default function Select({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        // ★ 핵심: 외부에서 받은 className을 적용하되, 정렬(flex) 속성은 유지
-        // style={{ colorScheme: 'light' }} -> 다크모드에서도 강제로 밝은 스타일 유지
         style={{ colorScheme: "light" }}
         className={`flex items-center justify-between text-left transition-all duration-200 outline-none
           ${className} 
@@ -73,7 +85,7 @@ export default function Select({
         `}
       >
         <span
-          className={`text-base truncate ${
+          className={`text-base truncate font-bold ${
             value ? "text-gray-900" : "text-gray-400"
           }`}
         >
@@ -100,25 +112,51 @@ export default function Select({
 
       {/* 드롭다운 메뉴 */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto animate-fadeIn">
-          {formattedOptions.map((opt) => (
-            <div
-              key={opt.value}
-              onClick={() => {
-                onChange(opt.value);
-                setIsOpen(false);
-              }}
-              className={`px-4 py-3 text-base cursor-pointer transition-colors
-                ${
-                  value === opt.value
-                    ? "bg-blue-50 text-blue-600 font-bold"
-                    : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
-                }
-              `}
-            >
-              {opt.label}
-            </div>
-          ))}
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto custom-scrollbar animate-fadeIn">
+          {hasGroups
+            ? Object.entries(groupedOptions).map(([group, opts]) => (
+                <div key={group}>
+                  <div className="px-4 py-2 text-xs font-extrabold text-gray-500 bg-gray-50/95 sticky top-0 backdrop-blur-sm border-y border-gray-100 first:border-t-0 z-10">
+                    {group}
+                  </div>
+                  {opts.map((opt) => (
+                    <div
+                      key={opt.value}
+                      onClick={() => {
+                        onChange(opt.value);
+                        setIsOpen(false);
+                      }}
+                      className={`px-4 py-3 text-base cursor-pointer transition-colors
+                        ${
+                          value === opt.value
+                            ? "bg-blue-50 text-blue-600 font-bold"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-blue-600 font-medium"
+                        }
+                      `}
+                    >
+                      <span className="pl-2">{opt.label}</span>{" "}
+                    </div>
+                  ))}
+                </div>
+              ))
+            : formattedOptions.map((opt) => (
+                <div
+                  key={opt.value}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`px-4 py-3 text-base cursor-pointer transition-colors
+                    ${
+                      value === opt.value
+                        ? "bg-blue-50 text-blue-600 font-bold"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                    }
+                  `}
+                >
+                  {opt.label}
+                </div>
+              ))}
         </div>
       )}
     </div>
