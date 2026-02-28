@@ -21,6 +21,7 @@ const VEHICLE_IMAGES: Record<string, string> = {
   모닝: "/images/cars/morning.webp",
   쏘나타: "/images/cars/sonata.webp",
   봉고트럭: "/images/cars/bongo.png",
+  카니발: "/images/cars/carnival.png",
 };
 
 type Vehicle = {
