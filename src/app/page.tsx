@@ -444,10 +444,10 @@ export default function Home() {
         <div className="flex flex-col 2xl:flex-row gap-6">
           {/* 달력 섹션 */}
           <section className="flex-1 order-2 2xl:order-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[780px]">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0">
-              <div className="flex items-center gap-2">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0 gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-hidden">
                 <svg
-                  className="w-5 h-5 text-blue-600"
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -459,12 +459,13 @@ export default function Home() {
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                <h3 className="text-lg font-bold text-gray-800 tracking-tight">
-                  통합 일정 (휴가 & 사역)
+                <h3 className="text-base sm:text-lg font-bold text-gray-800 tracking-tight truncate">
+                  통합 일정{" "}
+                  <span className="hidden sm:inline">(휴가 & 사역)</span>
                 </h3>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="hidden sm:flex items-center gap-4 mr-2">
+              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                <div className="hidden md:flex items-center gap-4 mr-2">
                   {teams.map((team) => (
                     <div key={team.id} className="flex items-center gap-1.5">
                       <span
@@ -484,10 +485,10 @@ export default function Home() {
                 </div>
                 <button
                   onClick={() => setIsScheduleModalOpen(true)}
-                  className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-bold shadow-sm hover:bg-blue-700 transition flex items-center gap-1"
+                  className="bg-blue-600 text-white px-2.5 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-bold shadow-sm hover:bg-blue-700 transition flex items-center gap-1 whitespace-nowrap"
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"

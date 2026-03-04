@@ -11,10 +11,10 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const [view, setView] = useState<"login" | "signup">("login");
+  const [view, setView] = useState<"login" | "signup" | "forgot">("login");
 
   // --- 상태 관리 ---
-  const [email, setEmail] = useState(""); // Email 이짐
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [position, setPosition] = useState("사역자");
@@ -26,6 +26,12 @@ export default function LoginPage() {
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [timeLeft, setTimeLeft] = useState(180);
+
+  // 🌟 비밀번호 찾기(재설정)용 상태
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetTargetEmail, setResetTargetEmail] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -62,39 +68,53 @@ export default function LoginPage() {
     setIsCodeSent(false);
     setIsVerified(false);
     setTimeLeft(180);
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetTargetEmail("");
   };
 
-  const toggleView = () => {
-    setView(view === "login" ? "signup" : "login");
+  const changeView = (newView: "login" | "signup" | "forgot") => {
+    setView(newView);
     resetForm();
   };
 
-  // 문자 발송
+  // 문자 발송 (회원가입 & 비밀번호 찾기 공용)
   const handleSendCode = async () => {
-    if (!name.trim()) return toast.error("이름을 입력해주세요.");
+    // 회원가입일 때는 이름 필수, 비번찾기일 때는 번호만 있으면 됨
+    if (view === "signup" && !name.trim())
+      return toast.error("이름을 입력해주세요.");
     if (!phone || phone.length < 10)
       return toast.error("휴대폰 번호를 정확히 입력해주세요.");
+
     const cleanPhone = phone.replace(/-/g, "");
-
     setLoading(true);
+
     try {
-      const { data: allowedUser, error: dbError } = await supabase
-        .from("allowed_users")
-        .select("*")
-        .eq("name", name.trim())
-        .eq("phone", cleanPhone)
-        .maybeSingle();
+      if (view === "signup") {
+        // 회원가입 시: 사전 등록 여부 및 중복 가입 체크
+        const { data: allowedUser } = await supabase
+          .from("allowed_users")
+          .select("*")
+          .eq("name", name.trim())
+          .eq("phone", cleanPhone)
+          .maybeSingle();
 
-      if (!allowedUser) {
-        throw new Error(
-          "사전 등록된 분들만 회원가입이 가능합니다. 관리자에게 문의해주세요.",
-        );
-      }
-
-      if (allowedUser.is_registered) {
-        throw new Error(
-          "이미 가입이 완료된 번호입니다. 로그인을 진행해주세요.",
-        );
+        if (!allowedUser)
+          throw new Error(
+            "사전 등록된 분들만 회원가입이 가능합니다. 관리자에게 문의해주세요.",
+          );
+        if (allowedUser.is_registered)
+          throw new Error(
+            "이미 가입이 완료된 번호입니다. 로그인을 진행해주세요.",
+          );
+      } else if (view === "forgot") {
+        // 비밀번호 찾기 시: 해당 번호로 가입된 계정이 있는지 체크
+        const { data: foundEmail } = await supabase.rpc("get_email_by_phone", {
+          search_phone: cleanPhone,
+        });
+        if (!foundEmail)
+          throw new Error("입력하신 번호로 가입된 계정을 찾을 수 없습니다.");
+        setResetTargetEmail(foundEmail); // 나중에 비번 바꿀 때 쓰기 위해 저장
       }
 
       const res = await fetch("/api/sms/send", {
@@ -119,7 +139,6 @@ export default function LoginPage() {
   const handleVerifyCode = async () => {
     if (!verifyCode) return toast.error("인증번호를 입력해주세요.");
     const cleanPhone = phone.replace(/-/g, "");
-
     setLoading(true);
 
     try {
@@ -141,30 +160,22 @@ export default function LoginPage() {
     }
   };
 
-  // 로그인
   // 로그인 로직
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
 
-    let targetEmail = email.trim(); // email or phone 입력 가능하도록 처리
-
-    // 입력값이 휴대폰 번호 형식인지 확인 (하이픈 제거 후 숫자 10~11자리)
+    let targetEmail = email.trim();
     const cleanId = email?.replace(/-/g, "");
     const isPhone = /^[0-9]{10,11}$/.test(cleanId);
 
-    // 1. 번호로 입력했다면 DB에서 이메일로 변환하기
     if (isPhone) {
-      const { data: foundEmail, error: rpcError } = await supabase.rpc(
-        "get_email_by_phone",
-        {
-          search_phone: cleanId,
-        },
-      );
-
+      const { data: foundEmail } = await supabase.rpc("get_email_by_phone", {
+        search_phone: cleanId,
+      });
       if (foundEmail) {
-        targetEmail = foundEmail; // 찾은 이메일로 타겟 변경
+        targetEmail = foundEmail;
       } else {
         setErrorMsg("등록된 휴대폰 번호를 찾을 수 없습니다.");
         setLoading(false);
@@ -172,12 +183,10 @@ export default function LoginPage() {
       }
     }
 
-    // 2. 최종 이메일로 로그인 시도
     const { error } = await supabase.auth.signInWithPassword({
       email: targetEmail,
       password,
     });
-
     if (error) {
       setErrorMsg("로그인 실패: 아이디(번호) 또는 비밀번호를 확인해주세요.");
     } else {
@@ -220,6 +229,37 @@ export default function LoginPage() {
     setLoading(false);
   };
 
+  // 비밀번호 재설정 (Admin API 활용 또는 우회)
+  // 로그인 전이므로 본인 인증이 완료되었다면 RPC 함수를 통해 안전하게 변경
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isVerified) return toast.error("휴대폰 인증을 완료해주세요.");
+    if (newPassword.length < 6)
+      return toast.error("비밀번호는 6자리 이상이어야 합니다.");
+    if (newPassword !== confirmPassword)
+      return toast.error("비밀번호가 일치하지 않습니다.");
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetTargetEmail, newPassword }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "비밀번호 변경 실패");
+
+      toast.success("비밀번호가 변경되었습니다! 다시 로그인해주세요.");
+      changeView("login");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatPhone = (val: string) => {
     const raw = val.replace(/[^0-9]/g, "");
     if (raw.length < 4) return raw;
@@ -233,31 +273,14 @@ export default function LoginPage() {
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  // --- 공통 스타일 정의 ---
-
-  // 1. 라벨 스타일
   const labelStyle = "block text-sm font-bold text-gray-600 mb-1.5 ml-1";
-
-  // 2. 기본 인풋 스타일
-  // color-scheme: light 덕분에 다크모드에서도 흰 배경/검은 글씨가 유지됨
-  const inputStyle = `
-    w-full px-4 py-3.5 rounded-xl text-base transition-all outline-none
-    bg-gray-50 border border-gray-200 
-    text-gray-900 placeholder-gray-400
-    focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 
-  `;
-
-  // 3. 읽기 전용 스타일 (인증 완료된 전화번호)
-  const readOnlyStyle = `
-    w-full px-4 py-3.5 rounded-xl text-base outline-none cursor-default font-medium
-    bg-gray-200 border border-gray-300 text-gray-500
-  `;
+  const inputStyle = `w-full px-4 py-3.5 rounded-xl text-base transition-all outline-none bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200`;
+  const readOnlyStyle = `w-full px-4 py-3.5 rounded-xl text-base outline-none cursor-default font-medium bg-gray-200 border border-gray-300 text-gray-500`;
 
   return (
-    // 전체 배경도 강제로 밝은 색 유지
     <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-gray-100">
-      <div className="max-w-md w-full space-y-8 p-8 md:p-10 rounded-3xl shadow-xl bg-white">
-        <div className="text-center flex flex-col items-center">
+      <div className="max-w-md w-full space-y-8 p-8 md:p-10 rounded-3xl shadow-xl bg-white relative overflow-hidden">
+        <div className="text-center flex flex-col items-center relative z-10">
           <img
             src="/images/mainlogo.jpg"
             alt="수원하나교회"
@@ -267,7 +290,10 @@ export default function LoginPage() {
 
         {/* ================= 로그인 화면 ================= */}
         {view === "login" && (
-          <form className="mt-4 space-y-6" onSubmit={handleLogin}>
+          <form
+            className="mt-4 space-y-6 relative z-10 animate-fadeIn"
+            onSubmit={handleLogin}
+          >
             <div className="space-y-4">
               {errorMsg && (
                 <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-xl font-medium">
@@ -284,7 +310,7 @@ export default function LoginPage() {
                   style={{ colorScheme: "light" }}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@email.com"
+                  placeholder="example@email.com 또는 010-1234-5678"
                 />
               </div>
               <div>
@@ -308,28 +334,224 @@ export default function LoginPage() {
               >
                 {loading ? "로그인 중..." : "로그인"}
               </button>
-              <div className="text-center mt-2">
-                <span className="text-sm text-gray-500">
-                  계정이 없으신가요?
-                </span>
+
+              {/* 회원가입 & 비밀번호 찾기 링크 영역 */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-4 text-[13px] sm:text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 whitespace-nowrap">
+                    계정이 없으신가요?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => changeView("signup")}
+                    className="font-bold text-blue-600 hover:underline whitespace-nowrap"
+                  >
+                    회원가입
+                  </button>
+                </div>
+
+                {/* 모바일에서는 세로 선을 숨김 (hidden sm:block) */}
+                <div className="hidden sm:block w-px h-3 bg-gray-300"></div>
+
                 <button
                   type="button"
-                  onClick={toggleView}
-                  className="ml-2 text-sm font-bold text-blue-600 hover:underline"
+                  onClick={() => changeView("forgot")}
+                  className="font-bold text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap"
                 >
-                  회원가입
+                  비밀번호 찾기
                 </button>
               </div>
             </div>
           </form>
         )}
 
+        {/* ================= 비밀번호 찾기 화면 ================= */}
+        {view === "forgot" && (
+          <div className="mt-4 relative z-10 animate-fadeIn">
+            {!isVerified ? (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    비밀번호 찾기
+                  </h2>
+                  <p className="text-gray-500 text-sm">
+                    가입 시 등록한 휴대폰 번호로
+                    <br />
+                    인증을 진행해주세요.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={labelStyle}>휴대폰 번호</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className={inputStyle}
+                      style={{ colorScheme: "light" }}
+                      value={phone}
+                      placeholder="010-1234-5678"
+                      maxLength={13}
+                      disabled={isCodeSent}
+                      onChange={(e) => setPhone(formatPhone(e.target.value))}
+                    />
+                    {!isCodeSent ? (
+                      <button
+                        type="button"
+                        onClick={handleSendCode}
+                        disabled={loading || phone.length < 12}
+                        className="px-5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 whitespace-nowrap shadow-md transition-colors"
+                      >
+                        인증요청
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCodeSent(false);
+                          setVerifyCode("");
+                        }}
+                        className="px-5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 whitespace-nowrap"
+                      >
+                        재입력
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {isCodeSent && (
+                  <div className="animate-slideDown space-y-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className={`${inputStyle} pr-24 tracking-widest font-bold text-lg`}
+                        style={{ colorScheme: "light" }}
+                        value={verifyCode}
+                        placeholder="인증번호 6자리"
+                        maxLength={6}
+                        onChange={(e) =>
+                          setVerifyCode(e.target.value.replace(/[^0-9]/g, ""))
+                        }
+                      />
+                      <div className="absolute right-4 top-4 flex items-center gap-3">
+                        <span className="text-red-500 font-bold font-mono text-sm">
+                          {formatTime(timeLeft)}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleVerifyCode}
+                      disabled={loading || verifyCode.length < 6}
+                      className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 shadow-md transition-colors mt-2"
+                    >
+                      인증번호 확인
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => changeView("login")}
+                  className="w-full py-3 text-gray-400 font-medium hover:text-gray-600 text-sm"
+                >
+                  로그인으로 돌아가기
+                </button>
+              </div>
+            ) : (
+              /* 🌟 CASE 3: 인증 완료 -> 임시 비밀번호 발급 화면 */
+              <div className="space-y-6 animate-fadeIn text-center py-4">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+                  ✓
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  본인인증 완료
+                </h3>
+
+                {!tempPassword ? (
+                  <>
+                    <p className="text-gray-500 text-sm mb-6">
+                      본인 확인이 완료되었습니다.
+                      <br />
+                      아래 버튼을 눌러 임시 비밀번호를 발급받으세요.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          const res = await fetch(
+                            "/api/auth/issue-temp-password",
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ email: resetTargetEmail }),
+                            },
+                          );
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error);
+                          setTempPassword(data.tempPassword);
+                          toast.success("임시 비밀번호가 발급되었습니다!");
+                        } catch (err: any) {
+                          toast.error(err.message);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      disabled={loading}
+                      className="w-full py-4 bg-indigo-600 text-white text-lg font-bold rounded-2xl hover:bg-indigo-700 transition shadow-lg"
+                    >
+                      {loading ? "발급 중..." : "임시 비밀번호 발급받기"}
+                    </button>
+                  </>
+                ) : (
+                  <div className="animate-slideDown space-y-6">
+                    <p className="text-gray-500 text-sm">
+                      발급된 임시 비밀번호입니다.
+                      <br />
+                      로그인 후 마이페이지에서 반드시 비밀번호를 변경해주세요.
+                    </p>
+                    <div className="bg-gray-100 p-6 rounded-2xl border border-gray-200">
+                      <span className="block text-3xl font-mono font-extrabold text-indigo-600 tracking-widest">
+                        {tempPassword}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(tempPassword);
+                        toast.success("비밀번호가 복사되었습니다!");
+                        changeView("login");
+                      }}
+                      className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                      복사하고 로그인하러 가기
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ================= 회원가입 화면 ================= */}
         {view === "signup" && (
-          <div className="mt-4">
+          // ... (기존 회원가입 코드와 완전히 동일하므로 생략 없이 아래에 유지합니다)
+          <div className="mt-4 relative z-10">
             {!isVerified ? (
               !isVerificationStarted ? (
-                // 1. 대기 화면
                 <div className="text-center space-y-8 animate-fadeIn py-4">
                   <div className="flex flex-col items-center gap-4">
                     <div>
@@ -353,20 +575,16 @@ export default function LoginPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={toggleView}
+                      onClick={() => changeView("login")}
                       className="w-full py-3 text-gray-500 font-medium hover:text-gray-800 transition"
                     >
-                      다음에 하기 (취소)
+                      로그인으로 돌아가기
                     </button>
                   </div>
                 </div>
               ) : (
-                // 2. 인증 입력 화면
                 <div className="animate-fadeIn space-y-6">
                   <div className="space-y-4">
-                    {/* <h3 className="text-lg font-bold text-gray-900">
-                      사전 등록 정보 확인
-                    </h3> */}
                     <div>
                       <label className={labelStyle}>이름</label>
                       <input
@@ -374,7 +592,7 @@ export default function LoginPage() {
                         className={inputStyle}
                         style={{ colorScheme: "light" }}
                         value={name}
-                        disabled={isCodeSent} // 문자 발송 후엔 수정 불가
+                        disabled={isCodeSent}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="실명 입력"
                       />
@@ -395,7 +613,7 @@ export default function LoginPage() {
                             setPhone(formatPhone(e.target.value))
                           }
                         />
-                        {!isCodeSent && (
+                        {!isCodeSent ? (
                           <button
                             type="button"
                             onClick={handleSendCode}
@@ -404,8 +622,7 @@ export default function LoginPage() {
                           >
                             인증요청
                           </button>
-                        )}
-                        {isCodeSent && (
+                        ) : (
                           <button
                             type="button"
                             onClick={() => {
@@ -419,7 +636,6 @@ export default function LoginPage() {
                         )}
                       </div>
                     </div>
-
                     {isCodeSent && (
                       <div className="animate-slideDown space-y-2">
                         <div className="relative">
@@ -473,7 +689,6 @@ export default function LoginPage() {
                 </div>
               )
             ) : (
-              /* --- CASE 3: 인증 완료 (가입 폼) --- */
               <form
                 onSubmit={handleSignUp}
                 className="animate-fadeIn space-y-5"
@@ -483,12 +698,9 @@ export default function LoginPage() {
                     {errorMsg}
                   </div>
                 )}
-
                 <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
                   회원가입 정보 입력
                 </h3>
-
-                {/* 이름 */}
                 <div>
                   <label className={labelStyle}>이름</label>
                   <input
@@ -501,8 +713,6 @@ export default function LoginPage() {
                     placeholder="실명 입력"
                   />
                 </div>
-
-                {/* 휴대폰 번호 (수정불가) */}
                 <div>
                   <label className={labelStyle}>휴대폰 번호</label>
                   <div className="relative">
@@ -510,7 +720,7 @@ export default function LoginPage() {
                       type="text"
                       readOnly
                       className={`${readOnlyStyle} pr-12`}
-                      style={{ colorScheme: "light" }} // ★ 다크모드 방지
+                      style={{ colorScheme: "light" }}
                       value={phone}
                     />
                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-green-500">
@@ -529,10 +739,7 @@ export default function LoginPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* 직분 (커스텀 Select) */}
                 <div>
-                  {/* Select 컴포넌트에 라벨 prop 전달 X, 직접 그림 */}
                   <label className={labelStyle}>직분</label>
                   <Select
                     value={position}
@@ -544,11 +751,9 @@ export default function LoginPage() {
                       "디렉터",
                       "일반",
                     ]}
-                    className={inputStyle} // input과 동일한 스타일 적용
+                    className={inputStyle}
                   />
                 </div>
-
-                {/* 이메일 */}
                 <div>
                   <label className={labelStyle}>이메일 (아이디)</label>
                   <input
@@ -561,8 +766,6 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
-
-                {/* 비밀번호 */}
                 <div>
                   <label className={labelStyle}>비밀번호</label>
                   <input
@@ -575,7 +778,6 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
-
                 <div className="pt-4 space-y-3">
                   <button
                     type="submit"
@@ -586,7 +788,7 @@ export default function LoginPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={toggleView}
+                    onClick={() => changeView("login")}
                     className="w-full py-3 text-gray-400 font-medium hover:text-gray-600"
                   >
                     취소

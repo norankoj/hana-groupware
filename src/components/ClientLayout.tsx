@@ -252,7 +252,7 @@ export default function ClientLayout({
           className={`
             fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 flex flex-col duration-300 ease-in-out
             md:translate-x-0 md:static md:inset-auto md:flex
-            transition-all
+            transition-all z-[100]
             ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
             w-64 ${isCollapsed ? "md:w-20" : "md:w-64"}
           `}

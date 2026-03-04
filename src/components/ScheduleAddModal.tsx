@@ -202,7 +202,7 @@ export default function ScheduleAddModal({
           </label>
           <input
             type="text"
-            placeholder="예: 여주 선교원"
+            placeholder="예: 여주 선교관"
             value={form.location}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
             className="w-full border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white"
@@ -235,12 +235,17 @@ export default function ScheduleAddModal({
                 onClick={() => setShowDatePicker(!showDatePicker)}
                 className="w-full border p-3 rounded-lg border-gray-300 bg-white cursor-pointer flex justify-between items-center hover:border-teal-500 transition-colors"
               >
-                <span className="font-bold text-gray-900">
-                  {form.startDate}{" "}
-                  {form.startDate !== form.endDate && ` ~ ${form.endDate}`}
+                <span className="font-bold text-gray-900 text-sm sm:text-base tracking-tight truncate mr-2">
+                  {form.startDate}
+                  {form.startDate !== form.endDate && (
+                    <span className="text-gray-500 font-medium">
+                      {" "}
+                      ~ {form.endDate.slice(5)}
+                    </span>
+                  )}
                 </span>
                 <svg
-                  className="w-5 h-5 text-gray-400"
+                  className="w-5 h-5 text-gray-400 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -253,6 +258,7 @@ export default function ScheduleAddModal({
                   />
                 </svg>
               </div>
+
               {showDatePicker && (
                 <div className="absolute z-[60] mt-2 left-0 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-full sm:w-[320px] animate-fadeIn modal-calendar-wrapper">
                   <div className="text-xs text-teal-600 font-bold text-center mb-2">
