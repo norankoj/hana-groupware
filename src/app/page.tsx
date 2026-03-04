@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -16,9 +16,9 @@ import {
   eachDayOfInterval,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import toast from "react-hot-toast";
-import Modal from "@/components/Modal";
 import { HOLIDAYS } from "@/constants/holidays";
+import ScheduleAddModal from "@/components/ScheduleAddModal";
+import ScheduleDetailModal from "@/components/ScheduleDetailModal";
 
 const calendarCustomStyles = `
   .react-calendar { width: 100%; height: 100%; border: none; font-family: inherit; display: flex; flex-direction: column; }
@@ -38,12 +38,7 @@ type Profile = {
   status: string;
   is_approver?: boolean;
 };
-
-type Attendee = {
-  id: string;
-  name: string;
-};
-
+type Attendee = { id: string; name: string };
 type CalendarEvent = {
   id: string;
   original_id: number;
@@ -54,7 +49,7 @@ type CalendarEvent = {
   time_label: string;
   location?: string;
   display_name: string;
-  attendees?: Attendee[]; // 동행자 명단
+  attendees?: Attendee[];
   profiles: {
     full_name: string;
     position: string;
@@ -62,7 +57,6 @@ type CalendarEvent = {
     teams?: { name: string };
   };
 };
-
 type TeamInfo = { id: number; name: string };
 type TodayReservation = {
   id: number;
@@ -74,7 +68,6 @@ type TodayReservation = {
 };
 
 const ALLOWED_ROLES = ["admin", "director", "staff"];
-
 const TEAM_STYLES: Record<
   number,
   { bg: string; text: string; border: string }
@@ -116,14 +109,13 @@ export default function Home() {
   const router = useRouter();
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [users, setUsers] = useState<Profile[]>([]); // 참석자 선택을 위한 유저 목록
+  const [users, setUsers] = useState<Profile[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [myPendingCount, setMyPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
   const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
-
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [date, setDate] = useState<Date>(new Date());
   const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
@@ -137,30 +129,15 @@ export default function Home() {
   );
   const [todayVehicles, setTodayVehicles] = useState<TodayReservation[]>([]);
 
-  // 모달 상태들
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedDetailEvent, setSelectedDetailEvent] =
     useState<CalendarEvent | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const datePickerRef = useRef<HTMLDivElement>(null);
-
-  const [scheduleForm, setScheduleForm] = useState({
-    title: "",
-    date: format(new Date(), "yyyy-MM-dd"),
-    isAllDay: false,
-    startTime: "14:00",
-    endTime: "16:00",
-    location: "",
-    attendees: [] as Attendee[], // 선택된 동행자들
-  });
 
   useEffect(() => {
     const today = new Date();
-    const dateNum = today.getDate();
-    const isEven = dateNum % 2 === 0;
     setParkingText(
-      `오늘은 ${dateNum}일, ${isEven ? "짝수" : "홀수"}차량이 주차하는 날입니다.`,
+      `오늘은 ${today.getDate()}일, ${today.getDate() % 2 === 0 ? "짝수" : "홀수"}차량이 주차하는 날입니다.`,
     );
   }, []);
 
@@ -200,7 +177,6 @@ export default function Home() {
       setMyPendingCount(myCount || 0);
 
       if (ALLOWED_ROLES.includes(myRole)) {
-        // 유저 목록 가져오기 (참석자 선택용)
         const { data: usersData } = await supabase
           .from("profiles")
           .select("id, full_name, position, team_id, role, status")
@@ -249,12 +225,18 @@ export default function Home() {
             const startDate = new Date(s.start_at);
             const endDate = new Date(s.end_at);
             const attendeesArr: Attendee[] = s.attendees || [];
-
-            // "외 N명" 표시 로직
             const displayName =
               attendeesArr.length > 0
                 ? `${s.profiles.full_name} 외 ${attendeesArr.length}명`
                 : s.profiles.full_name;
+
+            // 시간 표기 로직 (기간 전체일 경우 시간 생략)
+            const isAllDaySpan =
+              format(startDate, "HH:mm") === "00:00" &&
+              format(endDate, "HH:mm") === "23:59";
+            const timeLabel = isAllDaySpan
+              ? "일정 전체"
+              : `${format(startDate, "HH:mm")}~${format(endDate, "HH:mm")}`;
 
             mergedEvents.push({
               id: `sch_${s.id}`,
@@ -263,7 +245,7 @@ export default function Home() {
               start_date: format(startDate, "yyyy-MM-dd"),
               end_date: format(endDate, "yyyy-MM-dd"),
               title: s.title,
-              time_label: `${format(startDate, "HH:mm")}~${format(endDate, "HH:mm")}`,
+              time_label: timeLabel,
               location: s.location,
               attendees: attendeesArr,
               display_name: displayName,
@@ -329,82 +311,6 @@ export default function Home() {
     setSelectedEvents(filtered);
   };
 
-  // 동행자 선택 토글 핸들러
-  const toggleAttendee = (user: Profile) => {
-    setScheduleForm((prev) => {
-      const isSelected = prev.attendees.some((a) => a.id === user.id);
-      if (isSelected)
-        return {
-          ...prev,
-          attendees: prev.attendees.filter((a) => a.id !== user.id),
-        };
-      return {
-        ...prev,
-        attendees: [...prev.attendees, { id: user.id, name: user.full_name }],
-      };
-    });
-  };
-
-  const toggleAllAttendees = () => {
-    const allOtherUsers = users.filter((u) => u.id !== profile?.id);
-    if (scheduleForm.attendees.length === allOtherUsers.length) {
-      setScheduleForm({ ...scheduleForm, attendees: [] }); // 모두 선택되어 있으면 해제
-    } else {
-      setScheduleForm({
-        ...scheduleForm,
-        attendees: allOtherUsers.map((u) => ({ id: u.id, name: u.full_name })),
-      }); // 아니면 전체 선택
-    }
-  };
-
-  const handleAddSchedule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!scheduleForm.title || !scheduleForm.date)
-      return toast.error("내용을 입력해주세요.");
-    if (!profile) return;
-
-    let startDateTime, endDateTime;
-
-    // 하루 종일 체크 여부에 따라 시간 세팅 다르게 처리
-    if (scheduleForm.isAllDay) {
-      startDateTime = new Date(`${scheduleForm.date}T00:00:00`);
-      endDateTime = new Date(`${scheduleForm.date}T23:59:59`);
-    } else {
-      startDateTime = new Date(
-        `${scheduleForm.date}T${scheduleForm.startTime}:00`,
-      );
-      endDateTime = new Date(`${scheduleForm.date}T${scheduleForm.endTime}:00`);
-      if (startDateTime >= endDateTime)
-        return toast.error("종료 시간이 시작 시간보다 빠릅니다.");
-    }
-
-    setLoading(true);
-    const { error } = await supabase.from("user_schedules").insert({
-      user_id: profile.id,
-      title: scheduleForm.title,
-      start_at: startDateTime.toISOString(),
-      end_at: endDateTime.toISOString(),
-      location: scheduleForm.location,
-      attendees: scheduleForm.attendees,
-    });
-
-    if (error) {
-      toast.error("일정 등록 실패: " + error.message);
-    } else {
-      toast.success("사역 일정이 등록되었습니다.");
-      setIsScheduleModalOpen(false);
-      setScheduleForm({
-        ...scheduleForm,
-        title: "",
-        location: "",
-        attendees: [],
-        isAllDay: false,
-      });
-      fetchData();
-    }
-    setLoading(false);
-  };
-
   const openEventDetail = (event: CalendarEvent) => {
     setSelectedDetailEvent(event);
     setDetailModalOpen(true);
@@ -422,7 +328,7 @@ export default function Home() {
     <div className="space-y-8">
       <style>{calendarCustomStyles}</style>
 
-      {/* --- [섹션 1] 배너 + 알림 --- */}
+      {/* 배너 영역 */}
       <section className="flex flex-col xl:flex-row gap-6">
         <Link
           href="/mypage"
@@ -534,9 +440,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- [섹션 2 & 3] 메인 레이아웃 --- */}
       {canViewCalendar && (
         <div className="flex flex-col 2xl:flex-row gap-6">
+          {/* 달력 섹션 */}
           <section className="flex-1 order-2 2xl:order-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[780px]">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0">
               <div className="flex items-center gap-2">
@@ -557,7 +463,6 @@ export default function Home() {
                   통합 일정 (휴가 & 사역)
                 </h3>
               </div>
-
               <div className="flex items-center gap-4">
                 <div className="hidden sm:flex items-center gap-4 mr-2">
                   {teams.map((team) => (
@@ -732,6 +637,13 @@ export default function Home() {
                                       ? SCHEDULE_STYLE
                                       : TEAM_STYLES[e.profiles.team_id] ||
                                         DEFAULT_STYLE;
+
+                                  // 달력 표시 텍스트 조건 분기
+                                  const displayText =
+                                    e.type === "schedule"
+                                      ? e.title
+                                      : `${e.display_name} ${e.title}`;
+
                                   return (
                                     <div
                                       key={e.id + i}
@@ -741,8 +653,7 @@ export default function Home() {
                                       // }}
                                       className={`text-[9px] ${style.bg} ${style.text} border ${style.border} rounded px-1 py-0.5 truncate text-center font-bold cursor-pointer hover:opacity-80 transition-opacity`}
                                     >
-                                      {e.display_name}{" "}
-                                      {e.type === "schedule" && "📍"}
+                                      {displayText}
                                     </div>
                                   );
                                 })}
@@ -808,6 +719,10 @@ export default function Home() {
                                       ? SCHEDULE_STYLE
                                       : TEAM_STYLES[e.profiles.team_id] ||
                                         DEFAULT_STYLE;
+                                  const displayText =
+                                    e.type === "schedule"
+                                      ? e.title
+                                      : `${e.display_name} ${e.title}`;
                                   return (
                                     <div
                                       key={e.id}
@@ -817,10 +732,7 @@ export default function Home() {
                                       // }}
                                       className={`px-2 py-1 rounded-md inline-flex items-center gap-1 text-xs font-bold border hover:opacity-80 transition-opacity ${style.bg} ${style.text} ${style.border}`}
                                     >
-                                      {e.display_name}{" "}
-                                      <span className="text-[10px] opacity-75">
-                                        | {e.title}
-                                      </span>
+                                      {displayText}
                                     </div>
                                   );
                                 })}
@@ -922,7 +834,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* B. 위젯 섹션 (기존 코드와 동일) */}
+          {/* B. 위젯 섹션  */}
           <div className="order-1 2xl:order-2 w-full 2xl:w-[420px] shrink-0">
             <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-1 gap-6 h-auto">
               {/* 시설 위젯 */}
@@ -1114,286 +1026,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* 일정 추가 모달 */}
-      <Modal
+      <ScheduleAddModal
         isOpen={isScheduleModalOpen}
-        onClose={() => {
-          setIsScheduleModalOpen(false);
-          setShowDatePicker(false);
-        }}
-        title="새로운 사역 일정 추가"
-        footer={
-          <div className="flex gap-2 w-full">
-            <button
-              onClick={handleAddSchedule}
-              disabled={loading}
-              className="flex-1 bg-teal-600 text-white py-3 rounded-lg font-bold hover:bg-teal-700 transition shadow-sm disabled:opacity-50"
-            >
-              {loading ? "등록 중..." : "일정 등록"}
-            </button>
-            <button
-              onClick={() => {
-                setIsScheduleModalOpen(false);
-                setShowDatePicker(false);
-              }}
-              className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
-            >
-              취소
-            </button>
-          </div>
-        }
-      >
-        <form onSubmit={handleAddSchedule} className="space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">
-              일정 내용 (필수)
-            </label>
-            <input
-              type="text"
-              placeholder="예: 용인 심방, 수련회 답사"
-              value={scheduleForm.title}
-              onChange={(e) =>
-                setScheduleForm({ ...scheduleForm, title: e.target.value })
-              }
-              className="w-full border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white font-medium"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">
-              장소 (선택)
-            </label>
-            <input
-              type="text"
-              placeholder="예: 용인 수지구"
-              value={scheduleForm.location}
-              onChange={(e) =>
-                setScheduleForm({ ...scheduleForm, location: e.target.value })
-              }
-              className="w-full border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white"
-            />
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-gray-700">
-                날짜 및 시간
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={scheduleForm.isAllDay}
-                  onChange={(e) =>
-                    setScheduleForm({
-                      ...scheduleForm,
-                      isAllDay: e.target.checked,
-                    })
-                  }
-                  className="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500 cursor-pointer"
-                />
-                <span className="text-sm font-bold text-teal-700">
-                  하루 종일
-                </span>
-              </label>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {/* 커스텀 달력 선택기 */}
-              <div className="relative" ref={datePickerRef}>
-                <div
-                  onClick={() => setShowDatePicker(!showDatePicker)}
-                  className="w-full border p-3 rounded-lg border-gray-300 bg-white cursor-pointer flex justify-between items-center hover:border-teal-500 transition-colors"
-                >
-                  <span className="font-bold text-gray-900">
-                    {scheduleForm.date}
-                  </span>
-                  <svg
-                    className="w-5 h-5 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                {showDatePicker && (
-                  <div className="absolute z-[60] mt-2 left-0 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-full sm:w-[320px] animate-fadeIn">
-                    <Calendar
-                      onChange={(val) => {
-                        setScheduleForm({
-                          ...scheduleForm,
-                          date: format(val as Date, "yyyy-MM-dd"),
-                        });
-                        setShowDatePicker(false);
-                      }}
-                      value={new Date(scheduleForm.date)}
-                      formatDay={(_, date) => format(date, "d")}
-                      calendarType="gregory"
-                      locale="ko-KR"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowDatePicker(false)}
-                      className="w-full mt-2 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600 font-bold"
-                    >
-                      닫기
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* 시간 선택 (하루 종일이 아닐 때만 노출) */}
-              {!scheduleForm.isAllDay && (
-                <div className="flex items-center gap-2 animate-fadeIn">
-                  <input
-                    type="time"
-                    value={scheduleForm.startTime}
-                    onChange={(e) =>
-                      setScheduleForm({
-                        ...scheduleForm,
-                        startTime: e.target.value,
-                      })
-                    }
-                    className="flex-1 border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white font-bold"
-                    required
-                  />
-                  <span className="text-gray-400 font-bold">~</span>
-                  <input
-                    type="time"
-                    value={scheduleForm.endTime}
-                    onChange={(e) =>
-                      setScheduleForm({
-                        ...scheduleForm,
-                        endTime: e.target.value,
-                      })
-                    }
-                    className="flex-1 border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white font-bold"
-                    required
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 동행자 선택 영역 (전체 선택 추가) */}
-          <div className="pt-2 border-t border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-bold text-gray-700">
-                동행자 선택 (선택사항)
-              </label>
-              <button
-                type="button"
-                onClick={toggleAllAttendees}
-                className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1.5 rounded-md hover:bg-teal-100 transition-colors"
-              >
-                {scheduleForm.attendees.length ===
-                users.filter((u) => u.id !== profile?.id).length
-                  ? "전체 해제"
-                  : "전체 선택"}
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
-              {users
-                .filter((u) => u.id !== profile?.id)
-                .map((u) => {
-                  const isSelected = scheduleForm.attendees.some(
-                    (a) => a.id === u.id,
-                  );
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => toggleAttendee(u)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${isSelected ? "bg-teal-500 text-white shadow-sm ring-2 ring-teal-200" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                    >
-                      {u.full_name}
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        </form>
-      </Modal>
-
-      {/* 일정 상세 보기 모달 */}
-      <Modal
+        onClose={() => setIsScheduleModalOpen(false)}
+        profile={profile}
+        users={users}
+        onSuccess={fetchData}
+      />
+      <ScheduleDetailModal
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
-        title={
-          selectedDetailEvent?.type === "schedule"
-            ? "사역 일정 상세"
-            : "휴가 상세"
-        }
-        footer={
-          <button
-            onClick={() => setDetailModalOpen(false)}
-            className="w-full bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
-          >
-            닫기
-          </button>
-        }
-      >
-        {selectedDetailEvent && (
-          <div className="space-y-4 pt-2">
-            <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-              <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl ${selectedDetailEvent.type === "schedule" ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"}`}
-              >
-                {selectedDetailEvent.type === "schedule" ? "📍" : "🌴"}
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  {selectedDetailEvent.title}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {selectedDetailEvent.time_label}{" "}
-                  {selectedDetailEvent.location &&
-                    `· ${selectedDetailEvent.location}`}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-xl">
-                <span className="text-sm font-bold text-gray-500 w-12 shrink-0">
-                  등록자
-                </span>
-                <span className="text-sm font-bold text-gray-900">
-                  {selectedDetailEvent.profiles.full_name}{" "}
-                  <span className="text-xs font-normal text-gray-500">
-                    ({selectedDetailEvent.profiles.position})
-                  </span>
-                </span>
-              </div>
-
-              {selectedDetailEvent.type === "schedule" &&
-                selectedDetailEvent.attendees &&
-                selectedDetailEvent.attendees.length > 0 && (
-                  <div className="flex items-start gap-4 bg-teal-50/50 border border-teal-100 p-4 rounded-xl">
-                    <span className="text-sm font-bold text-teal-700 w-12 shrink-0">
-                      동행자
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedDetailEvent.attendees.map((a) => (
-                        <span
-                          key={a.id}
-                          className="px-2 py-1 bg-white border border-teal-200 text-teal-700 text-xs font-bold rounded-md shadow-sm"
-                        >
-                          {a.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-            </div>
-          </div>
-        )}
-      </Modal>
+        event={selectedDetailEvent}
+      />
     </div>
   );
 }
