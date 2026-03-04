@@ -202,7 +202,7 @@ export default function ScheduleAddModal({
           </label>
           <input
             type="text"
-            placeholder="예: 양평 수양관"
+            placeholder="예: 여주 선교원"
             value={form.location}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
             className="w-full border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white"
