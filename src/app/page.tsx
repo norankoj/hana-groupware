@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -16,7 +16,8 @@ import {
   eachDayOfInterval,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-
+import toast from "react-hot-toast";
+import Modal from "@/components/Modal";
 import { HOLIDAYS } from "@/constants/holidays";
 
 const calendarCustomStyles = `
@@ -35,29 +36,34 @@ type Profile = {
   team_id: number;
   role: string;
   status: string;
-  teams?: { name: string } | { name: string }[] | null;
   is_approver?: boolean;
 };
 
-type VacationInfo = {
-  id: number;
+type Attendee = {
+  id: string;
+  name: string;
+};
+
+type CalendarEvent = {
+  id: string;
+  original_id: number;
+  type: "vacation" | "schedule";
   start_date: string;
   end_date: string;
-  type: string;
+  title: string;
+  time_label: string;
+  location?: string;
+  display_name: string;
+  attendees?: Attendee[]; // 동행자 명단
   profiles: {
     full_name: string;
     position: string;
     team_id: number;
-    is_approver: boolean;
-    teams: { name: string };
+    teams?: { name: string };
   };
 };
 
-type TeamInfo = {
-  id: number;
-  name: string;
-};
-
+type TeamInfo = { id: number; name: string };
 type TodayReservation = {
   id: number;
   start_at: string;
@@ -89,17 +95,20 @@ const TEAM_STYLES: Record<
     border: "border-yellow-200",
   },
 };
-
 const TEAM_COLORS: Record<number, string> = {
   4: "bg-purple-500",
   5: "bg-emerald-500",
   6: "bg-yellow-400",
 };
-
 const DEFAULT_STYLE = {
   bg: "bg-gray-100",
   text: "text-gray-700",
   border: "border-gray-200",
+};
+const SCHEDULE_STYLE = {
+  bg: "bg-teal-50",
+  text: "text-teal-700",
+  border: "border-teal-200",
 };
 
 export default function Home() {
@@ -107,19 +116,19 @@ export default function Home() {
   const router = useRouter();
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [users, setUsers] = useState<Profile[]>([]); // 참석자 선택을 위한 유저 목록
   const [pendingCount, setPendingCount] = useState(0);
   const [myPendingCount, setMyPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const [allVacations, setAllVacations] = useState<VacationInfo[]>([]);
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
+  const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
+
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [date, setDate] = useState<Date>(new Date());
   const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
   const [calendarViewMode, setCalendarViewMode] = useState<"month" | "list">(
     "month",
-  );
-  const [selectedVacations, setSelectedVacations] = useState<VacationInfo[]>(
-    [],
   );
   const [parkingText, setParkingText] = useState("");
 
@@ -127,6 +136,24 @@ export default function Home() {
     [],
   );
   const [todayVehicles, setTodayVehicles] = useState<TodayReservation[]>([]);
+
+  // 모달 상태들
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedDetailEvent, setSelectedDetailEvent] =
+    useState<CalendarEvent | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
+
+  const [scheduleForm, setScheduleForm] = useState({
+    title: "",
+    date: format(new Date(), "yyyy-MM-dd"),
+    isAllDay: false,
+    startTime: "14:00",
+    endTime: "16:00",
+    location: "",
+    attendees: [] as Attendee[], // 선택된 동행자들
+  });
 
   useEffect(() => {
     const today = new Date();
@@ -137,133 +164,266 @@ export default function Home() {
     );
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
+  const fetchData = async () => {
+    setLoading(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return router.replace("/login");
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select(`*, teams!profiles_team_id_fkey(name)`)
-        .eq("id", user.id)
-        .single();
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select(`*, teams!profiles_team_id_fkey(name)`)
+      .eq("id", user.id)
+      .single();
 
-      if (profileData) {
-        setProfile(profileData as any);
-        const myRole = profileData.role;
+    if (profileData) {
+      setProfile(profileData as any);
+      const myRole = profileData.role;
 
-        if (
-          myRole === "admin" ||
-          myRole === "director" ||
-          profileData.is_approver
-        ) {
-          const { count } = await supabase
-            .from("vacation_requests")
-            .select("*", { count: "exact", head: true })
-            .eq("status", "pending");
-          setPendingCount(count || 0);
-        }
-        const { count: myCount } = await supabase
+      if (
+        myRole === "admin" ||
+        myRole === "director" ||
+        profileData.is_approver
+      ) {
+        const { count } = await supabase
           .from("vacation_requests")
           .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
           .eq("status", "pending");
-        setMyPendingCount(myCount || 0);
+        setPendingCount(count || 0);
+      }
+      const { count: myCount } = await supabase
+        .from("vacation_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+      setMyPendingCount(myCount || 0);
 
-        if (ALLOWED_ROLES.includes(myRole)) {
-          const { data: vacData } = await supabase
-            .from("vacation_requests")
-            .select(
-              `id, start_date, end_date, type, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
-            )
-            .eq("status", "approved")
-            .order("start_date");
+      if (ALLOWED_ROLES.includes(myRole)) {
+        // 유저 목록 가져오기 (참석자 선택용)
+        const { data: usersData } = await supabase
+          .from("profiles")
+          .select("id, full_name, position, team_id, role, status")
+          .eq("status", "active")
+          .in("role", ALLOWED_ROLES)
+          .order("full_name");
+        if (usersData) setUsers(usersData as any);
 
-          const { data: teamData } = await supabase
-            .from("teams")
-            .select("id, name")
-            .order("id");
+        const { data: vacData } = await supabase
+          .from("vacation_requests")
+          .select(
+            `id, start_date, end_date, type, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
+          )
+          .eq("status", "approved");
+        const { data: schData } = await supabase
+          .from("user_schedules")
+          .select(
+            `id, title, start_at, end_at, location, attendees, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
+          );
+        const { data: teamData } = await supabase
+          .from("teams")
+          .select("id, name")
+          .order("id");
+        if (teamData) setTeams(teamData);
 
-          if (vacData) {
-            setAllVacations(vacData as any);
-            updateSelectedVacations(new Date(), vacData as any);
-          }
-          if (teamData) setTeams(teamData);
+        const mergedEvents: CalendarEvent[] = [];
 
-          const todayStart = new Date();
-          todayStart.setHours(0, 0, 0, 0);
-          const todayEnd = new Date();
-          todayEnd.setHours(23, 59, 59, 999);
+        if (vacData) {
+          vacData.forEach((v: any) => {
+            mergedEvents.push({
+              id: `vac_${v.id}`,
+              original_id: v.id,
+              type: "vacation",
+              start_date: v.start_date,
+              end_date: v.end_date,
+              title: v.type,
+              time_label: "하루 종일",
+              display_name: v.profiles.full_name,
+              profiles: v.profiles,
+            });
+          });
+        }
 
-          const { data: reservationData } = await supabase
-            .from("reservations")
-            .select(
-              `id, start_at, end_at, purpose, resources(name, category), profiles:user_id(full_name)`,
-            )
-            .neq("status", "cancelled")
-            .gte("start_at", todayStart.toISOString())
-            .lte("start_at", todayEnd.toISOString())
-            .order("start_at");
+        if (schData) {
+          schData.forEach((s: any) => {
+            const startDate = new Date(s.start_at);
+            const endDate = new Date(s.end_at);
+            const attendeesArr: Attendee[] = s.attendees || [];
 
-          if (reservationData) {
-            const facilities = reservationData.filter(
+            // "외 N명" 표시 로직
+            const displayName =
+              attendeesArr.length > 0
+                ? `${s.profiles.full_name} 외 ${attendeesArr.length}명`
+                : s.profiles.full_name;
+
+            mergedEvents.push({
+              id: `sch_${s.id}`,
+              original_id: s.id,
+              type: "schedule",
+              start_date: format(startDate, "yyyy-MM-dd"),
+              end_date: format(endDate, "yyyy-MM-dd"),
+              title: s.title,
+              time_label: `${format(startDate, "HH:mm")}~${format(endDate, "HH:mm")}`,
+              location: s.location,
+              attendees: attendeesArr,
+              display_name: displayName,
+              profiles: s.profiles,
+            });
+          });
+        }
+
+        setAllEvents(mergedEvents);
+        updateSelectedEvents(new Date(), mergedEvents);
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+        const { data: reservationData } = await supabase
+          .from("reservations")
+          .select(
+            `id, start_at, end_at, purpose, resources(name, category), profiles:user_id(full_name)`,
+          )
+          .neq("status", "cancelled")
+          .gte("start_at", todayStart.toISOString())
+          .lte("start_at", todayEnd.toISOString())
+          .order("start_at");
+
+        if (reservationData) {
+          setTodayFacilities(
+            reservationData.filter(
               (r: any) => r.resources?.category !== "vehicle" && r.resources,
-            );
-
-            const vehicles = reservationData.filter(
+            ) as any,
+          );
+          setTodayVehicles(
+            reservationData.filter(
               (r: any) => r.resources?.category === "vehicle" && r.resources,
-            );
-            setTodayFacilities(facilities as any);
-            setTodayVehicles(vehicles as any);
-          }
+            ) as any,
+          );
         }
       }
-      setLoading(false);
-    };
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchData();
   }, [router, supabase]);
 
   const onDateChange = (newDate: any) => {
     setDate(newDate);
-    updateSelectedVacations(newDate, allVacations);
+    updateSelectedEvents(newDate, allEvents);
   };
 
-  const updateSelectedVacations = (
-    targetDate: Date,
-    vacations: VacationInfo[],
-  ) => {
+  const updateSelectedEvents = (targetDate: Date, events: CalendarEvent[]) => {
     const dateStr = format(targetDate, "yyyy-MM-dd");
-    if (HOLIDAYS[dateStr]) {
-      setSelectedVacations([]);
-      return;
-    }
-    const filtered = vacations.filter(
-      (v) => dateStr >= v.start_date && dateStr <= v.end_date,
+    if (HOLIDAYS[dateStr]) return setSelectedEvents([]);
+    const filtered = events.filter(
+      (e) => dateStr >= e.start_date && dateStr <= e.end_date,
     );
-    setSelectedVacations(filtered);
+    filtered.sort((a, b) => {
+      if (a.type === "vacation" && b.type === "schedule") return -1;
+      if (a.type === "schedule" && b.type === "vacation") return 1;
+      return a.time_label.localeCompare(b.time_label);
+    });
+    setSelectedEvents(filtered);
   };
 
-  if (loading)
+  // 동행자 선택 토글 핸들러
+  const toggleAttendee = (user: Profile) => {
+    setScheduleForm((prev) => {
+      const isSelected = prev.attendees.some((a) => a.id === user.id);
+      if (isSelected)
+        return {
+          ...prev,
+          attendees: prev.attendees.filter((a) => a.id !== user.id),
+        };
+      return {
+        ...prev,
+        attendees: [...prev.attendees, { id: user.id, name: user.full_name }],
+      };
+    });
+  };
+
+  const toggleAllAttendees = () => {
+    const allOtherUsers = users.filter((u) => u.id !== profile?.id);
+    if (scheduleForm.attendees.length === allOtherUsers.length) {
+      setScheduleForm({ ...scheduleForm, attendees: [] }); // 모두 선택되어 있으면 해제
+    } else {
+      setScheduleForm({
+        ...scheduleForm,
+        attendees: allOtherUsers.map((u) => ({ id: u.id, name: u.full_name })),
+      }); // 아니면 전체 선택
+    }
+  };
+
+  const handleAddSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduleForm.title || !scheduleForm.date)
+      return toast.error("내용을 입력해주세요.");
+    if (!profile) return;
+
+    let startDateTime, endDateTime;
+
+    // 하루 종일 체크 여부에 따라 시간 세팅 다르게 처리
+    if (scheduleForm.isAllDay) {
+      startDateTime = new Date(`${scheduleForm.date}T00:00:00`);
+      endDateTime = new Date(`${scheduleForm.date}T23:59:59`);
+    } else {
+      startDateTime = new Date(
+        `${scheduleForm.date}T${scheduleForm.startTime}:00`,
+      );
+      endDateTime = new Date(`${scheduleForm.date}T${scheduleForm.endTime}:00`);
+      if (startDateTime >= endDateTime)
+        return toast.error("종료 시간이 시작 시간보다 빠릅니다.");
+    }
+
+    setLoading(true);
+    const { error } = await supabase.from("user_schedules").insert({
+      user_id: profile.id,
+      title: scheduleForm.title,
+      start_at: startDateTime.toISOString(),
+      end_at: endDateTime.toISOString(),
+      location: scheduleForm.location,
+      attendees: scheduleForm.attendees,
+    });
+
+    if (error) {
+      toast.error("일정 등록 실패: " + error.message);
+    } else {
+      toast.success("사역 일정이 등록되었습니다.");
+      setIsScheduleModalOpen(false);
+      setScheduleForm({
+        ...scheduleForm,
+        title: "",
+        location: "",
+        attendees: [],
+        isAllDay: false,
+      });
+      fetchData();
+    }
+    setLoading(false);
+  };
+
+  const openEventDetail = (event: CalendarEvent) => {
+    setSelectedDetailEvent(event);
+    setDetailModalOpen(true);
+  };
+
+  if (loading && !profile)
     return (
       <div className="h-full flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-blue-600"></div>
       </div>
     );
-
   const canViewCalendar = profile && ALLOWED_ROLES.includes(profile.role);
 
   return (
     <div className="space-y-8">
       <style>{calendarCustomStyles}</style>
 
-      {/* --- [섹션 1] 배너 + 알림 (항상 상단) --- */}
+      {/* --- [섹션 1] 배너 + 알림 --- */}
       <section className="flex flex-col xl:flex-row gap-6">
-        {/* 1. 웰컴 배너 */}
         <Link
           href="/mypage"
           className="flex-1 bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-8 text-white shadow-md relative overflow-hidden min-h-[160px] flex flex-col justify-center"
@@ -289,8 +449,6 @@ export default function Home() {
             </svg>
           </div>
         </Link>
-
-        {/* 2. 알림 카드 */}
         <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">
           {profile?.is_approver && (
             <Link
@@ -330,12 +488,11 @@ export default function Home() {
               <div className="mt-4 text-xs font-medium text-red-500 flex items-center gap-1">
                 {pendingCount > 0 && (
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                )}
+                )}{" "}
                 승인이 필요합니다
               </div>
             </Link>
           )}
-
           {canViewCalendar && (
             <Link
               href="/vacation"
@@ -377,15 +534,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- [섹션 2 & 3] 메인 레이아웃 (반응형) --- */}
-      {/* - Mobile/Laptop (기본): Flex Column -> 위젯(위) + 달력(아래)
-        - 2XL (대형화면): Flex Row -> 달력(왼쪽) + 위젯(오른쪽) 
-      */}
+      {/* --- [섹션 2 & 3] 메인 레이아웃 --- */}
       {canViewCalendar && (
         <div className="flex flex-col 2xl:flex-row gap-6">
-          {/* A. 달력 섹션 (Mobile: 2순위 / 2XL: 1순위-왼쪽) */}
           <section className="flex-1 order-2 2xl:order-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[780px]">
-            {/* 타이틀 헤더 */}
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0">
               <div className="flex items-center gap-2">
                 <svg
@@ -402,27 +554,53 @@ export default function Home() {
                   />
                 </svg>
                 <h3 className="text-lg font-bold text-gray-800 tracking-tight">
-                  전체 휴가 일정
+                  통합 일정 (휴가 & 사역)
                 </h3>
               </div>
-              <div className="hidden sm:flex items-center gap-4">
-                {teams.map((team) => (
-                  <div key={team.id} className="flex items-center gap-1.5">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full ${TEAM_COLORS[team.id] || "bg-gray-400"}`}
-                    ></span>
-                    <span className="text-sm text-gray-600 font-medium">
-                      {team.name}
+
+              <div className="flex items-center gap-4">
+                <div className="hidden sm:flex items-center gap-4 mr-2">
+                  {teams.map((team) => (
+                    <div key={team.id} className="flex items-center gap-1.5">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${TEAM_COLORS[team.id] || "bg-gray-400"}`}
+                      ></span>
+                      <span className="text-xs text-gray-600 font-medium">
+                        {team.name}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1.5 ml-2 border-l border-gray-300 pl-3">
+                    <span className="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+                    <span className="text-xs text-teal-700 font-bold">
+                      사역/외근
                     </span>
                   </div>
-                ))}
+                </div>
+                <button
+                  onClick={() => setIsScheduleModalOpen(true)}
+                  className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-bold shadow-sm hover:bg-blue-700 transition flex items-center gap-1"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  일정 추가
+                </button>
               </div>
             </div>
 
             <div className="flex flex-col lg:flex-row flex-1 overflow-visible lg:overflow-hidden">
-              {/* 달력 영역 */}
               <div className="flex-[2] flex flex-col border-r border-gray-200 p-6 min-w-0">
-                {/* 달력 상단 네비게이션 */}
                 <div className="flex flex-wrap items-center justify-between gap-y-4 mb-4 w-full">
                   <div className="order-1 w-auto sm:w-1/3 flex justify-start">
                     <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -446,7 +624,7 @@ export default function Home() {
                         const now = new Date();
                         setDate(now);
                         setActiveStartDate(now);
-                        updateSelectedVacations(now, allVacations);
+                        updateSelectedEvents(now, allEvents);
                       }}
                       className="px-3 py-1.5 text-sm font-bold bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition border border-blue-100"
                     >
@@ -500,7 +678,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* 달력 컴포넌트 */}
                 <div className="flex-1 overflow-hidden relative h-full min-h-[500px] flex flex-col">
                   {calendarViewMode === "month" ? (
                     <Calendar
@@ -527,20 +704,20 @@ export default function Home() {
                         if (view === "month") {
                           const dateStr = format(date, "yyyy-MM-dd");
                           const holiday = HOLIDAYS[dateStr];
-                          const vacationsOnDay = holiday
+                          const eventsOnDay = holiday
                             ? []
-                            : allVacations.filter(
-                                (v) =>
-                                  dateStr >= v.start_date &&
-                                  dateStr <= v.end_date,
+                            : allEvents.filter(
+                                (e) =>
+                                  dateStr >= e.start_date &&
+                                  dateStr <= e.end_date,
                               );
                           const maxDisplay = 3;
-                          const displayVacations = vacationsOnDay.slice(
+                          const displayEvents = eventsOnDay.slice(
                             0,
                             maxDisplay,
                           );
-                          const overflowCount =
-                            vacationsOnDay.length - maxDisplay;
+                          const overflowCount = eventsOnDay.length - maxDisplay;
+
                           return (
                             <div className="flex flex-col items-center w-full h-full pt-1 overflow-hidden">
                               {holiday && (
@@ -549,22 +726,29 @@ export default function Home() {
                                 </div>
                               )}
                               <div className="w-full flex flex-col gap-0.5 mt-1 px-0.5">
-                                {displayVacations.map((v, i) => {
+                                {displayEvents.map((e, i) => {
                                   const style =
-                                    TEAM_STYLES[v.profiles.team_id] ||
-                                    DEFAULT_STYLE;
+                                    e.type === "schedule"
+                                      ? SCHEDULE_STYLE
+                                      : TEAM_STYLES[e.profiles.team_id] ||
+                                        DEFAULT_STYLE;
                                   return (
                                     <div
-                                      key={v.id + i}
-                                      className={`text-[9px] ${style.bg} ${style.text} border ${style.border} rounded px-1 py-0.5 truncate text-center font-medium`}
+                                      key={e.id + i}
+                                      // onClick={(ev) => {
+                                      //   ev.stopPropagation();
+                                      //   openEventDetail(e);
+                                      // }}
+                                      className={`text-[9px] ${style.bg} ${style.text} border ${style.border} rounded px-1 py-0.5 truncate text-center font-bold cursor-pointer hover:opacity-80 transition-opacity`}
                                     >
-                                      {v.profiles.full_name}
+                                      {e.display_name}{" "}
+                                      {e.type === "schedule" && "📍"}
                                     </div>
                                   );
                                 })}
                                 {overflowCount > 0 && (
                                   <div className="text-[9px] text-gray-400 text-center font-medium">
-                                    +{overflowCount}명
+                                    +{overflowCount}건
                                   </div>
                                 )}
                               </div>
@@ -587,16 +771,16 @@ export default function Home() {
                           const isWeekend =
                             day.getDay() === 0 || day.getDay() === 6;
                           const holiday = HOLIDAYS[dateStr];
-                          const vacationsOnDay = allVacations.filter(
-                            (v) =>
-                              dateStr >= v.start_date && dateStr <= v.end_date,
+                          const eventsOnDay = allEvents.filter(
+                            (e) =>
+                              dateStr >= e.start_date && dateStr <= e.end_date,
                           );
                           return (
                             <div
                               key={dateStr}
                               onClick={() => {
                                 setDate(day);
-                                updateSelectedVacations(day, allVacations);
+                                updateSelectedEvents(day, allEvents);
                               }}
                               className={`py-3 px-3 flex items-start justify-between transition-colors cursor-pointer ${format(date, "yyyy-MM-dd") === dateStr ? "bg-blue-50" : "hover:bg-gray-50"} ${holiday ? "bg-red-50/30" : ""}`}
                             >
@@ -618,18 +802,24 @@ export default function Home() {
                                     🎉 {holiday}
                                   </div>
                                 )}
-                                {vacationsOnDay.map((v) => {
+                                {eventsOnDay.map((e) => {
                                   const style =
-                                    TEAM_STYLES[v.profiles.team_id] ||
-                                    DEFAULT_STYLE;
+                                    e.type === "schedule"
+                                      ? SCHEDULE_STYLE
+                                      : TEAM_STYLES[e.profiles.team_id] ||
+                                        DEFAULT_STYLE;
                                   return (
                                     <div
-                                      key={v.id}
-                                      className={`px-2 py-1 rounded-md inline-flex items-center gap-1 text-xs font-bold border ${style.bg} ${style.text} ${style.border}`}
+                                      key={e.id}
+                                      // onClick={(ev) => {
+                                      //   ev.stopPropagation();
+                                      //   openEventDetail(e);
+                                      // }}
+                                      className={`px-2 py-1 rounded-md inline-flex items-center gap-1 text-xs font-bold border hover:opacity-80 transition-opacity ${style.bg} ${style.text} ${style.border}`}
                                     >
-                                      {v.profiles.full_name}{" "}
+                                      {e.display_name}{" "}
                                       <span className="text-[10px] opacity-75">
-                                        | {v.type}
+                                        | {e.title}
                                       </span>
                                     </div>
                                   );
@@ -652,51 +842,52 @@ export default function Home() {
                     {format(date, "M월 d일 (EEE)", { locale: ko })}
                   </h4>
                   <span className="text-xs font-medium text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
-                    총 {selectedVacations.length}명
+                    총 {selectedEvents.length}건
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-                  {selectedVacations.length > 0 ? (
+                  {selectedEvents.length > 0 ? (
                     <ul className="divide-y divide-gray-100">
-                      {selectedVacations.map((v) => (
+                      {selectedEvents.map((e) => (
                         <li
-                          key={v.id}
-                          className="group flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+                          key={e.id}
+                          onClick={() => openEventDetail(e)}
+                          className="group flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs border border-gray-200">
-                              {v.profiles.full_name.slice(0, 1)}
+                            <div
+                              className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border ${e.type === "schedule" ? "bg-teal-50 border-teal-200 text-teal-600" : "bg-gray-100 border-gray-200 text-gray-500"}`}
+                            >
+                              {e.profiles.full_name.slice(0, 1)}
                             </div>
                             <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-sm font-bold text-gray-900 truncate">
-                                  {v.profiles.full_name}
-                                </span>
-                                <span className="text-[10px] text-gray-400">
-                                  {v.profiles.position}
+                                  {e.display_name}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${TEAM_COLORS[v.profiles.team_id] || "bg-gray-400"}`}
-                                ></span>
-                                <span className="text-xs text-gray-500 truncate">
-                                  {v.profiles.teams?.name || "미배정"}
+                                  className={`text-xs text-gray-500 truncate ${e.type === "schedule" && "font-semibold text-teal-600"}`}
+                                >
+                                  {e.title} {e.location && `(${e.location})`}
                                 </span>
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1 flex-shrink-0 pl-2">
-                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
-                              {v.type}
+                            <span
+                              className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${e.type === "schedule" ? "bg-teal-50 text-teal-600 border-teal-100" : "bg-blue-50 text-blue-600 border-blue-100"}`}
+                            >
+                              {e.type === "schedule" ? "일정" : "휴가"}
                             </span>
                             <span className="text-[11px] text-gray-400 font-medium tabular-nums tracking-tight">
-                              {v.start_date === v.end_date ? (
-                                "하루 종일"
+                              {e.start_date === e.end_date ? (
+                                e.time_label
                               ) : (
                                 <>
-                                  {v.start_date.slice(5).replace("-", ".")}~
-                                  {v.end_date.slice(5).replace("-", ".")}
+                                  {e.start_date.slice(5).replace("-", ".")}~
+                                  {e.end_date.slice(5).replace("-", ".")}
                                 </>
                               )}
                             </span>
@@ -722,7 +913,7 @@ export default function Home() {
                         </svg>
                       </div>
                       <p className="text-sm font-medium text-gray-400">
-                        휴가자가 없습니다
+                        등록된 일정이 없습니다
                       </p>
                     </div>
                   )}
@@ -731,11 +922,10 @@ export default function Home() {
             </div>
           </section>
 
-          {/* B. 위젯 섹션 (Mobile: 1순위 / 2XL: 2순위-오른쪽) */}
+          {/* B. 위젯 섹션 (기존 코드와 동일) */}
           <div className="order-1 2xl:order-2 w-full 2xl:w-[420px] shrink-0">
-            {/* Mobile/Laptop: 가로 배치, 2XL: 세로 배치 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-1 gap-6 h-auto">
-              {/* 1. 오늘의 시설 예약 위젯 */}
+              {/* 시설 위젯 */}
               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] min-h-[250px]">
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -776,7 +966,6 @@ export default function Home() {
                     </svg>
                   </Link>
                 </div>
-
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px] 2xl:max-h-[320px] min-h-[200px]">
                   {todayFacilities.length > 0 ? (
                     <ul className="space-y-3">
@@ -924,6 +1113,287 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* 일정 추가 모달 */}
+      <Modal
+        isOpen={isScheduleModalOpen}
+        onClose={() => {
+          setIsScheduleModalOpen(false);
+          setShowDatePicker(false);
+        }}
+        title="새로운 사역 일정 추가"
+        footer={
+          <div className="flex gap-2 w-full">
+            <button
+              onClick={handleAddSchedule}
+              disabled={loading}
+              className="flex-1 bg-teal-600 text-white py-3 rounded-lg font-bold hover:bg-teal-700 transition shadow-sm disabled:opacity-50"
+            >
+              {loading ? "등록 중..." : "일정 등록"}
+            </button>
+            <button
+              onClick={() => {
+                setIsScheduleModalOpen(false);
+                setShowDatePicker(false);
+              }}
+              className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
+            >
+              취소
+            </button>
+          </div>
+        }
+      >
+        <form onSubmit={handleAddSchedule} className="space-y-5">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+              일정 내용 (필수)
+            </label>
+            <input
+              type="text"
+              placeholder="예: 용인 심방, 수련회 답사"
+              value={scheduleForm.title}
+              onChange={(e) =>
+                setScheduleForm({ ...scheduleForm, title: e.target.value })
+              }
+              className="w-full border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white font-medium"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+              장소 (선택)
+            </label>
+            <input
+              type="text"
+              placeholder="예: 용인 수지구"
+              value={scheduleForm.location}
+              onChange={(e) =>
+                setScheduleForm({ ...scheduleForm, location: e.target.value })
+              }
+              className="w-full border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white"
+            />
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-gray-700">
+                날짜 및 시간
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={scheduleForm.isAllDay}
+                  onChange={(e) =>
+                    setScheduleForm({
+                      ...scheduleForm,
+                      isAllDay: e.target.checked,
+                    })
+                  }
+                  className="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500 cursor-pointer"
+                />
+                <span className="text-sm font-bold text-teal-700">
+                  하루 종일
+                </span>
+              </label>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {/* 커스텀 달력 선택기 */}
+              <div className="relative" ref={datePickerRef}>
+                <div
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className="w-full border p-3 rounded-lg border-gray-300 bg-white cursor-pointer flex justify-between items-center hover:border-teal-500 transition-colors"
+                >
+                  <span className="font-bold text-gray-900">
+                    {scheduleForm.date}
+                  </span>
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                {showDatePicker && (
+                  <div className="absolute z-[60] mt-2 left-0 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-full sm:w-[320px] animate-fadeIn">
+                    <Calendar
+                      onChange={(val) => {
+                        setScheduleForm({
+                          ...scheduleForm,
+                          date: format(val as Date, "yyyy-MM-dd"),
+                        });
+                        setShowDatePicker(false);
+                      }}
+                      value={new Date(scheduleForm.date)}
+                      formatDay={(_, date) => format(date, "d")}
+                      calendarType="gregory"
+                      locale="ko-KR"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDatePicker(false)}
+                      className="w-full mt-2 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600 font-bold"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 시간 선택 (하루 종일이 아닐 때만 노출) */}
+              {!scheduleForm.isAllDay && (
+                <div className="flex items-center gap-2 animate-fadeIn">
+                  <input
+                    type="time"
+                    value={scheduleForm.startTime}
+                    onChange={(e) =>
+                      setScheduleForm({
+                        ...scheduleForm,
+                        startTime: e.target.value,
+                      })
+                    }
+                    className="flex-1 border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white font-bold"
+                    required
+                  />
+                  <span className="text-gray-400 font-bold">~</span>
+                  <input
+                    type="time"
+                    value={scheduleForm.endTime}
+                    onChange={(e) =>
+                      setScheduleForm({
+                        ...scheduleForm,
+                        endTime: e.target.value,
+                      })
+                    }
+                    className="flex-1 border p-3 rounded-lg border-gray-300 focus:border-teal-500 outline-none text-gray-900 bg-white font-bold"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 동행자 선택 영역 (전체 선택 추가) */}
+          <div className="pt-2 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-bold text-gray-700">
+                동행자 선택 (선택사항)
+              </label>
+              <button
+                type="button"
+                onClick={toggleAllAttendees}
+                className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1.5 rounded-md hover:bg-teal-100 transition-colors"
+              >
+                {scheduleForm.attendees.length ===
+                users.filter((u) => u.id !== profile?.id).length
+                  ? "전체 해제"
+                  : "전체 선택"}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
+              {users
+                .filter((u) => u.id !== profile?.id)
+                .map((u) => {
+                  const isSelected = scheduleForm.attendees.some(
+                    (a) => a.id === u.id,
+                  );
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => toggleAttendee(u)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${isSelected ? "bg-teal-500 text-white shadow-sm ring-2 ring-teal-200" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    >
+                      {u.full_name}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* 일정 상세 보기 모달 */}
+      <Modal
+        isOpen={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        title={
+          selectedDetailEvent?.type === "schedule"
+            ? "사역 일정 상세"
+            : "휴가 상세"
+        }
+        footer={
+          <button
+            onClick={() => setDetailModalOpen(false)}
+            className="w-full bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
+          >
+            닫기
+          </button>
+        }
+      >
+        {selectedDetailEvent && (
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl ${selectedDetailEvent.type === "schedule" ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"}`}
+              >
+                {selectedDetailEvent.type === "schedule" ? "📍" : "🌴"}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {selectedDetailEvent.title}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {selectedDetailEvent.time_label}{" "}
+                  {selectedDetailEvent.location &&
+                    `· ${selectedDetailEvent.location}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-xl">
+                <span className="text-sm font-bold text-gray-500 w-12 shrink-0">
+                  등록자
+                </span>
+                <span className="text-sm font-bold text-gray-900">
+                  {selectedDetailEvent.profiles.full_name}{" "}
+                  <span className="text-xs font-normal text-gray-500">
+                    ({selectedDetailEvent.profiles.position})
+                  </span>
+                </span>
+              </div>
+
+              {selectedDetailEvent.type === "schedule" &&
+                selectedDetailEvent.attendees &&
+                selectedDetailEvent.attendees.length > 0 && (
+                  <div className="flex items-start gap-4 bg-teal-50/50 border border-teal-100 p-4 rounded-xl">
+                    <span className="text-sm font-bold text-teal-700 w-12 shrink-0">
+                      동행자
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedDetailEvent.attendees.map((a) => (
+                        <span
+                          key={a.id}
+                          className="px-2 py-1 bg-white border border-teal-200 text-teal-700 text-xs font-bold rounded-md shadow-sm"
+                        >
+                          {a.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
