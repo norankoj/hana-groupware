@@ -310,7 +310,6 @@ export default function LoginPage() {
                   style={{ colorScheme: "light" }}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@email.com 또는 010-1234-5678"
                 />
               </div>
               <div>
