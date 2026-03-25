@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 
 export default function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -92,10 +93,12 @@ export default function PwaInstallPrompt() {
 
       <div className="flex items-center justify-between w-full pr-4">
         <div className="flex items-center gap-3">
-          <img
+          <Image
             src="/images/icon-192x192.png"
             alt="앱 로고"
-            className="w-11 h-11 rounded-xl object-cover shadow-[0_2px_10px_rgba(0,0,0,0.08)] shrink-0"
+            width={44}
+            height={44}
+            className="rounded-xl object-cover shadow-[0_2px_10px_rgba(0,0,0,0.08)] shrink-0"
           />
           <div className="flex flex-col">
             <p className="text-sm font-bold text-gray-900 leading-tight">

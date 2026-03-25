@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
@@ -281,10 +282,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-gray-100">
       <div className="max-w-md w-full space-y-8 p-8 md:p-10 rounded-3xl shadow-xl bg-white relative overflow-hidden">
         <div className="text-center flex flex-col items-center relative z-10">
-          <img
+          <Image
             src="/images/mainlogo.jpg"
             alt="수원하나교회"
-            className="h-14 w-auto mb-8 rounded-lg"
+            width={200}
+            height={56}
+            className="mb-8 rounded-lg"
+            style={{ width: "auto", height: "56px" }}
+            priority
           />
         </div>
 

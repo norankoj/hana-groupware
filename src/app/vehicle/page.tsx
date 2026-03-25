@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
@@ -373,9 +374,11 @@ export default function VehicleReservationPage() {
               </div>
 
               {carImage ? (
-                <img
+                <Image
                   src={carImage}
                   alt={v.name}
+                  width={400}
+                  height={250}
                   className={`absolute h-auto object-contain opacity-90 transition-transform duration-500 ease-out group-hover:scale-105
                      ${
                        v.name.includes("스타리아")

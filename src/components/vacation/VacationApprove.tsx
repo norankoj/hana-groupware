@@ -72,19 +72,6 @@ export default function VacationApprove({
     if (!isApproved && !rejectReason.trim())
       return toast.error("반려 사유를 입력해주세요.");
 
-    const { data: checkData } = await supabase
-      .from("vacation_requests")
-      .select("status")
-      .eq("id", selectedRequest.id)
-      .single();
-
-    if (checkData && checkData.status !== "pending") {
-      toast.error("이미 처리된 문서입니다.");
-      setIsDetailModalOpen(false);
-      onRefresh();
-      return;
-    }
-
     if (
       !(await showConfirm(
         isApproved ? "승인하시겠습니까?" : "반려하시겠습니까?",
@@ -92,33 +79,39 @@ export default function VacationApprove({
     )
       return;
 
-    const now = new Date().toISOString(); // 현재 시간
+    const now = new Date().toISOString();
 
-    // 1. 승인/반려 시 날짜도 함께 업데이트
-    const { error } = await supabase
+    // 원자적 업데이트: status = "pending" 조건을 포함하여 이중 처리 방지
+    const { data: updated, error } = await supabase
       .from("vacation_requests")
       .update({
         status: isApproved ? "approved" : "rejected",
         approver_id: user?.id,
         rejection_reason: isApproved ? null : rejectReason,
-        approved_at: isApproved ? now : null, // 승인일
-        rejected_at: isApproved ? null : now, // 반려일
+        approved_at: isApproved ? now : null,
+        rejected_at: isApproved ? null : now,
       })
-      .eq("id", selectedRequest.id);
+      .eq("id", selectedRequest.id)
+      .eq("status", "pending")
+      .select()
+      .single();
+
+    // pending이 아닌 경우 updated가 null → 이미 처리된 문서
+    if (!updated) {
+      toast.error("이미 처리된 문서입니다.");
+      setIsDetailModalOpen(false);
+      onRefresh();
+      return;
+    }
 
     if (error) return toast.error("오류 발생: " + error.message);
 
+    // 승인 시 사용일수를 DB 함수로 원자적 증가
     if (isApproved && DEDUCTIBLE_TYPES.includes(selectedRequest.type)) {
-      const { data: requesterProfile } = await supabase
-        .from("profiles")
-        .select("used_leave_days")
-        .eq("id", selectedRequest.user_id)
-        .single();
-      const currentUsed = requesterProfile?.used_leave_days || 0;
-      await supabase
-        .from("profiles")
-        .update({ used_leave_days: currentUsed + selectedRequest.days_count })
-        .eq("id", selectedRequest.user_id);
+      await supabase.rpc("increment_used_leave_days", {
+        target_user_id: selectedRequest.user_id,
+        days: selectedRequest.days_count,
+      });
     }
 
     toast.success("처리되었습니다.");

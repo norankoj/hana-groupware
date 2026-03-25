@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { format } from "date-fns";
 import Modal from "@/components/Modal";
 import toast from "react-hot-toast";
@@ -385,13 +386,15 @@ export default function DetailModal({
                     url && (
                       <div
                         key={`img-${i}`}
-                        className="w-[84px] h-[84px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm"
+                        className="w-[84px] h-[84px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm relative"
                         onClick={() => openZoom(url)}
                       >
-                        <img
+                        <Image
                           src={url}
-                          className="w-full h-full object-cover"
-                          alt="img"
+                          fill
+                          className="object-cover"
+                          alt="운행 기록 사진"
+                          sizes="84px"
                         />
                       </div>
                     ),
@@ -500,8 +503,9 @@ export default function DetailModal({
                     ) : (
                       <div className="w-[100px] h-[100px] relative rounded-xl overflow-hidden border border-gray-200 shadow-sm">
                         <img
-                          src={dashPreview}
+                          src={dashPreview!}
                           className="w-full h-full object-cover"
+                          alt="계기판 사진 미리보기"
                         />
                         <button
                           onClick={() => {
@@ -566,7 +570,11 @@ export default function DetailModal({
                         key={idx}
                         className="w-[100px] h-[100px] relative rounded-xl overflow-hidden border border-gray-200 shadow-sm shrink-0 group"
                       >
-                        <img src={src} className="w-full h-full object-cover" />
+                        <img
+                          src={src}
+                          className="w-full h-full object-cover"
+                          alt="외관 사진 미리보기"
+                        />
                         <button
                           onClick={() => removeExterior(idx)}
                           className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition"

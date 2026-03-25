@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find . -type f \\\\\\(-name *.env* -o -name package.json \\\\\\))",
+      "Bash(xargs ls:*)",
+      "Bash(xargs wc:*)",
+      "Bash(find . -name *.sql -o -name *migration* -o -name *schema*)",
+      "Bash(grep -r \"onAuthStateChange\\\\|on.*subscribe\\\\|realtime\" --include=*.tsx --include=*.ts .)",
+      "Bash(grep -r \"storage\\\\|bucket\\\\|file\" --include=*.tsx --include=*.ts .)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
+    ]
+  }
+}

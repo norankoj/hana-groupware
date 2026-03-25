@@ -6,6 +6,7 @@ import ClientLayout from "@/components/ClientLayout";
 import ChannelTalk from "@/components/ChannelTalk";
 import AuthListener from "@/components/AuthListener";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -40,12 +41,14 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={inter.className}>
-        <ClientLayout>
-          <AuthListener />
-          {children}
-          <ChannelTalk />
-          <PwaInstallPrompt />
-        </ClientLayout>
+        <ErrorBoundary>
+          <ClientLayout>
+            <AuthListener />
+            {children}
+            <ChannelTalk />
+            <PwaInstallPrompt />
+          </ClientLayout>
+        </ErrorBoundary>
       </body>
     </html>
   );

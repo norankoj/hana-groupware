@@ -28,12 +28,10 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          response = NextResponse.next({
-            request,
-          });
+          response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );
@@ -64,51 +62,40 @@ export async function middleware(request: NextRequest) {
   }
 
   // ============================================================
-  // [보안 규칙 C] ★ DB 기반 메뉴 권한 체크 (핵심 로직)
+  // [보안 규칙 C] DB 기반 메뉴 권한 체크
+  // profile + menu 쿼리를 병렬로 실행해 지연 최소화
   // ============================================================
   if (user) {
-    // (1) 현재 경로(path)가 'menus' 테이블에 관리되고 있는지 확인
-    const { data: menuRule } = await supabase
-      .from("menus")
-      .select("roles") // 허용된 권한 목록 (예: ['admin', 'director'])
-      .eq("path", path)
-      .eq("is_active", true) // 활성화된 메뉴만 체크
-      .single();
+    const isAdminPath = path.startsWith("/admin");
 
-    // (2) 만약 DB에 등록된 메뉴라면? (등록 안 된 페이지는 통과됨)
+    // menu 규칙과 내 role을 동시에 조회
+    const [{ data: menuRule }, { data: profile }] = await Promise.all([
+      supabase
+        .from("menus")
+        .select("roles")
+        .eq("path", path)
+        .eq("is_active", true)
+        .single(),
+      supabase.from("profiles").select("role").eq("id", user.id).single(),
+    ]);
+
+    const myRole = profile?.role || "member";
+
     if (menuRule) {
-      // 내 정보(role) 가져오기
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      // 내 role이 없으면 기본값 'member' (안전을 위해)
-      const myRole = profile?.role || "member";
-
-      // 허용된 권한 목록(roles 배열) 가져오기 (null이면 빈 배열)
+      // DB에 등록된 메뉴: 허용 역할 목록 검사
       const allowedRoles: string[] = menuRule.roles || [];
-
-      // ★ 내 권한이 허용 목록에 포함되어 있는지 확인
       if (!allowedRoles.includes(myRole)) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/"; // 메인으로 튕겨냄
-        url.searchParams.set("error", "unauthorized"); // "권한이 없습니다" 메시지용
-        return NextResponse.redirect(url);
-      }
-    } else if (path.startsWith("/admin")) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      if (profile?.role !== "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/";
         url.searchParams.set("error", "unauthorized");
         return NextResponse.redirect(url);
       }
+    } else if (isAdminPath && myRole !== "admin") {
+      // DB 미등록 admin 경로: admin 역할만 허용
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.searchParams.set("error", "unauthorized");
+      return NextResponse.redirect(url);
     }
   }
 

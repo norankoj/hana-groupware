@@ -16,8 +16,16 @@ const withPWA = withPWAInit({
 
 // 2. 기존 Next.js 설정
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
 };
 
 // 3. 두 설정을 감싸서 내보내기
