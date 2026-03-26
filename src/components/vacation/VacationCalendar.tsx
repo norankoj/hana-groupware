@@ -690,36 +690,56 @@ export default function VacationCalendar({
         {/* 오른쪽: 통계 & 최근 신청 내역 */}
         <div className="lg:flex-1 w-full flex flex-col gap-6 h-auto lg:h-[650px]">
           {/* 내 연차 현황 */}
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
-              내 연차 현황 ({new Date().getFullYear()})
-            </h3>
-            <div className="flex items-end justify-between mb-2">
-              <span className="text-4xl font-extrabold text-blue-600">
-                {(user?.total_leave_days || 0) - (user?.used_leave_days || 0)}
-              </span>
-              <span className="text-sm text-gray-400 mb-1 font-medium">
-                / {user?.total_leave_days}일
-              </span>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-              <div
-                className="h-full bg-blue-600 rounded-full transition-all duration-1000"
-                style={{
-                  width: `${Math.min(
-                    (((user?.total_leave_days || 0) -
-                      (user?.used_leave_days || 0)) /
-                      (user?.total_leave_days || 1)) *
-                      100,
-                    100,
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            <div className="mt-3 text-right text-xs text-gray-500 font-medium">
-              {user?.used_leave_days}일 사용함
-            </div>
-          </div>
+          {(() => {
+            const totalLeave = user?.total_leave_days || 0;
+            const usedLeave = user?.used_leave_days || 0;
+            const remainingLeave = totalLeave - usedLeave;
+            const pendingDays = myRequests
+              .filter(
+                (r) =>
+                  r.status === "pending" && DEDUCTIBLE_TYPES.includes(r.type),
+              )
+              .reduce((acc, cur) => acc + cur.days_count, 0);
+            return (
+              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
+                  내 연차 현황 ({new Date().getFullYear()})
+                </h3>
+                <div className="flex items-end justify-between mb-2">
+                  <div>
+                    <span className="text-4xl font-extrabold text-blue-600">
+                      {remainingLeave}
+                    </span>
+                    <span className="text-sm text-gray-400 ml-1 font-medium">
+                      일 남음
+                    </span>
+                  </div>
+                  <span className="text-sm text-gray-400 mb-1 font-medium">
+                    총 {totalLeave}일
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${Math.min(
+                        (remainingLeave / (totalLeave || 1)) * 100,
+                        100,
+                      )}%`,
+                    }}
+                  ></div>
+                </div>
+                <div className="mt-3 flex justify-between text-xs font-medium">
+                  <span className="text-gray-500">{usedLeave}일 사용</span>
+                  {pendingDays > 0 && (
+                    <span className="text-yellow-600 font-bold">
+                      ⏳ {pendingDays}일 승인 대기중
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ★ 수정: 높이 설정 변경 (모바일: 자동 / PC: 자동 + 스크롤) */}
           <div className="bg-white rounded-xl shadow-md border border-gray-200 flex-1 overflow-hidden flex flex-col min-h-[300px] h-auto lg:h-full">
@@ -872,10 +892,28 @@ export default function VacationCalendar({
             </button>
           </div>
           {calculatedDays > 0 && (
-            <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold text-right">
-              {DEDUCTIBLE_TYPES.includes(formData.type)
-                ? `총 ${calculatedDays}일 사용 (토/월요일 제외됨)`
-                : `총 ${calculatedDays}일 (연차 차감 없음)`}
+            <div className="space-y-1.5">
+              <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold text-right">
+                {DEDUCTIBLE_TYPES.includes(formData.type)
+                  ? `총 ${calculatedDays}일 사용 (토/월요일 제외됨)`
+                  : `총 ${calculatedDays}일 (연차 차감 없음)`}
+              </div>
+              {DEDUCTIBLE_TYPES.includes(formData.type) && user && (() => {
+                const remaining = (user.total_leave_days || 0) - (user.used_leave_days || 0);
+                const afterRemaining = remaining - calculatedDays;
+                return (
+                  <div
+                    className={`text-xs px-3 py-1.5 rounded text-right font-medium ${
+                      afterRemaining < 0
+                        ? "bg-red-50 text-red-600"
+                        : "bg-gray-50 text-gray-500"
+                    }`}
+                  >
+                    현재 잔여 {remaining}일 → 신청 후 {afterRemaining}일
+                    {afterRemaining < 0 && " ⚠️ 잔여 초과"}
+                  </div>
+                );
+              })()}
             </div>
           )}
           <div>

@@ -40,6 +40,7 @@ export default function AdminTeamsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"members" | "leave">("members");
 
   // ★ 동시성 제어: 입력 시작 당시의 값을 기억할 변수
   const [focusValue, setFocusValue] = useState<number | null>(null);
@@ -271,6 +272,238 @@ export default function AdminTeamsPage() {
         </button>
       </div>
 
+      {/* 탭 */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          onClick={() => setActiveTab("members")}
+          className={`pb-3 px-5 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "members" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+        >
+          구성원 관리
+        </button>
+        <button
+          onClick={() => setActiveTab("leave")}
+          className={`pb-3 px-5 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "leave" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+        >
+          연차 현황
+        </button>
+      </div>
+
+      {/* 연차 현황 탭 */}
+      {activeTab === "leave" && (
+        <div className="space-y-4">
+          {/* 요약 카드 */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              {
+                label: "전체 인원",
+                value: profiles.filter((p) => p.total_leave_days > 0).length,
+                unit: "명",
+                color: "text-gray-800",
+              },
+              {
+                label: "평균 잔여 연차",
+                value: (() => {
+                  const eligible = profiles.filter((p) => p.total_leave_days > 0);
+                  if (!eligible.length) return 0;
+                  const avg =
+                    eligible.reduce(
+                      (acc, p) => acc + (p.total_leave_days - p.used_leave_days),
+                      0,
+                    ) / eligible.length;
+                  return Math.round(avg * 10) / 10;
+                })(),
+                unit: "일",
+                color: "text-blue-600",
+              },
+              {
+                label: "연차 소진 임박 (3일↓)",
+                value: profiles.filter(
+                  (p) =>
+                    p.total_leave_days > 0 &&
+                    p.total_leave_days - p.used_leave_days <= 3,
+                ).length,
+                unit: "명",
+                color: "text-orange-600",
+              },
+              {
+                label: "연차 초과 사용",
+                value: profiles.filter(
+                  (p) => p.used_leave_days > p.total_leave_days,
+                ).length,
+                unit: "명",
+                color: "text-red-600",
+              },
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="bg-white rounded-xl border border-gray-200 shadow-sm p-4"
+              >
+                <div className="text-xs text-gray-500 mb-1">{card.label}</div>
+                <div className={`text-2xl font-extrabold ${card.color}`}>
+                  {card.value}
+                  <span className="text-sm font-medium ml-1 text-gray-400">
+                    {card.unit}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 직원별 연차 현황 테이블 */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+              <span className="font-bold text-gray-800 text-sm">
+                직원별 연차 현황
+              </span>
+              <span className="text-xs text-gray-400">
+                {new Date().getFullYear()}년 기준
+              </span>
+            </div>
+            {/* 모바일 카드 */}
+            <div className="block md:hidden divide-y divide-gray-100">
+              {profiles
+                .filter((p) => p.total_leave_days > 0)
+                .sort(
+                  (a, b) =>
+                    a.total_leave_days -
+                    a.used_leave_days -
+                    (b.total_leave_days - b.used_leave_days),
+                )
+                .map((p) => {
+                  const remaining = p.total_leave_days - p.used_leave_days;
+                  const pct = Math.min(
+                    (remaining / (p.total_leave_days || 1)) * 100,
+                    100,
+                  );
+                  const isLow = remaining <= 3 && remaining >= 0;
+                  const isOver = remaining < 0;
+                  return (
+                    <div key={p.id} className="p-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-bold text-gray-900 text-sm">
+                            {p.full_name}
+                          </span>
+                          <span className="text-xs text-gray-400 ml-2">
+                            {p.position}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-sm font-extrabold ${isOver ? "text-red-600" : isLow ? "text-orange-600" : "text-blue-600"}`}
+                        >
+                          {remaining}일 남음
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${isOver ? "bg-red-500" : isLow ? "bg-orange-400" : "bg-blue-500"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>사용 {p.used_leave_days}일</span>
+                        <span>총 {p.total_leave_days}일</span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            {/* PC 테이블 */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {["이름 / 직분", "팀", "총 연차", "사용", "잔여", "현황"].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {profiles
+                    .filter((p) => p.total_leave_days > 0)
+                    .sort(
+                      (a, b) =>
+                        a.total_leave_days -
+                        a.used_leave_days -
+                        (b.total_leave_days - b.used_leave_days),
+                    )
+                    .map((p) => {
+                      const remaining = p.total_leave_days - p.used_leave_days;
+                      const pct = Math.min(
+                        (remaining / (p.total_leave_days || 1)) * 100,
+                        100,
+                      );
+                      const isLow = remaining <= 3 && remaining >= 0;
+                      const isOver = remaining < 0;
+                      const team = teams.find((t) => t.id === p.team_id);
+                      return (
+                        <tr key={p.id} className="hover:bg-gray-50 transition">
+                          <td className="px-5 py-3">
+                            <div className="text-sm font-bold text-gray-900">
+                              {p.full_name}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {p.position}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">
+                            {team?.name || "-"}
+                          </td>
+                          <td className="px-5 py-3 text-sm font-medium text-gray-700">
+                            {p.total_leave_days}일
+                          </td>
+                          <td className="px-5 py-3 text-sm text-gray-500">
+                            {p.used_leave_days}일
+                          </td>
+                          <td className="px-5 py-3">
+                            <span
+                              className={`text-sm font-extrabold ${isOver ? "text-red-600" : isLow ? "text-orange-600" : "text-blue-600"}`}
+                            >
+                              {remaining}일
+                            </span>
+                            {isOver && (
+                              <span className="ml-1 text-xs text-red-500">
+                                초과
+                              </span>
+                            )}
+                            {isLow && !isOver && (
+                              <span className="ml-1 text-xs text-orange-500">
+                                임박
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 w-40">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${isOver ? "bg-red-500" : isLow ? "bg-orange-400" : "bg-blue-500"}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-400 w-8 text-right">
+                                {Math.round(pct)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 구성원 관리 탭 */}
+      {activeTab === "members" && (
       <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
           <h2 className="text-sm sm:text-base font-bold text-gray-800">
@@ -589,6 +822,7 @@ export default function AdminTeamsPage() {
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }
