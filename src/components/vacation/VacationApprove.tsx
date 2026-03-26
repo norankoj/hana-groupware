@@ -126,6 +126,7 @@ export default function VacationApprove({
         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-wrap gap-3 items-end">
           <div className="w-36">
             <Select
+              className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
               value={filterStatus}
               onChange={setFilterStatus}
               options={STATUS_OPTIONS}
@@ -133,6 +134,7 @@ export default function VacationApprove({
           </div>
           <div className="w-36">
             <Select
+              className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
               value={filterType}
               onChange={setFilterType}
               options={TYPE_OPTIONS}

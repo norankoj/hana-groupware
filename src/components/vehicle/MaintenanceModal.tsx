@@ -151,7 +151,7 @@ export default function MaintenanceModal({
                 </label>
                 <div
                   onClick={() => setShowCalendar((v) => !v)}
-                  className="h-[38px] flex items-center justify-center cursor-pointer border border-gray-300 rounded-lg bg-white text-sm font-bold text-gray-900 select-none hover:bg-gray-50 transition"
+                  className="h-[38px] flex items-center justify-left pl-4 cursor-pointer border border-gray-300 rounded-lg bg-white text-sm font-bold text-gray-900 select-none hover:bg-gray-50 transition"
                 >
                   {form.maintenance_date}
                 </div>
@@ -202,7 +202,8 @@ export default function MaintenanceModal({
                 onChange={(e) =>
                   setForm((p) => ({
                     ...p,
-                    mileage: e.target.value === "" ? "" : Number(e.target.value),
+                    mileage:
+                      e.target.value === "" ? "" : Number(e.target.value),
                   }))
                 }
                 className="w-full border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 bg-white"
@@ -240,7 +241,9 @@ export default function MaintenanceModal({
 
         {/* 이력 목록 */}
         {loading ? (
-          <p className="text-center text-gray-400 text-sm py-6">불러오는 중...</p>
+          <p className="text-center text-gray-400 text-sm py-6">
+            불러오는 중...
+          </p>
         ) : records.length === 0 ? (
           <p className="text-center text-gray-400 text-sm py-8">
             등록된 정비 이력이 없습니다.

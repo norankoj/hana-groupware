@@ -290,13 +290,13 @@ export default function VacationCalendar({
       {/* 팝업 달력 포탈 */}
       {showRangePicker && (
         <div
-          className="fixed inset-0 z-[9998]"
+          className="fixed inset-0 z-[99998]"
           onClick={() => setShowRangePicker(false)}
         />
       )}
       {showRangePicker && (
         <div
-          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+          className="fixed z-[99999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
           style={{
             top: pickerPos.top,
             left: pickerPos.left,
@@ -898,22 +898,25 @@ export default function VacationCalendar({
                   ? `총 ${calculatedDays}일 사용 (토/월요일 제외됨)`
                   : `총 ${calculatedDays}일 (연차 차감 없음)`}
               </div>
-              {DEDUCTIBLE_TYPES.includes(formData.type) && user && (() => {
-                const remaining = (user.total_leave_days || 0) - (user.used_leave_days || 0);
-                const afterRemaining = remaining - calculatedDays;
-                return (
-                  <div
-                    className={`text-xs px-3 py-1.5 rounded text-right font-medium ${
-                      afterRemaining < 0
-                        ? "bg-red-50 text-red-600"
-                        : "bg-gray-50 text-gray-500"
-                    }`}
-                  >
-                    현재 잔여 {remaining}일 → 신청 후 {afterRemaining}일
-                    {afterRemaining < 0 && " ⚠️ 잔여 초과"}
-                  </div>
-                );
-              })()}
+              {DEDUCTIBLE_TYPES.includes(formData.type) &&
+                user &&
+                (() => {
+                  const remaining =
+                    (user.total_leave_days || 0) - (user.used_leave_days || 0);
+                  const afterRemaining = remaining - calculatedDays;
+                  return (
+                    <div
+                      className={`text-xs px-3 py-1.5 rounded text-right font-medium ${
+                        afterRemaining < 0
+                          ? "bg-red-50 text-red-600"
+                          : "bg-gray-50 text-gray-500"
+                      }`}
+                    >
+                      현재 잔여 {remaining}일 → 신청 후 {afterRemaining}일
+                      {afterRemaining < 0 && " ⚠️ 잔여 초과"}
+                    </div>
+                  );
+                })()}
             </div>
           )}
           <div>
