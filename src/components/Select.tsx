@@ -85,9 +85,13 @@ export default function Select({
         `}
       >
         <span
-          className={`text-base truncate font-bold ${
-            value ? "text-gray-900" : "text-gray-400"
-          }`}
+          className={`truncate font-bold ${
+            className?.includes("text-xs")
+              ? "text-xs"
+              : className?.includes("text-sm")
+                ? "text-sm"
+                : "text-base"
+          } ${value ? "text-gray-900" : "text-gray-400"}`}
         >
           {selectedLabel || placeholder}
         </span>

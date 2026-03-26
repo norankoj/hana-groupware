@@ -74,7 +74,7 @@ export default function ScheduleDetailModal({
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {event.attendees.map((a) => (
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                    <div key={a.id} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                       <span className="text-sm font-bold text-gray-700 pr-1">
                         {a.name}
                       </span>

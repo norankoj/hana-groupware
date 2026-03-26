@@ -527,8 +527,6 @@ export default function CalendarSection({
           </div>
         </section>
 
-      </div>
-
       <ScheduleAddModal
         isOpen={isScheduleModalOpen}
         onClose={() => setIsScheduleModalOpen(false)}

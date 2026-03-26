@@ -45,3 +45,8 @@ body {
     "Segoe UI Symbol",
     sans-serif;
 }
+
+/* SweetAlert2 z-index 보정 — Modal(z-9999) 위에 표시 */
+.swal2-container {
+  z-index: 99999 !important;
+}

@@ -2,10 +2,13 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { format } from "date-fns";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
 import Modal from "@/components/Modal";
 import toast from "react-hot-toast";
 import { createClient } from "@/utils/supabase/client";
 import imageCompression from "browser-image-compression";
+import { showConfirm } from "@/utils/alert";
 
 type VehicleLog = {
   id: number;
@@ -19,7 +22,7 @@ type VehicleLog = {
   department?: string;
   start_mileage?: number;
   end_mileage?: number;
-  vehicle_status: "reserved" | "in_use" | "returned";
+  vehicle_status: "reserved" | "in_use" | "returned" | "noshow";
   checkin_photo_url?: string;
   checkout_photo_url?: string;
   checkin_exterior_urls?: string[];
@@ -27,6 +30,9 @@ type VehicleLog = {
   cleanup_status?: boolean;
   parking_location?: string;
   vehicle_condition?: string;
+  fuel_level_start?: number;
+  fuel_level_end?: number;
+  incident_type?: string;
   profiles?: { full_name: string; position: string };
   resources?: { name: string; description: string; insurance_info?: string };
 };
@@ -36,7 +42,9 @@ interface DetailModalProps {
   onClose: () => void;
   selectedLog: VehicleLog | null;
   currentUser: string | null;
+  currentProfile?: { is_approver: boolean; role: string } | null;
   onRefresh: () => void;
+  onCancel?: (id: number) => void;
 }
 
 const InfoRow = ({
@@ -67,18 +75,27 @@ export default function DetailModal({
   onClose,
   selectedLog,
   currentUser,
+  currentProfile,
   onRefresh,
+  onCancel,
 }: DetailModalProps) {
   const supabase = createClient();
   const [uploading, setUploading] = useState(false);
 
   const [checkinMileage, setCheckinMileage] = useState<number | "">("");
+  const [checkinFuel, setCheckinFuel] = useState<number>(100);
   const [checkoutForm, setCheckoutForm] = useState({
     mileage: "" as number | "",
     cleanup: true,
     parking: "",
     condition: "이상 없음",
+    fuel: 100,
+    incidentType: null as string | null,
   });
+  const [showExtendForm, setShowExtendForm] = useState(false);
+  const [extendDate, setExtendDate] = useState("");
+  const [extendTime, setExtendTime] = useState("");
+  const [showExtendCalendar, setShowExtendCalendar] = useState(false);
 
   const [dashImage, setDashImage] = useState<File | null>(null);
   const [dashPreview, setDashPreview] = useState<string | null>(null);
@@ -95,12 +112,19 @@ export default function DetailModal({
       setExteriorFiles([]);
       setExteriorPreviews([]);
       setCheckinMileage("");
+      setCheckinFuel(100);
       setCheckoutForm({
         mileage: "",
         cleanup: true,
         parking: "",
         condition: "이상 없음",
+        fuel: 100,
+        incidentType: null,
       });
+      setShowExtendForm(false);
+      setExtendDate("");
+      setExtendTime("");
+      setShowExtendCalendar(false);
       setZoomImages([]);
       setZoomIndex(0);
     }
@@ -149,6 +173,30 @@ export default function DetailModal({
     return data.publicUrl;
   };
 
+  const handleExtend = async () => {
+    if (!selectedLog || !extendDate || !extendTime) {
+      return toast.error("연장 날짜와 시간을 입력해주세요.");
+    }
+    const newEndAt = new Date(`${extendDate}T${extendTime}`);
+    const currentEndAt = new Date(selectedLog.end_at);
+    if (newEndAt <= currentEndAt) {
+      return toast.error("연장 시간은 현재 반납 예정 시간보다 늦어야 합니다.");
+    }
+    const ok = await showConfirm(
+      `반납 시간을 ${extendDate} ${extendTime}으로 연장하시겠습니까?`,
+    );
+    if (!ok) return;
+    const { error } = await supabase
+      .from("reservations")
+      .update({ end_at: newEndAt.toISOString() })
+      .eq("id", selectedLog.id);
+    if (error) return toast.error(error.message);
+    toast.success("반납 시간이 연장되었습니다.");
+    setShowExtendForm(false);
+    onRefresh();
+    onClose();
+  };
+
   const handleSubmit = async (action: "checkin" | "checkout") => {
     if (!selectedLog) return;
 
@@ -161,6 +209,14 @@ export default function DetailModal({
     } else {
       if (String(checkoutForm.mileage).trim() === "")
         return toast.error("도착 거리를 입력해주세요.");
+      if (
+        selectedLog.start_mileage !== null &&
+        selectedLog.start_mileage !== undefined &&
+        Number(checkoutForm.mileage) <= selectedLog.start_mileage
+      )
+        return toast.error(
+          `도착 거리(${checkoutForm.mileage}km)는 출발 거리(${selectedLog.start_mileage}km)보다 커야 합니다.`,
+        );
       if (String(checkoutForm.parking).trim() === "")
         return toast.error("주차 위치를 입력해주세요.");
       if (!dashImage) return toast.error("계기판 사진은 필수입니다.");
@@ -168,12 +224,10 @@ export default function DetailModal({
         return toast.error("차량 외관 사진을 최소 1장 등록해주세요.");
     }
 
-    if (
-      !confirm(
-        `${action === "checkin" ? "운행을 시작" : "반납을 완료"}하시겠습니까?`,
-      )
-    )
-      return;
+    const ok = await showConfirm(
+      action === "checkin" ? "운행을 시작하시겠습니까?" : "반납을 완료하시겠습니까?",
+    );
+    if (!ok) return;
 
     setUploading(true);
     try {
@@ -188,6 +242,7 @@ export default function DetailModal({
         updates.checkin_photo_url = dashUrl;
         updates.checkin_exterior_urls = extUrls;
         updates.start_mileage = Number(checkinMileage);
+        updates.fuel_level_start = checkinFuel;
       } else {
         updates.vehicle_status = "returned";
         updates.checkout_photo_url = dashUrl;
@@ -196,6 +251,10 @@ export default function DetailModal({
         updates.cleanup_status = checkoutForm.cleanup;
         updates.parking_location = checkoutForm.parking;
         updates.vehicle_condition = checkoutForm.condition;
+        updates.fuel_level_end = checkoutForm.fuel;
+        if (checkoutForm.incidentType) {
+          updates.incident_type = checkoutForm.incidentType;
+        }
       }
 
       const { error } = await supabase
@@ -204,20 +263,7 @@ export default function DetailModal({
         .eq("id", selectedLog.id);
       if (error) throw error;
 
-      if (action === "checkout") {
-        const { error: resourceErr } = await supabase
-          .from("resources")
-          .update({ current_mileage: Number(checkoutForm.mileage) })
-          .eq("id", selectedLog.resource_id);
-
-        if (resourceErr) {
-          console.error("차량 누적 거리 업데이트 에러:", resourceErr);
-          toast.error(
-            "운행 일지는 기록되었으나 차량 주행거리 갱신에 실패했습니다.",
-          );
-        }
-      }
-
+      // resources.current_mileage 업데이트는 DB 트리거(trigger_update_mileage)가 처리
       toast.success("처리되었습니다.");
       onRefresh();
       onClose();
@@ -289,9 +335,12 @@ export default function DetailModal({
     });
   };
 
+  const isAdmin =
+    currentProfile?.is_approver === true || currentProfile?.role === "admin";
   const isMyTurn =
-    selectedLog?.user_id === currentUser &&
-    selectedLog?.vehicle_status !== "returned";
+    (selectedLog?.user_id === currentUser || isAdmin) &&
+    selectedLog?.vehicle_status !== "returned" &&
+    selectedLog?.vehicle_status !== "noshow";
   const actionType =
     selectedLog?.vehicle_status === "reserved" ? "checkin" : "checkout";
 
@@ -362,13 +411,54 @@ export default function DetailModal({
               </span>
             </InfoRow>
             <InfoRow label="주차 위치">{selectedLog.parking_location}</InfoRow>
+            <InfoRow label="연료 상태">
+              <div className="flex items-center gap-3">
+                {selectedLog.fuel_level_start != null && (
+                  <span className="text-sm">
+                    출발{" "}
+                    <span className="font-bold text-blue-600">
+                      {selectedLog.fuel_level_start}%
+                    </span>
+                  </span>
+                )}
+                {selectedLog.fuel_level_start != null &&
+                  selectedLog.fuel_level_end != null && (
+                    <span className="text-gray-400">→</span>
+                  )}
+                {selectedLog.fuel_level_end != null && (
+                  <span className="text-sm">
+                    도착{" "}
+                    <span
+                      className={`font-bold ${selectedLog.fuel_level_end < 30 ? "text-red-500" : "text-green-600"}`}
+                    >
+                      {selectedLog.fuel_level_end}%
+                    </span>
+                  </span>
+                )}
+                {selectedLog.fuel_level_start == null &&
+                  selectedLog.fuel_level_end == null && (
+                    <span className="text-gray-400 text-sm">미기록</span>
+                  )}
+              </div>
+            </InfoRow>
             <InfoRow label="차량 상태">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
                 <span
                   className={`px-3 py-1 rounded w-max text-xs font-bold ${selectedLog.cleanup_status ? "bg-gray-100 text-gray-700" : "bg-red-50 text-red-600"}`}
                 >
                   {selectedLog.cleanup_status ? "청소 완료" : "청소 미흡"}
                 </span>
+                {selectedLog.incident_type && (
+                  <span className="px-3 py-1 rounded text-xs font-bold bg-red-100 text-red-600">
+                    {selectedLog.incident_type === "accident"
+                      ? "사고"
+                      : selectedLog.incident_type === "breakdown"
+                        ? "고장"
+                        : selectedLog.incident_type === "scratch"
+                          ? "흠집"
+                          : "기타"}
+                  </span>
+                )}
                 <span className="text-gray-800">
                   {selectedLog.vehicle_condition || "특이사항 없음"}
                 </span>
@@ -448,6 +538,35 @@ export default function DetailModal({
                       })
                 }
               />
+            </div>
+
+            {/* 연료 */}
+            <div>
+              <label className="block text-base font-bold text-gray-800 mb-3">
+                {actionType === "checkin" ? "출발 연료" : "도착 연료"}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[100, 90, 80, 70, 60, 50, 40, 30, 20, 10].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() =>
+                      actionType === "checkin"
+                        ? setCheckinFuel(v)
+                        : setCheckoutForm((p) => ({ ...p, fuel: v }))
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition ${
+                      (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) === v
+                        ? v <= 30
+                          ? "bg-red-500 text-white border-red-500"
+                          : "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {v}%
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* 첨부파일 영역 */}
@@ -621,7 +740,7 @@ export default function DetailModal({
                     차량 내부 쓰레기 정리를 완료했습니다.
                   </label>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
                       주차 위치 <span className="text-blue-600">*</span>
@@ -643,10 +762,10 @@ export default function DetailModal({
                     <label className="block text-sm font-bold text-gray-700 mb-2">
                       차량 특이사항 (선택)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="스크래치, 경고등 등"
-                      className="w-full p-4 border border-gray-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-gray-400 transition bg-white"
+                    <textarea
+                      placeholder="스크래치, 경고등, 기타 이상 사항 등"
+                      rows={3}
+                      className="w-full p-4 border border-gray-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-gray-400 transition bg-white resize-none"
                       value={checkoutForm.condition}
                       onChange={(e) =>
                         setCheckoutForm({
@@ -655,6 +774,40 @@ export default function DetailModal({
                         })
                       }
                     />
+                  </div>
+                </div>
+
+                {/* 사고/이상 유형 */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    이상 유형 (해당 시 선택)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: "accident", label: "사고" },
+                      { key: "breakdown", label: "고장" },
+                      { key: "scratch", label: "흠집" },
+                      { key: "other", label: "기타" },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() =>
+                          setCheckoutForm((p) => ({
+                            ...p,
+                            incidentType:
+                              p.incidentType === key ? null : key,
+                          }))
+                        }
+                        className={`px-4 py-2 rounded-full text-sm border font-bold transition ${
+                          checkoutForm.incidentType === key
+                            ? "bg-red-500 text-white border-red-500"
+                            : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -666,30 +819,125 @@ export default function DetailModal({
   );
 
   const ModalFooter = (
-    <div className="flex gap-3 w-full">
-      <button
-        onClick={onClose}
-        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-4 rounded-xl text-lg font-bold transition"
-      >
-        닫기
-      </button>
-      {isMyTurn && (
-        <button
-          onClick={() => handleSubmit(actionType)}
-          disabled={uploading || !isFormValid}
-          className={`flex-1 text-white py-4 rounded-xl text-lg font-bold shadow-md transition ${
-            uploading || !isFormValid
-              ? "bg-gray-300 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
-          {uploading
-            ? "처리 중..."
-            : actionType === "checkin"
-              ? "운행 시작 완료"
-              : "반납 완료"}
-        </button>
+    <div className="flex flex-col gap-2 w-full">
+      {/* 예약 연장 폼 */}
+      {showExtendForm && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 space-y-2">
+          <span className="text-sm font-bold text-yellow-700 block">
+            연장 반납 시간 설정
+          </span>
+          <div className="flex gap-2 items-start">
+            {/* 날짜 — 달력 팝업 */}
+            <div className="relative flex-1">
+              <div
+                onClick={() => setShowExtendCalendar((v) => !v)}
+                className="cursor-pointer border border-gray-300 rounded-lg p-2 text-sm bg-white text-center font-bold focus:ring-2 focus:ring-yellow-400 select-none"
+              >
+                {extendDate || "날짜 선택"}
+              </div>
+              {showExtendCalendar && (
+                <div className="absolute bottom-full left-0 z-50 mb-1 bg-white border border-gray-200 rounded-xl shadow-2xl p-2 animate-fadeIn">
+                  <Calendar
+                    onChange={(val) => {
+                      if (val && !Array.isArray(val)) {
+                        setExtendDate(format(val, "yyyy-MM-dd"));
+                        setShowExtendCalendar(false);
+                      }
+                    }}
+                    value={extendDate ? new Date(extendDate) : new Date()}
+                    minDate={
+                      selectedLog ? new Date(selectedLog.end_at) : new Date()
+                    }
+                    formatDay={(locale, date) => format(date, "d")}
+                    calendarType="gregory"
+                    locale="ko-KR"
+                  />
+                </div>
+              )}
+            </div>
+            {/* 시간 */}
+            <input
+              type="time"
+              value={extendTime}
+              onChange={(e) => setExtendTime(e.target.value)}
+              className="w-28 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExtend}
+              className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-bold transition"
+            >
+              확인
+            </button>
+            <button
+              onClick={() => {
+                setShowExtendForm(false);
+                setShowExtendCalendar(false);
+              }}
+              className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm font-bold transition"
+            >
+              취소
+            </button>
+          </div>
+        </div>
       )}
+
+      {/* 관리자 강제 반납 안내 */}
+      {isAdmin && selectedLog?.user_id !== currentUser && isMyTurn && (
+        <p className="text-xs text-center text-orange-500 font-bold">
+          ⚠️ 관리자 강제 처리 모드
+        </p>
+      )}
+
+      <div className="flex gap-3 w-full">
+        {!isMyTurn && (
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-4 rounded-xl text-lg font-bold transition"
+          >
+            닫기
+          </button>
+        )}
+        {isMyTurn && actionType === "checkin" && onCancel && (
+          <button
+            onClick={() => onCancel(selectedLog!.id)}
+            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-4 rounded-xl text-lg font-bold transition border border-red-200"
+          >
+            예약 취소
+          </button>
+        )}
+        {isMyTurn && actionType === "checkout" && !showExtendForm && (
+          <button
+            onClick={() => {
+              const end = new Date(selectedLog!.end_at);
+              setExtendDate(end.toISOString().slice(0, 10));
+              setExtendTime(end.toISOString().slice(11, 16));
+              setShowExtendForm(true);
+            }}
+            className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 py-4 rounded-xl text-lg font-bold transition border border-yellow-200"
+          >
+            시간 연장
+          </button>
+        )}
+        {isMyTurn && (
+          <button
+            onClick={() => handleSubmit(actionType)}
+            disabled={uploading || !isFormValid}
+            className={`flex-1 text-white py-4 rounded-xl text-lg font-bold shadow-md transition ${
+              uploading || !isFormValid
+                ? "bg-gray-300 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {uploading
+              ? "처리 중..."
+              : actionType === "checkin"
+                ? "운행 시작 완료"
+                : "반납 완료"}
+          </button>
+        )}
+      </div>
     </div>
   );
 

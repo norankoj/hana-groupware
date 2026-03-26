@@ -11,6 +11,8 @@ import DetailModal from "@/components/vehicle/DetailModal";
 import VehicleReserveModal from "@/components/vehicle/VehicleReserveModal";
 import "@/styles/calendar.css";
 import HistoryModal from "@/components/vehicle/HistoryModal";
+import MaintenanceModal from "@/components/vehicle/MaintenanceModal";
+import StatsSection from "@/components/vehicle/StatsSection";
 import Select from "@/components/Select";
 
 // --- [이미지 설정] 차량별 이미지 매핑 ---
@@ -46,7 +48,7 @@ type VehicleLog = {
   department?: string;
   start_mileage?: number;
   end_mileage?: number;
-  vehicle_status: "reserved" | "in_use" | "returned";
+  vehicle_status: "reserved" | "in_use" | "returned" | "noshow";
   checkin_photo_url?: string;
   checkout_photo_url?: string;
   checkin_exterior_urls?: string[];
@@ -54,9 +56,15 @@ type VehicleLog = {
   cleanup_status?: boolean;
   parking_location?: string;
   vehicle_condition?: string;
+  fuel_level_start?: number;
+  fuel_level_end?: number;
+  incident_type?: string;
   profiles?: { full_name: string; position: string };
   resources?: { name: string; description: string; insurance_info?: string };
 };
+
+const toTimePercent = (dt: Date) =>
+  Math.min(100, Math.max(0, ((dt.getHours() * 60 + dt.getMinutes()) / 1440) * 100));
 
 export default function VehicleReservationPage() {
   const supabase = createClient();
@@ -64,7 +72,15 @@ export default function VehicleReservationPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<{
+    is_approver: boolean;
+    role: string;
+  } | null>(null);
   const [activeCardId, setActiveCardId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"log" | "stats">("log");
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [selectedVehicleMaintenance, setSelectedVehicleMaintenance] =
+    useState<Vehicle | null>(null);
 
   // [신규] 모바일 전용 탭 (예약 vs 운행일지)
   const [mobileTab, setMobileTab] = useState<"reserve" | "log">("reserve");
@@ -78,6 +94,7 @@ export default function VehicleReservationPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [myReservationsOnly, setMyReservationsOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -98,12 +115,54 @@ export default function VehicleReservationPage() {
     setIsReserveModalOpen(true);
   };
 
+  const handleCloseReserveModal = () => {
+    setIsReserveModalOpen(false);
+    setForm((prev) => ({
+      ...prev,
+      purpose: "",
+      destination: "",
+      department: "",
+      start_date: format(new Date(), "yyyy-MM-dd"),
+      end_date: format(new Date(), "yyyy-MM-dd"),
+      start_time: "10:00",
+      end_time: "12:00",
+    }));
+  };
+
+  const handleCancelReservation = async (id: number) => {
+    const ok = await showConfirm("예약을 취소하시겠습니까?");
+    if (!ok) return;
+    const { error } = await supabase
+      .from("reservations")
+      .update({ status: "cancelled" })
+      .eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("예약이 취소되었습니다.");
+      setIsDetailModalOpen(false);
+      fetchData();
+    }
+  };
+
   const handleOpenHistory = (vehicle: Vehicle) => {
     setSelectedVehicleHistory(vehicle);
     setIsHistoryModalOpen(true);
   };
 
+  const autoExpireReservations = async () => {
+    // 반납 예정 시간 + 3시간 경과 후 노쇼 처리 (짧은 지연 기록 허용)
+    const expireThreshold = new Date(
+      Date.now() - 3 * 60 * 60 * 1000,
+    ).toISOString();
+    await supabase
+      .from("reservations")
+      .update({ vehicle_status: "noshow" })
+      .eq("vehicle_status", "reserved")
+      .lt("end_at", expireThreshold);
+  };
+
   const fetchData = async () => {
+    await autoExpireReservations();
     setLoading(true);
     const {
       data: { user },
@@ -112,11 +171,16 @@ export default function VehicleReservationPage() {
       setCurrentUser(user.id);
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name, is_approver, role")
         .eq("id", user.id)
         .single();
-      if (profile)
+      if (profile) {
         setForm((prev) => ({ ...prev, driver_name: profile.full_name }));
+        setCurrentProfile({
+          is_approver: profile.is_approver || false,
+          role: profile.role || "user",
+        });
+      }
     }
 
     const { data: vData } = await supabase
@@ -208,6 +272,16 @@ export default function VehicleReservationPage() {
     else {
       toast.success("예약되었습니다.");
       setIsReserveModalOpen(false);
+      setForm((prev) => ({
+        ...prev,
+        purpose: "",
+        destination: "",
+        department: "",
+        start_date: format(new Date(), "yyyy-MM-dd"),
+        end_date: format(new Date(), "yyyy-MM-dd"),
+        start_time: "10:00",
+        end_time: "12:00",
+      }));
       fetchData();
     }
   };
@@ -220,14 +294,15 @@ export default function VehicleReservationPage() {
       log.driver_name.includes(searchTerm) ||
       log.resources?.name.includes(searchTerm) ||
       log.destination.includes(searchTerm);
-    return matchesStatus && matchesSearch;
+    const matchesMine = !myReservationsOnly || log.user_id === currentUser;
+    return matchesStatus && matchesSearch && matchesMine;
   });
 
   // 2. 이중 정렬 (1순위: 운행중>예약>반납 / 2순위: 현재 시간과 가장 가까운 순)
   const sortedLogs = [...filteredLogs].sort((a, b) => {
-    const order = { in_use: 1, reserved: 2, returned: 3 };
-    const statusA = order[a.vehicle_status as keyof typeof order] || 4;
-    const statusB = order[b.vehicle_status as keyof typeof order] || 4;
+    const order = { in_use: 1, reserved: 2, returned: 3, noshow: 4 };
+    const statusA = order[a.vehicle_status as keyof typeof order] || 5;
+    const statusB = order[b.vehicle_status as keyof typeof order] || 5;
 
     if (statusA !== statusB) return statusA - statusB;
 
@@ -323,7 +398,7 @@ export default function VehicleReservationPage() {
               className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group transition outline-none"
             >
               <div
-                className={`absolute inset-0 z-20 bg-slate-900/40 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 p-6
+                className={`absolute inset-0 z-20 bg-slate-900/40 backdrop-blur-[3px] transition-opacity duration-300 flex flex-col items-center justify-center gap-2 p-4
                 ${
                   isActive
                     ? "opacity-100 visible"
@@ -337,20 +412,36 @@ export default function VehicleReservationPage() {
                     handleReserveWithCar(v.id);
                     setActiveCardId(null);
                   }}
-                  className="w-full py-3 bg-blue-700 hover:bg-blue-600 text-white text-sm font-semibold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  className="w-full py-3 bg-blue-700 hover:bg-blue-600 text-white text-sm font-bold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
                 >
                   예약하기
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenHistory(v);
-                    setActiveCardId(null);
-                  }}
-                  className="w-full py-3 bg-white hover:bg-gray-50 text-slate-800 text-sm font-semibold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  운행기록
-                </button>
+                <div className="w-full flex gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenHistory(v);
+                      setActiveCardId(null);
+                    }}
+                    className="flex-1 py-2.5 bg-white hover:bg-gray-50 text-slate-800 text-sm font-bold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    운행기록
+                  </button>
+                  {(currentProfile?.is_approver ||
+                    currentProfile?.role === "admin") && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedVehicleMaintenance(v);
+                        setIsMaintenanceModalOpen(true);
+                        setActiveCardId(null);
+                      }}
+                      className="flex-1 py-2.5 bg-white hover:bg-gray-50 text-slate-800 text-sm font-bold tracking-tight rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                    >
+                      정비이력
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* 상태 뱃지 */}
@@ -408,12 +499,46 @@ export default function VehicleReservationPage() {
                   </span>
                 </div>
               </div>
+
             </div>
           );
         })}
       </div>
 
-      {/* --- 운행 일지 테이블 & 모바일 카드 리스트 --- */}
+      {/* --- 운행 일지 / 통계 탭 (PC 전용) --- */}
+      {(currentProfile?.is_approver || currentProfile?.role === "admin") && (
+        <div
+          className={`hidden md:flex gap-1 bg-gray-100 p-1 rounded-xl w-fit ${
+            mobileTab === "reserve" ? "hidden" : ""
+          }`}
+        >
+          <button
+            onClick={() => setActiveTab("log")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${
+              activeTab === "log"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-500"
+            }`}
+          >
+            운행 일지
+          </button>
+          <button
+            onClick={() => setActiveTab("stats")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${
+              activeTab === "stats"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-500"
+            }`}
+          >
+            월별 통계
+          </button>
+        </div>
+      )}
+
+      {activeTab === "stats" &&
+      (currentProfile?.is_approver || currentProfile?.role === "admin") ? (
+        <StatsSection logs={logs} vehicles={vehicles} />
+      ) : (
       <div
         className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex-col h-auto md:h-[600px] ${
           mobileTab === "reserve" ? "hidden md:flex" : "flex"
@@ -421,7 +546,7 @@ export default function VehicleReservationPage() {
       >
         {/* 검색 및 필터 헤더 */}
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center shrink-0">
-          <div className="flex items-center gap-2 font-bold text-gray-700">
+          <div className="hidden md:flex items-center gap-2 font-bold text-gray-700">
             <span>운행 일지</span>
             <span className="text-xs text-gray-400 font-normal">
               총 {filteredLogs.length}건
@@ -437,17 +562,90 @@ export default function VehicleReservationPage() {
                   { value: "reserved", label: "예약중" },
                   { value: "in_use", label: "운행중" },
                   { value: "returned", label: "반납완료" },
+                  { value: "noshow", label: "노쇼" },
                 ]}
                 className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
               />
             </div>
+            {/* 검색창 — PC 전용 */}
             <input
               type="text"
               placeholder="차량명, 운전자 검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-60 focus:ring-blue-500 focus:border-blue-500 h-[42px] bg-white outline-none transition"
+              className="hidden md:block px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-60 focus:ring-blue-500 focus:border-blue-500 h-[42px] bg-white outline-none transition"
             />
+            <button
+              onClick={() => setMyReservationsOnly((v) => !v)}
+              className={`px-3 py-2 rounded-lg text-sm font-bold border transition shrink-0 h-[42px] ${
+                myReservationsOnly
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              내 예약
+            </button>
+            {/* 엑셀 다운로드 — PC 전용 */}
+            <button
+              onClick={() => {
+                const rows = sortedLogs.map((l) => ({
+                  상태:
+                    l.vehicle_status === "in_use"
+                      ? "운행중"
+                      : l.vehicle_status === "returned"
+                        ? "반납완료"
+                        : l.vehicle_status === "noshow"
+                          ? "노쇼"
+                          : "예약",
+                  차량: l.resources?.name ?? "",
+                  운전자: l.driver_name,
+                  부서: l.department ?? "",
+                  목적지: l.destination,
+                  운행목적: l.purpose,
+                  시작: format(new Date(l.start_at), "yyyy-MM-dd HH:mm"),
+                  종료: format(new Date(l.end_at), "yyyy-MM-dd HH:mm"),
+                  주행거리:
+                    l.start_mileage != null && l.end_mileage != null
+                      ? l.end_mileage - l.start_mileage
+                      : "",
+                }));
+                const header = Object.keys(rows[0] ?? {}).join(",");
+                const csv = [
+                  header,
+                  ...rows.map((r) =>
+                    Object.values(r)
+                      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+                      .join(","),
+                  ),
+                ].join("\n");
+                const blob = new Blob(["\uFEFF" + csv], {
+                  type: "text/csv;charset=utf-8;",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `운행일지_${format(new Date(), "yyyyMMdd")}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold border border-gray-300 text-gray-600 hover:bg-gray-50 transition shrink-0 h-[42px]"
+              title="엑셀 다운로드"
+            >
+              <svg
+                className="w-4 h-4 text-green-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              <span className="hidden lg:inline">엑셀</span>
+            </button>
           </div>
         </div>
 
@@ -477,14 +675,18 @@ export default function VehicleReservationPage() {
                           ? "bg-green-100 text-green-700"
                           : log.vehicle_status === "returned"
                             ? "bg-gray-100 text-gray-500"
-                            : "bg-blue-100 text-blue-700"
+                            : log.vehicle_status === "noshow"
+                              ? "bg-orange-100 text-orange-600"
+                              : "bg-blue-100 text-blue-700"
                       }`}
                     >
                       {log.vehicle_status === "in_use"
                         ? "운행중"
                         : log.vehicle_status === "returned"
                           ? "반납"
-                          : "예약"}
+                          : log.vehicle_status === "noshow"
+                            ? "노쇼"
+                            : "예약"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -549,14 +751,18 @@ export default function VehicleReservationPage() {
                           ? "bg-green-100 text-green-700"
                           : log.vehicle_status === "returned"
                             ? "bg-gray-100 text-gray-500"
-                            : "bg-blue-100 text-blue-700"
+                            : log.vehicle_status === "noshow"
+                              ? "bg-orange-100 text-orange-600"
+                              : "bg-blue-100 text-blue-700"
                       }`}
                     >
                       {log.vehicle_status === "in_use"
                         ? "운행중"
                         : log.vehicle_status === "returned"
                           ? "반납"
-                          : "예약"}
+                          : log.vehicle_status === "noshow"
+                            ? "노쇼"
+                            : "예약"}
                     </span>
                     <span className="font-bold text-gray-900 text-lg">
                       {log.resources?.name}
@@ -658,10 +864,11 @@ export default function VehicleReservationPage() {
           </div>
         )}
       </div>
+      )}
 
       <VehicleReserveModal
         isOpen={isReserveModalOpen}
-        onClose={() => setIsReserveModalOpen(false)}
+        onClose={handleCloseReserveModal}
         form={form}
         logs={logs}
         setForm={setForm}
@@ -674,7 +881,14 @@ export default function VehicleReservationPage() {
         onClose={() => setIsDetailModalOpen(false)}
         selectedLog={selectedLog}
         currentUser={currentUser}
+        currentProfile={currentProfile}
         onRefresh={fetchData}
+        onCancel={handleCancelReservation}
+      />
+      <MaintenanceModal
+        isOpen={isMaintenanceModalOpen}
+        onClose={() => setIsMaintenanceModalOpen(false)}
+        vehicle={selectedVehicleMaintenance}
       />
       <HistoryModal
         isHistoryModalOpen={isHistoryModalOpen}

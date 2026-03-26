@@ -19,7 +19,7 @@ type VehicleLog = {
   department?: string;
   start_mileage?: number;
   end_mileage?: number;
-  vehicle_status: "reserved" | "in_use" | "returned";
+  vehicle_status: "reserved" | "in_use" | "returned" | "noshow";
 };
 
 export default function HistoryModal({

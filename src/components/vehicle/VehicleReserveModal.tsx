@@ -17,7 +17,7 @@ type VehicleLog = {
   resource_id: number;
   start_at: string;
   end_at: string;
-  vehicle_status: "reserved" | "in_use" | "returned";
+  vehicle_status: "reserved" | "in_use" | "returned" | "noshow";
 };
 
 type FormState = {
@@ -338,6 +338,41 @@ export default function VehicleReserveModal({
             </>
           )}
         </div>
+
+        {/* 선택 날짜 예약 현황 타임라인 */}
+        {(() => {
+          const selectedVehicleLogs = logs.filter(
+            (l) =>
+              l.resource_id === form.resource_id &&
+              l.vehicle_status !== "returned" &&
+              (l.vehicle_status as string) !== "noshow",
+          );
+          const dateStr = form.start_date;
+          const dayLogs = selectedVehicleLogs.filter(
+            (l) =>
+              format(new Date(l.start_at), "yyyy-MM-dd") <= dateStr &&
+              format(new Date(l.end_at), "yyyy-MM-dd") >= dateStr,
+          );
+          if (dayLogs.length === 0) return null;
+          return (
+            <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+              <p className="text-xs font-bold text-red-600 mb-2">
+                해당 날짜 이미 예약된 시간대
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {dayLogs.map((l) => (
+                  <span
+                    key={l.id}
+                    className="text-xs bg-red-100 text-red-600 px-2.5 py-1 rounded-full font-bold"
+                  >
+                    {format(new Date(l.start_at), "HH:mm")}~
+                    {format(new Date(l.end_at), "HH:mm")}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 나머지 입력 폼 (부서, 운전자 등) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
