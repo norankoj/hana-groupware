@@ -8,6 +8,12 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN!;
 
+// 표시할 캘린더 이름 목록 (쉼표 구분, 미설정 시 전체 표시)
+// 예: GOOGLE_CALENDAR_FILTER=고목사 공직스케줄,교회일정,청년 1부
+const CALENDAR_FILTER = process.env.GOOGLE_CALENDAR_FILTER
+  ? process.env.GOOGLE_CALENDAR_FILTER.split(",").map((s) => s.trim())
+  : [];
+
 /** Refresh Token → Access Token 발급 */
 async function getAccessToken(): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -62,9 +68,15 @@ export async function GET() {
     const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14).toISOString();
 
-    // ③ 각 캘린더별 이벤트 병렬 조회 (읽기 권한 있는 것만)
+    // ③ 각 캘린더별 이벤트 병렬 조회 (읽기 권한 있는 것 + 필터 적용)
     const eventFetches = calendars
-      .filter((cal) => cal.accessRole !== "freeBusyReader")
+      .filter((cal) => {
+        if (cal.accessRole === "freeBusyReader") return false;
+        // GOOGLE_CALENDAR_FILTER 설정 시 해당 캘린더만 표시
+        if (CALENDAR_FILTER.length > 0)
+          return CALENDAR_FILTER.includes(cal.summary);
+        return true;
+      })
       .map(async (cal) => {
         const params = new URLSearchParams({
           timeMin,
