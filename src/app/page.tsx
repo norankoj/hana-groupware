@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import DashboardBanner from "@/components/dashboard/DashboardBanner";
 import CalendarSection from "@/components/dashboard/CalendarSection";
 import TodayReservationWidget from "@/components/dashboard/TodayReservationWidget";
+import GoogleCalendarWidget from "@/components/dashboard/GoogleCalendarWidget";
 import type { CalendarEvent } from "@/components/dashboard/CalendarSection";
 
 type Profile = {
@@ -254,6 +255,9 @@ export default function Home() {
           {/* 위젯 섹션 */}
           <div className="order-1 2xl:order-2 w-full 2xl:w-[420px] shrink-0">
             <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-1 gap-6 h-auto">
+              <div className="lg:col-span-2 2xl:col-span-1">
+                <GoogleCalendarWidget />
+              </div>
               <TodayReservationWidget
                 title="오늘의 시설 예약"
                 href="/reservation"
