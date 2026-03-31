@@ -8,10 +8,11 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN!;
 
-// 표시할 캘린더 이름 목록 (쉼표 구분, 미설정 시 전체 표시)
-// 예: GOOGLE_CALENDAR_FILTER=고목사 공직스케줄,교회일정,청년 1부
+// 표시할 캘린더 이름 목록 (| 구분, 미설정 시 전체 표시)
+// 예: GOOGLE_CALENDAR_FILTER=고목사 공적스케쥴|교회일정|사역,훈련,참조
+// ※ 캘린더 이름 자체에 쉼표가 포함될 수 있으므로 | 를 구분자로 사용
 const CALENDAR_FILTER = process.env.GOOGLE_CALENDAR_FILTER
-  ? process.env.GOOGLE_CALENDAR_FILTER.split(",").map((s) => s.trim())
+  ? process.env.GOOGLE_CALENDAR_FILTER.split("|").map((s) => s.trim())
   : [];
 
 /** Refresh Token → Access Token 발급 */
