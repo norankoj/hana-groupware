@@ -27,62 +27,11 @@ type WeatherData = {
   description: string;
   emoji: string;
   humidity: number;
+  pm10: number | null;
   pm25: number | null;
   aqius: number | null;
-  aqiLabel: { label: string; color: string } | null;
+  airGrade: { label: string; face: string; color: string } | null;
 };
-
-type AqiLevel = {
-  label: string;
-  sublabel: string;
-  face: string;
-  labelColor: string;
-};
-
-/** AQI US 지수 → 표시용 레벨 */
-function getAqiLevel(aqi: number): AqiLevel {
-  if (aqi <= 50)
-    return {
-      label: "좋음",
-      sublabel: "공기가 맑아요~",
-      face: "😊",
-      labelColor: "text-teal-600",
-    };
-  if (aqi <= 100)
-    return {
-      label: "보통",
-      sublabel: "그냥 무난한 날이에요~",
-      face: "🙂",
-      labelColor: "text-blue-600",
-    };
-  if (aqi <= 150)
-    return {
-      label: "민감군 나쁨",
-      sublabel: "민감한 분들은 주의하세요",
-      face: "😐",
-      labelColor: "text-yellow-600",
-    };
-  if (aqi <= 200)
-    return {
-      label: "나쁨",
-      sublabel: "공기가 탁해요. 조심하세요~",
-      face: "😟",
-      labelColor: "text-orange-500",
-    };
-  if (aqi <= 300)
-    return {
-      label: "매우나쁨",
-      sublabel: "마스크 꼭 챙기세요~",
-      face: "😤",
-      labelColor: "text-red-600",
-    };
-  return {
-    label: "위험",
-    sublabel: "외출을 삼가세요!",
-    face: "🤢",
-    labelColor: "text-red-800",
-  };
-}
 
 function useWeather() {
   const [data, setData] = useState<WeatherData | null>(null);
@@ -108,8 +57,6 @@ export default function DashboardBanner({
   parkingText,
 }: Props) {
   const { data: weather, loading: weatherLoading } = useWeather();
-  const aqiLevel =
-    weather?.aqius != null ? getAqiLevel(weather.aqius) : null;
 
   const canApprove =
     profile.is_approver ||
@@ -187,43 +134,46 @@ export default function DashboardBanner({
           )}
         </div>
 
-        {/* 대기질 카드 */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[160px]">
-          <div className="p-5 flex flex-col flex-1">
-            <p className="text-xs font-semibold text-gray-400 tracking-wide">
-              대기질
-              {weather?.aqius != null && (
-                <span className="ml-1 font-normal text-gray-300">
-                  AQI {weather.aqius}
-                </span>
-              )}
-            </p>
+        {/* 미세먼지 카드 */}
+        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between min-h-[160px]">
+          <p className="text-xs font-semibold text-gray-400 tracking-wide">
+            미세먼지
+          </p>
 
-            {weatherLoading ? (
-              <div className="animate-pulse flex-1 flex flex-col items-center justify-center gap-2">
-                <div className="w-10 h-10 bg-gray-100 rounded-full" />
-                <div className="h-4 w-14 bg-gray-100 rounded" />
-              </div>
-            ) : aqiLevel ? (
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-5xl leading-none mb-1">
-                  {aqiLevel.face}
+          {weatherLoading ? (
+            <div className="animate-pulse space-y-3 mt-3">
+              <div className="h-5 w-full bg-gray-100 rounded" />
+              <div className="h-5 w-full bg-gray-100 rounded" />
+            </div>
+          ) : weather?.airGrade ? (
+            <>
+              {/* 대표 이모지 + 등급 */}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-3xl leading-none">{weather.airGrade.face}</span>
+                <span className={`text-lg font-extrabold ${weather.airGrade.color}`}>
+                  {weather.airGrade.label}
                 </span>
-                <p
-                  className={`text-base font-extrabold ${aqiLevel.labelColor}`}
-                >
-                  {aqiLevel.label}
-                </p>
-                <p className="text-[10px] text-gray-400 mt-0.5 text-center leading-tight px-1">
-                  {aqiLevel.sublabel}
-                </p>
               </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-sm text-gray-400">정보 없음</p>
+
+              {/* PM10 / PM2.5 수치 */}
+              <div className="space-y-1.5 mt-auto">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 font-medium">미세먼지</span>
+                  <span className="font-bold text-gray-700">
+                    {weather.pm10 != null ? `${weather.pm10} ㎍/m³` : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 font-medium">초미세먼지</span>
+                  <span className="font-bold text-gray-700">
+                    {weather.pm25 != null ? `${weather.pm25} ㎍/m³` : "—"}
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 mt-4">정보 없음</p>
+          )}
         </div>
 
         {/* 결재 통합 카드 */}

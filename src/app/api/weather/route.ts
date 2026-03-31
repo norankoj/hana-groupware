@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 
-// IQAir AirVisual API — https://www.iqair.com/dashboard (무료: 500건/일)
-// 에어코리아 측정소 데이터 포함 → 한국 미세먼지 정확도 높음
-const API_KEY = process.env.IQAIR_API_KEY ?? "";
-// 경기도 용인시 수지구 서천동 기준 좌표 (환경변수로도 오버라이드 가능)
+// ① IQAir AirVisual — 날씨 데이터 (무료: 500건/일, 30분 캐시 → 실제 48건/일)
+const IQAIR_KEY = process.env.IQAIR_API_KEY ?? "";
+// ② 에어코리아 — PM10·PM2.5 실측값 (data.go.kr 무료, 측정소: 수지)
+const AIRKOREA_KEY = process.env.AIRKOREA_API_KEY ?? "";
+const AIRKOREA_STATION = process.env.AIRKOREA_STATION ?? "수지"; // 가장 가까운 측정소
+
+// 경기도 용인시 수지구 서천동 기준 좌표
 const LAT = process.env.WEATHER_LAT ?? "37.3229";
 const LON = process.env.WEATHER_LON ?? "127.1012";
 
-export const revalidate = 1800; // 30분 캐시 → 하루 최대 48건 호출
+export const revalidate = 1800; // 30분 캐시
 
-/**
- * IQAir 아이콘 코드 (OpenWeatherMap 동일 포맷) → 이모지
- * 예: "01d" = 맑음(낮), "01n" = 맑음(밤), "10d" = 비(낮)
- */
+/** IQAir 아이콘 코드 → 이모지 */
 function iconToEmoji(icon: string): string {
   if (icon.startsWith("01")) return icon.endsWith("d") ? "☀️" : "🌙";
   if (icon.startsWith("02")) return "⛅";
@@ -24,7 +24,7 @@ function iconToEmoji(icon: string): string {
   return "🌤️";
 }
 
-/** IQAir 아이콘 코드 → 한국어 날씨 설명 */
+/** IQAir 아이콘 코드 → 한국어 설명 */
 function iconToDescription(icon: string): string {
   if (icon.startsWith("01")) return "맑음";
   if (icon.startsWith("02")) return "구름 조금";
@@ -38,67 +38,106 @@ function iconToDescription(icon: string): string {
   return "흐림";
 }
 
-/** AQI US 지수 → 한국어 등급 (미국 EPA 기준) */
-function aqiusToLabel(aqi: number): { label: string; color: string } {
-  if (aqi <= 50) return { label: "좋음", color: "text-blue-500" };
-  if (aqi <= 100) return { label: "보통", color: "text-green-500" };
-  if (aqi <= 150) return { label: "민감군 나쁨", color: "text-yellow-500" };
-  if (aqi <= 200) return { label: "나쁨", color: "text-orange-500" };
-  if (aqi <= 300) return { label: "매우나쁨", color: "text-red-500" };
-  return { label: "위험", color: "text-red-700" };
+/** PM10 수치 → 에어코리아 기준 등급 */
+function pm10Grade(v: number): { label: string; face: string; color: string } {
+  if (v <= 30) return { label: "좋음", face: "😊", color: "text-teal-600" };
+  if (v <= 80) return { label: "보통", face: "🙂", color: "text-blue-600" };
+  if (v <= 150) return { label: "나쁨", face: "😟", color: "text-orange-500" };
+  return { label: "매우나쁨", face: "😤", color: "text-red-600" };
+}
+
+/** PM2.5 수치 → 에어코리아 기준 등급 */
+function pm25Grade(v: number): { label: string; face: string; color: string } {
+  if (v <= 15) return { label: "좋음", face: "😊", color: "text-teal-600" };
+  if (v <= 35) return { label: "보통", face: "🙂", color: "text-blue-600" };
+  if (v <= 75) return { label: "나쁨", face: "😟", color: "text-orange-500" };
+  return { label: "매우나쁨", face: "😤", color: "text-red-600" };
+}
+
+/** AQI US 지수 → 등급 (에어코리아 키 없을 때 폴백) */
+function aqiusGrade(aqi: number): { label: string; face: string; color: string } {
+  if (aqi <= 50) return { label: "좋음", face: "😊", color: "text-teal-600" };
+  if (aqi <= 100) return { label: "보통", face: "🙂", color: "text-blue-600" };
+  if (aqi <= 150) return { label: "민감군 나쁨", face: "😐", color: "text-yellow-600" };
+  if (aqi <= 200) return { label: "나쁨", face: "😟", color: "text-orange-500" };
+  if (aqi <= 300) return { label: "매우나쁨", face: "😤", color: "text-red-600" };
+  return { label: "위험", face: "🤢", color: "text-red-800" };
 }
 
 export async function GET() {
-  if (!API_KEY) {
+  if (!IQAIR_KEY) {
     return NextResponse.json(
-      {
-        error:
-          "IQAIR_API_KEY 환경변수가 설정되지 않았습니다. iqair.com/dashboard에서 무료 API 키를 발급받으세요.",
-      },
+      { error: "IQAIR_API_KEY 환경변수가 설정되지 않았습니다." },
       { status: 503 },
     );
   }
 
   try {
-    const res = await fetch(
-      `https://api.airvisual.com/v2/nearest_city?lat=${LAT}&lon=${LON}&key=${API_KEY}`,
-      { next: { revalidate: 1800 } },
-    );
+    // ── ① IQAir 날씨 + AQI ──────────────────────────────────────────
+    const [iqairRes, airkoreaRes] = await Promise.allSettled([
+      fetch(
+        `https://api.airvisual.com/v2/nearest_city?lat=${LAT}&lon=${LON}&key=${IQAIR_KEY}`,
+        { next: { revalidate: 1800 } },
+      ),
+      AIRKOREA_KEY
+        ? fetch(
+            `https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty` +
+              `?stationName=${encodeURIComponent(AIRKOREA_STATION)}` +
+              `&dataTerm=DAILY&pageNo=1&numOfRows=1&returnType=json` +
+              `&serviceKey=${AIRKOREA_KEY}&ver=1.0`,
+            { next: { revalidate: 1800 } },
+          )
+        : Promise.reject("AIRKOREA_API_KEY 없음"),
+    ]);
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(
-        `IQAir API 오류 ${res.status}: ${err?.data?.message ?? res.statusText}`,
-      );
+    // IQAir 파싱
+    if (iqairRes.status === "rejected") throw new Error("IQAir 요청 실패");
+    const iqairJson = await iqairRes.value.json();
+    if (iqairJson.status !== "success") throw new Error(`IQAir 오류: ${iqairJson.status}`);
+
+    const wx = iqairJson.data?.current?.weather;
+    const pollution = iqairJson.data?.current?.pollution;
+    if (!wx) throw new Error("IQAir 날씨 데이터 누락");
+
+    const icon: string = wx.ic ?? "01d";
+    const aqius: number | null = pollution?.aqius ?? null;
+
+    // ── ② 에어코리아 미세먼지 파싱 ────────────────────────────────────
+    let pm10: number | null = null;
+    let pm25: number | null = null;
+
+    if (airkoreaRes.status === "fulfilled") {
+      const akJson = await airkoreaRes.value.json().catch(() => null);
+      const item = akJson?.response?.body?.items?.[0];
+      if (item) {
+        const rawPm10 = parseFloat(item.pm10Value);
+        const rawPm25 = parseFloat(item.pm25Value);
+        if (!isNaN(rawPm10)) pm10 = Math.round(rawPm10);
+        if (!isNaN(rawPm25)) pm25 = Math.round(rawPm25);
+      }
     }
 
-    const json = await res.json();
-
-    if (json.status !== "success") {
-      throw new Error(`IQAir 응답 오류: ${json.status}`);
-    }
-
-    const weather = json.data?.current?.weather;
-    const pollution = json.data?.current?.pollution;
-
-    if (!weather || !pollution) {
-      throw new Error("IQAir 응답 데이터 누락");
-    }
-
-    const icon: string = weather.ic ?? "01d";
-
-    // IQAir 무료 플랜은 PM2.5 농도(p2.conc) 미제공 → AQI US 지수 사용
-    const aqius: number | null = pollution.aqius ?? null;
+    // 에어코리아 없으면 AQI 기반 폴백
+    const airGrade =
+      pm25 != null
+        ? pm25Grade(pm25)
+        : pm10 != null
+          ? pm10Grade(pm10)
+          : aqius != null
+            ? aqiusGrade(aqius)
+            : null;
 
     return NextResponse.json({
-      temp: Math.round(weather.tp),
-      feelsLike: Math.round(weather.tp),
+      temp: Math.round(wx.tp),
+      feelsLike: Math.round(wx.tp),
       description: iconToDescription(icon),
       emoji: iconToEmoji(icon),
-      humidity: weather.hu,
-      pm25: null,           // 무료 플랜 미제공
-      aqius,                // AQI US 지수 (0~500)
-      aqiLabel: aqius != null ? aqiusToLabel(aqius) : null,
+      humidity: wx.hu,
+      // 미세먼지
+      pm10,                          // μg/m³ (에어코리아)
+      pm25,                          // μg/m³ (에어코리아)
+      aqius,                         // AQI US (IQAir, 폴백용)
+      airGrade,                      // 표시용 등급
     });
   } catch (e) {
     console.error("[weather/route]", e);
