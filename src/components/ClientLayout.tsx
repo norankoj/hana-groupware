@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import toast, { Toaster } from "react-hot-toast";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import HeaderWeatherBadge from "@/components/dashboard/HeaderWeatherBadge";
 
 // --- [1] Context 생성 (데이터 공유용) ---
 type Menu = {
@@ -177,6 +178,15 @@ export default function ClientLayout({
           fetchData();
         }
         if (event === "SIGNED_OUT") {
+          setProfile(null);
+          setMenus([]);
+          router.replace("/login");
+        }
+        // 세션 만료 (토큰 갱신 실패)
+        if (event === "TOKEN_REFRESHED" && !session) {
+          toast.error("세션이 만료되었습니다. 다시 로그인해 주세요.", {
+            duration: 4000,
+          });
           setProfile(null);
           setMenus([]);
           router.replace("/login");
@@ -363,6 +373,9 @@ export default function ClientLayout({
                 </svg>
               </button>
             </div>
+
+            {/* 가운데 날씨 뱃지 */}
+            {/* <HeaderWeatherBadge /> */}
 
             {/* 우측 프로필 영역 */}
             <div className="relative" ref={dropdownRef}>

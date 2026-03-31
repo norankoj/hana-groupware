@@ -33,6 +33,8 @@ const ROLE_TO_POSITION: Record<string, string> = {
   member: "성도",
 };
 
+type TabType = "members" | "pending";
+
 export default function AdminTeamsPage() {
   const supabase = createClient();
   const menu = useCurrentMenu();
@@ -40,7 +42,9 @@ export default function AdminTeamsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"members" | "leave">("members");
+  const [activeTab, setActiveTab] = useState<TabType>("members");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pendingRole, setPendingRole] = useState<Record<string, string>>({});
 
   // ★ 동시성 제어: 입력 시작 당시의 값을 기억할 변수
   const [focusValue, setFocusValue] = useState<number | null>(null);
@@ -212,26 +216,102 @@ export default function AdminTeamsPage() {
     setFocusValue(null);
   };
 
-  // 회원 탈퇴(삭제)
+  // 회원 탈퇴(삭제) — Auth 계정까지 완전 삭제
   const handleDeleteUser = async (userId: string, userName: string) => {
     const isConfirmed = await showConfirm(
       "회원 강제 탈퇴",
-      `정말 '${userName}' 님을 탈퇴(삭제)시키겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+      `정말 '${userName}' 님을 탈퇴(삭제)시키겠습니까?\n로그인 계정까지 완전히 삭제되며 되돌릴 수 없습니다.`,
     );
 
     if (!isConfirmed) return;
 
-    const { error } = await supabase.from("profiles").delete().eq("id", userId);
+    const toastId = toast.loading("계정을 삭제하는 중...");
 
-    if (error) {
-      toast.error("삭제 실패: 이미 삭제되었거나 권한이 없습니다.");
-      // 목록 새로고침으로 싱크 맞춤
-      fetchData();
-    } else {
-      toast.success("성공적으로 삭제되었습니다.");
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, userName }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        toast.error(json.error || "삭제에 실패했습니다.", { id: toastId });
+        fetchData(); // 목록 싱크
+        return;
+      }
+
+      toast.success(`'${userName}' 님이 완전히 삭제되었습니다.`, {
+        id: toastId,
+      });
       setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    } catch {
+      toast.error("네트워크 오류가 발생했습니다.", { id: toastId });
     }
   };
+
+  // 가입 승인
+  const approvePending = async (userId: string, userName: string) => {
+    const role = pendingRole[userId] || "staff";
+    const newPosition = ROLE_TO_POSITION[role] || "사역자";
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role, position: newPosition })
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("승인 실패: " + error.message);
+      return;
+    }
+    toast.success(`'${userName}' 님이 승인되었습니다. (${newPosition})`);
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.id === userId ? { ...p, role, position: newPosition } : p,
+      ),
+    );
+  };
+
+  // 가입 거절 — Auth 계정까지 완전 삭제
+  const rejectPending = async (userId: string, userName: string) => {
+    const isConfirmed = await showConfirm(
+      "가입 거절",
+      `'${userName}' 님의 가입을 거절하시겠습니까?\n계정이 완전히 삭제됩니다.`,
+    );
+    if (!isConfirmed) return;
+
+    const toastId = toast.loading("계정을 삭제하는 중...");
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, userName }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "삭제 실패", { id: toastId });
+        return;
+      }
+      toast.success(`'${userName}' 님의 가입이 거절되었습니다.`, {
+        id: toastId,
+      });
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    } catch {
+      toast.error("네트워크 오류가 발생했습니다.", { id: toastId });
+    }
+  };
+
+  // 탭별 필터
+  const pendingProfiles = profiles.filter((p) => p.role === "pending");
+  const activeProfiles = profiles
+    .filter((p) => p.role !== "pending")
+    .filter(
+      (p) =>
+        searchQuery === "" ||
+        p.full_name.includes(searchQuery) ||
+        (p.email ?? "").includes(searchQuery),
+    );
 
   if (loading)
     return (
@@ -272,243 +352,135 @@ export default function AdminTeamsPage() {
         </button>
       </div>
 
-      {/* 탭 */}
-      <div className="flex border-b border-gray-200 mb-6">
+      {/* ── 탭 ── */}
+      <div className="flex gap-1 mb-4">
         <button
           onClick={() => setActiveTab("members")}
-          className={`pb-3 px-5 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "members" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition ${
+            activeTab === "members"
+              ? "bg-blue-600 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
         >
           구성원 관리
+          <span className="ml-1.5 text-xs opacity-70">
+            ({activeProfiles.length})
+          </span>
         </button>
         <button
-          onClick={() => setActiveTab("leave")}
-          className={`pb-3 px-5 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "leave" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          onClick={() => setActiveTab("pending")}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition flex items-center gap-1.5 ${
+            activeTab === "pending"
+              ? "bg-orange-500 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
         >
-          연차 현황
+          가입 승인
+          {pendingProfiles.length > 0 && (
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded-full font-extrabold ${
+                activeTab === "pending"
+                  ? "bg-white text-orange-500"
+                  : "bg-orange-500 text-white"
+              }`}
+            >
+              {pendingProfiles.length}
+            </span>
+          )}
         </button>
       </div>
 
-      {/* 연차 현황 탭 */}
-      {activeTab === "leave" && (
-        <div className="space-y-4">
-          {/* 요약 카드 */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              {
-                label: "전체 인원",
-                value: profiles.filter((p) => p.total_leave_days > 0).length,
-                unit: "명",
-                color: "text-gray-800",
-              },
-              {
-                label: "평균 잔여 연차",
-                value: (() => {
-                  const eligible = profiles.filter((p) => p.total_leave_days > 0);
-                  if (!eligible.length) return 0;
-                  const avg =
-                    eligible.reduce(
-                      (acc, p) => acc + (p.total_leave_days - p.used_leave_days),
-                      0,
-                    ) / eligible.length;
-                  return Math.round(avg * 10) / 10;
-                })(),
-                unit: "일",
-                color: "text-blue-600",
-              },
-              {
-                label: "연차 소진 임박 (3일↓)",
-                value: profiles.filter(
-                  (p) =>
-                    p.total_leave_days > 0 &&
-                    p.total_leave_days - p.used_leave_days <= 3,
-                ).length,
-                unit: "명",
-                color: "text-orange-600",
-              },
-              {
-                label: "연차 초과 사용",
-                value: profiles.filter(
-                  (p) => p.used_leave_days > p.total_leave_days,
-                ).length,
-                unit: "명",
-                color: "text-red-600",
-              },
-            ].map((card) => (
-              <div
-                key={card.label}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm p-4"
-              >
-                <div className="text-xs text-gray-500 mb-1">{card.label}</div>
-                <div className={`text-2xl font-extrabold ${card.color}`}>
-                  {card.value}
-                  <span className="text-sm font-medium ml-1 text-gray-400">
-                    {card.unit}
-                  </span>
-                </div>
-              </div>
-            ))}
+      {/* ── 가입 승인 탭 ── */}
+      {activeTab === "pending" && (
+        <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-orange-50/60 flex items-center gap-2">
+            <span className="text-sm font-bold text-orange-700">
+              가입 대기 중인 계정
+            </span>
+            <span className="text-xs text-orange-500">
+              · 승인 시 역할을 선택 후 승인해 주세요
+            </span>
           </div>
-
-          {/* 직원별 연차 현황 테이블 */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-              <span className="font-bold text-gray-800 text-sm">
-                직원별 연차 현황
-              </span>
-              <span className="text-xs text-gray-400">
-                {new Date().getFullYear()}년 기준
-              </span>
+          {pendingProfiles.length === 0 ? (
+            <div className="py-16 text-center text-gray-400 text-sm">
+              대기 중인 가입 신청이 없습니다.
             </div>
-            {/* 모바일 카드 */}
-            <div className="block md:hidden divide-y divide-gray-100">
-              {profiles
-                .filter((p) => p.total_leave_days > 0)
-                .sort(
-                  (a, b) =>
-                    a.total_leave_days -
-                    a.used_leave_days -
-                    (b.total_leave_days - b.used_leave_days),
-                )
-                .map((p) => {
-                  const remaining = p.total_leave_days - p.used_leave_days;
-                  const pct = Math.min(
-                    (remaining / (p.total_leave_days || 1)) * 100,
-                    100,
-                  );
-                  const isLow = remaining <= 3 && remaining >= 0;
-                  const isOver = remaining < 0;
-                  return (
-                    <div key={p.id} className="p-4 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <span className="font-bold text-gray-900 text-sm">
-                            {p.full_name}
-                          </span>
-                          <span className="text-xs text-gray-400 ml-2">
-                            {p.position}
-                          </span>
-                        </div>
-                        <span
-                          className={`text-sm font-extrabold ${isOver ? "text-red-600" : isLow ? "text-orange-600" : "text-blue-600"}`}
-                        >
-                          {remaining}일 남음
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${isOver ? "bg-red-500" : isLow ? "bg-orange-400" : "bg-blue-500"}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-400">
-                        <span>사용 {p.used_leave_days}일</span>
-                        <span>총 {p.total_leave_days}일</span>
-                      </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {pendingProfiles.map((person) => (
+                <div
+                  key={person.id}
+                  className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm shrink-0">
+                      {person.full_name.slice(0, 1)}
                     </div>
-                  );
-                })}
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900">
+                        {person.full_name}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {person.email || "이메일 없음"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+                      value={pendingRole[person.id] || "staff"}
+                      onChange={(e) =>
+                        setPendingRole((prev) => ({
+                          ...prev,
+                          [person.id]: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="member">일반</option>
+                      <option value="staff">사역자</option>
+                      <option value="director">디렉터</option>
+                      <option value="admin">관리자</option>
+                    </select>
+                    <button
+                      onClick={() =>
+                        approvePending(person.id, person.full_name)
+                      }
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition"
+                    >
+                      승인
+                    </button>
+                    <button
+                      onClick={() =>
+                        rejectPending(person.id, person.full_name)
+                      }
+                      className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 hover:bg-red-100 transition"
+                    >
+                      거절
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            {/* PC 테이블 */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {["이름 / 직분", "팀", "총 연차", "사용", "잔여", "현황"].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {profiles
-                    .filter((p) => p.total_leave_days > 0)
-                    .sort(
-                      (a, b) =>
-                        a.total_leave_days -
-                        a.used_leave_days -
-                        (b.total_leave_days - b.used_leave_days),
-                    )
-                    .map((p) => {
-                      const remaining = p.total_leave_days - p.used_leave_days;
-                      const pct = Math.min(
-                        (remaining / (p.total_leave_days || 1)) * 100,
-                        100,
-                      );
-                      const isLow = remaining <= 3 && remaining >= 0;
-                      const isOver = remaining < 0;
-                      const team = teams.find((t) => t.id === p.team_id);
-                      return (
-                        <tr key={p.id} className="hover:bg-gray-50 transition">
-                          <td className="px-5 py-3">
-                            <div className="text-sm font-bold text-gray-900">
-                              {p.full_name}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {p.position}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">
-                            {team?.name || "-"}
-                          </td>
-                          <td className="px-5 py-3 text-sm font-medium text-gray-700">
-                            {p.total_leave_days}일
-                          </td>
-                          <td className="px-5 py-3 text-sm text-gray-500">
-                            {p.used_leave_days}일
-                          </td>
-                          <td className="px-5 py-3">
-                            <span
-                              className={`text-sm font-extrabold ${isOver ? "text-red-600" : isLow ? "text-orange-600" : "text-blue-600"}`}
-                            >
-                              {remaining}일
-                            </span>
-                            {isOver && (
-                              <span className="ml-1 text-xs text-red-500">
-                                초과
-                              </span>
-                            )}
-                            {isLow && !isOver && (
-                              <span className="ml-1 text-xs text-orange-500">
-                                임박
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-5 py-3 w-40">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${isOver ? "bg-red-500" : isLow ? "bg-orange-400" : "bg-blue-500"}`}
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-gray-400 w-8 text-right">
-                                {Math.round(pct)}%
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* 구성원 관리 탭 */}
+      {/* ── 구성원 관리 탭 ── */}
       {activeTab === "members" && (
       <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
-          <h2 className="text-sm sm:text-base font-bold text-gray-800">
-            전체 구성원 명단 ({profiles.length}명)
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center gap-3">
+          <h2 className="text-sm sm:text-base font-bold text-gray-800 shrink-0">
+            전체 구성원 ({activeProfiles.length}명)
           </h2>
+          <div className="flex items-center gap-2 flex-1 max-w-xs">
+            <input
+              type="text"
+              placeholder="이름 / 이메일 검색"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
           <button
             onClick={fetchData}
             className="text-xs text-blue-600 hover:underline"
@@ -519,7 +491,7 @@ export default function AdminTeamsPage() {
 
         {/* --- [모바일용] 카드 리스트 뷰 --- */}
         <div className="block md:hidden bg-gray-50 divide-y divide-gray-200">
-          {profiles.map((person) => (
+          {activeProfiles.map((person) => (
             <div key={person.id} className="p-4 bg-white space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center">
@@ -684,7 +656,7 @@ export default function AdminTeamsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {profiles.map((person) => (
+              {activeProfiles.map((person) => (
                 <tr
                   key={person.id}
                   className="hover:bg-gray-50 transition-colors"

@@ -86,6 +86,34 @@ export default function AdminMenusPage() {
     await supabase.from("menus").update({ name: newName }).eq("id", id);
   };
 
+  /** ↑↓ 버튼으로 순서 변경 */
+  const moveMenu = async (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= menus.length) return;
+
+    const updated = [...menus];
+    [updated[index], updated[targetIndex]] = [
+      updated[targetIndex],
+      updated[index],
+    ];
+
+    // sort_order 재계산 (index 기반)
+    const reordered = updated.map((m, i) => ({ ...m, sort_order: i + 1 }));
+    setMenus(reordered);
+
+    // DB 업데이트 (두 개만)
+    await Promise.all([
+      supabase
+        .from("menus")
+        .update({ sort_order: reordered[index].sort_order })
+        .eq("id", reordered[index].id),
+      supabase
+        .from("menus")
+        .update({ sort_order: reordered[targetIndex].sort_order })
+        .eq("id", reordered[targetIndex].id),
+    ]);
+  };
+
   const toggleRole = async (
     menuId: number,
     roleKey: string,
@@ -139,7 +167,10 @@ export default function AdminMenusPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-64">
+                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-20">
+                  순서
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-56">
                   메뉴 이름
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -151,12 +182,37 @@ export default function AdminMenusPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {menus.map((menu) => (
+              {menus.map((menu, index) => (
                 <tr
                   key={menu.id}
                   className="hover:bg-gray-50 transition-colors"
                 >
-                  {/* ★ [수정] 분리된 컴포넌트 사용 */}
+                  {/* 순서 변경 버튼 */}
+                  <td className="px-3 py-4 whitespace-nowrap">
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => moveMenu(index, "up")}
+                        disabled={index === 0}
+                        className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition disabled:opacity-20 disabled:cursor-not-allowed"
+                        title="위로"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => moveMenu(index, "down")}
+                        disabled={index === menus.length - 1}
+                        className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition disabled:opacity-20 disabled:cursor-not-allowed"
+                        title="아래로"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                  {/* 메뉴 이름 */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <MenuNameEditor
                       id={menu.id}

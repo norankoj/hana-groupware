@@ -51,6 +51,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true);
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // 수정 폼 상태
   const [editForm, setEditForm] = useState({
@@ -126,17 +127,33 @@ export default function MyPage() {
   const handleUpdateProfile = async () => {
     if (!profile) return;
 
+    // 전화번호 형식 검증 (010-0000-0000 또는 010-000-0000)
+    const phoneDigits = editForm.phone.replace(/\D/g, "");
+    if (editForm.phone && (phoneDigits.length < 10 || phoneDigits.length > 11)) {
+      return toast.error("전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)");
+    }
+
+    // 차량번호 간단 검증 (입력된 경우)
+    if (
+      editForm.vehicle_number &&
+      editForm.vehicle_number.trim().length < 4
+    ) {
+      return toast.error("차량번호를 올바르게 입력해주세요.");
+    }
+
+    setIsSaving(true);
     const { error } = await supabase
       .from("profiles")
       .update({
-        phone: editForm.phone,
-        birth_date: editForm.birth_date,
-        address: editForm.address,
-        detailed_address: editForm.detailed_address,
-        zipcode: editForm.zipcode,
-        vehicle_number: editForm.vehicle_number,
+        phone: editForm.phone || null,
+        birth_date: editForm.birth_date || null,
+        address: editForm.address || null,
+        detailed_address: editForm.detailed_address || null,
+        zipcode: editForm.zipcode || null,
+        vehicle_number: editForm.vehicle_number || null,
       })
       .eq("id", profile.id);
+    setIsSaving(false);
 
     if (error) {
       toast.error("수정 실패: " + error.message);
@@ -309,9 +326,10 @@ export default function MyPage() {
             <div className="flex gap-2">
               <button
                 onClick={handleUpdateProfile}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded hover:bg-blue-700"
+                disabled={isSaving}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                저장
+                {isSaving ? "저장 중..." : "저장"}
               </button>
               <button
                 onClick={() => setIsEditing(false)}

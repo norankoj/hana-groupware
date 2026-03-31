@@ -206,7 +206,7 @@ export default function LoginPage() {
     setErrorMsg("");
     const cleanPhone = phone.replace(/-/g, "");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -215,18 +215,30 @@ export default function LoginPage() {
           position,
           phone: cleanPhone,
           phone_verified: true,
-          role: "member",
+          role: "pending",
           status: "active",
         },
       },
     });
 
-    if (error) setErrorMsg("가입 실패: " + error.message);
-    else {
-      toast.success("가입 완료! 환영합니다.");
-      router.push("/");
-      router.refresh();
+    if (error) {
+      setErrorMsg("가입 실패: " + error.message);
+      setLoading(false);
+      return;
     }
+
+    // 가입 후처리: is_registered = true + 연차 데이터 profiles 동기화
+    if (data.user?.id) {
+      await fetch("/api/auth/complete-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: data.user.id, phone: cleanPhone }),
+      });
+    }
+
+    toast.success("가입 완료! 환영합니다.");
+    router.push("/");
+    router.refresh();
     setLoading(false);
   };
 
