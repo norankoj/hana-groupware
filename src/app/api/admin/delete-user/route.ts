@@ -48,12 +48,27 @@ export async function DELETE(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
+    // 삭제 전 phone 번호 조회 (allowed_users.is_registered 초기화용)
+    const { data: targetProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("phone")
+      .eq("id", userId)
+      .maybeSingle();
+
     // profiles 먼저 명시적 삭제 (CASCADE가 없는 경우 대비)
     await supabaseAdmin.from("profiles").delete().eq("id", userId);
 
     // Auth 계정 삭제 (cascade 설정이 있으면 위 삭제는 중복이지만 무해함)
     const { error: authDeleteError } =
       await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    // allowed_users.is_registered = false 초기화 → 재가입 허용
+    if (targetProfile?.phone) {
+      await supabaseAdmin
+        .from("allowed_users")
+        .update({ is_registered: false })
+        .eq("phone", targetProfile.phone);
+    }
 
     if (authDeleteError) {
       // Auth 계정이 이미 없어도 profiles 삭제는 성공으로 처리

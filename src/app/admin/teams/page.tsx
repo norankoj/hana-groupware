@@ -216,11 +216,11 @@ export default function AdminTeamsPage() {
     setFocusValue(null);
   };
 
-  // 회원 탈퇴(삭제) — Auth 계정까지 완전 삭제
+  // 회원 탈퇴(삭제) — Auth 계정 완전 삭제 + allowed_users.is_registered 초기화(재가입 가능)
   const handleDeleteUser = async (userId: string, userName: string) => {
     const isConfirmed = await showConfirm(
       "회원 강제 탈퇴",
-      `정말 '${userName}' 님을 탈퇴(삭제)시키겠습니까?\n로그인 계정까지 완전히 삭제되며 되돌릴 수 없습니다.`,
+      `정말 '${userName}' 님을 탈퇴(삭제)시키겠습니까?\n로그인 계정까지 완전히 삭제되며, 이후 재가입은 가능합니다.`,
     );
 
     if (!isConfirmed) return;

@@ -234,6 +234,52 @@ export default function ClientLayout({
       </>
     );
 
+  // 가입 승인 대기 중인 사용자 전용 화면
+  if (profile && profile.role === "pending") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+        <Toaster />
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-10 text-center">
+          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-amber-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            승인 대기 중입니다
+          </h2>
+          <p className="text-gray-500 text-sm mb-1">
+            <span className="font-bold text-gray-700">
+              {profile.full_name}
+            </span>
+            님, 가입을 환영합니다!
+          </p>
+          <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+            관리자가 계정을 승인하면 서비스를 이용하실 수 있습니다.
+            <br />
+            승인 완료 후 다시 로그인해 주세요.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="w-full py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition text-sm"
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const teamName = profile?.teams
     ? Array.isArray(profile.teams)
       ? profile.teams[0]?.name
