@@ -110,8 +110,8 @@ export default function DashboardBanner({
       {/* ── 우측 카드 영역 (flex-1) ── */}
       <div className="lg:flex-1 min-w-0 flex flex-row gap-4">
 
-        {/* 날씨 + 미세먼지 통합 카드 */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[168px] flex overflow-hidden">
+        {/* 날씨 + 미세먼지 통합 카드 (2/3 너비 = 날씨 1/3 + 미세먼지 1/3) */}
+        <div className="flex-[2] min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[168px] flex overflow-hidden">
 
           {/* 날씨 — 왼쪽 */}
           <div className="flex-1 min-w-0 p-5 flex flex-col justify-between">
@@ -196,9 +196,10 @@ export default function DashboardBanner({
         </div>
 
         {/* 결재 통합 카드 */}
+        {/* 결재 통합 카드 (1/3 너비) */}
         <Link
           href={canApprove ? "/vacation?tab=approve" : "/vacation"}
-          className="w-[200px] shrink-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between min-h-[168px] hover:border-gray-200 hover:shadow-md transition-all"
+          className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between min-h-[168px] hover:border-gray-200 hover:shadow-md transition-all"
         >
           {canApprove ? (
             <>
