@@ -81,10 +81,12 @@ export async function GET() {
       ),
       AIRKOREA_KEY
         ? fetch(
+            // serviceKey는 Encoding 키(이미 URL인코딩됨)를 직접 삽입
+            // stationName 등 나머지만 encodeURIComponent 처리
             `https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty` +
-              `?stationName=${encodeURIComponent(AIRKOREA_STATION)}` +
-              `&dataTerm=DAILY&pageNo=1&numOfRows=1&returnType=json` +
-              `&serviceKey=${AIRKOREA_KEY}&ver=1.0`,
+              `?serviceKey=${AIRKOREA_KEY}` +
+              `&stationName=${encodeURIComponent(AIRKOREA_STATION)}` +
+              `&dataTerm=DAILY&pageNo=1&numOfRows=1&returnType=json&ver=1.0`,
             { next: { revalidate: 1800 } },
           )
         : Promise.reject("AIRKOREA_API_KEY 없음"),
@@ -107,13 +109,22 @@ export async function GET() {
     let pm25: number | null = null;
 
     if (airkoreaRes.status === "fulfilled") {
-      const akJson = await airkoreaRes.value.json().catch(() => null);
-      const item = akJson?.response?.body?.items?.[0];
-      if (item) {
-        const rawPm10 = parseFloat(item.pm10Value);
-        const rawPm25 = parseFloat(item.pm25Value);
-        if (!isNaN(rawPm10)) pm10 = Math.round(rawPm10);
-        if (!isNaN(rawPm25)) pm25 = Math.round(rawPm25);
+      try {
+        const akJson = await airkoreaRes.value.json();
+        const item = akJson?.response?.body?.items?.[0];
+        if (item) {
+          // 플래그(통신장애 등)가 있으면 해당 항목은 null 처리
+          if (!item.pm10Flag) {
+            const v = parseFloat(item.pm10Value);
+            if (!isNaN(v)) pm10 = Math.round(v);
+          }
+          if (!item.pm25Flag) {
+            const v = parseFloat(item.pm25Value);
+            if (!isNaN(v) && v >= 0) pm25 = Math.round(v);
+          }
+        }
+      } catch {
+        // 인증키 오류 또는 XML 응답 → 폴백(AQI)으로 표시
       }
     }
 
