@@ -28,53 +28,59 @@ type WeatherData = {
   emoji: string;
   humidity: number;
   pm25: number | null;
+  aqius: number | null;
   aqiLabel: { label: string; color: string } | null;
 };
 
-type Pm25Level = {
+type AqiLevel = {
   label: string;
   sublabel: string;
   face: string;
   labelColor: string;
-  bg: string;
-  border: string;
 };
 
-function getPm25Level(pm25: number): Pm25Level {
-  if (pm25 <= 15)
+/** AQI US 지수 → 표시용 레벨 */
+function getAqiLevel(aqi: number): AqiLevel {
+  if (aqi <= 50)
     return {
       label: "좋음",
       sublabel: "공기가 맑아요~",
       face: "😊",
       labelColor: "text-teal-600",
-      bg: "bg-teal-50",
-      border: "border-teal-100",
     };
-  if (pm25 <= 35)
+  if (aqi <= 100)
     return {
       label: "보통",
       sublabel: "그냥 무난한 날이에요~",
       face: "🙂",
       labelColor: "text-blue-600",
-      bg: "bg-blue-50",
-      border: "border-blue-100",
     };
-  if (pm25 <= 75)
+  if (aqi <= 150)
+    return {
+      label: "민감군 나쁨",
+      sublabel: "민감한 분들은 주의하세요",
+      face: "😐",
+      labelColor: "text-yellow-600",
+    };
+  if (aqi <= 200)
     return {
       label: "나쁨",
       sublabel: "공기가 탁해요. 조심하세요~",
       face: "😟",
       labelColor: "text-orange-500",
-      bg: "bg-orange-50",
-      border: "border-orange-100",
+    };
+  if (aqi <= 300)
+    return {
+      label: "매우나쁨",
+      sublabel: "마스크 꼭 챙기세요~",
+      face: "😤",
+      labelColor: "text-red-600",
     };
   return {
-    label: "매우나쁨",
-    sublabel: "마스크 꼭 챙기세요~",
-    face: "😤",
-    labelColor: "text-red-600",
-    bg: "bg-red-50",
-    border: "border-red-100",
+    label: "위험",
+    sublabel: "외출을 삼가세요!",
+    face: "🤢",
+    labelColor: "text-red-800",
   };
 }
 
@@ -102,8 +108,8 @@ export default function DashboardBanner({
   parkingText,
 }: Props) {
   const { data: weather, loading: weatherLoading } = useWeather();
-  const pm25Level =
-    weather?.pm25 != null ? getPm25Level(weather.pm25) : null;
+  const aqiLevel =
+    weather?.aqius != null ? getAqiLevel(weather.aqius) : null;
 
   const canApprove =
     profile.is_approver ||
@@ -181,14 +187,14 @@ export default function DashboardBanner({
           )}
         </div>
 
-        {/* 미세먼지 카드 */}
+        {/* 대기질 카드 */}
         <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[160px]">
           <div className="p-5 flex flex-col flex-1">
             <p className="text-xs font-semibold text-gray-400 tracking-wide">
-              초미세먼지
-              {weather?.pm25 != null && (
+              대기질
+              {weather?.aqius != null && (
                 <span className="ml-1 font-normal text-gray-300">
-                  {weather.pm25}㎍/m³
+                  AQI {weather.aqius}
                 </span>
               )}
             </p>
@@ -198,18 +204,18 @@ export default function DashboardBanner({
                 <div className="w-10 h-10 bg-gray-100 rounded-full" />
                 <div className="h-4 w-14 bg-gray-100 rounded" />
               </div>
-            ) : pm25Level ? (
+            ) : aqiLevel ? (
               <div className="flex-1 flex flex-col items-center justify-center">
                 <span className="text-5xl leading-none mb-1">
-                  {pm25Level.face}
+                  {aqiLevel.face}
                 </span>
                 <p
-                  className={`text-base font-extrabold ${pm25Level.labelColor}`}
+                  className={`text-base font-extrabold ${aqiLevel.labelColor}`}
                 >
-                  {pm25Level.label}
+                  {aqiLevel.label}
                 </p>
                 <p className="text-[10px] text-gray-400 mt-0.5 text-center leading-tight px-1">
-                  {pm25Level.sublabel}
+                  {aqiLevel.sublabel}
                 </p>
               </div>
             ) : (

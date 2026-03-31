@@ -38,12 +38,14 @@ function iconToDescription(icon: string): string {
   return "흐림";
 }
 
-/** PM2.5 수치 → 에어코리아 기준 등급 */
-function pm25ToAqiLabel(pm25: number): { label: string; color: string } {
-  if (pm25 <= 15) return { label: "좋음", color: "text-blue-500" };
-  if (pm25 <= 35) return { label: "보통", color: "text-green-500" };
-  if (pm25 <= 75) return { label: "나쁨", color: "text-yellow-500" };
-  return { label: "매우나쁨", color: "text-red-600" };
+/** AQI US 지수 → 한국어 등급 (미국 EPA 기준) */
+function aqiusToLabel(aqi: number): { label: string; color: string } {
+  if (aqi <= 50) return { label: "좋음", color: "text-blue-500" };
+  if (aqi <= 100) return { label: "보통", color: "text-green-500" };
+  if (aqi <= 150) return { label: "민감군 나쁨", color: "text-yellow-500" };
+  if (aqi <= 200) return { label: "나쁨", color: "text-orange-500" };
+  if (aqi <= 300) return { label: "매우나쁨", color: "text-red-500" };
+  return { label: "위험", color: "text-red-700" };
 }
 
 export async function GET() {
@@ -59,7 +61,7 @@ export async function GET() {
 
   try {
     const res = await fetch(
-      `https://api.airvisualdata.com/v2/nearest_city?lat=${LAT}&lon=${LON}&key=${API_KEY}`,
+      `https://api.airvisual.com/v2/nearest_city?lat=${LAT}&lon=${LON}&key=${API_KEY}`,
       { next: { revalidate: 1800 } },
     );
 
@@ -84,17 +86,19 @@ export async function GET() {
     }
 
     const icon: string = weather.ic ?? "01d";
-    const pm25: number | null =
-      pollution.p2?.conc != null ? Math.round(pollution.p2.conc) : null;
+
+    // IQAir 무료 플랜은 PM2.5 농도(p2.conc) 미제공 → AQI US 지수 사용
+    const aqius: number | null = pollution.aqius ?? null;
 
     return NextResponse.json({
       temp: Math.round(weather.tp),
-      feelsLike: Math.round(weather.tp), // IQAir 무료 플랜은 체감온도 미제공 → 기온으로 대체
+      feelsLike: Math.round(weather.tp),
       description: iconToDescription(icon),
       emoji: iconToEmoji(icon),
       humidity: weather.hu,
-      pm25,
-      aqiLabel: pm25 != null ? pm25ToAqiLabel(pm25) : null,
+      pm25: null,           // 무료 플랜 미제공
+      aqius,                // AQI US 지수 (0~500)
+      aqiLabel: aqius != null ? aqiusToLabel(aqius) : null,
     });
   } catch (e) {
     console.error("[weather/route]", e);
