@@ -3,6 +3,59 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+/** 오늘의 말씀 — 날짜 기반으로 매일 다른 구절 표시 */
+const VERSES = [
+  { text: "여호와는 나의 목자시니 내게 부족함이 없으리로다", ref: "시편 23:1" },
+  { text: "내가 산을 향하여 눈을 들리라 나의 도움이 어디서 올까", ref: "시편 121:1" },
+  { text: "네 길을 여호와께 맡기라 그를 의지하면 그가 이루시고", ref: "시편 37:5" },
+  { text: "하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니", ref: "요한복음 3:16" },
+  { text: "내가 능히 나를 강하게 하시는 자 안에서 모든 것을 할 수 있느니라", ref: "빌립보서 4:13" },
+  { text: "여호와는 나의 빛이요 나의 구원이시니 내가 누구를 두려워하리요", ref: "시편 27:1" },
+  { text: "주의 말씀은 내 발에 등이요 내 길에 빛이니이다", ref: "시편 119:105" },
+  { text: "너는 마음을 다하여 여호와를 신뢰하고 네 명철을 의지하지 말라", ref: "잠언 3:5" },
+  { text: "구하라 그리하면 너희에게 주실 것이요 찾으라 그리하면 찾아낼 것이요", ref: "마태복음 7:7" },
+  { text: "내 은혜가 네게 족하도다 이는 내 능력이 약한 데서 온전하여짐이라", ref: "고린도후서 12:9" },
+  { text: "기도를 계속하고 기도에 감사함으로 깨어 있으라", ref: "골로새서 4:2" },
+  { text: "범사에 감사하라 이것이 그리스도 예수 안에서 너희를 향하신 하나님의 뜻이니라", ref: "데살로니가전서 5:18" },
+  { text: "평안을 너희에게 끼치노니 곧 나의 평안을 너희에게 주노라", ref: "요한복음 14:27" },
+  { text: "하나님은 사랑이심이라", ref: "요한일서 4:8" },
+  { text: "내가 여호와를 찬양하리니 그는 내게 충고하심이라 밤마다 내 양심이 나를 교훈하도다", ref: "시편 16:7" },
+  { text: "여호와의 선하심을 맛보아 알지어다 그에게 피하는 자는 복이 있도다", ref: "시편 34:8" },
+  { text: "너희 염려를 다 주께 맡기라 이는 그가 너희를 돌보심이라", ref: "베드로전서 5:7" },
+  { text: "사랑은 오래 참고 사랑은 온유하며 시기하지 아니하며", ref: "고린도전서 13:4" },
+  { text: "이제 믿음, 소망, 사랑, 이 세 가지는 항상 있을 것인데 그 중의 제일은 사랑이라", ref: "고린도전서 13:13" },
+  { text: "여호와는 나의 힘과 나의 방패시니 내 마음이 그를 의지하여 도움을 얻었도다", ref: "시편 28:7" },
+  { text: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라", ref: "이사야 41:10" },
+  { text: "오직 성령의 열매는 사랑과 희락과 화평과 오래 참음과 자비와 양선과 충성과 온유와 절제니", ref: "갈라디아서 5:22-23" },
+  { text: "여호와여 주는 나의 하나님이시라 내가 주를 높이고 주의 이름을 찬송하오리니", ref: "이사야 25:1" },
+  { text: "내가 항상 주를 찬송하며 주의 찬미가 항상 내 입에 있으리이다", ref: "시편 34:1" },
+  { text: "이 율법책을 네 입에서 떠나지 말게 하며 주야로 그것을 묵상하여", ref: "여호수아 1:8" },
+  { text: "사람이 마음으로 자기의 길을 계획할지라도 그의 걸음을 인도하시는 이는 여호와시니라", ref: "잠언 16:9" },
+  { text: "하나님이 우리에게 주신 것은 두려워하는 마음이 아니요 오직 능력과 사랑과 절제하는 마음이니", ref: "디모데후서 1:7" },
+  { text: "내가 진실로 진실로 너희에게 이르노니 나를 믿는 자는 내가 하는 일을 그도 할 것이요", ref: "요한복음 14:12" },
+  { text: "우리가 선을 행하되 낙심하지 말지니 포기하지 아니하면 때가 이르매 거두리라", ref: "갈라디아서 6:9" },
+  { text: "이는 하나님의 기업이 바다의 모래보다 많음이라", ref: "욥기 29:6" },
+  { text: "여호와를 기뻐하라 그가 네 마음의 소원을 네게 이루어 주시리로다", ref: "시편 37:4" },
+];
+
+function DailyVerseCard() {
+  const today = new Date();
+  const idx = (today.getFullYear() * 366 + today.getMonth() * 31 + today.getDate()) % VERSES.length;
+  const verse = VERSES[idx];
+
+  return (
+    <div className="w-full sm:flex-1 min-w-0 flex flex-col justify-center gap-3 px-4 py-4 min-h-[140px] sm:min-h-[168px]">
+      <p className="text-[10px] font-semibold text-gray-300 tracking-widest uppercase">
+        오늘의 말씀
+      </p>
+      <p className="text-[13px] font-bold text-gray-700 leading-relaxed">
+        &ldquo;{verse.text}&rdquo;
+      </p>
+      <p className="text-[11px] font-semibold text-gray-400">{verse.ref}</p>
+    </div>
+  );
+}
+
 type Profile = {
   id: string;
   full_name: string;
@@ -68,7 +121,7 @@ export default function DashboardBanner({
       {/* ── 인사 카드 (2/5, 작은 화면에서 비율로 줄어듦) ── */}
       <Link
         href="/mypage"
-        className="lg:w-2/5 min-w-0 bg-blue-600 rounded-2xl p-6 text-white shadow-sm relative overflow-hidden min-h-[168px] flex flex-col justify-between hover:bg-blue-700 transition-colors"
+        className="lg:w-2/5 min-w-0 bg-blue-600 rounded-2xl p-6 text-white relative overflow-hidden min-h-[140px] sm:min-h-[168px] flex flex-col justify-between hover:bg-blue-700 transition-colors"
       >
         <div className="relative z-10 flex flex-col h-full justify-between">
           {/* 상단: 교회명 */}
@@ -107,18 +160,14 @@ export default function DashboardBanner({
         </div>
       </Link>
 
-      {/* ── 우측 카드 영역 (flex-1) ── */}
-      <div className="lg:flex-1 min-w-0 flex flex-row gap-4">
+      {/* ── 우측 카드 영역 ── */}
+      <div className="lg:flex-1 min-w-0 flex flex-col sm:flex-row gap-4">
 
-        {/* 날씨 + 미세먼지 통합 카드 (2/3 너비 = 날씨 1/3 + 미세먼지 1/3) */}
-        <div className="flex-[2] min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[168px] flex overflow-hidden">
-
+        {/* 날씨 + 미세먼지 통합 카드 */}
+        <div className="w-full sm:flex-[2] min-w-0 bg-white rounded-2xl border border-gray-200 min-h-[140px] sm:min-h-[168px] flex overflow-hidden">
           {/* 날씨 — 왼쪽 */}
           <div className="flex-1 min-w-0 p-5 flex flex-col justify-between">
-            <p className="text-xs font-semibold text-gray-400 tracking-wide truncate">
-              날씨 · 용인 서천동
-            </p>
-
+            <p className="text-xs font-semibold text-gray-400 tracking-wide truncate">날씨 · 용인 서천동</p>
             {weatherLoading ? (
               <div className="animate-pulse space-y-2 mt-3">
                 <div className="h-8 w-20 bg-gray-100 rounded" />
@@ -130,8 +179,7 @@ export default function DashboardBanner({
                   <span className="text-4xl leading-none">{weather.emoji}</span>
                   <div>
                     <p className="text-3xl font-extrabold text-gray-900 leading-tight">
-                      {weather.temp}°
-                      <span className="text-base font-bold text-gray-400">C</span>
+                      {weather.temp}°<span className="text-base font-bold text-gray-400">C</span>
                     </p>
                     <p className="text-[11px] text-gray-400">{weather.description}</p>
                   </div>
@@ -147,15 +195,11 @@ export default function DashboardBanner({
             )}
           </div>
 
-          {/* 세로 구분선 */}
           <div className="w-px bg-gray-100 my-4" />
 
           {/* 미세먼지 — 오른쪽 */}
           <div className="flex-1 min-w-0 p-5 flex flex-col justify-between">
-            <p className="text-xs font-semibold text-gray-400 tracking-wide">
-              미세먼지
-            </p>
-
+            <p className="text-xs font-semibold text-gray-400 tracking-wide">미세먼지</p>
             {weatherLoading ? (
               <div className="animate-pulse space-y-2 mt-3">
                 <div className="h-6 w-16 bg-gray-100 rounded" />
@@ -165,12 +209,8 @@ export default function DashboardBanner({
             ) : weather?.airGrade ? (
               <>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-2xl leading-none">
-                    {weather.airGrade.face}
-                  </span>
-                  <span
-                    className={`text-base font-extrabold ${weather.airGrade.color}`}
-                  >
+                  <span className="text-2xl leading-none">{weather.airGrade.face}</span>
+                  <span className={`text-base font-extrabold ${weather.airGrade.color}`}>
                     {weather.airGrade.label}
                   </span>
                 </div>
@@ -195,85 +235,9 @@ export default function DashboardBanner({
           </div>
         </div>
 
-        {/* 결재 통합 카드 */}
-        {/* 결재 통합 카드 (1/3 너비) */}
-        <Link
-          href={canApprove ? "/vacation?tab=approve" : "/vacation"}
-          className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between min-h-[168px] hover:border-gray-200 hover:shadow-md transition-all"
-        >
-          {canApprove ? (
-            <>
-              {/* 결재 대기 */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                    결재 대기
-                  </p>
-                  <p className="text-2xl font-extrabold text-gray-900">
-                    {pendingCount}
-                    <span className="text-sm font-normal text-gray-400 ml-1">건</span>
-                  </p>
-                </div>
-                <div
-                  className={`p-2 rounded-lg ${pendingCount > 0 ? "bg-red-50 text-red-500" : "bg-gray-50 text-gray-300"}`}
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-              </div>
+        {/* ── 오늘의 말씀 카드 ── */}
+        <DailyVerseCard />
 
-              <div className="border-t border-dashed border-gray-100" />
-
-              {/* 내 결재 진행 */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                    내 결재 진행
-                  </p>
-                  <p className="text-2xl font-extrabold text-gray-900">
-                    {myPendingCount}
-                    <span className="text-sm font-normal text-gray-400 ml-1">건</span>
-                  </p>
-                </div>
-                <div className="p-2 rounded-lg bg-blue-50 text-blue-500">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              {pendingCount > 0 && (
-                <div className="flex items-center gap-1 text-xs text-red-500 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  승인이 필요합니다
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
-                    내 결재 진행
-                  </p>
-                  <p className="text-3xl font-extrabold text-gray-900">
-                    {myPendingCount}
-                    <span className="text-sm font-normal text-gray-400 ml-1">건</span>
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-blue-50 text-blue-500">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <p className="text-xs text-blue-500 font-medium mt-auto pt-4">
-                처리 결과를 기다리고 있어요
-              </p>
-            </>
-          )}
-        </Link>
       </div>
     </section>
   );

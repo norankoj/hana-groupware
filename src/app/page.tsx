@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import Link from "next/link";
+import NoticePopup from "@/components/notice/NoticePopup";
 import DashboardBanner from "@/components/dashboard/DashboardBanner";
 import CalendarSection from "@/components/dashboard/CalendarSection";
 import TodayReservationWidget from "@/components/dashboard/TodayReservationWidget";
@@ -47,9 +49,7 @@ export default function Home() {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [parkingText, setParkingText] = useState("");
 
-  const [todayFacilities, setTodayFacilities] = useState<TodayReservation[]>(
-    [],
-  );
+  const [todayFacilities, setTodayFacilities] = useState<TodayReservation[]>([]);
   const [todayVehicles, setTodayVehicles] = useState<TodayReservation[]>([]);
 
   useEffect(() => {
@@ -231,9 +231,17 @@ export default function Home() {
   if (!profile) return null;
 
   const canViewCalendar = ALLOWED_ROLES.includes(profile.role);
+  const canApprove =
+    profile.is_approver ||
+    profile.role === "admin" ||
+    profile.role === "director";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* 공지 팝업 */}
+      <NoticePopup />
+
+      {/* ── Row 1: 배너 카드 (고정) ── */}
       <DashboardBanner
         profile={profile}
         pendingCount={pendingCount}
@@ -243,96 +251,169 @@ export default function Home() {
       />
 
       {canViewCalendar && (
-        <div className="flex flex-col 2xl:flex-row gap-6">
-          <CalendarSection
-            allEvents={allEvents}
-            teams={teams}
-            profile={profile}
-            users={users}
-            onRefresh={fetchData}
-          />
+        <>
+          {/* ── Row 2: 바로가기 (카드 없이 버튼만) ── */}
+          <div className={`grid gap-3 ${canApprove ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-3 sm:grid-cols-5"}`}>
 
-          {/* 위젯 섹션 */}
-          <div className="order-1 2xl:order-2 w-full 2xl:w-[420px] shrink-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-1 gap-6 h-auto">
-              <div className="lg:col-span-2 2xl:col-span-1">
-                <GoogleCalendarWidget />
+            {[
+              {
+                href: "/vacation",
+                label: "휴가 신청",
+                icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+              },
+              {
+                href: "/reservation",
+                label: "시설 예약",
+                icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
+              },
+              {
+                href: "/vehicle",
+                label: "차량 예약",
+                icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10l2-3h10l2 3h4v6h-2v-1a2 2 0 1 0-4 0v1H9v-1a2 2 0 1 0-4 0v1H3v-6zm4 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm10 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" /></svg>,
+              },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+              >
+                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                  {item.icon}
+                </div>
+                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                  {item.label}
+                </span>
+              </Link>
+            ))}
+
+            {/* 결재 대기 — 관리자·결재권한자만 */}
+            {canApprove && (
+              <Link
+                href="/vacation?tab=approve"
+                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+              >
+                {pendingCount > 0 && (
+                  <span className="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {pendingCount > 99 ? "99+" : pendingCount}
+                  </span>
+                )}
+                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                  결재 대기
+                </span>
+              </Link>
+            )}
+
+            {/* 결재권한자: 내 결재 진행 / 일반: 공지사항 */}
+            {canApprove ? (
+              <Link
+                href="/vacation"
+                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+              >
+                {myPendingCount > 0 && (
+                  <span className="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {myPendingCount > 99 ? "99+" : myPendingCount}
+                  </span>
+                )}
+                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                  내 결재 진행
+                </span>
+              </Link>
+            ) : (
+              <Link
+                href="/notice"
+                className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+              >
+                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                  공지사항
+                </span>
+              </Link>
+            )}
+
+            {/* 오늘 뭐먹지? */}
+            <Link
+              href="/lunch"
+              className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+            >
+              <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                {/* 밥그릇 아이콘 */}
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 13h18M5 13c0 3.866 3.134 7 7 7s7-3.134 7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.5 6c0 1.2.8 1.8.8 3M12 5c0 1.2.8 1.8.8 3M15.5 6c0 1.2.8 1.8.8 3" />
+                </svg>
               </div>
-              <TodayReservationWidget
-                title="오늘의 시설 예약"
-                href="/reservation"
-                reservations={todayFacilities}
-                emptyMessage="오늘 예약된 일정이 없습니다."
-                icon={
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                    />
-                  </svg>
-                }
-                emptyIcon={
-                  <svg
-                    className="w-10 h-10 opacity-20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                }
+              <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                오늘 뭐먹지?
+              </span>
+            </Link>
+
+          </div>
+
+          {/* ── Row 3: 캘린더 | 사역일정 + 차량예약 (2xl+에서 2:1, 그 이하는 세로) ── */}
+          <div className="flex flex-col 2xl:flex-row gap-6 items-start">
+
+            {/* 캘린더 — 2xl+: 2/3, 그 이하: 전체 너비 */}
+            <div className="w-full 2xl:flex-[2] min-w-0">
+              <CalendarSection
+                allEvents={allEvents}
+                teams={teams}
+                profile={profile}
+                users={users}
+                onRefresh={fetchData}
               />
+            </div>
+
+            {/* 우측 컬럼 — 2xl+: 1/3 사이드, 그 이하: 전체 너비 */}
+            <div className="w-full 2xl:flex-1 2xl:max-w-[400px] min-w-0 flex flex-col gap-4">
+              {/* 사역 일정 */}
+              <GoogleCalendarWidget />
+
+              {/* 오늘의 차량 예약 */}
               <TodayReservationWidget
                 title="오늘의 차량 예약"
                 href="/vehicle"
                 reservations={todayVehicles}
                 emptyMessage="오늘 예약된 차량이 없습니다."
                 icon={
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
-                    />
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                   </svg>
                 }
                 emptyIcon={
-                  <svg
-                    className="w-10 h-10 opacity-20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                    />
+                  <svg className="w-10 h-10 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
                 }
               />
+
+              {/* 오늘의 시설 예약 — 주석 처리
+              <TodayReservationWidget
+                title="오늘의 시설 예약"
+                href="/reservation"
+                reservations={todayFacilities}
+                emptyMessage="오늘 예약된 시설이 없습니다."
+              />
+              */}
             </div>
+
           </div>
-        </div>
+        </>
       )}
     </div>
   );

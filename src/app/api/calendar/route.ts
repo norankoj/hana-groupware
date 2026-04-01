@@ -2,7 +2,7 @@
 // 구글 캘린더 API — 내 계정의 모든 캘린더에서 오늘~7일 이내 일정 조회
 import { NextResponse } from "next/server";
 
-export const revalidate = 900; // 15분 캐시
+export const revalidate = 300; // 5분 캐시
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -41,6 +41,7 @@ export type CalendarEvent = {
   calendarName: string;
   calendarColor: string;
   location?: string;
+  description?: string;
 };
 
 export async function GET() {
@@ -64,10 +65,16 @@ export async function GET() {
     const calendars: { id: string; summary: string; backgroundColor: string; accessRole: string }[] =
       listData.items ?? [];
 
-    // ② 오늘 00:00 ~ 14일 후까지 범위 설정
-    const now = new Date();
-    const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14).toISOString();
+    // ② KST 기준 이번달 1일 ~ 다음달 말일 전체 범위
+    // Vercel 서버는 UTC이므로 KST(+9) 오프셋 직접 계산
+    const KST = 9 * 60 * 60 * 1000;
+    const nowKST = new Date(Date.now() + KST);
+    const y = nowKST.getUTCFullYear();
+    const m = nowKST.getUTCMonth(); // 0-based
+    // 이전달 1일 00:00 KST → UTC
+    const timeMin = new Date(Date.UTC(y, m - 1, 1) - KST).toISOString();
+    // 다음달 말일 23:59:59 KST → UTC (다다음달 1일 UTC = 다음달 말일 이후)
+    const timeMax = new Date(Date.UTC(y, m + 2, 1) - KST).toISOString();
 
     // ③ 각 캘린더별 이벤트 병렬 조회 (읽기 권한 있는 것 + 필터 적용)
     const eventFetches = calendars
@@ -84,7 +91,7 @@ export async function GET() {
           timeMax,
           singleEvents: "true",
           orderBy: "startTime",
-          maxResults: "20",
+          maxResults: "100",
         });
         const res = await fetch(
           `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
@@ -103,6 +110,7 @@ export async function GET() {
           calendarName: cal.summary,
           calendarColor: cal.backgroundColor ?? "#4285F4",
           location: ev.location ?? undefined,
+          description: ev.description ?? undefined,
         }));
       });
 

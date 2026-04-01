@@ -9,6 +9,10 @@
       "Bash(grep -r \"storage\\\\|bucket\\\\|file\" --include=*.tsx --include=*.ts .)",
       "Skill(update-config)",
       "Skill(update-config:*)"
-    ]
+    ],
+	 "deny": [
+            "Read(.env*)",
+            "Edit(.env*)"
+        ]
   }
 }

@@ -30,7 +30,7 @@ export default function TodayReservationWidget({
   emptyIcon,
 }: Props) {
   return (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col max-h-[300px] 2xl:max-h-[320px] min-h-[200px]">
+    <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col max-h-[300px] 2xl:max-h-[320px] min-h-[200px]">
       <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
         <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
           <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
