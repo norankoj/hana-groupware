@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import toast, { Toaster } from "react-hot-toast";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import HeaderWeatherBadge from "@/components/dashboard/HeaderWeatherBadge";
+import Image from "next/image";
 
 // --- [1] Context 생성 (데이터 공유용) ---
 type Menu = {
@@ -259,9 +260,7 @@ export default function ClientLayout({
             승인 대기 중입니다
           </h2>
           <p className="text-gray-500 text-sm mb-1">
-            <span className="font-bold text-gray-700">
-              {profile.full_name}
-            </span>
+            <span className="font-bold text-gray-700">{profile.full_name}</span>
             님, 가입을 환영합니다!
           </p>
           <p className="text-gray-400 text-sm mb-8 leading-relaxed">
@@ -320,7 +319,13 @@ export default function ClientLayout({
                 href="/"
                 className="flex items-center gap-2 text-xl font-bold text-gray-800 tracking-tight ml-2"
               >
-                수원하나교회
+                <Image
+                  src="/logo.png"
+                  alt="수원하나교회"
+                  width={150}
+                  height={40}
+                  className="object-contain"
+                />
               </Link>
             )}
 
