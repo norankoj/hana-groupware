@@ -293,11 +293,7 @@ export default function VacationCalendar({
           await supabase
             .from("profiles")
             .update({
-              // 음수 방지: 0 이하로 내려가지 않도록
-              used_leave_days: Math.max(
-                0,
-                myProfile.used_leave_days - req.days_count,
-              ),
+              used_leave_days: myProfile.used_leave_days - req.days_count,
             })
             .eq("id", user?.id);
         }

@@ -435,7 +435,7 @@ export default function FacilityReservationPage() {
   };
 
   return (
-    <div className="w-full flex flex-col p-1 pb-10">
+    <div className="w-full max-w-7xl mx-auto flex flex-col p-1 pb-10">
       <style>{customCalendarStyles}</style>
 
       {/* DatePicker */}

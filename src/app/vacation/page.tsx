@@ -90,7 +90,7 @@ function VacationContent() {
     );
 
   return (
-    <div className="w-full h-full flex flex-col p-1">
+    <div className="w-full max-w-7xl mx-auto h-full flex flex-col p-1">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
           {menu?.name || "휴가/연차 관리"}

@@ -157,7 +157,7 @@ function EventDetailPopup({
   );
 }
 
-export default function GoogleCalendarWidget() {
+export default function GoogleCalendarWidget({ className }: { className?: string }) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -238,8 +238,8 @@ export default function GoogleCalendarWidget() {
         />
       )}
 
-      {/* ── 위젯 본체 (최대 너비 고정) ── */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col w-full max-w-[400px]">
+      {/* ── 위젯 본체 ── */}
+      <div className={`bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col w-full ${className ?? ""}`}>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
           <div className="flex items-center gap-2">
@@ -273,7 +273,7 @@ export default function GoogleCalendarWidget() {
         {/* 본문 스크롤 */}
         <div
           ref={scrollRef}
-          className="divide-y divide-gray-50 max-h-[520px] overflow-y-auto"
+          className="divide-y divide-gray-50 flex-1 min-h-0 overflow-y-auto max-h-[300px] sm:max-h-[520px]"
         >
           {loading && (
             <div className="p-5 space-y-3">

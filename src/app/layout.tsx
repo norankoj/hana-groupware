@@ -8,7 +8,6 @@ import AuthListener from "@/components/AuthListener";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
-
 export const metadata: Metadata = {
   title: "수원하나교회 그룹웨어",
   description: "수원하나교회 사역자를 위한 통합 관리 시스템",
@@ -44,7 +43,7 @@ export default function RootLayout({
           <ClientLayout>
             <AuthListener />
             {children}
-            <ChannelTalk />
+            {/* <ChannelTalk /> */}
             <PwaInstallPrompt />
           </ClientLayout>
         </ErrorBoundary>

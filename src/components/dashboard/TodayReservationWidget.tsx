@@ -19,6 +19,7 @@ interface Props {
   emptyMessage: string;
   icon: React.ReactNode;
   emptyIcon: React.ReactNode;
+  className?: string;
 }
 
 export default function TodayReservationWidget({
@@ -28,9 +29,10 @@ export default function TodayReservationWidget({
   emptyMessage,
   icon,
   emptyIcon,
+  className,
 }: Props) {
   return (
-    <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col max-h-[300px] 2xl:max-h-[320px] min-h-[200px]">
+    <div className={`bg-white p-4 rounded-xl border border-gray-200 flex flex-col ${className ?? "max-h-[300px] 2xl:max-h-[320px] min-h-[200px]"}`}>
       <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
         <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
           <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
@@ -59,7 +61,7 @@ export default function TodayReservationWidget({
         </Link>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px] 2xl:max-h-[320px] min-h-[150px]">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
         {reservations.length > 0 ? (
           <ul className="space-y-3">
             {reservations.map((res) => (
