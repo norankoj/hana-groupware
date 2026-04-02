@@ -258,7 +258,7 @@ export default function Home() {
         <>
           {/* ── Row 2: 바로가기 (카드 없이 버튼만) ── */}
           <div
-            className={`grid gap-3 ${showApproveShortcut ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-3 sm:grid-cols-5"}`}
+            className={`grid gap-3 ${showApproveShortcut ? "grid-cols-4 sm:grid-cols-7" : "grid-cols-3 sm:grid-cols-6"}`}
           >
             {[
               {
@@ -427,7 +427,6 @@ export default function Home() {
               className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
             >
               <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
-                {/* 밥그릇 아이콘 */}
                 <svg
                   className="w-6 h-6"
                   fill="none"
@@ -450,6 +449,31 @@ export default function Home() {
               </div>
               <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
                 오늘 뭐먹지?
+              </span>
+            </Link>
+
+            {/* 랜덤 게임 */}
+            <Link
+              href="/games"
+              className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+            >
+              <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.8}
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                  />
+                </svg>
+              </div>
+              <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                랜덤 게임
               </span>
             </Link>
           </div>
