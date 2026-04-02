@@ -322,8 +322,8 @@ export default function ClientLayout({
                 <Image
                   src="/logo.png"
                   alt="수원하나교회"
-                  width={150}
-                  height={40}
+                  width={180}
+                  height={50}
                   className="object-contain"
                 />
               </Link>
