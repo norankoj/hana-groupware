@@ -173,9 +173,21 @@ export default function ClientLayout({
     };
     fetchData();
 
+    // 최초 마운트 시 Supabase가 자동으로 SIGNED_IN을 발생시키는데,
+    // 이미 fetchData()를 호출했으므로 첫 번째 SIGNED_IN은 건너뜀
+    let isInitialSignIn = true;
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // SIGNED_IN은 마운트 시 이미 fetchData()를 호출하므로 중복 제외
+        if (event === "SIGNED_IN") {
+          if (isInitialSignIn) {
+            // 페이지 최초 로드 시 발생하는 SIGNED_IN — 이미 fetchData() 호출함
+            isInitialSignIn = false;
+            return;
+          }
+          // 실제 로그인 액션 (로그아웃 후 재로그인) — 프로필/메뉴 재로딩
+          fetchData();
+        }
         if (event === "SIGNED_OUT") {
           setProfile(null);
           setMenus([]);
