@@ -53,11 +53,29 @@ export default function Home() {
   );
   const [todayVehicles, setTodayVehicles] = useState<TodayReservation[]>([]);
 
+  // Google Calendar 데이터 — 두 위젯이 동시에 렌더링되므로 여기서 한 번만 fetch
+  const [gcalEvents, setGcalEvents] = useState<any[]>([]);
+  const [gcalLoading, setGcalLoading] = useState(true);
+  const [gcalError, setGcalError] = useState(false);
+  const [gcalUpdatedAt, setGcalUpdatedAt] = useState<string | null>(null);
+
   useEffect(() => {
     const today = new Date();
     setParkingText(
       `오늘은 ${today.getDate()}일, ${today.getDate() % 2 === 0 ? "짝수" : "홀수"}차량이 주차하는 날입니다.`,
     );
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/calendar")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { setGcalError(true); return; }
+        setGcalEvents(json.events ?? []);
+        setGcalUpdatedAt(json.updatedAt ?? null);
+      })
+      .catch(() => setGcalError(true))
+      .finally(() => setGcalLoading(false));
   }, []);
 
   const fetchData = async () => {
@@ -492,7 +510,12 @@ export default function Home() {
               />
             </div>
             <div className="flex-1 max-w-[400px] min-w-0 flex flex-col gap-4">
-              <GoogleCalendarWidget />
+              <GoogleCalendarWidget
+                initialEvents={gcalEvents}
+                initialLoading={gcalLoading}
+                initialError={gcalError}
+                initialUpdatedAt={gcalUpdatedAt}
+              />
               <TodayReservationWidget
                 title="오늘의 차량 예약"
                 href="/vehicle"
@@ -537,7 +560,13 @@ export default function Home() {
             {/* 사역일정 | 오늘의 차량예약 — sm+: 나란히 380px 고정 높이, mobile: 세로 */}
             <div className="flex flex-col sm:flex-row gap-4 sm:h-[380px]">
               <div className="sm:flex-1 min-w-0 sm:h-full">
-                <GoogleCalendarWidget className="sm:h-full " />
+                <GoogleCalendarWidget
+                className="sm:h-full"
+                initialEvents={gcalEvents}
+                initialLoading={gcalLoading}
+                initialError={gcalError}
+                initialUpdatedAt={gcalUpdatedAt}
+              />
               </div>
               <div className="sm:flex-1 min-w-0 sm:h-full">
                 <TodayReservationWidget

@@ -157,11 +157,28 @@ function EventDetailPopup({
   );
 }
 
-export default function GoogleCalendarWidget({ className }: { className?: string }) {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+type GoogleCalendarWidgetProps = {
+  className?: string;
+  /** 외부에서 데이터를 주입할 경우 (중복 fetch 방지) */
+  initialEvents?: CalendarEvent[];
+  initialLoading?: boolean;
+  initialError?: boolean;
+  initialUpdatedAt?: string | null;
+};
+
+export default function GoogleCalendarWidget({
+  className,
+  initialEvents,
+  initialLoading,
+  initialError,
+  initialUpdatedAt,
+}: GoogleCalendarWidgetProps) {
+  const externalData = initialEvents !== undefined;
+
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents ?? []);
+  const [loading, setLoading] = useState(externalData ? (initialLoading ?? false) : true);
+  const [error, setError] = useState(externalData ? (initialError ?? false) : false);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt ?? null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   const today = startOfDay(new Date());
@@ -173,7 +190,19 @@ export default function GoogleCalendarWidget({ className }: { className?: string
   const scrollRef = useRef<HTMLDivElement>(null);
   const todayRef = useRef<HTMLDivElement>(null);
 
+  // 외부 데이터가 업데이트되면 동기화
   useEffect(() => {
+    if (externalData) {
+      setEvents(initialEvents ?? []);
+      setLoading(initialLoading ?? false);
+      setError(initialError ?? false);
+      setUpdatedAt(initialUpdatedAt ?? null);
+    }
+  }, [externalData, initialEvents, initialLoading, initialError, initialUpdatedAt]);
+
+  // 외부 데이터가 없을 때만 자체 fetch
+  useEffect(() => {
+    if (externalData) return;
     fetch("/api/calendar")
       .then((r) => r.json())
       .then((json) => {
