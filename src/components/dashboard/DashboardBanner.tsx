@@ -146,13 +146,13 @@ function DailyVerseCard() {
 
   return (
     <div className="w-full sm:flex-1 min-w-0 flex flex-col justify-center gap-2 px-4 py-4 min-h-[140px] sm:min-h-[168px]">
-      <p className="text-[10px] font-semibold text-gray-300 tracking-widest uppercase">
+      <p className="text-[12px] font-semibold text-gray-700 tracking-widest uppercase">
         오늘의 말씀
       </p>
       {verse ? (
         <>
-          <p className="text-sm font-bold text-gray-700 leading-relaxed">
-            &ldquo;{verse.text}&rdquo;
+          <p className="text-md font-bold text-gray-700 leading-relaxed">
+            {verse.text}
           </p>
           <p className="text-xs font-semibold text-gray-400">{verse.ref}</p>
         </>
@@ -334,8 +334,12 @@ export default function DashboardBanner({
               <>
                 {/* 이모지 + 등급 (중앙 배치) */}
                 <div className="flex-1 flex items-center gap-2">
-                  <span className="text-3xl leading-none">{weather.airGrade.face}</span>
-                  <span className={`text-base font-extrabold ${weather.airGrade.color}`}>
+                  <span className="text-3xl leading-none">
+                    {weather.airGrade.face}
+                  </span>
+                  <span
+                    className={`text-base font-extrabold ${weather.airGrade.color}`}
+                  >
                     {weather.airGrade.label}
                   </span>
                 </div>
@@ -346,7 +350,12 @@ export default function DashboardBanner({
                     <span className="text-gray-500 font-medium">미세먼지</span>
                     <div className="flex items-center gap-1.5">
                       {weather.pm10 != null && (
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: pm10BadgeColor(weather.pm10) }} />
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: pm10BadgeColor(weather.pm10),
+                          }}
+                        />
                       )}
                       <span className="font-bold text-gray-700">
                         {weather.pm10 != null ? `${weather.pm10} ㎍` : "—"}
@@ -354,10 +363,17 @@ export default function DashboardBanner({
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 font-medium">초미세먼지</span>
+                    <span className="text-gray-500 font-medium">
+                      초미세먼지
+                    </span>
                     <div className="flex items-center gap-1.5">
                       {weather.pm25 != null && (
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: pm25BadgeColor(weather.pm25) }} />
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: pm25BadgeColor(weather.pm25),
+                          }}
+                        />
                       )}
                       <span className="font-bold text-gray-700">
                         {weather.pm25 != null ? `${weather.pm25} ㎍` : "—"}
