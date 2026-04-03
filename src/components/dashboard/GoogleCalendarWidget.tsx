@@ -185,16 +185,17 @@ export default function GoogleCalendarWidget({ className }: { className?: string
       .finally(() => setLoading(false));
   }, []);
 
-  // 로딩 완료 후 오늘 날짜로 스크롤 (위젯 내부 컨테이너만 스크롤, 페이지 스크롤 없음)
+  // 로딩 완료 후 오늘 날짜를 스크롤 컨테이너 맨 위로 스크롤
   useEffect(() => {
     if (!loading && todayRef.current && scrollRef.current && isSameMonth(currentMonth, today)) {
       setTimeout(() => {
         const container = scrollRef.current!;
         const item = todayRef.current!;
-        const itemOffsetTop = item.offsetTop - container.offsetTop;
-        const center = itemOffsetTop - container.clientHeight / 2 + item.clientHeight / 2;
-        container.scrollTo({ top: Math.max(0, center), behavior: "smooth" });
-      }, 150);
+        const itemRect = item.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const scrollOffset = itemRect.top - containerRect.top + container.scrollTop;
+        container.scrollTo({ top: Math.max(0, scrollOffset), behavior: "smooth" });
+      }, 200);
     }
   }, [loading, currentMonth]);
 

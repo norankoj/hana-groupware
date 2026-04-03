@@ -38,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>
+      <body style={{ backgroundColor: "#ffffff" }}>
         <ErrorBoundary>
           <ClientLayout>
             <AuthListener />

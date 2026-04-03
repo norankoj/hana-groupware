@@ -195,6 +195,17 @@ export default function ClientLayout({
       },
     );
 
+    // 모바일 PWA: 앱이 백그라운드 → 포그라운드로 돌아올 때 세션 갱신
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) {
+          router.replace("/login");
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -207,6 +218,7 @@ export default function ClientLayout({
 
     return () => {
       authListener.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
