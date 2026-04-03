@@ -149,44 +149,35 @@ export default function ClientLayout({
   }, [pathname]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select(`*, teams!profiles_team_id_fkey(name)`)
-        .eq("id", user.id)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData as any);
-        const { data: menuData } = await supabase
+    const fetchData = async (userId: string) => {
+      const [{ data: profileData }, { data: menuData }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(`*, teams!profiles_team_id_fkey(name)`)
+          .eq("id", userId)
+          .single(),
+        supabase
           .from("menus")
           .select("*")
           .eq("is_active", true)
-          .order("sort_order");
-        if (menuData) setMenus(menuData);
-      }
+          .order("sort_order"),
+      ]);
+
+      if (profileData) setProfile(profileData as any);
+      if (menuData) setMenus(menuData);
     };
-    fetchData();
 
-    // 최초 마운트 시 Supabase가 자동으로 SIGNED_IN을 발생시키는데,
-    // 이미 fetchData()를 호출했으므로 첫 번째 SIGNED_IN은 건너뜀
-    let isInitialSignIn = true;
-
+    // onAuthStateChange로 모든 세션 상태 관리
+    // - INITIAL_SESSION: 앱 최초 로드 시 기존 세션 복원
+    // - SIGNED_IN: 실제 로그인 액션
+    // 두 이벤트 모두 session이 있으면 fetchData 호출 → 중복 없이 정확하게 처리
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === "SIGNED_IN") {
-          if (isInitialSignIn) {
-            // 페이지 최초 로드 시 발생하는 SIGNED_IN — 이미 fetchData() 호출함
-            isInitialSignIn = false;
-            return;
-          }
-          // 실제 로그인 액션 (로그아웃 후 재로그인) — 프로필/메뉴 재로딩
-          fetchData();
+        if (
+          (event === "INITIAL_SESSION" || event === "SIGNED_IN") &&
+          session?.user
+        ) {
+          fetchData(session.user.id);
         }
         if (event === "SIGNED_OUT") {
           setProfile(null);
