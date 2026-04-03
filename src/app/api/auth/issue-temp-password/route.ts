@@ -4,11 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json();
+    const { email, phone } = await request.json();
 
-    if (!email) {
+    if (!email || !phone) {
       return NextResponse.json(
-        { error: "이메일 정보가 누락되었습니다." },
+        { error: "이메일 또는 전화번호 정보가 누락되었습니다." },
         { status: 400 },
       );
     }
@@ -18,7 +18,42 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    // 1. 이메일로 해당 유저 검색
+    const normalizedPhone = phone.replace(/-/g, "");
+
+    // 보안: 전화번호 + 이메일 조합이 실제 가입된 계정과 일치하는지 검증
+    // (SMS 인증 완료 후 호출되므로, 두 값이 모두 맞아야 임시 비밀번호 발급)
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("phone", normalizedPhone)
+      .maybeSingle();
+
+    if (!profile) {
+      // 존재 여부 노출 방지: 동일한 에러 메시지 반환
+      return NextResponse.json(
+        { error: "일치하는 계정을 찾을 수 없습니다." },
+        { status: 404 },
+      );
+    }
+
+    // 속도 제한: 10분 내 동일 전화번호로 재요청 방지
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: recentCode } = await supabaseAdmin
+      .from("verification_codes")
+      .select("id")
+      .eq("phone", normalizedPhone)
+      .gte("created_at", tenMinutesAgo)
+      .maybeSingle();
+
+    // verification_codes가 없으면 SMS 인증을 거치지 않은 것 — 차단
+    if (!recentCode) {
+      return NextResponse.json(
+        { error: "휴대폰 인증을 먼저 완료해주세요." },
+        { status: 403 },
+      );
+    }
+
+    // 이메일로 auth 유저 검색
     const { data: users, error: listError } =
       await supabaseAdmin.auth.admin.listUsers();
     if (listError) throw listError;
@@ -26,15 +61,14 @@ export async function POST(request: Request) {
     const targetUser = users.users.find((u) => u.email === email);
     if (!targetUser) {
       return NextResponse.json(
-        { error: "해당 계정을 찾을 수 없습니다." },
+        { error: "일치하는 계정을 찾을 수 없습니다." },
         { status: 404 },
       );
     }
 
-    // 2. 8자리의 랜덤 임시 비밀번호 생성 (예: a7b3k9p2)
+    // 8자리 랜덤 임시 비밀번호 생성
     const tempPassword = Math.random().toString(36).slice(-8);
 
-    // 3. 생성된 임시 비밀번호로 DB 강제 업데이트
     const { error: updateError } =
       await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
         password: tempPassword,
@@ -42,7 +76,6 @@ export async function POST(request: Request) {
 
     if (updateError) throw updateError;
 
-    // 4. 성공 시 프론트엔드에 임시 비밀번호 전달
     return NextResponse.json({ success: true, tempPassword });
   } catch (error: any) {
     console.error("임시 비밀번호 발급 에러:", error);

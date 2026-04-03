@@ -231,7 +231,13 @@ export default function LoginPage() {
     if (data.user?.id) {
       await fetch("/api/auth/complete-signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // 본인 확인: 가입 직후 발급된 세션 토큰 전달
+          ...(data.session?.access_token
+            ? { Authorization: `Bearer ${data.session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({ userId: data.user.id, phone: cleanPhone }),
       });
     }
@@ -501,7 +507,8 @@ export default function LoginPage() {
                             {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ email: resetTargetEmail }),
+                              // phone 포함: API에서 phone+email 일치 검증
+                              body: JSON.stringify({ email: resetTargetEmail, phone }),
                             },
                           );
                           const data = await res.json();

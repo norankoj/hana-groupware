@@ -14,16 +14,41 @@ export async function POST(request: Request) {
       );
     }
 
+    // 보안: 요청자의 JWT 검증 — 본인 가입만 처리 가능
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+    const accessToken = authHeader.replace("Bearer ", "");
+
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
+    // 토큰으로 실제 사용자 확인
+    const { data: { user: requestingUser }, error: authError } =
+      await supabaseAdmin.auth.getUser(accessToken);
+
+    if (authError || !requestingUser) {
+      return NextResponse.json({ error: "유효하지 않은 인증입니다." }, { status: 401 });
+    }
+
+    // 요청 userId와 실제 인증된 userId가 일치해야 함
+    if (requestingUser.id !== userId) {
+      console.warn("[complete-signup] userId 불일치 — 잠재적 공격 시도:", {
+        requestedUserId: userId,
+        authenticatedUserId: requestingUser.id,
+      });
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+    }
+
     // 1. allowed_users에서 연차·입사일 조회
+    const normalizedPhone = phone.replace(/-/g, "");
     const { data: allowedUser, error: allowedErr } = await supabaseAdmin
       .from("allowed_users")
       .select("id, total_leaves, used_leaves, join_date")
-      .eq("phone", phone)
+      .eq("phone", normalizedPhone)
       .maybeSingle();
 
     if (allowedErr || !allowedUser) {
@@ -38,7 +63,7 @@ export async function POST(request: Request) {
     const { error: regErr } = await supabaseAdmin
       .from("allowed_users")
       .update({ is_registered: true })
-      .eq("phone", phone);
+      .eq("phone", normalizedPhone);
 
     if (regErr) {
       console.error("[complete-signup] is_registered 업데이트 실패:", regErr);
