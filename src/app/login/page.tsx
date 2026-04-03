@@ -333,6 +333,7 @@ export default function LoginPage() {
                   style={{ colorScheme: "light" }}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="이메일 또는 휴대폰 번호 입력"
                 />
               </div>
               <div>
@@ -508,7 +509,10 @@ export default function LoginPage() {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               // phone 포함: API에서 phone+email 일치 검증
-                              body: JSON.stringify({ email: resetTargetEmail, phone }),
+                              body: JSON.stringify({
+                                email: resetTargetEmail,
+                                phone,
+                              }),
                             },
                           );
                           const data = await res.json();

@@ -70,7 +70,10 @@ export default function Home() {
     fetch("/api/calendar")
       .then((r) => r.json())
       .then((json) => {
-        if (json.error) { setGcalError(true); return; }
+        if (json.error) {
+          setGcalError(true);
+          return;
+        }
         setGcalEvents(json.events ?? []);
         setGcalUpdatedAt(json.updatedAt ?? null);
       })
@@ -275,9 +278,7 @@ export default function Home() {
       {canViewCalendar && (
         <>
           {/* ── Row 2: 바로가기 (카드 없이 버튼만) ── */}
-          <div
-            className={`grid gap-3 ${showApproveShortcut ? "grid-cols-4 sm:grid-cols-7" : "grid-cols-3 sm:grid-cols-6"}`}
-          >
+          <div className="grid gap-3 grid-cols-3 sm:grid-cols-6">
             {[
               {
                 href: "/vacation",
@@ -351,8 +352,8 @@ export default function Home() {
               </Link>
             ))}
 
-            {/* 결재 대기 — is_approver 토글 ON인 경우만 */}
-            {showApproveShortcut && (
+            {/* 결재 대기: 내 결재 진행 / 일반: 공지사항 */}
+            {showApproveShortcut ? (
               <Link
                 href="/vacation?tab=approve"
                 className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
@@ -379,38 +380,6 @@ export default function Home() {
                 </div>
                 <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
                   결재 대기
-                </span>
-              </Link>
-            )}
-
-            {/* 결재권한자: 내 결재 진행 / 일반: 공지사항 */}
-            {showApproveShortcut ? (
-              <Link
-                href="/vacation"
-                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
-              >
-                {myPendingCount > 0 && (
-                  <span className="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-                    {myPendingCount > 99 ? "99+" : myPendingCount}
-                  </span>
-                )}
-                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.8}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
-                  내 결재 진행
                 </span>
               </Link>
             ) : (
@@ -561,12 +530,12 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 sm:h-[380px]">
               <div className="sm:flex-1 min-w-0 sm:h-full">
                 <GoogleCalendarWidget
-                className="sm:h-full"
-                initialEvents={gcalEvents}
-                initialLoading={gcalLoading}
-                initialError={gcalError}
-                initialUpdatedAt={gcalUpdatedAt}
-              />
+                  className="sm:h-full"
+                  initialEvents={gcalEvents}
+                  initialLoading={gcalLoading}
+                  initialError={gcalError}
+                  initialUpdatedAt={gcalUpdatedAt}
+                />
               </div>
               <div className="sm:flex-1 min-w-0 sm:h-full">
                 <TodayReservationWidget
