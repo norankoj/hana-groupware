@@ -36,7 +36,6 @@ type TodayReservation = {
 const ALLOWED_ROLES = ["admin", "director", "staff"];
 
 export default function Home() {
-  const supabase = createClient();
   const router = useRouter();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -63,6 +62,7 @@ export default function Home() {
 
   const fetchData = async () => {
     setLoading(true);
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

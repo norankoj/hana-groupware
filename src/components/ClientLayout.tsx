@@ -175,9 +175,7 @@ export default function ClientLayout({
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          fetchData();
-        }
+        // SIGNED_IN은 마운트 시 이미 fetchData()를 호출하므로 중복 제외
         if (event === "SIGNED_OUT") {
           setProfile(null);
           setMenus([]);
