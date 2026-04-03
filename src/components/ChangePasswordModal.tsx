@@ -64,7 +64,7 @@ export default function ChangePasswordModal({
       const res = await fetch("/api/sms/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: cleanPhone }),
+        body: JSON.stringify({ phone: cleanPhone, purpose: "change-password" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "발송 실패");

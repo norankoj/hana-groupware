@@ -15,7 +15,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "서버 설정 오류" }, { status: 500 });
   }
 
-  const { phone } = await request.json();
+  // purpose: 'signup' | 'forgot' | 'change-password'
+  const { phone, purpose = "signup" } = await request.json();
 
   // 전화번호 형식 검증 (숫자 10-11자리)
   if (!phone || !/^\d{10,11}$/.test(phone.replace(/-/g, ""))) {
@@ -28,20 +29,32 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  // 보안: 허용된 전화번호(allowed_users)이고 미등록 상태인지 확인
-  const { data: allowedUser } = await supabase
-    .from("allowed_users")
-    .select("id, is_registered")
-    .eq("phone", normalizedPhone)
-    .maybeSingle();
+  // 보안: purpose별 검증 분기
+  if (purpose === "signup") {
+    // 회원가입: allowed_users에 존재하고 미등록 상태여야 함
+    const { data: allowedUser } = await supabase
+      .from("allowed_users")
+      .select("id, is_registered")
+      .eq("phone", normalizedPhone)
+      .maybeSingle();
 
-  if (!allowedUser) {
-    // 보안상 존재 여부를 노출하지 않고 동일한 메시지 반환
-    return NextResponse.json({ error: "인증번호를 발송할 수 없는 번호입니다." }, { status: 403 });
-  }
+    if (!allowedUser) {
+      return NextResponse.json({ error: "인증번호를 발송할 수 없는 번호입니다." }, { status: 403 });
+    }
+    if (allowedUser.is_registered) {
+      return NextResponse.json({ error: "이미 가입된 전화번호입니다." }, { status: 409 });
+    }
+  } else {
+    // 비밀번호 찾기 / 비밀번호 변경: 이미 가입된 사용자여야 함
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("phone", normalizedPhone)
+      .maybeSingle();
 
-  if (allowedUser.is_registered) {
-    return NextResponse.json({ error: "이미 가입된 전화번호입니다." }, { status: 409 });
+    if (!profile) {
+      return NextResponse.json({ error: "등록되지 않은 전화번호입니다." }, { status: 403 });
+    }
   }
 
   // 속도 제한: 60초 내 재발송 방지

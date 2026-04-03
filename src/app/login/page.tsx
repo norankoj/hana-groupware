@@ -121,7 +121,7 @@ export default function LoginPage() {
       const res = await fetch("/api/sms/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: cleanPhone }),
+        body: JSON.stringify({ phone: cleanPhone, purpose: view === "signup" ? "signup" : "forgot" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "발송 실패");
