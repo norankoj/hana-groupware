@@ -130,7 +130,7 @@ export default function Home() {
       supabase
         .from("user_schedules")
         .select(
-          `id, title, start_at, end_at, location, attendees, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
+          `id, user_id, title, start_at, end_at, location, attendees, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
         ),
       supabase.from("teams").select("id, name").order("id"),
       supabase
@@ -186,6 +186,7 @@ export default function Home() {
           id: `sch_${s.id}`,
           original_id: s.id,
           type: "schedule",
+          user_id: s.user_id,
           start_date: format(startDate, "yyyy-MM-dd"),
           end_date: format(endDate, "yyyy-MM-dd"),
           title: s.title,
