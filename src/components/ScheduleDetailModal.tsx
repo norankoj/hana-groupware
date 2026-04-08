@@ -57,41 +57,39 @@ export default function ScheduleDetailModal({
     setConfirming(false);
   };
 
-  const footer = (
-    <div className="flex gap-2">
-      {canDelete && !confirming && (
+  const footer = confirming ? (
+    <div className="flex gap-2 w-full">
+      <button
+        onClick={() => setConfirming(false)}
+        disabled={deleting}
+        className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
+      >
+        취소
+      </button>
+      <button
+        onClick={handleConfirmDelete}
+        disabled={deleting}
+        className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition disabled:opacity-60 shadow-sm"
+      >
+        {deleting ? "삭제 중..." : "정말 삭제"}
+      </button>
+    </div>
+  ) : (
+    <div className="flex gap-2 w-full">
+      {canDelete && (
         <button
           onClick={handleDeleteClick}
-          className="flex-1 bg-red-50 text-red-600 py-3 rounded-lg font-bold hover:bg-red-100 transition border border-red-100"
+          className="flex-1 bg-gray-100 text-red-500 py-3 rounded-lg font-bold hover:bg-red-50 transition"
         >
           삭제
         </button>
       )}
-      {confirming ? (
-        <>
-          <button
-            onClick={() => setConfirming(false)}
-            disabled={deleting}
-            className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleConfirmDelete}
-            disabled={deleting}
-            className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition disabled:opacity-60"
-          >
-            {deleting ? "삭제 중..." : "삭제 확인"}
-          </button>
-        </>
-      ) : (
-        <button
-          onClick={onClose}
-          className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
-        >
-          닫기
-        </button>
-      )}
+      <button
+        onClick={onClose}
+        className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm"
+      >
+        닫기
+      </button>
     </div>
   );
 
@@ -104,8 +102,16 @@ export default function ScheduleDetailModal({
     >
       <div className="space-y-5 pt-2">
         {confirming && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 font-medium">
-            이 일정을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3.5">
+            <span className="text-red-500 mt-0.5 shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </span>
+            <p className="text-sm text-red-700 font-medium leading-relaxed">
+              이 일정을 삭제하시겠습니까?<br />
+              <span className="text-red-500">삭제 후에는 복구할 수 없습니다.</span>
+            </p>
           </div>
         )}
 
