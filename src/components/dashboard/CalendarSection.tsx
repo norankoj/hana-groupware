@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/utils/supabase/client";
+import toast from "react-hot-toast";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import "@/styles/calendar.css";
@@ -42,6 +44,7 @@ export type CalendarEvent = {
   id: string;
   original_id: number;
   type: "vacation" | "schedule";
+  user_id?: string;
   start_date: string;
   end_date: string;
   title: string;
@@ -149,6 +152,22 @@ export default function CalendarSection({
   const openEventDetail = (event: CalendarEvent) => {
     setSelectedDetailEvent(event);
     setDetailModalOpen(true);
+  };
+
+  const handleDeleteSchedule = async (event: CalendarEvent) => {
+    if (event.type !== "schedule") return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("user_schedules")
+      .delete()
+      .eq("id", event.original_id);
+    if (error) {
+      toast.error("삭제 실패: " + error.message);
+    } else {
+      toast.success("일정이 삭제되었습니다.");
+      setDetailModalOpen(false);
+      onRefresh();
+    }
   };
 
   return (
@@ -538,6 +557,8 @@ export default function CalendarSection({
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
         event={selectedDetailEvent}
+        profile={profile}
+        onDelete={handleDeleteSchedule}
       />
     </>
   );
