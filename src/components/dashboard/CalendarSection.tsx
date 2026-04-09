@@ -64,27 +64,27 @@ type TeamInfo = { id: number; name: string };
 
 const TEAM_STYLES: Record<number, { bg: string; text: string; border: string }> =
   {
-    4: {
-      bg: "bg-purple-100",
-      text: "text-purple-700",
-      border: "border-purple-200",
-    },
-    5: {
-      bg: "bg-emerald-100",
-      text: "text-emerald-700",
-      border: "border-emerald-200",
-    },
-    6: {
+    1: {
       bg: "bg-yellow-100",
       text: "text-yellow-700",
       border: "border-yellow-200",
     },
+    2: {
+      bg: "bg-purple-100",
+      text: "text-purple-700",
+      border: "border-purple-200",
+    },
+    3: {
+      bg: "bg-teal-100",
+      text: "text-teal-700",
+      border: "border-teal-200",
+    },
   };
 
 const TEAM_COLORS: Record<number, string> = {
-  4: "bg-purple-500",
-  5: "bg-emerald-500",
-  6: "bg-yellow-400",
+  1: "bg-yellow-400",
+  2: "bg-purple-500",
+  3: "bg-teal-500",
 };
 
 const DEFAULT_STYLE = {
