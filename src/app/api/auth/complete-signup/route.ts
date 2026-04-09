@@ -43,11 +43,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
-    // 1. allowed_users에서 연차·입사일 조회
+    // 1. allowed_users에서 연차·입사일·이전연차메모 조회
     const normalizedPhone = phone.replace(/-/g, "");
     const { data: allowedUser, error: allowedErr } = await supabaseAdmin
       .from("allowed_users")
-      .select("id, total_leaves, used_leaves, join_date")
+      .select("id, total_leaves, used_leaves, used_leave_memo, join_date")
       .eq("phone", normalizedPhone)
       .maybeSingle();
 
@@ -79,6 +79,9 @@ export async function POST(request: Request) {
         .update({
           total_leave_days: allowedUser.total_leaves ?? 15,
           used_leave_days: allowedUser.used_leaves ?? 0,
+          ...(allowedUser.used_leave_memo
+            ? { used_leave_memo: allowedUser.used_leave_memo }
+            : {}),
         })
         .eq("id", userId);
 
@@ -104,6 +107,7 @@ export async function POST(request: Request) {
       profileUpdated,
       totalLeaves: allowedUser.total_leaves,
       usedLeaves: allowedUser.used_leaves,
+      usedLeaveMemo: allowedUser.used_leave_memo ?? null,
     });
   } catch (error: any) {
     console.error("[complete-signup] 서버 오류:", error);
