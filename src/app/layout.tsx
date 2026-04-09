@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
-import ChannelTalk from "@/components/ChannelTalk";
 import AuthListener from "@/components/AuthListener";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -45,7 +44,6 @@ export default function RootLayout({
           <ClientLayout>
             <AuthListener />
             {children}
-            <ChannelTalk />
             <PwaInstallPrompt />
           </ClientLayout>
         </ErrorBoundary>
