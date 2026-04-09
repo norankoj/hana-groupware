@@ -237,6 +237,14 @@ export default function VacationCalendar({
     if (!(await showConfirm("휴가를 기안하시겠습니까?", confirmMessage)))
       return;
 
+    // 결재권한자(admin/director/is_approver)는 본인 신청 시 자동 승인
+    const isSelfApprover =
+      user?.is_approver ||
+      user?.role === "admin" ||
+      user?.role === "director";
+
+    const now = new Date().toISOString();
+
     const { error } = await supabase.from("vacation_requests").insert({
       user_id: user?.id,
       type: formData.type,
@@ -244,14 +252,31 @@ export default function VacationCalendar({
       end_date: formData.end_date,
       days_count: daysCount,
       reason: formData.reason,
+      ...(isSelfApprover && {
+        status: "approved",
+        approver_id: user?.id,
+        approved_at: now,
+      }),
     });
 
-    if (error) toast.error("신청 실패: " + error.message);
-    else {
-      toast.success("결재 상신 완료!");
-      setIsRequestModalOpen(false);
-      onRefresh();
+    if (error) {
+      toast.error("신청 실패: " + error.message);
+      return;
     }
+
+    // 자동 승인 + 연차 차감 대상이면 used_leave_days 즉시 증가
+    if (isSelfApprover && isDeductible && user?.id) {
+      await supabase.rpc("increment_used_leave_days", {
+        target_user_id: user.id,
+        days: daysCount,
+      });
+      toast.success("휴가 자동 승인 완료! (결재권한자)");
+    } else {
+      toast.success("결재 상신 완료!");
+    }
+
+    setIsRequestModalOpen(false);
+    onRefresh();
   };
 
   // 취소 처리

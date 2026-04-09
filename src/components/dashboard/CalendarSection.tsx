@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Calendar from "react-calendar";
@@ -129,6 +129,11 @@ export default function CalendarSection({
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedDetailEvent, setSelectedDetailEvent] =
     useState<CalendarEvent | null>(null);
+
+  useEffect(() => {
+    updateSelectedEvents(date, allEvents);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEvents]);
 
   const updateSelectedEvents = (targetDate: Date, events: CalendarEvent[]) => {
     const dateStr = format(targetDate, "yyyy-MM-dd");

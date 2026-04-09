@@ -33,6 +33,8 @@ const ROLE_TO_POSITION: Record<string, string> = {
   member: "성도",
 };
 
+type TabType = "members" | "pending";
+
 export default function AdminTeamsPage() {
   const supabase = createClient();
   const menu = useCurrentMenu();
@@ -40,6 +42,9 @@ export default function AdminTeamsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>("members");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pendingRole, setPendingRole] = useState<Record<string, string>>({});
 
   // ★ 동시성 제어: 입력 시작 당시의 값을 기억할 변수
   const [focusValue, setFocusValue] = useState<number | null>(null);
@@ -211,26 +216,102 @@ export default function AdminTeamsPage() {
     setFocusValue(null);
   };
 
-  // 회원 탈퇴(삭제)
+  // 회원 탈퇴(삭제) — Auth 계정까지 완전 삭제
   const handleDeleteUser = async (userId: string, userName: string) => {
     const isConfirmed = await showConfirm(
       "회원 강제 탈퇴",
-      `정말 '${userName}' 님을 탈퇴(삭제)시키겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+      `정말 '${userName}' 님을 탈퇴(삭제)시키겠습니까?\n로그인 계정까지 완전히 삭제되며 되돌릴 수 없습니다.`,
     );
 
     if (!isConfirmed) return;
 
-    const { error } = await supabase.from("profiles").delete().eq("id", userId);
+    const toastId = toast.loading("계정을 삭제하는 중...");
 
-    if (error) {
-      toast.error("삭제 실패: 이미 삭제되었거나 권한이 없습니다.");
-      // 목록 새로고침으로 싱크 맞춤
-      fetchData();
-    } else {
-      toast.success("성공적으로 삭제되었습니다.");
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, userName }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        toast.error(json.error || "삭제에 실패했습니다.", { id: toastId });
+        fetchData(); // 목록 싱크
+        return;
+      }
+
+      toast.success(`'${userName}' 님이 완전히 삭제되었습니다.`, {
+        id: toastId,
+      });
       setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    } catch {
+      toast.error("네트워크 오류가 발생했습니다.", { id: toastId });
     }
   };
+
+  // 가입 승인
+  const approvePending = async (userId: string, userName: string) => {
+    const role = pendingRole[userId] || "staff";
+    const newPosition = ROLE_TO_POSITION[role] || "사역자";
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role, position: newPosition })
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("승인 실패: " + error.message);
+      return;
+    }
+    toast.success(`'${userName}' 님이 승인되었습니다. (${newPosition})`);
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.id === userId ? { ...p, role, position: newPosition } : p,
+      ),
+    );
+  };
+
+  // 가입 거절 — Auth 계정까지 완전 삭제
+  const rejectPending = async (userId: string, userName: string) => {
+    const isConfirmed = await showConfirm(
+      "가입 거절",
+      `'${userName}' 님의 가입을 거절하시겠습니까?\n계정이 완전히 삭제됩니다.`,
+    );
+    if (!isConfirmed) return;
+
+    const toastId = toast.loading("계정을 삭제하는 중...");
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, userName }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "삭제 실패", { id: toastId });
+        return;
+      }
+      toast.success(`'${userName}' 님의 가입이 거절되었습니다.`, {
+        id: toastId,
+      });
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    } catch {
+      toast.error("네트워크 오류가 발생했습니다.", { id: toastId });
+    }
+  };
+
+  // 탭별 필터
+  const pendingProfiles = profiles.filter((p) => p.role === "pending");
+  const activeProfiles = profiles
+    .filter((p) => p.role !== "pending")
+    .filter(
+      (p) =>
+        searchQuery === "" ||
+        p.full_name.includes(searchQuery) ||
+        (p.email ?? "").includes(searchQuery),
+    );
 
   if (loading)
     return (
@@ -271,11 +352,135 @@ export default function AdminTeamsPage() {
         </button>
       </div>
 
+      {/* ── 탭 ── */}
+      <div className="flex gap-1 mb-4">
+        <button
+          onClick={() => setActiveTab("members")}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition ${
+            activeTab === "members"
+              ? "bg-blue-600 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          구성원 관리
+          <span className="ml-1.5 text-xs opacity-70">
+            ({activeProfiles.length})
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("pending")}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition flex items-center gap-1.5 ${
+            activeTab === "pending"
+              ? "bg-orange-500 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          가입 승인
+          {pendingProfiles.length > 0 && (
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded-full font-extrabold ${
+                activeTab === "pending"
+                  ? "bg-white text-orange-500"
+                  : "bg-orange-500 text-white"
+              }`}
+            >
+              {pendingProfiles.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── 가입 승인 탭 ── */}
+      {activeTab === "pending" && (
+        <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-orange-50/60 flex items-center gap-2">
+            <span className="text-sm font-bold text-orange-700">
+              가입 대기 중인 계정
+            </span>
+            <span className="text-xs text-orange-500">
+              · 승인 시 역할을 선택 후 승인해 주세요
+            </span>
+          </div>
+          {pendingProfiles.length === 0 ? (
+            <div className="py-16 text-center text-gray-400 text-sm">
+              대기 중인 가입 신청이 없습니다.
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {pendingProfiles.map((person) => (
+                <div
+                  key={person.id}
+                  className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm shrink-0">
+                      {person.full_name.slice(0, 1)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900">
+                        {person.full_name}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {person.email || "이메일 없음"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+                      value={pendingRole[person.id] || "staff"}
+                      onChange={(e) =>
+                        setPendingRole((prev) => ({
+                          ...prev,
+                          [person.id]: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="member">일반</option>
+                      <option value="staff">사역자</option>
+                      <option value="director">디렉터</option>
+                      <option value="admin">관리자</option>
+                    </select>
+                    <button
+                      onClick={() =>
+                        approvePending(person.id, person.full_name)
+                      }
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition"
+                    >
+                      승인
+                    </button>
+                    <button
+                      onClick={() =>
+                        rejectPending(person.id, person.full_name)
+                      }
+                      className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 hover:bg-red-100 transition"
+                    >
+                      거절
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 구성원 관리 탭 ── */}
+      {activeTab === "members" && (
       <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
-          <h2 className="text-sm sm:text-base font-bold text-gray-800">
-            전체 구성원 명단 ({profiles.length}명)
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center gap-3">
+          <h2 className="text-sm sm:text-base font-bold text-gray-800 shrink-0">
+            전체 구성원 ({activeProfiles.length}명)
           </h2>
+          <div className="flex items-center gap-2 flex-1 max-w-xs">
+            <input
+              type="text"
+              placeholder="이름 / 이메일 검색"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
           <button
             onClick={fetchData}
             className="text-xs text-blue-600 hover:underline"
@@ -286,7 +491,7 @@ export default function AdminTeamsPage() {
 
         {/* --- [모바일용] 카드 리스트 뷰 --- */}
         <div className="block md:hidden bg-gray-50 divide-y divide-gray-200">
-          {profiles.map((person) => (
+          {activeProfiles.map((person) => (
             <div key={person.id} className="p-4 bg-white space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center">
@@ -451,7 +656,7 @@ export default function AdminTeamsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {profiles.map((person) => (
+              {activeProfiles.map((person) => (
                 <tr
                   key={person.id}
                   className="hover:bg-gray-50 transition-colors"
@@ -589,6 +794,7 @@ export default function AdminTeamsPage() {
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

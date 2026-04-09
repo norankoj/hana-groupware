@@ -173,16 +173,30 @@ export default function ClientLayout({
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          fetchData();
-        }
+        // SIGNED_IN은 마운트 시 이미 fetchData()를 호출하므로 중복 제외
         if (event === "SIGNED_OUT") {
+          setProfile(null);
+          setMenus([]);
+          router.replace("/login");
+        }
+        if (event === "TOKEN_REFRESHED" && !session) {
           setProfile(null);
           setMenus([]);
           router.replace("/login");
         }
       },
     );
+
+    // 모바일 PWA: 앱이 백그라운드 → 포그라운드로 돌아올 때 세션 갱신
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) {
+          router.replace("/login");
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -196,6 +210,7 @@ export default function ClientLayout({
 
     return () => {
       authListener.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);

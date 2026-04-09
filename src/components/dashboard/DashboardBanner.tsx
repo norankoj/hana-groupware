@@ -1,6 +1,58 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+/** 오늘의 말씀 — 로컬 fallback */
+const FALLBACK_VERSES = [
+  { text: "여호와는 나의 목자시니 내게 부족함이 없으리로다", ref: "시편 23:1" },
+  { text: "내가 산을 향하여 눈을 들리라 나의 도움이 어디서 올까", ref: "시편 121:1" },
+  { text: "네 길을 여호와께 맡기라 그를 의지하면 그가 이루시고", ref: "시편 37:5" },
+  { text: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라", ref: "이사야 41:10" },
+  { text: "내 은혜가 네게 족하도다 이는 내 능력이 약한 데서 온전하여짐이라", ref: "고린도후서 12:9" },
+  { text: "여호와를 기뻐하라 그가 네 마음의 소원을 네게 이루어 주시리로다", ref: "시편 37:4" },
+  { text: "주의 말씀은 내 발에 등이요 내 길에 빛이니이다", ref: "시편 119:105" },
+];
+
+function DailyVerseCard() {
+  const [verse, setVerse] = useState<{ text: string; ref: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/bible-verse")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.text) setVerse(data);
+        else throw new Error("no verse");
+      })
+      .catch(() => {
+        const today = new Date();
+        const idx = (today.getFullYear() * 366 + today.getMonth() * 31 + today.getDate()) % FALLBACK_VERSES.length;
+        setVerse(FALLBACK_VERSES[idx]);
+      });
+  }, []);
+
+  return (
+    <div className="w-full sm:flex-1 min-w-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center gap-3 px-5 py-4 min-h-[160px]">
+      <p className="text-[10px] font-semibold text-gray-300 tracking-widest uppercase">
+        오늘의 말씀
+      </p>
+      {verse ? (
+        <>
+          <p className="text-sm font-bold text-gray-700 leading-relaxed">
+            &ldquo;{verse.text}&rdquo;
+          </p>
+          <p className="text-xs font-semibold text-gray-400">{verse.ref}</p>
+        </>
+      ) : (
+        <div className="animate-pulse space-y-2">
+          <div className="h-4 bg-gray-100 rounded w-full" />
+          <div className="h-4 bg-gray-100 rounded w-4/5" />
+          <div className="h-3 bg-gray-100 rounded w-20 mt-1" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Profile = {
   id: string;
@@ -20,30 +72,84 @@ interface Props {
   parkingText: string;
 }
 
+type WeatherData = {
+  temp: number;
+  feelsLike: number;
+  description: string;
+  emoji: string;
+  humidity: number;
+  pm10: number | null;
+  pm25: number | null;
+  aqius: number | null;
+  airGrade: { label: string; face: string; color: string } | null;
+};
+
+
+function pm10BadgeColor(v: number): string {
+  if (v <= 30) return "#1bc47d";
+  if (v <= 80) return "#00b0f0";
+  if (v <= 150) return "#ff6600";
+  return "#d63030";
+}
+function pm25BadgeColor(v: number): string {
+  if (v <= 15) return "#1bc47d";
+  if (v <= 35) return "#00b0f0";
+  if (v <= 75) return "#ff6600";
+  return "#d63030";
+}
+
+function useWeather() {
+  const [data, setData] = useState<WeatherData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/weather")
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.error) setData(json);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { data, loading };
+}
+
 export default function DashboardBanner({
   profile,
   pendingCount,
   myPendingCount,
-  canViewCalendar,
   parkingText,
 }: Props) {
+  const { data: weather, loading: weatherLoading } = useWeather();
+
+  const canApprove =
+    profile.is_approver ||
+    profile.role === "admin" ||
+    profile.role === "director";
+
   return (
-    <section className="flex flex-col xl:flex-row gap-6">
+    <section className="flex flex-col lg:flex-row gap-4 items-stretch">
+      {/* ── 인사 카드 (1/3) ── */}
       <Link
         href="/mypage"
-        className="flex-1 bg-gradient-to-r from-blue-700 to-blue-600 rounded-2xl p-8 text-white shadow-md relative overflow-hidden min-h-[160px] flex flex-col justify-center"
+        className="lg:w-1/3 bg-blue-600 rounded-2xl p-8 text-white shadow-sm relative overflow-hidden min-h-[160px] flex flex-col justify-center hover:bg-blue-700 transition-colors"
       >
         <div className="relative z-10">
-          <h2 className="text-3xl font-bold mb-2">
+          <h2 className="text-2xl font-bold mb-2">
             안녕하세요, {profile.full_name}님!
           </h2>
-          <p className="text-blue-100 font-medium opacity-90 flex items-center gap-2">
-            <span className="bg-white/20 px-2 py-0.5 rounded text-sm">
+          <p className="text-blue-100 font-medium opacity-90 flex items-center gap-2 text-sm">
+            <span className="bg-white/20 px-2 py-0.5 rounded text-xs">
               Today
             </span>
             {parkingText} 🚗
           </p>
+          <p className="text-blue-200 text-xs mt-2 opacity-60">
+            내 정보를 클릭해 프로필을 확인하세요
+          </p>
         </div>
+        {/* 배경 SVG 장식 */}
         <div className="absolute right-0 top-0 h-full w-1/3 opacity-10 pointer-events-none">
           <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -55,85 +161,219 @@ export default function DashboardBanner({
         </div>
       </Link>
 
-      <div className="flex flex-col sm:flex-row gap-6 w-full xl:w-auto">
-        {profile.is_approver && (
-          <Link
-            href="/vacation?tab=approve"
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-64 flex flex-col justify-between min-h-[160px]"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-1">
-                  결재 대기
-                </p>
-                <h3 className="text-3xl font-extrabold text-gray-900">
-                  {pendingCount}{" "}
-                  <span className="text-sm font-normal text-gray-400">건</span>
-                </h3>
-              </div>
-              <div
-                className={`p-3 rounded-lg ${pendingCount > 0 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-300"}`}
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div className="mt-4 text-xs font-medium text-red-500 flex items-center gap-1">
-              {pendingCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-              )}{" "}
-              승인이 필요합니다
-            </div>
-          </Link>
-        )}
+      {/* ── 우측 카드 영역 (2/3) — 한 줄 ── */}
+      <div className="lg:w-2/3 flex flex-row gap-4">
+        {/* 날씨 카드 */}
+        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between min-h-[160px]">
+          <p className="text-xs font-semibold text-gray-400 tracking-wide truncate">
+            날씨 · 용인 서천동
+          </p>
 
-        {canViewCalendar && (
-          <Link
-            href="/vacation"
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group w-full sm:w-64 flex flex-col justify-between min-h-[160px]"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-1">
-                  내 결재 진행
-                </p>
-                <h3 className="text-3xl font-extrabold text-gray-900">
-                  {myPendingCount}{" "}
-                  <span className="text-sm font-normal text-gray-400">건</span>
-                </h3>
+          {weatherLoading ? (
+            <div className="animate-pulse space-y-2 mt-3">
+              <div className="h-8 w-20 bg-gray-100 rounded" />
+              <div className="h-3 w-24 bg-gray-100 rounded" />
+            </div>
+          ) : weather ? (
+            <>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-4xl leading-none">{weather.emoji}</span>
+                <div>
+                  <p className="text-3xl font-extrabold text-gray-900 leading-tight">
+                    {weather.temp}°
+                    <span className="text-lg font-bold text-gray-400">C</span>
+                  </p>
+                  <p className="text-[11px] text-gray-400 truncate">
+                    {weather.description}
+                  </p>
+                </div>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+              <div className="flex gap-2 mt-2 text-[11px] text-gray-400">
+                <span>체감 {weather.feelsLike}°C</span>
+                <span className="text-gray-200">|</span>
+                <span>습도 {weather.humidity}%</span>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 mt-4">날씨 정보 없음</p>
+          )}
+        </div>
+
+        {/* 미세먼지 카드 */}
+        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between min-h-[160px]">
+          <p className="text-xs font-semibold text-gray-400 tracking-wide">
+            미세먼지
+          </p>
+
+          {weatherLoading ? (
+            <div className="animate-pulse space-y-3 mt-3">
+              <div className="h-5 w-full bg-gray-100 rounded" />
+              <div className="h-5 w-full bg-gray-100 rounded" />
+            </div>
+          ) : weather?.airGrade ? (
+            <>
+              {/* 이모지 + 등급 (중앙 배치) */}
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-3xl leading-none">{weather.airGrade.face}</span>
+                <span className={`text-base font-extrabold ${weather.airGrade.color}`}>
+                  {weather.airGrade.label}
+                </span>
+              </div>
+
+              {/* PM10 / PM2.5 수치 + 색상 뱃지 */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 font-medium">미세먼지</span>
+                  <div className="flex items-center gap-1.5">
+                    {weather.pm10 != null && (
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: pm10BadgeColor(weather.pm10) }} />
+                    )}
+                    <span className="font-bold text-gray-700">
+                      {weather.pm10 != null ? `${weather.pm10} ㎍` : "—"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 font-medium">초미세먼지</span>
+                  <div className="flex items-center gap-1.5">
+                    {weather.pm25 != null && (
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: pm25BadgeColor(weather.pm25) }} />
+                    )}
+                    <span className="font-bold text-gray-700">
+                      {weather.pm25 != null ? `${weather.pm25} ㎍` : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 mt-4">정보 없음</p>
+          )}
+        </div>
+
+        {/* 결재 통합 카드 */}
+        <Link
+          href={canApprove ? "/vacation?tab=approve" : "/vacation"}
+          className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between min-h-[160px] hover:border-gray-200 hover:shadow-md transition-all"
+        >
+          {canApprove ? (
+            /* 결재 권한 있는 경우: 대기 + 내 진행 */
+            <>
+              {/* 결재 대기 */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
+                    결재 대기
+                  </p>
+                  <p className="text-2xl font-extrabold text-gray-900">
+                    {pendingCount}
+                    <span className="text-sm font-normal text-gray-400 ml-1">
+                      건
+                    </span>
+                  </p>
+                </div>
+                <div
+                  className={`p-2 rounded-lg ${
+                    pendingCount > 0
+                      ? "bg-red-50 text-red-500"
+                      : "bg-gray-50 text-gray-300"
+                  }`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </div>
               </div>
-            </div>
-            <div className="mt-4 text-xs font-medium text-blue-600">
-              처리 결과를 기다리고 있어요
-            </div>
-          </Link>
-        )}
+
+              <div className="border-t border-dashed border-gray-100 my-1" />
+
+              {/* 내 결재 진행 */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
+                    내 결재 진행
+                  </p>
+                  <p className="text-2xl font-extrabold text-gray-900">
+                    {myPendingCount}
+                    <span className="text-sm font-normal text-gray-400 ml-1">
+                      건
+                    </span>
+                  </p>
+                </div>
+                <div className="p-2 rounded-lg bg-blue-50 text-blue-500">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {pendingCount > 0 && (
+                <div className="flex items-center gap-1 text-xs text-red-500 font-medium mt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  승인이 필요합니다
+                </div>
+              )}
+            </>
+          ) : (
+            /* 결재 권한 없는 경우: 내 결재 진행만 */
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
+                    내 결재 진행
+                  </p>
+                  <p className="text-3xl font-extrabold text-gray-900">
+                    {myPendingCount}
+                    <span className="text-sm font-normal text-gray-400 ml-1">
+                      건
+                    </span>
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-blue-50 text-blue-500">
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-xs text-blue-500 font-medium mt-auto pt-4">
+                처리 결과를 기다리고 있어요
+              </p>
+            </>
+          )}
+        </Link>
+
+        {/* 오늘의 말씀 카드 */}
+        <DailyVerseCard />
       </div>
     </section>
   );
