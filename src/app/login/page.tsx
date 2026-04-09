@@ -121,7 +121,7 @@ export default function LoginPage() {
       const res = await fetch("/api/sms/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: cleanPhone }),
+        body: JSON.stringify({ phone: cleanPhone, purpose: view === "signup" ? "signup" : "forgot" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "발송 실패");
@@ -228,18 +228,22 @@ export default function LoginPage() {
     }
 
     // 가입 후처리: is_registered = true + 연차 데이터 profiles 동기화
-    if (data.user?.id && data.session?.access_token) {
+    if (data.user?.id) {
       try {
         const completeRes = await fetch("/api/auth/complete-signup", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${data.session.access_token}`,
+            // 본인 확인: 가입 직후 발급된 세션 토큰 전달
+            ...(data.session?.access_token
+              ? { Authorization: `Bearer ${data.session.access_token}` }
+              : {}),
           },
           body: JSON.stringify({ userId: data.user.id, phone: cleanPhone }),
         });
         if (!completeRes.ok) {
           console.error("[signup] 프로필 동기화 실패:", await completeRes.text());
+          toast.error("프로필 설정 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
         }
       } catch (e) {
         console.error("[signup] complete-signup 요청 실패:", e);
@@ -337,6 +341,7 @@ export default function LoginPage() {
                   style={{ colorScheme: "light" }}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="이메일 또는 휴대폰 번호 입력"
                 />
               </div>
               <div>
@@ -511,7 +516,11 @@ export default function LoginPage() {
                             {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ email: resetTargetEmail }),
+                              // phone 포함: API에서 phone+email 일치 검증
+                              body: JSON.stringify({
+                                email: resetTargetEmail,
+                                phone,
+                              }),
                             },
                           );
                           const data = await res.json();

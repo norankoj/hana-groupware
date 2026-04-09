@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import toast, { Toaster } from "react-hot-toast";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import HeaderWeatherBadge from "@/components/dashboard/HeaderWeatherBadge";
+import Image from "next/image";
 
 // --- [1] Context 생성 (데이터 공유용) ---
 type Menu = {
@@ -147,39 +149,46 @@ export default function ClientLayout({
   }, [pathname]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select(`*, teams!profiles_team_id_fkey(name)`)
-        .eq("id", user.id)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData as any);
-        const { data: menuData } = await supabase
+    const fetchData = async (userId: string) => {
+      const [{ data: profileData }, { data: menuData }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(`*, teams!profiles_team_id_fkey(name)`)
+          .eq("id", userId)
+          .single(),
+        supabase
           .from("menus")
           .select("*")
           .eq("is_active", true)
-          .order("sort_order");
-        if (menuData) setMenus(menuData);
-      }
-    };
-    fetchData();
+          .order("sort_order"),
+      ]);
 
+      if (profileData) setProfile(profileData as any);
+      if (menuData) setMenus(menuData);
+    };
+
+    // onAuthStateChange로 모든 세션 상태 관리
+    // - INITIAL_SESSION: 앱 최초 로드 시 기존 세션 복원
+    // - SIGNED_IN: 실제 로그인 액션
+    // 두 이벤트 모두 session이 있으면 fetchData 호출 → 중복 없이 정확하게 처리
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // SIGNED_IN은 마운트 시 이미 fetchData()를 호출하므로 중복 제외
+        if (
+          (event === "INITIAL_SESSION" || event === "SIGNED_IN") &&
+          session?.user
+        ) {
+          fetchData(session.user.id);
+        }
         if (event === "SIGNED_OUT") {
           setProfile(null);
           setMenus([]);
           router.replace("/login");
         }
+        // 세션 만료 (토큰 갱신 실패)
         if (event === "TOKEN_REFRESHED" && !session) {
+          toast.error("세션이 만료되었습니다. 다시 로그인해 주세요.", {
+            duration: 4000,
+          });
           setProfile(null);
           setMenus([]);
           router.replace("/login");
@@ -239,6 +248,50 @@ export default function ClientLayout({
       </>
     );
 
+  // 가입 승인 대기 중인 사용자 전용 화면
+  if (profile && profile.role === "pending") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+        <Toaster />
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-10 text-center">
+          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg
+              className="w-10 h-10 text-amber-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            승인 대기 중입니다
+          </h2>
+          <p className="text-gray-500 text-sm mb-1">
+            <span className="font-bold text-gray-700">{profile.full_name}</span>
+            님, 가입을 환영합니다!
+          </p>
+          <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+            관리자가 계정을 승인하면 서비스를 이용하실 수 있습니다.
+            <br />
+            승인 완료 후 다시 로그인해 주세요.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="w-full py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition text-sm"
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const teamName = profile?.teams
     ? Array.isArray(profile.teams)
       ? profile.teams[0]?.name
@@ -279,7 +332,13 @@ export default function ClientLayout({
                 href="/"
                 className="flex items-center gap-2 text-xl font-bold text-gray-800 tracking-tight ml-2"
               >
-                수원하나교회
+                <Image
+                  src="/logo.png"
+                  alt="수원하나교회"
+                  width={180}
+                  height={50}
+                  className="object-contain"
+                />
               </Link>
             )}
 
@@ -379,6 +438,9 @@ export default function ClientLayout({
               </button>
             </div>
 
+            {/* 가운데 날씨 뱃지 */}
+            {/* <HeaderWeatherBadge /> */}
+
             {/* 우측 프로필 영역 */}
             <div className="relative" ref={dropdownRef}>
               <button
@@ -437,6 +499,7 @@ export default function ClientLayout({
 
           <Toaster
             position="top-center"
+            containerStyle={{ zIndex: 99999 }}
             toastOptions={{
               style: {
                 background: "#333",
@@ -449,22 +512,19 @@ export default function ClientLayout({
             }}
           />
         </div>
-        <Link
+        {/* 오늘 뭐먹지 플로팅 버튼 — 대시보드 바로가기로 이동 */}
+        {/* <Link
           href="/lunch"
           className="fixed bottom-6 left-6 z-50 group md:bottom-8 md:left-8 transition-transform hover:scale-110"
         >
           <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap shadow-xl pointer-events-none">
             오늘 점심 뭐 먹지?🤔
-            <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 transform rotate-45"></div>{" "}
+            <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 transform rotate-45"></div>
           </div>
-
           <div className="w-14 h-14 bg-gradient-to-tr from-orange-400 to-pink-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-bounce-slow hover:animate-none hover:rotate-12 transition-all cursor-pointer">
             <span className="text-2xl filter drop-shadow-md">🍔</span>
           </div>
-
-          {/* 물결 효과 (파동) */}
-          {/* <span className="absolute -inset-1 rounded-full bg-orange-400 opacity-30 animate-ping -z-10"></span> */}
-        </Link>
+        </Link> */}
         <ChangePasswordModal
           isOpen={isPasswordModalOpen}
           onClose={() => setIsPasswordModalOpen(false)}
