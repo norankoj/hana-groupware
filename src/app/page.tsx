@@ -62,7 +62,7 @@ export default function Home() {
   useEffect(() => {
     const today = new Date();
     setParkingText(
-      `오늘은 ${today.getDate()}일, ${today.getDate() % 2 === 0 ? "짝수" : "홀수"}차량이 주차하는 날입니다.`,
+      `오늘은 ${today.getDate()}일, 앞자리가 ${today.getDate() % 2 === 0 ? "짝수" : "홀수"}차량이 주차하는 날입니다.`,
     );
   }, []);
 
