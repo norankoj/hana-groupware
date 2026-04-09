@@ -3,7 +3,7 @@ import { format, eachDayOfInterval, getDay } from "date-fns";
 import { HOLIDAYS } from "@/constants/holidays";
 
 // --- 공통 상수 ---
-export const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차"];
+export const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차", "비전트립"];
 
 export const STATUS_OPTIONS = [
   { value: "all", label: "전체 상태" },
@@ -20,6 +20,7 @@ export const TYPE_OPTIONS = [
   { value: "경조사", label: "경조사" },
   { value: "병가", label: "병가" },
   { value: "특별휴가", label: "특별휴가" },
+  { value: "비전트립", label: "비전트립" },
 ];
 
 // --- 공통 스타일 ---

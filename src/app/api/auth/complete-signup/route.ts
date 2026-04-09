@@ -43,11 +43,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
-    // 1. allowed_users에서 연차·입사일·이전연차메모 조회
+    // 1. allowed_users에서 연차·입사일·이전연차 데이터 조회
     const normalizedPhone = phone.replace(/-/g, "");
     const { data: allowedUser, error: allowedErr } = await supabaseAdmin
       .from("allowed_users")
-      .select("id, total_leaves, used_leaves, used_leave_memo, join_date")
+      .select("id, total_leaves, used_leaves, used_leave_memo, join_date, previous_vacations")
       .eq("phone", normalizedPhone)
       .maybeSingle();
 
@@ -102,12 +102,42 @@ export async function POST(request: Request) {
       );
     }
 
+    // 4. 이전 연차 사용 내역이 있으면 vacation_requests에 자동 insert
+    let previousVacationsInserted = 0;
+    const previousVacations = allowedUser.previous_vacations as
+      | { type: string; start_date: string; end_date: string; days_count: number }[]
+      | null;
+
+    if (profileUpdated && previousVacations && previousVacations.length > 0) {
+      const rows = previousVacations.map((vac) => ({
+        user_id: userId,
+        type: vac.type,
+        start_date: vac.start_date,
+        end_date: vac.end_date,
+        days_count: vac.days_count,
+        reason: "이전연차",
+        status: "approved",
+        approver_id: userId,
+        approved_at: "2026-04-10T00:00:00+09:00",
+      }));
+
+      const { error: vacErr } = await supabaseAdmin
+        .from("vacation_requests")
+        .insert(rows);
+
+      if (vacErr) {
+        console.error("[complete-signup] 이전연차 insert 실패:", vacErr.message);
+      } else {
+        previousVacationsInserted = rows.length;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       profileUpdated,
       totalLeaves: allowedUser.total_leaves,
       usedLeaves: allowedUser.used_leaves,
-      usedLeaveMemo: allowedUser.used_leave_memo ?? null,
+      previousVacationsInserted,
     });
   } catch (error: any) {
     console.error("[complete-signup] 서버 오류:", error);
