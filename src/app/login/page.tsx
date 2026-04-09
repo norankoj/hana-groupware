@@ -229,17 +229,25 @@ export default function LoginPage() {
 
     // 가입 후처리: is_registered = true + 연차 데이터 profiles 동기화
     if (data.user?.id) {
-      await fetch("/api/auth/complete-signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // 본인 확인: 가입 직후 발급된 세션 토큰 전달
-          ...(data.session?.access_token
-            ? { Authorization: `Bearer ${data.session.access_token}` }
-            : {}),
-        },
-        body: JSON.stringify({ userId: data.user.id, phone: cleanPhone }),
-      });
+      try {
+        const completeRes = await fetch("/api/auth/complete-signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // 본인 확인: 가입 직후 발급된 세션 토큰 전달
+            ...(data.session?.access_token
+              ? { Authorization: `Bearer ${data.session.access_token}` }
+              : {}),
+          },
+          body: JSON.stringify({ userId: data.user.id, phone: cleanPhone }),
+        });
+        if (!completeRes.ok) {
+          console.error("[signup] 프로필 동기화 실패:", await completeRes.text());
+          toast.error("프로필 설정 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
+        }
+      } catch (e) {
+        console.error("[signup] complete-signup 요청 실패:", e);
+      }
     }
 
     toast.success("가입 완료! 환영합니다.");
