@@ -2,20 +2,7 @@
 
 import { useState } from "react";
 import Modal from "@/components/Modal";
-
-type Attendee = { id: string; name: string };
-
-type CalendarEvent = {
-  id: string;
-  original_id: number;
-  type: "vacation" | "schedule";
-  title: string;
-  time_label: string;
-  location?: string;
-  attendees?: Attendee[];
-  profiles: { full_name: string; position: string };
-  user_id?: string;
-};
+import type { CalendarEvent } from "@/components/dashboard/CalendarSection";
 
 type Profile = {
   id: string;
