@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
     if (menuRule) {
       // DB에 등록된 메뉴: 허용 역할 목록 검사
       const allowedRoles: string[] = menuRule.roles || [];
-      if (!allowedRoles.includes(myRole)) {
+      if (!allowedRoles.includes(myRole) && path !== "/") {
         const url = request.nextUrl.clone();
         url.pathname = "/";
         url.searchParams.set("error", "unauthorized");
