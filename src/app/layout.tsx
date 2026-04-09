@@ -1,12 +1,14 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
-// Inter 폰트 제거 — Pretendard는 globals.css에서 CDN으로 로드
+import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 import ChannelTalk from "@/components/ChannelTalk";
 import AuthListener from "@/components/AuthListener";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import ErrorBoundary from "@/components/ErrorBoundary";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "수원하나교회 그룹웨어",
@@ -38,12 +40,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body style={{ backgroundColor: "#ffffff" }}>
+      <body className={inter.className} style={{ backgroundColor: "#ffffff" }}>
         <ErrorBoundary>
           <ClientLayout>
             <AuthListener />
             {children}
-            {/* <ChannelTalk /> */}
+            <ChannelTalk />
             <PwaInstallPrompt />
           </ClientLayout>
         </ErrorBoundary>

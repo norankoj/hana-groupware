@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -178,7 +177,7 @@ export default function VacationCalendar({
       const calendarWidth = 350;
       const windowWidth = window.innerWidth;
 
-      let leftPos = rect.left;
+      let leftPos = rect.left + window.scrollX;
 
       if (rect.left + calendarWidth > windowWidth) {
         leftPos = windowWidth - calendarWidth - 20;
@@ -186,7 +185,7 @@ export default function VacationCalendar({
       if (leftPos < 10) leftPos = 10;
 
       setPickerPos({
-        top: rect.bottom + 5,
+        top: rect.bottom + window.scrollY + 5,
         left: leftPos,
         width: rect.width,
       });
@@ -238,8 +237,11 @@ export default function VacationCalendar({
     if (!(await showConfirm("휴가를 기안하시겠습니까?", confirmMessage)))
       return;
 
-    // 결재권한(is_approver)이 있는 경우에만 본인 신청 시 자동 승인
-    const isSelfApprover = user?.is_approver === true;
+    // 결재권한자(admin/director/is_approver)는 본인 신청 시 자동 승인
+    const isSelfApprover =
+      user?.is_approver ||
+      user?.role === "admin" ||
+      user?.role === "director";
 
     const now = new Date().toISOString();
 
@@ -268,7 +270,7 @@ export default function VacationCalendar({
         target_user_id: user.id,
         days: daysCount,
       });
-      toast.success("휴가 자동 승인 완료!");
+      toast.success("휴가 자동 승인 완료! (결재권한자)");
     } else {
       toast.success("결재 상신 완료!");
     }
@@ -308,75 +310,71 @@ export default function VacationCalendar({
     }
   };
 
-  const rangePicker = showRangePicker
-    ? createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-[9998]"
-            onClick={() => setShowRangePicker(false)}
-          />
-          <div
-            className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper"
-            style={{
-              top: pickerPos.top,
-              left: pickerPos.left,
-              width: pickerPos.width,
-              maxWidth: "90vw",
-            }}
-          >
-            <Calendar
-              onChange={handleRangeChange}
-              selectRange={!["오전반차", "오후반차"].includes(formData.type)}
-              value={
-                formData.start_date && formData.end_date
-                  ? [new Date(formData.start_date), new Date(formData.end_date)]
-                  : null
+  return (
+    <>
+      {/* 팝업 달력 포탈 */}
+      {showRangePicker && (
+        <div
+          className="fixed inset-0 z-[9998]"
+          onClick={() => setShowRangePicker(false)}
+        />
+      )}
+      {showRangePicker && (
+        <div
+          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+          style={{
+            top: pickerPos.top,
+            left: pickerPos.left,
+            width: pickerPos.width,
+            maxWidth: "90vw",
+          }}
+        >
+          <Calendar
+            onChange={handleRangeChange}
+            selectRange={!["오전반차", "오후반차"].includes(formData.type)}
+            value={
+              formData.start_date && formData.end_date
+                ? [new Date(formData.start_date), new Date(formData.end_date)]
+                : null
+            }
+            formatDay={(locale, date) => format(date, "d")}
+            calendarType="gregory"
+            locale="ko-KR"
+            minDate={new Date()}
+            tileClassName={({ date, view }) => {
+              if (view !== "month") return null;
+              const dateStr = format(date, "yyyy-MM-dd");
+              if (HOLIDAYS[dateStr]) {
+                return "holiday-day";
               }
-              formatDay={(locale, date) => format(date, "d")}
-              calendarType="gregory"
-              locale="ko-KR"
-              minDate={new Date()}
-              tileClassName={({ date, view }) => {
-                if (view !== "month") return null;
-                const dateStr = format(date, "yyyy-MM-dd");
-                if (HOLIDAYS[dateStr]) {
-                  return "holiday-day";
-                }
-                const isUnavailable = myRequests.some(
+              const isUnavailable = myRequests.some(
+                (req) =>
+                  (req.status === "approved" || req.status === "pending") &&
+                  dateStr >= req.start_date &&
+                  dateStr <= req.end_date,
+              );
+              if (isUnavailable)
+                return "!bg-gray-100 !text-gray-400 cursor-not-allowed";
+            }}
+            tileDisabled={({ date, view }) => {
+              if (view !== "month") return false;
+              const dateStr = format(date, "yyyy-MM-dd");
+              const day = date.getDay();
+              return (
+                !!HOLIDAYS[dateStr] ||
+                day === 1 ||
+                day === 6 ||
+                myRequests.some(
                   (req) =>
                     (req.status === "approved" || req.status === "pending") &&
                     dateStr >= req.start_date &&
                     dateStr <= req.end_date,
-                );
-                if (isUnavailable)
-                  return "!bg-gray-100 !text-gray-400 cursor-not-allowed";
-              }}
-              tileDisabled={({ date, view }) => {
-                if (view !== "month") return false;
-                const dateStr = format(date, "yyyy-MM-dd");
-                const day = date.getDay();
-                return (
-                  !!HOLIDAYS[dateStr] ||
-                  day === 1 ||
-                  day === 6 ||
-                  myRequests.some(
-                    (req) =>
-                      (req.status === "approved" || req.status === "pending") &&
-                      dateStr >= req.start_date &&
-                      dateStr <= req.end_date,
-                  )
-                );
-              }}
-            />
-          </div>
-        </>,
-        document.body,
-      )
-    : null;
-
-  return (
-    <>
-      {rangePicker}
+                )
+              );
+            }}
+          />
+        </div>
+      )}
 
       {/* 메인 레이아웃 */}
       {/* 2. 수정: 왼쪽 패널 높이를 모바일에서도 고정 (h-[580px]) */}
