@@ -228,12 +228,22 @@ export default function LoginPage() {
     }
 
     // 가입 후처리: is_registered = true + 연차 데이터 profiles 동기화
-    if (data.user?.id) {
-      await fetch("/api/auth/complete-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: data.user.id, phone: cleanPhone }),
-      });
+    if (data.user?.id && data.session?.access_token) {
+      try {
+        const completeRes = await fetch("/api/auth/complete-signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.session.access_token}`,
+          },
+          body: JSON.stringify({ userId: data.user.id, phone: cleanPhone }),
+        });
+        if (!completeRes.ok) {
+          console.error("[signup] 프로필 동기화 실패:", await completeRes.text());
+        }
+      } catch (e) {
+        console.error("[signup] complete-signup 요청 실패:", e);
+      }
     }
 
     toast.success("가입 완료! 환영합니다.");
