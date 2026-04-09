@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import Modal from "@/components/Modal";
 import Calendar from "react-calendar";
@@ -60,7 +61,7 @@ export default function ScheduleAddModal({
       const calendarWidth = 350;
       const windowWidth = window.innerWidth;
 
-      let leftPos = rect.left + window.scrollX;
+      let leftPos = rect.left;
 
       if (rect.left + calendarWidth > windowWidth) {
         leftPos = windowWidth - calendarWidth - 20;
@@ -68,7 +69,7 @@ export default function ScheduleAddModal({
       if (leftPos < 10) leftPos = 10;
 
       setPickerPos({
-        top: rect.bottom + window.scrollY + 5,
+        top: rect.bottom + 5,
         left: leftPos,
         width: rect.width,
       });
@@ -172,56 +173,61 @@ export default function ScheduleAddModal({
     setLoading(false);
   };
 
+  const datePicker = showDatePicker
+    ? createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={() => setShowDatePicker(false)}
+          />
+          <div
+            className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+            style={{
+              top: pickerPos.top,
+              left: pickerPos.left,
+              width: pickerPos.width,
+              maxWidth: "90vw",
+            }}
+          >
+            <style>{`
+              .range-calendar-wrapper .react-calendar__month-view__days {
+                display: grid !important;
+                grid-template-columns: repeat(7, 1fr) !important;
+                height: auto !important;
+              }
+              .range-calendar-wrapper .react-calendar__month-view__weekdays {
+                display: grid !important;
+                grid-template-columns: repeat(7, 1fr) !important;
+              }
+              .range-calendar-wrapper .react-calendar__tile {
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+            `}</style>
+
+            <Calendar
+              onChange={handleRangeChange}
+              selectRange={true}
+              value={
+                form.startDate && form.endDate
+                  ? [new Date(form.startDate), new Date(form.endDate)]
+                  : null
+              }
+              formatDay={(locale, date) => format(date, "d")}
+              calendarType="gregory"
+              locale="ko-KR"
+            />
+          </div>
+        </>,
+        document.body,
+      )
+    : null;
+
   return (
     <>
-      {showDatePicker && (
-        <div
-          className="fixed inset-0 z-[9998]"
-          onClick={() => setShowDatePicker(false)}
-        />
-      )}
-      {showDatePicker && (
-        <div
-          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
-          style={{
-            top: pickerPos.top,
-            left: pickerPos.left,
-            width: pickerPos.width,
-            maxWidth: "90vw",
-          }}
-        >
-          <style>{`
-            .range-calendar-wrapper .react-calendar__month-view__days {
-              display: grid !important;
-              grid-template-columns: repeat(7, 1fr) !important;
-              height: auto !important;
-            }
-            .range-calendar-wrapper .react-calendar__month-view__weekdays {
-              display: grid !important;
-              grid-template-columns: repeat(7, 1fr) !important;
-            }
-            .range-calendar-wrapper .react-calendar__tile {
-              height: 40px !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-            }
-          `}</style>
-
-          <Calendar
-            onChange={handleRangeChange}
-            selectRange={true}
-            value={
-              form.startDate && form.endDate
-                ? [new Date(form.startDate), new Date(form.endDate)]
-                : null
-            }
-            formatDay={(locale, date) => format(date, "d")}
-            calendarType="gregory"
-            locale="ko-KR"
-          />
-        </div>
-      )}
+      {datePicker}
 
       <Modal
         isOpen={isOpen}
