@@ -238,11 +238,8 @@ export default function VacationCalendar({
     if (!(await showConfirm("휴가를 기안하시겠습니까?", confirmMessage)))
       return;
 
-    // 결재권한자(admin/director/is_approver)는 본인 신청 시 자동 승인
-    const isSelfApprover =
-      user?.is_approver ||
-      user?.role === "admin" ||
-      user?.role === "director";
+    // 결재권한(is_approver)이 있는 경우에만 본인 신청 시 자동 승인
+    const isSelfApprover = user?.is_approver === true;
 
     const now = new Date().toISOString();
 
@@ -271,7 +268,7 @@ export default function VacationCalendar({
         target_user_id: user.id,
         days: daysCount,
       });
-      toast.success("휴가 자동 승인 완료! (결재권한자)");
+      toast.success("휴가 자동 승인 완료!");
     } else {
       toast.success("결재 상신 완료!");
     }
