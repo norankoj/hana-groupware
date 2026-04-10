@@ -12,7 +12,8 @@ const PAD_X = 32;
 const PAD_Y = 36;
 const H = 320;
 
-type Rung = { col: number; y: number }; // horizontal bar between col and col+1
+type Rung = { col: number; y: number };
+type PathEntry = { col: number; path: [number, number][]; endCol: number };
 
 function generateLadder(n: number): Rung[] {
   const innerH = H - PAD_Y * 2;
@@ -48,6 +49,8 @@ function tracePath(startCol: number, cols: number[], rungs: Rung[]): [number, nu
   return pts;
 }
 
+const PATH_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#0ea5e9", "#f97316"];
+
 export default function LadderGame({ names, onFireConfetti }: Props) {
   const n = names.length;
   const svgWidth = Math.max(260, PAD_X * 2 + (n - 1) * Math.min(70, 260 / Math.max(n - 1, 1)));
@@ -56,22 +59,21 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
 
   const [rungs, setRungs] = useState<Rung[]>([]);
   const [results, setResults] = useState<string[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [path, setPath] = useState<[number, number][]>([]);
-  const [animDone, setAnimDone] = useState(false);
-  const [endCol, setEndCol] = useState<number>(-1);
-  const pathRef = useRef<SVGPathElement>(null);
+  const [completedPaths, setCompletedPaths] = useState<PathEntry[]>([]);
+  const [activePath, setActivePath] = useState<PathEntry | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const animKeyRef = useRef(0);
+
+  const allDone = completedPaths.length === n;
 
   const reset = () => {
     const newRungs = generateLadder(n);
     const res = Array.from({ length: n }, (_, i) => (i === 0 ? "당첨" : "꽝")).sort(() => Math.random() - 0.5);
     setRungs(newRungs);
     setResults(res);
-    setSelected(null);
-    setPath([]);
-    setAnimDone(false);
-    setEndCol(-1);
+    setCompletedPaths([]);
+    setActivePath(null);
+    setIsAnimating(false);
   };
 
   useEffect(() => {
@@ -79,18 +81,23 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
   }, [n]);
 
   const select = (col: number) => {
-    if (selected !== null || animDone) return;
+    if (isAnimating) return;
+    if (completedPaths.some((p) => p.col === col)) return;
+    if (activePath?.col === col) return;
+
     const pts = tracePath(col, cols, rungs);
-    const finalCol = tracePath(col, cols, rungs);
-    const ec = (finalCol[finalCol.length - 1][0] - PAD_X) / (colW || 1);
-    setEndCol(Math.round(ec));
-    setPath(pts);
-    setSelected(col);
+    const ec = Math.round((pts[pts.length - 1][0] - PAD_X) / (colW || 1));
+    const entry: PathEntry = { col, path: pts, endCol: ec };
+
+    setActivePath(entry);
+    setIsAnimating(true);
     animKeyRef.current += 1;
 
     setTimeout(() => {
-      setAnimDone(true);
-      if (results[Math.round(ec)] === "당첨") onFireConfetti();
+      setIsAnimating(false);
+      setActivePath(null);
+      setCompletedPaths((prev) => [...prev, entry]);
+      if (results[ec] === "당첨") onFireConfetti();
     }, 1600);
   };
 
@@ -98,12 +105,18 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
     return <p className="text-center text-gray-400 py-8">참가자를 2명 이상 입력해 주세요</p>;
   }
 
-  const pathD = path.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt[0].toFixed(1)} ${pt[1].toFixed(1)}`).join(" ");
+  const allPaths = [...completedPaths, ...(activePath ? [activePath] : [])];
 
   return (
     <div className="flex flex-col items-center gap-5">
       <p className="text-sm text-gray-500">
-        {selected === null ? "내 이름을 클릭해 사다리를 타세요!" : animDone ? "결과 확인!" : "사다리 타는 중..."}
+        {isAnimating
+          ? "사다리 타는 중..."
+          : allDone
+            ? "모두 완료! 결과를 확인하세요 🎉"
+            : completedPaths.length === 0
+              ? "내 이름을 클릭해 사다리를 타세요!"
+              : `${completedPaths.length}명 완료 — 다음 사람이 이름을 클릭하세요`}
       </p>
 
       <div className="w-full overflow-x-auto">
@@ -135,46 +148,72 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
             />
           ))}
 
-          {/* Animated path */}
-          {pathD && (
-            <path
-              key={animKeyRef.current}
-              ref={pathRef}
-              d={pathD}
-              fill="none"
-              stroke="#6366f1"
-              strokeWidth={4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              pathLength={1}
-              strokeDasharray={1}
-              strokeDashoffset={1}
-              style={{ animation: "drawPath 1.5s linear forwards" }}
-            />
-          )}
+          {/* Completed paths */}
+          {completedPaths.map((entry, pi) => {
+            const pathD = entry.path
+              .map((pt, i) => `${i === 0 ? "M" : "L"} ${pt[0].toFixed(1)} ${pt[1].toFixed(1)}`)
+              .join(" ");
+            return (
+              <path
+                key={`done-${pi}`}
+                d={pathD}
+                fill="none"
+                stroke={PATH_COLORS[entry.col % PATH_COLORS.length]}
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={0.6}
+              />
+            );
+          })}
+
+          {/* Active (animating) path */}
+          {activePath && (() => {
+            const pathD = activePath.path
+              .map((pt, i) => `${i === 0 ? "M" : "L"} ${pt[0].toFixed(1)} ${pt[1].toFixed(1)}`)
+              .join(" ");
+            return (
+              <path
+                key={`anim-${animKeyRef.current}`}
+                d={pathD}
+                fill="none"
+                stroke={PATH_COLORS[activePath.col % PATH_COLORS.length]}
+                strokeWidth={4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                pathLength={1}
+                strokeDasharray={1}
+                strokeDashoffset={1}
+                style={{ animation: "drawPath 1.5s linear forwards" }}
+              />
+            );
+          })()}
 
           {/* Names at top */}
           {names.map((name, i) => {
-            const isSelected = selected === i;
+            const isDone = completedPaths.some((p) => p.col === i);
+            const isActive = activePath?.col === i;
+            const isClickable = !isAnimating && !isDone;
             return (
               <g
                 key={i}
                 onClick={() => select(i)}
-                style={{ cursor: selected === null ? "pointer" : "default" }}
+                style={{ cursor: isClickable ? "pointer" : "default" }}
               >
                 <rect
                   x={cols[i] - 26} y={2}
                   width={52} height={26}
                   rx={7}
-                  fill={isSelected ? "#6366f1" : "#f3f4f6"}
-                  stroke={isSelected ? "#4f46e5" : "#e5e7eb"}
+                  fill={isActive ? PATH_COLORS[i % PATH_COLORS.length] : isDone ? "#e0e7ff" : "#f3f4f6"}
+                  stroke={isActive || isDone ? PATH_COLORS[i % PATH_COLORS.length] : "#e5e7eb"}
+                  opacity={isDone ? 0.6 : 1}
                 />
                 <text
                   x={cols[i]} y={19}
                   textAnchor="middle"
                   fontSize={10}
                   fontWeight="bold"
-                  fill={isSelected ? "white" : "#374151"}
+                  fill={isActive ? "white" : isDone ? PATH_COLORS[i % PATH_COLORS.length] : "#374151"}
                 >
                   {name.length > 4 ? name.slice(0, 4) + "…" : name}
                 </text>
@@ -185,24 +224,26 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
           {/* Results at bottom */}
           {results.map((res, i) => {
             const isWinner = res === "당첨";
-            const isEnd = animDone && endCol === i;
+            const doneEntry = completedPaths.find((p) => p.endCol === i);
+            const isRevealed = !!doneEntry || (activePath?.endCol === i && isAnimating);
+            const isFullyRevealed = !!doneEntry;
             return (
               <g key={i}>
                 <rect
                   x={cols[i] - 24} y={H - PAD_Y + 6}
                   width={48} height={22}
                   rx={6}
-                  fill={isEnd && isWinner ? "#fef08a" : isEnd ? "#fee2e2" : "#f9fafb"}
-                  stroke={isEnd && isWinner ? "#ca8a04" : isEnd ? "#fca5a5" : "#e5e7eb"}
+                  fill={isFullyRevealed && isWinner ? "#fef08a" : isFullyRevealed ? "#fee2e2" : "#f9fafb"}
+                  stroke={isFullyRevealed && isWinner ? "#ca8a04" : isFullyRevealed ? "#fca5a5" : "#e5e7eb"}
                 />
                 <text
                   x={cols[i]} y={H - PAD_Y + 21}
                   textAnchor="middle"
                   fontSize={10}
                   fontWeight="bold"
-                  fill={animDone ? (isWinner ? "#92400e" : "#9ca3af") : "#d1d5db"}
+                  fill={isFullyRevealed ? (isWinner ? "#92400e" : "#9ca3af") : "#d1d5db"}
                 >
-                  {animDone ? res : "?"}
+                  {isFullyRevealed ? res : "?"}
                 </text>
               </g>
             );
@@ -210,15 +251,24 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
         </svg>
       </div>
 
-      {animDone && endCol >= 0 && (
-        <div className={`text-center rounded-2xl px-8 py-4 border-2
-          ${results[endCol] === "당첨" ? "bg-yellow-50 border-yellow-300" : "bg-gray-50 border-gray-200"}`}
-        >
-          <p className="text-xs text-gray-400 mb-1">결과</p>
-          <p className={`text-2xl font-extrabold ${results[endCol] === "당첨" ? "text-yellow-600" : "text-gray-400"}`}>
-            {results[endCol] === "당첨" ? "🎉 당첨!" : "😢 꽝"}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">{names[selected!]}</p>
+      {/* 개별 결과 카드 */}
+      {completedPaths.length > 0 && (
+        <div className="flex flex-wrap gap-2 justify-center w-full">
+          {completedPaths.map((entry, pi) => {
+            const res = results[entry.endCol];
+            const isWinner = res === "당첨";
+            return (
+              <div
+                key={pi}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-bold
+                  ${isWinner ? "bg-yellow-50 border-yellow-300 text-yellow-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}
+              >
+                <span style={{ color: PATH_COLORS[entry.col % PATH_COLORS.length] }}>●</span>
+                <span>{names[entry.col]}</span>
+                <span>{isWinner ? "🎉 당첨" : "😢 꽝"}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 

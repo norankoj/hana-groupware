@@ -127,14 +127,14 @@ export default function GamesPage() {
           {names.map((name, i) => (
             <div
               key={i}
-              className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1"
+              className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1 max-w-full"
             >
               <input
                 type="text"
                 value={name}
                 onChange={(e) => updateName(i, e.target.value)}
                 placeholder={`참가자 ${i + 1}`}
-                className="text-sm font-medium text-indigo-700 bg-transparent outline-none w-20"
+                className="text-sm font-medium text-indigo-700 bg-transparent outline-none w-16 min-w-0"
                 maxLength={8}
               />
               <button

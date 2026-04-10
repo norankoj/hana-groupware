@@ -266,7 +266,7 @@ export default function NoticeDetailPage() {
         {/* 본문 */}
         <div className="px-6 py-6">
           <div
-            className="prose prose-sm max-w-none text-gray-800 leading-relaxed"
+            className="prose prose-sm max-w-none text-gray-800 leading-relaxed break-words [&_a]:break-all"
             dangerouslySetInnerHTML={{ __html: notice.content }}
           />
         </div>

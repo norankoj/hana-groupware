@@ -279,7 +279,7 @@ export default function GoogleCalendarWidget({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
           <div className="flex items-center gap-2">
             <span className="text-lg">📅</span>
-            <h3 className="font-bold text-gray-800 text-sm">사역 일정(구글 캘린더)</h3>
+            <h3 className="font-bold text-gray-800 text-sm">사역 일정<span className="hidden sm:inline">(구글 캘린더)</span></h3>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
