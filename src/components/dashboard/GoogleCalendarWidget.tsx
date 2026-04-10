@@ -218,8 +218,9 @@ export default function GoogleCalendarWidget({
   useEffect(() => {
     if (!loading && todayRef.current && scrollRef.current && isSameMonth(currentMonth, today)) {
       setTimeout(() => {
-        const container = scrollRef.current!;
-        const item = todayRef.current!;
+        const container = scrollRef.current;
+        const item = todayRef.current;
+        if (!container || !item) return;
         const itemRect = item.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
         const scrollOffset = itemRect.top - containerRect.top + container.scrollTop;
