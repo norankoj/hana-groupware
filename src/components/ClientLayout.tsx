@@ -326,17 +326,17 @@ export default function ClientLayout({
           `}
         >
           <div className="h-16 relative flex items-center justify-end px-4 border-b border-gray-100 flex-shrink-0 overflow-hidden">
-            {/* 로고 가운데 정렬 */}
+            {/* 로고 */}
             {(!isCollapsed || isMobileMenuOpen) && (
               <Link
                 href="/"
-                className="absolute left-1/2 -translate-x-1/2 flex items-center"
+                className="flex items-center text-xl font-bold text-gray-800 tracking-tight mr-2"
               >
                 <Image
                   src="/logo.png"
                   alt="수원하나교회"
-                  width={150}
-                  height={40}
+                  width={180}
+                  height={50}
                   className="object-contain"
                 />
               </Link>
