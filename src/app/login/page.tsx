@@ -306,6 +306,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-gray-100">
+      {/* 회원가입 로딩 오버레이 */}
+      {loading && view === "signup" && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-gray-800 font-bold text-base">가입 처리 중입니다...</p>
+            <p className="text-gray-400 text-sm">잠시만 기다려 주세요</p>
+          </div>
+        </div>
+      )}
       <div className="max-w-md w-full space-y-8 p-8 md:p-10 rounded-3xl shadow-xl bg-white relative overflow-hidden">
         <div className="text-center flex flex-col items-center relative z-10">
           <Image
