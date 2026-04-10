@@ -94,9 +94,9 @@ const DEFAULT_STYLE = {
 };
 
 const SCHEDULE_STYLE = {
-  bg: "bg-teal-50",
-  text: "text-teal-700",
-  border: "border-teal-200",
+  bg: "bg-indigo-50",
+  text: "text-indigo-700",
+  border: "border-indigo-200",
 };
 
 interface Props {
@@ -506,7 +506,7 @@ export default function CalendarSection({
                         </div>
                         <div className="flex flex-col items-end gap-1 flex-shrink-0 pl-2">
                           <span
-                            className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${e.type === "schedule" ? "bg-teal-50 text-teal-600 border-teal-100" : "bg-blue-50 text-blue-600 border-blue-100"}`}
+                            className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${e.type === "schedule" ? "bg-indigo-50 text-indigo-600 border-indigo-100" : "bg-blue-50 text-blue-600 border-blue-100"}`}
                           >
                             {e.type === "schedule" ? "일정" : "휴가"}
                           </span>
