@@ -224,7 +224,6 @@ export default function LunchPage() {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }
