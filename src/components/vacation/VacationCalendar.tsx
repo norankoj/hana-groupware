@@ -822,7 +822,10 @@ export default function VacationCalendar({
       {/* 기안 작성 모달 (기존 코드 유지) */}
       <Modal
         isOpen={isRequestModalOpen}
-        onClose={() => setIsRequestModalOpen(false)}
+        onClose={() => {
+          setIsRequestModalOpen(false);
+          setShowRangePicker(false);
+        }}
         title="휴가 기안 작성"
         footer={
           <>
