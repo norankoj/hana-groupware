@@ -99,6 +99,49 @@ const SCHEDULE_STYLE = {
   border: "border-indigo-200",
 };
 
+const BIRTHDAY_STYLE = {
+  bg: "bg-pink-50",
+  text: "text-pink-600",
+  border: "border-pink-200",
+};
+
+// 생일 데이터 (MM-DD → 이름 배열)
+const BIRTHDAYS: Record<string, string[]> = {
+  "01-04": ["최성우"],
+  "01-12": ["박현배"],
+  "01-31": ["고성호"],
+  "02-19": ["허도영"],
+  "02-20": ["박희주", "장혜영"],
+  "02-22": ["안진환"],
+  "03-21": ["최은빈"],
+  "03-25": ["신상철"],
+  "04-02": ["김건웅"],
+  "04-08": ["최해람"],
+  "04-24": ["고성준"],
+  "04-25": ["김세빛"],
+  "06-03": ["이지형"],
+  "06-05": ["이요한"],
+  "07-05": ["차주은"],
+  "07-12": ["이성진", "김태환"],
+  "08-03": ["김동희"],
+  "08-29": ["이민형"],
+  "09-02": ["이원근"],
+  "09-07": ["엘리야"],
+  "09-11": ["윤성철"],
+  "09-29": ["이정민"],
+  "11-06": ["박수경"],
+  "11-10": ["노나연"],
+  "12-02": ["김완호"],
+  "12-10": ["국승혜", "정경아"],
+  "12-17": ["김세록"],
+};
+
+// 특정 날짜의 생일자 조회 (MM-DD 기준)
+const getBirthdaysOnDate = (dateStr: string): string[] => {
+  const mmdd = dateStr.slice(5); // "yyyy-MM-dd" → "MM-dd"
+  return BIRTHDAYS[mmdd] || [];
+};
+
 interface Props {
   allEvents: CalendarEvent[];
   teams: TeamInfo[];
@@ -343,6 +386,7 @@ export default function CalendarSection({
                       if (view !== "month") return null;
                       const dateStr = format(d, "yyyy-MM-dd");
                       const holiday = HOLIDAYS[dateStr];
+                      const birthdays = getBirthdaysOnDate(dateStr);
                       const eventsOnDay = holiday
                         ? []
                         : allEvents.filter(
@@ -350,10 +394,17 @@ export default function CalendarSection({
                               dateStr >= e.start_date &&
                               dateStr <= e.end_date,
                           );
+                      const allItems = [
+                        ...birthdays.map((name) => ({ type: "birthday" as const, text: `🎂${name}` })),
+                        ...eventsOnDay.map((e) => ({
+                          type: e.type,
+                          text: e.type === "schedule" ? e.title : `${e.display_name} ${e.title}`,
+                          style: e.type === "schedule" ? SCHEDULE_STYLE : TEAM_STYLES[e.profiles.team_id] || DEFAULT_STYLE,
+                        })),
+                      ];
                       const maxDisplay = 3;
-                      const displayEvents = eventsOnDay.slice(0, maxDisplay);
-                      const overflowCount =
-                        eventsOnDay.length - maxDisplay;
+                      const displayItems = allItems.slice(0, maxDisplay);
+                      const overflowCount = allItems.length - maxDisplay;
 
                       return (
                         <div className="flex flex-col items-center w-full h-full pt-1 overflow-hidden">
@@ -363,22 +414,14 @@ export default function CalendarSection({
                             </div>
                           )}
                           <div className="w-full flex flex-col gap-0.5 mt-1 px-0.5">
-                            {displayEvents.map((e, i) => {
-                              const style =
-                                e.type === "schedule"
-                                  ? SCHEDULE_STYLE
-                                  : TEAM_STYLES[e.profiles.team_id] ||
-                                    DEFAULT_STYLE;
-                              const displayText =
-                                e.type === "schedule"
-                                  ? e.title
-                                  : `${e.display_name} ${e.title}`;
+                            {displayItems.map((item, i) => {
+                              const style = item.type === "birthday" ? BIRTHDAY_STYLE : (item as any).style || DEFAULT_STYLE;
                               return (
                                 <div
-                                  key={e.id + i}
+                                  key={`${dateStr}_${i}`}
                                   className={`text-[9px] ${style.bg} ${style.text} border ${style.border} rounded px-1 py-0.5 truncate text-center font-bold cursor-pointer hover:opacity-80 transition-opacity`}
                                 >
-                                  {displayText}
+                                  {item.text}
                                 </div>
                               );
                             })}
@@ -435,6 +478,14 @@ export default function CalendarSection({
                                 🎉 {holiday}
                               </div>
                             )}
+                            {getBirthdaysOnDate(dateStr).map((name, bi) => (
+                              <div
+                                key={`bday_${dateStr}_${bi}`}
+                                className={`px-2 py-1 rounded-md inline-flex items-center gap-1 text-xs font-bold border hover:opacity-80 transition-opacity ${BIRTHDAY_STYLE.bg} ${BIRTHDAY_STYLE.text} ${BIRTHDAY_STYLE.border}`}
+                              >
+                                🎂{name}
+                              </div>
+                            ))}
                             {eventsOnDay.map((e) => {
                               const style =
                                 e.type === "schedule"
@@ -471,12 +522,31 @@ export default function CalendarSection({
                   {format(date, "M월 d일 (EEE)", { locale: ko })}
                 </h4>
                 <span className="text-xs font-medium text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
-                  총 {selectedEvents.length}건
+                  총 {selectedEvents.length + getBirthdaysOnDate(format(date, "yyyy-MM-dd")).length}건
                 </span>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-                {selectedEvents.length > 0 ? (
+                {(selectedEvents.length > 0 || getBirthdaysOnDate(format(date, "yyyy-MM-dd")).length > 0) ? (
                   <ul className="divide-y divide-gray-100">
+                    {getBirthdaysOnDate(format(date, "yyyy-MM-dd")).map((name, bi) => (
+                      <li
+                        key={`bday_side_${bi}`}
+                        className="flex items-center justify-between px-5 py-3.5 hover:bg-pink-50/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-lg bg-pink-50 border border-pink-200">
+                            🎂
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">{name}</span>
+                            <span className="text-xs text-pink-500 font-medium">생일 축하합니다!</span>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border bg-pink-50 text-pink-600 border-pink-100">
+                          생일
+                        </span>
+                      </li>
+                    ))}
                     {selectedEvents.map((e) => (
                       <li
                         key={e.id}
