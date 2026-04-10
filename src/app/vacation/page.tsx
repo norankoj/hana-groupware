@@ -64,13 +64,13 @@ function VacationContent() {
         .neq("status", "cancelled")
         .order("start_date", { ascending: false });
       if (allData) {
-        const sortedData = (allData as any).sort((a: any, b: any) =>
-          a.status === "pending" && b.status !== "pending"
-            ? -1
-            : a.status !== "pending" && b.status === "pending"
-              ? 1
-              : 0,
-        );
+        const sortedData = (allData as any).sort((a: any, b: any) => {
+          // 1순위: pending 우선
+          if (a.status === "pending" && b.status !== "pending") return -1;
+          if (a.status !== "pending" && b.status === "pending") return 1;
+          // 2순위: start_date 내림차순
+          return b.start_date.localeCompare(a.start_date);
+        });
         setApprovalList(sortedData);
       }
     }
