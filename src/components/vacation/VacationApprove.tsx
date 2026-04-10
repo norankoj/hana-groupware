@@ -119,6 +119,35 @@ export default function VacationApprove({
     onRefresh();
   };
 
+  const handleCancel = async () => {
+    if (!selectedRequest) return;
+    if (!(await showConfirm("승인을 취소하시겠습니까?\n사용 일수가 다시 차감 해제됩니다."))) return;
+
+    const { error } = await supabase
+      .from("vacation_requests")
+      .update({
+        status: "cancelled",
+        approver_id: null,
+        approved_at: null,
+      })
+      .eq("id", selectedRequest.id)
+      .eq("status", "approved");
+
+    if (error) return toast.error("오류 발생: " + error.message);
+
+    // 차감됐던 일수 복구
+    if (DEDUCTIBLE_TYPES.includes(selectedRequest.type)) {
+      await supabase.rpc("increment_used_leave_days", {
+        target_user_id: selectedRequest.user_id,
+        days: -selectedRequest.days_count,
+      });
+    }
+
+    toast.success("승인이 취소되었습니다.");
+    setIsDetailModalOpen(false);
+    onRefresh();
+  };
+
   return (
     <>
       <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col h-[500px] sm:h-[650px] animate-fadeIn">
@@ -382,6 +411,21 @@ export default function VacationApprove({
                 </button>
               </>
             )
+          ) : selectedRequest?.status === "approved" && user?.is_approver ? (
+            <>
+              <button
+                onClick={handleCancel}
+                className={btnStyles.delete}
+              >
+                승인 취소
+              </button>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className={btnStyles.cancel}
+              >
+                닫기
+              </button>
+            </>
           ) : (
             <button
               onClick={() => setIsDetailModalOpen(false)}
