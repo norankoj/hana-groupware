@@ -62,7 +62,7 @@ function VacationContent() {
           "*, profiles:user_id(full_name, team_id, position, used_leave_days), approver:approver_id(full_name)",
         )
         .neq("status", "cancelled")
-        .order("created_at", { ascending: false });
+        .order("start_date", { ascending: false });
       if (allData) {
         const sortedData = (allData as any).sort((a: any, b: any) =>
           a.status === "pending" && b.status !== "pending"
