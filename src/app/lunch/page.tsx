@@ -6,15 +6,6 @@ import dynamic from "next/dynamic";
 import confetti from "canvas-confetti";
 import toast from "react-hot-toast";
 
-const RouletteGame = dynamic(() => import("@/components/lunch/RouletteGame"), {
-  ssr: false,
-});
-const LotteryGame = dynamic(() => import("@/components/lunch/LotteryGame"), {
-  ssr: false,
-});
-const LadderGame = dynamic(() => import("@/components/lunch/LadderGame"), {
-  ssr: false,
-});
 
 type Restaurant = {
   id: string;
@@ -26,18 +17,8 @@ type Restaurant = {
   address: string;
 };
 
-type Tab = "restaurant" | "roulette" | "lottery" | "ladder";
-
-const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: "restaurant", label: "식당 랜덤", icon: "🍽️" },
-  { key: "roulette", label: "룰렛", icon: "🎰" },
-  { key: "lottery", label: "제비뽑기", icon: "🎫" },
-  { key: "ladder", label: "사다리타기", icon: "🪜" },
-];
 
 export default function LunchPage() {
-  const [tab, setTab] = useState<Tab>("restaurant");
-
   // ─── 식당 랜덤 상태 ───
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [displayMenu, setDisplayMenu] = useState<Restaurant | null>(null);
@@ -47,9 +28,6 @@ export default function LunchPage() {
   const [currentKeyword, setCurrentKeyword] = useState("");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ─── 게임 공통 상태 (이름 목록) ───
-  const [names, setNames] = useState<string[]>(["", "", ""]);
-  const [nameInput, setNameInput] = useState("");
 
   useEffect(() => {
     fetchLunch();
@@ -121,23 +99,6 @@ export default function LunchPage() {
     }, 250);
   };
 
-  // ─── 이름 관리 ───
-  const validNames = names.filter((n) => n.trim() !== "");
-
-  const addName = () => {
-    const trimmed = nameInput.trim();
-    if (!trimmed) return;
-    setNames((prev) => [...prev, trimmed]);
-    setNameInput("");
-  };
-
-  const removeName = (i: number) => {
-    setNames((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
-  const updateName = (i: number, value: string) => {
-    setNames((prev) => prev.map((n, idx) => (idx === i ? value : n)));
-  };
 
   if (loading)
     return (
@@ -159,24 +120,8 @@ export default function LunchPage() {
         <p className="text-gray-500 text-sm">랜덤 선택 도우미</p>
       </div>
 
-      {/* 탭 */}
-      <div className="flex w-full border-b border-gray-200 mb-6">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 pb-3 text-xs sm:text-sm font-medium border-b-2 transition whitespace-nowrap flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1
-              ${tab === t.key ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-          >
-            <span>{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ─── 식당 랜덤 탭 ─── */}
-      {tab === "restaurant" && (
-        <div className="w-full flex flex-col items-center gap-0">
+      {/* ─── 식당 랜덤 ─── */}
+      <div className="w-full flex flex-col items-center gap-0">
           <p className="text-gray-500 text-sm mb-6 text-center">
             예산 <span className="text-indigo-600 font-bold">30분 거리</span>{" "}
             기준&nbsp; 현재{" "}
@@ -278,85 +223,6 @@ export default function LunchPage() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ─── 게임 탭 공통: 이름 입력 ─── */}
-      {tab !== "restaurant" && (
-        <div className="w-full flex flex-col gap-6">
-          {/* 이름 입력 섹션 */}
-          <div className="w-full bg-white rounded-2xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
-              참가자 이름
-            </p>
-
-            {/* 기존 이름 목록 */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {names.map((name, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1"
-                >
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => updateName(i, e.target.value)}
-                    // placeholder={`참가자 ${i + 1}`}
-                    className="text-sm font-medium text-indigo-700 bg-transparent outline-none w-20"
-                    maxLength={8}
-                  />
-                  <button
-                    onClick={() => removeName(i)}
-                    className="text-indigo-300 hover:text-indigo-600 text-xs font-bold leading-none"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* 이름 추가 */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addName()}
-                placeholder="이름 입력 후 Enter"
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400"
-                maxLength={8}
-              />
-              <button
-                onClick={addName}
-                className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-500 transition"
-              >
-                추가 +
-              </button>
-            </div>
-
-            {validNames.length > 0 && (
-              <p className="text-xs text-gray-400 mt-2">
-                총{" "}
-                <span className="font-bold text-indigo-600">
-                  {validNames.length}명
-                </span>{" "}
-                참가
-              </p>
-            )}
-          </div>
-
-          {/* 게임 영역 */}
-          <div className="w-full bg-white rounded-2xl border border-gray-200 p-5">
-            {tab === "roulette" && (
-              <RouletteGame names={validNames} onFireConfetti={fireConfetti} />
-            )}
-            {tab === "lottery" && (
-              <LotteryGame names={validNames} onFireConfetti={fireConfetti} />
-            )}
-            {tab === "ladder" && (
-              <LadderGame names={validNames} onFireConfetti={fireConfetti} />
-            )}
-          </div>
         </div>
       )}
     </div>
