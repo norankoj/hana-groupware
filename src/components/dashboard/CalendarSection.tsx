@@ -213,8 +213,8 @@ export default function CalendarSection({
                   </div>
                 ))}
                 <div className="flex items-center gap-1.5 ml-2 border-l border-gray-300 pl-3">
-                  <span className="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
-                  <span className="text-xs text-teal-700 font-bold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                  <span className="text-xs text-indigo-700 font-bold">
                     사역/외근
                   </span>
                 </div>
@@ -485,7 +485,7 @@ export default function CalendarSection({
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div
-                            className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border ${e.type === "schedule" ? "bg-teal-50 border-teal-200 text-teal-600" : "bg-gray-100 border-gray-200 text-gray-500"}`}
+                            className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border ${e.type === "schedule" ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-gray-100 border-gray-200 text-gray-500"}`}
                           >
                             {e.profiles.full_name.slice(0, 1)}
                           </div>
@@ -497,7 +497,7 @@ export default function CalendarSection({
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span
-                                className={`text-xs text-gray-500 truncate ${e.type === "schedule" && "font-semibold text-teal-600"}`}
+                                className={`text-xs text-gray-500 truncate ${e.type === "schedule" && "font-semibold text-indigo-600"}`}
                               >
                                 {e.title} {e.location && `(${e.location})`}
                               </span>
