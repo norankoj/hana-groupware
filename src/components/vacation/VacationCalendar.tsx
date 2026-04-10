@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -177,7 +178,7 @@ export default function VacationCalendar({
       const calendarWidth = 350;
       const windowWidth = window.innerWidth;
 
-      let leftPos = rect.left + window.scrollX;
+      let leftPos = rect.left;
 
       if (rect.left + calendarWidth > windowWidth) {
         leftPos = windowWidth - calendarWidth - 20;
@@ -185,7 +186,7 @@ export default function VacationCalendar({
       if (leftPos < 10) leftPos = 10;
 
       setPickerPos({
-        top: rect.bottom + window.scrollY + 5,
+        top: rect.bottom + 5,
         left: leftPos,
         width: rect.width,
       });
@@ -313,37 +314,37 @@ export default function VacationCalendar({
   return (
     <>
       {/* 팝업 달력 포탈 */}
-      {showRangePicker && (
-        <div
-          className="fixed inset-0 z-[9998]"
-          onClick={() => setShowRangePicker(false)}
-        />
-      )}
-      {showRangePicker && (
-        <div
-          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
-          style={{
-            top: pickerPos.top,
-            left: pickerPos.left,
-            width: pickerPos.width,
-            maxWidth: "90vw",
-          }}
-        >
-          <Calendar
-            onChange={handleRangeChange}
-            selectRange={!["오전반차", "오후반차"].includes(formData.type)}
-            value={
-              formData.start_date && formData.end_date
-                ? [new Date(formData.start_date), new Date(formData.end_date)]
-                : null
-            }
-            formatDay={(locale, date) => format(date, "d")}
-            calendarType="gregory"
-            locale="ko-KR"
-            minDate={new Date()}
-            tileClassName={({ date, view }) => {
-              if (view !== "month") return null;
-              const dateStr = format(date, "yyyy-MM-dd");
+      {showRangePicker &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998]"
+              onClick={() => setShowRangePicker(false)}
+            />
+            <div
+              className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+              style={{
+                top: pickerPos.top,
+                left: pickerPos.left,
+                width: pickerPos.width,
+                maxWidth: "90vw",
+              }}
+            >
+              <Calendar
+                onChange={handleRangeChange}
+                selectRange={!["오전반차", "오후반차"].includes(formData.type)}
+                value={
+                  formData.start_date && formData.end_date
+                    ? [new Date(formData.start_date), new Date(formData.end_date)]
+                    : null
+                }
+                formatDay={(locale, date) => format(date, "d")}
+                calendarType="gregory"
+                locale="ko-KR"
+                minDate={new Date()}
+                tileClassName={({ date, view }) => {
+                  if (view !== "month") return null;
+                  const dateStr = format(date, "yyyy-MM-dd");
               if (HOLIDAYS[dateStr]) {
                 return "holiday-day";
               }
@@ -373,8 +374,10 @@ export default function VacationCalendar({
               );
             }}
           />
-        </div>
-      )}
+            </div>
+          </>,
+          document.body,
+        )}
 
       {/* 메인 레이아웃 */}
       {/* 2. 수정: 왼쪽 패널 높이를 모바일에서도 고정 (h-[580px]) */}
