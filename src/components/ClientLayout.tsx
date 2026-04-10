@@ -325,19 +325,19 @@ export default function ClientLayout({
             w-64 ${isCollapsed ? "md:w-20" : "md:w-64"}
           `}
         >
-          <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 flex-shrink-0 overflow-hidden">
-            {/* PC: 로고, 모바일: 로고 */}
+          <div className="h-16 relative flex items-center justify-end px-4 border-b border-gray-100 flex-shrink-0 overflow-hidden">
+            {/* 로고 가운데 정렬 */}
             {(!isCollapsed || isMobileMenuOpen) && (
               <Link
                 href="/"
-                className="flex items-center text-xl font-bold text-gray-800 tracking-tight"
+                className="absolute left-1/2 -translate-x-1/2 flex items-center"
               >
                 <Image
                   src="/logo.png"
                   alt="수원하나교회"
-                  width={160}
-                  height={44}
-                  className="object-contain object-left"
+                  width={150}
+                  height={40}
+                  className="object-contain"
                 />
               </Link>
             )}
