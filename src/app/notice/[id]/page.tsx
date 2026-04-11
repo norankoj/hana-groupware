@@ -6,7 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import dynamic from "next/dynamic";
-import { toProxyUrl } from "@/utils/minio";
+import { toProxyUrl } from "@/utils/minio-url";
 
 const NoticeEditor = dynamic(() => import("@/components/notice/NoticeEditor"), { ssr: false });
 

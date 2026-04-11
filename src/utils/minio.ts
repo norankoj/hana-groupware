@@ -103,28 +103,6 @@ export function getPublicUrl(bucketKey: BucketKey, objectName: string): string {
   return `/api/proxy-image?bucket=${bucketKey}&object=${encodeURIComponent(objectName)}`;
 }
 
-/**
- * 기존 DB에 저장된 MinIO 직접 URL → 프록시 URL 변환
- * (http://IP:9000/bucket/object → /api/proxy-image?bucket=...&object=...)
- */
-export function toProxyUrl(url: string): string {
-  if (!url) return url;
-  // 이미 프록시 URL이면 그대로
-  if (url.startsWith("/api/proxy-image")) return url;
-  // Supabase URL이면 그대로 (마이그레이션 전 파일)
-  if (url.includes("supabase")) return url;
-
-  // MinIO URL 파싱: http://host:9000/bucket-name/object-path
-  const endpoint = process.env.NEXT_PUBLIC_MINIO_ENDPOINT ?? "";
-  for (const [key, bucket] of Object.entries(BUCKETS)) {
-    const prefix = `${endpoint}/${bucket}/`;
-    if (url.startsWith(prefix)) {
-      const objectName = url.slice(prefix.length);
-      return `/api/proxy-image?bucket=${key}&object=${encodeURIComponent(objectName)}`;
-    }
-  }
-  return url;
-}
 
 /**
  * Private 버킷 임시 접근 URL (기본 1시간)
