@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import dynamic from "next/dynamic";
+import { toProxyUrl } from "@/utils/minio";
 
 const NoticeEditor = dynamic(() => import("@/components/notice/NoticeEditor"), { ssr: false });
 
@@ -298,10 +299,10 @@ export default function NoticeDetailPage() {
               {images.map((att) => (
                 <div key={att.url} className="relative group">
                   <img
-                    src={att.url}
+                    src={toProxyUrl(att.url)}
                     alt={att.name}
                     className="w-full rounded-xl object-cover max-h-48 border border-gray-100 cursor-zoom-in"
-                    onClick={() => setLightboxImg(att.url)}
+                    onClick={() => setLightboxImg(toProxyUrl(att.url))}
                   />
                   {canEdit && (
                     <button
@@ -449,7 +450,7 @@ export default function NoticeDetailPage() {
                       <div key={att.url} className="flex items-center justify-between gap-2 px-3 py-2 bg-blue-50 rounded-xl border border-blue-100">
                         <div className="flex items-center gap-2 min-w-0">
                           {att.type === "image" ? (
-                            <img src={att.url} alt={att.name} className="w-8 h-8 rounded object-cover shrink-0 border border-blue-200" />
+                            <img src={toProxyUrl(att.url)} alt={att.name} className="w-8 h-8 rounded object-cover shrink-0 border border-blue-200" />
                           ) : (
                             <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
