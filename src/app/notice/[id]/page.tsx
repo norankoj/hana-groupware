@@ -146,12 +146,13 @@ export default function NoticeDetailPage() {
       files.map(async (rawFile) => {
         try {
           const file = rawFile.type.startsWith("image/") ? await compressImage(rawFile) : rawFile;
-          const params = new URLSearchParams({ bucket: MINIO_BUCKET, folder: String(noticeId), filename: file.name });
-          const res = await fetch(`/api/upload/presigned-put?${params}`);
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("bucket", MINIO_BUCKET);
+          formData.append("folder", String(noticeId));
+          const res = await fetch("/api/upload", { method: "POST", body: formData });
           if (!res.ok) return null;
-          const { putUrl, objectName, url } = await res.json();
-          const uploadRes = await fetch(putUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-          if (!uploadRes.ok) return null;
+          const { url, objectName } = await res.json();
           return { name: rawFile.name, url: url ?? "", objectName, type: file.type.startsWith("image/") ? "image" : "file" } as NoticeAttachment;
         } catch { return null; }
       }),

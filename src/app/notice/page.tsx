@@ -172,38 +172,24 @@ export default function NoticePage() {
   }, [fetchNotices]);
 
 
-  // ── 파일 업로드 (MinIO 직접 업로드 — 속도 최적화) ───────────────────────
+  // ── 파일 업로드 (서버 경유 — HTTPS 호환) ────────────────────────────────
   const uploadFiles = async (
     noticeId: number,
     files: File[],
   ): Promise<NoticeAttachment[]> => {
-    // 모든 파일 병렬 처리
     const results = await Promise.all(
       files.map(async (rawFile) => {
         try {
-          // 이미지는 WebP 압축
           const file = rawFile.type.startsWith("image/")
             ? await compressImage(rawFile)
             : rawFile;
-
-          // Presigned PUT URL 발급
-          const params = new URLSearchParams({
-            bucket: MINIO_BUCKET,
-            folder: String(noticeId),
-            filename: file.name,
-          });
-          const res = await fetch(`/api/upload/presigned-put?${params}`);
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("bucket", MINIO_BUCKET);
+          formData.append("folder", String(noticeId));
+          const res = await fetch("/api/upload", { method: "POST", body: formData });
           if (!res.ok) return null;
-          const { putUrl, objectName, url } = await res.json();
-
-          // MinIO에 직접 업로드
-          const uploadRes = await fetch(putUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": file.type },
-          });
-          if (!uploadRes.ok) return null;
-
+          const { url, objectName } = await res.json();
           return {
             name: rawFile.name,
             url: url ?? "",

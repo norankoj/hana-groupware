@@ -163,17 +163,13 @@ export default function DetailModal({
       useWebWorker: true,
     });
     const folder = String(selectedLog?.id ?? "vehicle");
-    // Presigned PUT URL 발급 후 MinIO 직접 업로드
-    const params = new URLSearchParams({ bucket: "vehicle", folder, filename: `${prefix}.jpg` });
-    const res = await fetch(`/api/upload/presigned-put?${params}`);
-    if (!res.ok) throw new Error("업로드 URL 발급 실패");
-    const { putUrl, url } = await res.json();
-    const uploadRes = await fetch(putUrl, {
-      method: "PUT",
-      body: compressed,
-      headers: { "Content-Type": "image/jpeg" },
-    });
-    if (!uploadRes.ok) throw new Error("사진 업로드 실패");
+    const formData = new FormData();
+    formData.append("file", compressed);
+    formData.append("bucket", "vehicle");
+    formData.append("folder", folder);
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (!res.ok) throw new Error("사진 업로드 실패");
+    const { url } = await res.json();
     return url;
   };
 

@@ -18,24 +18,15 @@ export async function uploadFile(
   bucket: UploadBucket,
   folder?: string,
 ): Promise<UploadResult> {
-  const params = new URLSearchParams({
-    bucket,
-    filename: file.name,
-    ...(folder ? { folder } : {}),
-  });
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("bucket", bucket);
+  if (folder) formData.append("folder", folder);
 
-  const res = await fetch(`/api/upload/presigned-put?${params}`);
-  if (!res.ok) throw new Error("업로드 URL 발급 실패");
+  const res = await fetch("/api/upload", { method: "POST", body: formData });
+  if (!res.ok) throw new Error("파일 업로드 실패");
 
-  const { putUrl, objectName, url } = await res.json();
-
-  const uploadRes = await fetch(putUrl, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
-  if (!uploadRes.ok) throw new Error("파일 업로드 실패");
-
+  const { objectName, url } = await res.json();
   return { objectName, url };
 }
 
