@@ -17,7 +17,7 @@ type Profile = {
   role: string;
 };
 
-type NoticeAttachment = { name: string; url: string; type: "image" | "file" };
+type NoticeAttachment = { name: string; url: string; type: "image" | "file"; objectName?: string };
 
 type Notice = {
   id: number;
@@ -43,7 +43,7 @@ const CATEGORY_STYLE: Record<string, string> = {
   일반: "bg-gray-50 text-gray-600 border-gray-200",
 };
 const WRITE_ROLES = ["admin", "director", "staff"];
-const STORAGE_BUCKET = "notice-attachments";
+const MINIO_BUCKET = "notice";
 
 /** 이미지 파일을 WebP로 압축 (최대 1200px, 품질 0.75) */
 async function compressImage(file: File): Promise<File> {
@@ -172,34 +172,50 @@ export default function NoticePage() {
   }, [fetchNotices]);
 
 
-  // ── 파일 업로드 ──────────────────────────────────────────────────────────
+  // ── 파일 업로드 (MinIO 직접 업로드 — 속도 최적화) ───────────────────────
   const uploadFiles = async (
     noticeId: number,
     files: File[],
   ): Promise<NoticeAttachment[]> => {
-    const results: NoticeAttachment[] = [];
-    for (const rawFile of files) {
-      // 이미지는 WebP 압축 후 업로드
-      const file = rawFile.type.startsWith("image/")
-        ? await compressImage(rawFile)
-        : rawFile;
-      const ext = file.name.split(".").pop();
-      const path = `${noticeId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(path, file);
-      if (error) continue;
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-      const isImage = file.type.startsWith("image/");
-      results.push({
-        name: file.name,
-        url: publicUrl,
-        type: isImage ? "image" : "file",
-      });
-    }
-    return results;
+    // 모든 파일 병렬 처리
+    const results = await Promise.all(
+      files.map(async (rawFile) => {
+        try {
+          // 이미지는 WebP 압축
+          const file = rawFile.type.startsWith("image/")
+            ? await compressImage(rawFile)
+            : rawFile;
+
+          // Presigned PUT URL 발급
+          const params = new URLSearchParams({
+            bucket: MINIO_BUCKET,
+            folder: String(noticeId),
+            filename: file.name,
+          });
+          const res = await fetch(`/api/upload/presigned-put?${params}`);
+          if (!res.ok) return null;
+          const { putUrl, objectName, url } = await res.json();
+
+          // MinIO에 직접 업로드
+          const uploadRes = await fetch(putUrl, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": file.type },
+          });
+          if (!uploadRes.ok) return null;
+
+          return {
+            name: rawFile.name,
+            url: url ?? "",
+            objectName,
+            type: file.type.startsWith("image/") ? "image" : "file",
+          } as NoticeAttachment;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return results.filter(Boolean) as NoticeAttachment[];
   };
 
   // ── 저장 ─────────────────────────────────────────────────────────────────
@@ -281,20 +297,19 @@ export default function NoticePage() {
     fetchNotices();
   };
 
-  // ── 삭제 ─────────────────────────────────────────────────────────────────
+  // ── 삭제 (MinIO) ─────────────────────────────────────────────────────────
   const handleDelete = async (id: number) => {
     if (!confirm("공지사항을 삭제하시겠습니까?")) return;
-    // storage 파일도 삭제
     const notice = notices.find((n) => n.id === id);
+    // MinIO 파일 삭제
     if (notice?.attachments?.length) {
-      const paths = notice.attachments
-        .map((a) => {
-          const parts = a.url.split(`/${STORAGE_BUCKET}/`);
-          return parts[1] ?? "";
-        })
-        .filter(Boolean);
-      if (paths.length)
-        await supabase.storage.from(STORAGE_BUCKET).remove(paths);
+      await Promise.all(
+        notice.attachments
+          .filter((a) => a.objectName)
+          .map((a) =>
+            fetch(`/api/upload?bucket=${MINIO_BUCKET}&object=${encodeURIComponent(a.objectName!)}`, { method: "DELETE" }),
+          ),
+      );
     }
     await supabase.from("notices").delete().eq("id", id);
     fetchNotices();

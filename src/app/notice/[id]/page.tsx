@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 const NoticeEditor = dynamic(() => import("@/components/notice/NoticeEditor"), { ssr: false });
 
 type Profile = { id: string; full_name: string; position: string; role: string };
-type NoticeAttachment = { name: string; url: string; type: "image" | "file" };
+type NoticeAttachment = { name: string; url: string; type: "image" | "file"; objectName?: string };
 type Notice = {
   id: number;
   title: string;
@@ -34,7 +34,7 @@ const CATEGORY_STYLE: Record<string, string> = {
   중요: "bg-red-50 text-red-700 border-red-200",
   일반: "bg-gray-50 text-gray-600 border-gray-200",
 };
-const STORAGE_BUCKET = "notice-attachments";
+const MINIO_BUCKET = "notice";
 const WRITE_ROLES = ["admin", "director", "staff"];
 
 async function compressImage(file: File): Promise<File> {
@@ -85,6 +85,7 @@ export default function NoticeDetailPage() {
     popup_days: 1,
   });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<NoticeAttachment[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -129,21 +130,33 @@ export default function NoticeDetailPage() {
       popup_days: notice.popup_days || 1,
     });
     setPendingFiles([]);
+    setExistingAttachments(notice.attachments || []);
     setIsEditing(true);
   };
 
-  const uploadFiles = async (noticeId: number, files: File[]): Promise<NoticeAttachment[]> => {
-    const results: NoticeAttachment[] = [];
-    for (const rawFile of files) {
-      const file = rawFile.type.startsWith("image/") ? await compressImage(rawFile) : rawFile;
-      const ext = file.name.split(".").pop();
-      const path = `${noticeId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file);
-      if (error) continue;
-      const { data: { publicUrl } } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-      results.push({ name: file.name, url: publicUrl, type: file.type.startsWith("image/") ? "image" : "file" });
+  const removeExistingAttachment = async (att: NoticeAttachment) => {
+    if (att.objectName) {
+      await fetch(`/api/upload?bucket=${MINIO_BUCKET}&object=${encodeURIComponent(att.objectName)}`, { method: "DELETE" });
     }
-    return results;
+    setExistingAttachments((prev) => prev.filter((a) => a.url !== att.url));
+  };
+
+  const uploadFiles = async (noticeId: number, files: File[]): Promise<NoticeAttachment[]> => {
+    const results = await Promise.all(
+      files.map(async (rawFile) => {
+        try {
+          const file = rawFile.type.startsWith("image/") ? await compressImage(rawFile) : rawFile;
+          const params = new URLSearchParams({ bucket: MINIO_BUCKET, folder: String(noticeId), filename: file.name });
+          const res = await fetch(`/api/upload/presigned-put?${params}`);
+          if (!res.ok) return null;
+          const { putUrl, objectName, url } = await res.json();
+          const uploadRes = await fetch(putUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+          if (!uploadRes.ok) return null;
+          return { name: rawFile.name, url: url ?? "", objectName, type: file.type.startsWith("image/") ? "image" : "file" } as NoticeAttachment;
+        } catch { return null; }
+      }),
+    );
+    return results.filter(Boolean) as NoticeAttachment[];
   };
 
   const handleSave = async () => {
@@ -155,7 +168,7 @@ export default function NoticeDetailPage() {
     setUploadingFiles(pendingFiles.length > 0);
     const newAttachments = pendingFiles.length > 0 ? await uploadFiles(notice.id, pendingFiles) : [];
     setUploadingFiles(false);
-    const merged = [...(notice.attachments || []), ...newAttachments];
+    const merged = [...existingAttachments, ...newAttachments];
     await supabase.from("notices").update({
       title: form.title,
       content: form.content,
@@ -176,12 +189,15 @@ export default function NoticeDetailPage() {
   const handleDelete = async () => {
     if (!notice) return;
     if (!confirm("공지사항을 삭제하시겠습니까?")) return;
+    // MinIO 파일 삭제
     if (notice.attachments?.length) {
-      const paths = notice.attachments.map((a) => {
-        const parts = a.url.split(`/${STORAGE_BUCKET}/`);
-        return parts[1] ?? "";
-      }).filter(Boolean);
-      if (paths.length) await supabase.storage.from(STORAGE_BUCKET).remove(paths);
+      await Promise.all(
+        notice.attachments
+          .filter((a) => a.objectName)
+          .map((a) =>
+            fetch(`/api/upload?bucket=${MINIO_BUCKET}&object=${encodeURIComponent(a.objectName!)}`, { method: "DELETE" }),
+          ),
+      );
     }
     await supabase.from("notices").delete().eq("id", notice.id);
     router.push("/notice");
@@ -189,8 +205,10 @@ export default function NoticeDetailPage() {
 
   const removeAttachment = async (att: NoticeAttachment) => {
     if (!notice) return;
-    const pathPart = att.url.split(`/${STORAGE_BUCKET}/`)[1] ?? "";
-    if (pathPart) await supabase.storage.from(STORAGE_BUCKET).remove([pathPart]);
+    // MinIO 파일 삭제
+    if (att.objectName) {
+      await fetch(`/api/upload?bucket=${MINIO_BUCKET}&object=${encodeURIComponent(att.objectName)}`, { method: "DELETE" });
+    }
     const updated = (notice.attachments || []).filter((a) => a.url !== att.url);
     await supabase.from("notices").update({ attachments: updated }).eq("id", notice.id);
     setNotice((prev) => prev ? { ...prev, attachments: updated } : null);
@@ -421,14 +439,45 @@ export default function NoticeDetailPage() {
                 )}
               </div>
 
-              {/* 파일 첨부 */}
+              {/* 기존 첨부파일 */}
+              {existingAttachments.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">기존 첨부파일</p>
+                  <div className="space-y-1.5">
+                    {existingAttachments.map((att) => (
+                      <div key={att.url} className="flex items-center justify-between gap-2 px-3 py-2 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {att.type === "image" ? (
+                            <img src={att.url} alt={att.name} className="w-8 h-8 rounded object-cover shrink-0 border border-blue-200" />
+                          ) : (
+                            <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          <span className="text-sm text-blue-700 truncate">{att.name}</span>
+                        </div>
+                        <button
+                          onClick={() => removeExistingAttachment(att)}
+                          className="text-blue-300 hover:text-red-500 shrink-0 transition"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 새 파일 첨부 */}
               <div>
                 <button type="button" onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
-                  파일 첨부
+                  파일 추가 첨부
                 </button>
                 <input ref={fileInputRef} type="file" multiple className="hidden"
                   onChange={(e) => setPendingFiles(Array.from(e.target.files || []))} />

@@ -24,6 +24,19 @@ const nextConfig: NextConfig = {
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      // MinIO (NAS) — 로컬 및 외부 접근
+      {
+        protocol: "http",
+        hostname: "**",
+        port: "9000",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "**",
+        port: "9000",
+        pathname: "/**",
+      },
     ],
   },
 };

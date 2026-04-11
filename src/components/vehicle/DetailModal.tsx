@@ -156,21 +156,25 @@ export default function DetailModal({
     setExteriorPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const uploadFile = async (file: File, prefix: string) => {
+  const uploadFile = async (file: File, prefix: string): Promise<string> => {
     const compressed = await imageCompression(file, {
       maxSizeMB: 1,
       maxWidthOrHeight: 1920,
       useWebWorker: true,
     });
-    const fileName = `${prefix}_${selectedLog?.id}_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-    const { error } = await supabase.storage
-      .from("vehicle-photos")
-      .upload(fileName, compressed);
-    if (error) throw error;
-    const { data } = supabase.storage
-      .from("vehicle-photos")
-      .getPublicUrl(fileName);
-    return data.publicUrl;
+    const folder = String(selectedLog?.id ?? "vehicle");
+    // Presigned PUT URL 발급 후 MinIO 직접 업로드
+    const params = new URLSearchParams({ bucket: "vehicle", folder, filename: `${prefix}.jpg` });
+    const res = await fetch(`/api/upload/presigned-put?${params}`);
+    if (!res.ok) throw new Error("업로드 URL 발급 실패");
+    const { putUrl, url } = await res.json();
+    const uploadRes = await fetch(putUrl, {
+      method: "PUT",
+      body: compressed,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+    if (!uploadRes.ok) throw new Error("사진 업로드 실패");
+    return url;
   };
 
   const handleExtend = async () => {
@@ -464,31 +468,32 @@ export default function DetailModal({
                 </span>
               </div>
             </InfoRow>
-            <InfoRow label="인증 사진" isLast>
-              <div className="flex flex-wrap gap-3 py-2">
-                {[
-                  selectedLog.checkin_photo_url,
-                  ...(selectedLog.checkin_exterior_urls || []),
-                  selectedLog.checkout_photo_url,
-                  ...(selectedLog.checkout_exterior_urls || []),
-                ].map(
-                  (url, i) =>
-                    url && (
-                      <div
-                        key={`img-${i}`}
-                        className="w-[84px] h-[84px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm relative"
-                        onClick={() => openZoom(url)}
-                      >
-                        <Image
-                          src={url}
-                          fill
-                          className="object-cover"
-                          alt="운행 기록 사진"
-                          sizes="84px"
-                        />
-                      </div>
-                    ),
-                )}
+            <InfoRow label="운행 전">
+              <div className="flex flex-wrap gap-2 py-1">
+                {[selectedLog.checkin_photo_url, ...(selectedLog.checkin_exterior_urls || [])].filter(Boolean).length > 0
+                  ? [selectedLog.checkin_photo_url, ...(selectedLog.checkin_exterior_urls || [])].map((url, i) =>
+                      url && (
+                        <div key={`checkin-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm relative" onClick={() => openZoom(url)}>
+                          <Image src={url} fill className="object-cover" alt="운행 전 사진" sizes="80px" />
+                        </div>
+                      )
+                    )
+                  : <p className="text-sm text-gray-400">없음</p>
+                }
+              </div>
+            </InfoRow>
+            <InfoRow label="운행 후" isLast>
+              <div className="flex flex-wrap gap-2 py-1">
+                {[selectedLog.checkout_photo_url, ...(selectedLog.checkout_exterior_urls || [])].filter(Boolean).length > 0
+                  ? [selectedLog.checkout_photo_url, ...(selectedLog.checkout_exterior_urls || [])].map((url, i) =>
+                      url && (
+                        <div key={`checkout-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm relative" onClick={() => openZoom(url)}>
+                          <Image src={url} fill className="object-cover" alt="운행 후 사진" sizes="80px" />
+                        </div>
+                      )
+                    )
+                  : <p className="text-sm text-gray-400">없음</p>
+                }
               </div>
             </InfoRow>
           </div>
@@ -943,6 +948,17 @@ export default function DetailModal({
 
   return (
     <>
+      {/* 업로드 로딩 오버레이 */}
+      {uploading && (
+        <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
+          <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-gray-800 font-bold text-base">사진 업로드 중...</p>
+            <p className="text-gray-400 text-sm">잠시만 기다려 주세요</p>
+          </div>
+        </div>
+      )}
+
       {/* 슬라이드 애니메이션 스타일 */}
       <style>{`
         @keyframes slideInRight {

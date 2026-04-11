@@ -98,12 +98,21 @@ export default function VehicleReservationPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const getNowTime = () => {
+    const now = new Date();
+    return format(now, "HH:mm");
+  };
+  const getTwoHoursLater = () => {
+    const later = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    return format(later, "HH:mm");
+  };
+
   const [form, setForm] = useState({
     resource_id: 0,
     start_date: format(new Date(), "yyyy-MM-dd"),
-    start_time: "10:00",
+    start_time: getNowTime(),
     end_date: format(new Date(), "yyyy-MM-dd"),
-    end_time: "12:00",
+    end_time: getTwoHoursLater(),
     purpose: "",
     destination: "",
     driver_name: "",
@@ -124,8 +133,8 @@ export default function VehicleReservationPage() {
       department: "",
       start_date: format(new Date(), "yyyy-MM-dd"),
       end_date: format(new Date(), "yyyy-MM-dd"),
-      start_time: "10:00",
-      end_time: "12:00",
+      start_time: getNowTime(),
+      end_time: getTwoHoursLater(),
     }));
   };
 
