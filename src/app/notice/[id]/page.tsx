@@ -88,6 +88,7 @@ export default function NoticeDetailPage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<NoticeAttachment[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [saving, setSaving] = useState(false);
 
   const canWrite = profile && WRITE_ROLES.includes(profile.role);
@@ -143,6 +144,8 @@ export default function NoticeDetailPage() {
   };
 
   const uploadFiles = async (noticeId: number, files: File[]): Promise<NoticeAttachment[]> => {
+    setUploadProgress({ current: 0, total: files.length });
+    let done = 0;
     const results = await Promise.all(
       files.map(async (rawFile) => {
         try {
@@ -154,8 +157,14 @@ export default function NoticeDetailPage() {
           const res = await fetch("/api/upload", { method: "POST", body: formData });
           if (!res.ok) return null;
           const { url, objectName } = await res.json();
+          done++;
+          setUploadProgress((p) => ({ ...p, current: done }));
           return { name: rawFile.name, url: url ?? "", objectName, type: file.type.startsWith("image/") ? "image" : "file" } as NoticeAttachment;
-        } catch { return null; }
+        } catch {
+          done++;
+          setUploadProgress((p) => ({ ...p, current: done }));
+          return null;
+        }
       }),
     );
     return results.filter(Boolean) as NoticeAttachment[];
@@ -373,6 +382,35 @@ export default function NoticeDetailPage() {
           onClick={() => setLightboxImg(null)}
         >
           <img src={lightboxImg} alt="" className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl" />
+        </div>
+      )}
+
+      {/* 업로드 로딩 오버레이 */}
+      {(uploadingFiles || saving) && (
+        <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
+          <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl min-w-[220px]">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            {uploadingFiles && uploadProgress.total > 0 ? (
+              <>
+                <p className="text-gray-800 font-bold text-base">파일 업로드 중...</p>
+                <div className="w-full">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+                    <span>{uploadProgress.current}/{uploadProgress.total}개 완료</span>
+                    <span>{Math.round((uploadProgress.current / uploadProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-800 font-bold text-base">저장 중...</p>
+            )}
+            <p className="text-gray-400 text-sm">잠시만 기다려 주세요</p>
+          </div>
         </div>
       )}
 
