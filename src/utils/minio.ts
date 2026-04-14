@@ -51,19 +51,24 @@ async function ensurePublicReadPolicy(bucketName: string): Promise<void> {
   await client.setBucketPolicy(bucketName, policy);
 }
 
-/** notice, vehicle 버킷 공개 정책 초기화 (서버 시작 시 1회 호출) */
+/** notice, vehicle 버킷 공개 정책 초기화 — 동시 호출 안전 (Promise 싱글톤) */
 const _initialized = new Set<string>();
-export async function ensurePublicBuckets(): Promise<void> {
-  for (const key of PUBLIC_BUCKETS) {
-    const name = BUCKETS[key];
-    if (_initialized.has(name)) continue;
-    try {
-      await ensurePublicReadPolicy(name);
-      _initialized.add(name);
-    } catch {
-      // 이미 설정됐거나 연결 안 됨 — 무시
+let _initPromise: Promise<void> | null = null;
+export function ensurePublicBuckets(): Promise<void> {
+  if (_initPromise) return _initPromise;
+  _initPromise = (async () => {
+    for (const key of PUBLIC_BUCKETS) {
+      const name = BUCKETS[key];
+      if (_initialized.has(name)) continue;
+      try {
+        await ensurePublicReadPolicy(name);
+        _initialized.add(name);
+      } catch {
+        // 이미 설정됐거나 연결 안 됨 — 무시
+      }
     }
-  }
+  })();
+  return _initPromise;
 }
 
 /**
