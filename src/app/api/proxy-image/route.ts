@@ -18,8 +18,11 @@ export async function GET(req: NextRequest) {
     const client = getMinioClient();
     const bucket = BUCKETS[bucketKey];
 
-    // MinIO에서 파일 스트림 가져오기
-    const stream = await client.getObject(bucket, objectName);
+    // MinIO에서 메타데이터 + 파일 스트림 병렬 조회
+    const [stat, stream] = await Promise.all([
+      client.statObject(bucket, objectName),
+      client.getObject(bucket, objectName),
+    ]);
 
     // 스트림을 버퍼로 변환
     const chunks: Buffer[] = [];
@@ -30,7 +33,7 @@ export async function GET(req: NextRequest) {
     });
     const buffer = Buffer.concat(chunks);
 
-    // 확장자로 Content-Type 추론
+    // 확장자로 Content-Type 추론 → 안 되면 MinIO 메타데이터 사용
     const ext = objectName.split(".").pop()?.toLowerCase() ?? "";
     const contentTypeMap: Record<string, string> = {
       webp: "image/webp",
@@ -40,7 +43,10 @@ export async function GET(req: NextRequest) {
       gif: "image/gif",
       pdf: "application/pdf",
     };
-    const contentType = contentTypeMap[ext] ?? "application/octet-stream";
+    const contentType =
+      contentTypeMap[ext] ??
+      (stat.metaData?.["content-type"] as string | undefined) ??
+      "image/jpeg";
 
     return new NextResponse(buffer, {
       headers: {

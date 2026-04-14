@@ -18,6 +18,10 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
+    localPatterns: [
+      { pathname: "/**" },
+      { pathname: "/api/proxy-image", search: "**" },
+    ],
     remotePatterns: [
       {
         protocol: "https",

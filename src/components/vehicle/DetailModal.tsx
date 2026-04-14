@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { createClient } from "@/utils/supabase/client";
 import imageCompression from "browser-image-compression";
 import { showConfirm } from "@/utils/alert";
+import { toProxyUrl } from "@/utils/minio-url";
 
 type VehicleLog = {
   id: number;
@@ -160,15 +161,18 @@ export default function DetailModal({
     const compressed = await imageCompression(file, {
       maxSizeMB: 1,
       maxWidthOrHeight: 1920,
-      useWebWorker: true,
+      useWebWorker: false,
     });
     const folder = String(selectedLog?.id ?? "vehicle");
     const formData = new FormData();
-    formData.append("file", compressed);
+    formData.append("file", compressed, file.name || "photo.jpg");
     formData.append("bucket", "vehicle");
     formData.append("folder", folder);
     const res = await fetch("/api/upload", { method: "POST", body: formData });
-    if (!res.ok) throw new Error("사진 업로드 실패");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? "사진 업로드 실패");
+    }
     const { url } = await res.json();
     return url;
   };
@@ -264,7 +268,11 @@ export default function DetailModal({
       if (error) throw error;
 
       // resources.current_mileage 업데이트는 DB 트리거(trigger_update_mileage)가 처리
-      toast.success("처리되었습니다.");
+      if (action === "checkin") {
+        toast.success("🚗 차량 운행이 시작되었습니다!", { duration: 4000 });
+      } else {
+        toast.success("✅ 차량 반납이 완료되었습니다!", { duration: 4000 });
+      }
       onRefresh();
       onClose();
     } catch (e: any) {
@@ -280,7 +288,7 @@ export default function DetailModal({
       ...(selectedLog?.checkin_exterior_urls || []),
       selectedLog?.checkout_photo_url,
       ...(selectedLog?.checkout_exterior_urls || []),
-    ].filter(Boolean) as string[];
+    ].filter(Boolean).map((u) => toProxyUrl(u as string));
 
     setZoomImages(allImages);
     setZoomIndex(allImages.indexOf(url));
@@ -469,8 +477,8 @@ export default function DetailModal({
                 {[selectedLog.checkin_photo_url, ...(selectedLog.checkin_exterior_urls || [])].filter(Boolean).length > 0
                   ? [selectedLog.checkin_photo_url, ...(selectedLog.checkin_exterior_urls || [])].map((url, i) =>
                       url && (
-                        <div key={`checkin-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm relative" onClick={() => openZoom(url)}>
-                          <Image src={url} fill className="object-cover" alt="운행 전 사진" sizes="80px" />
+                        <div key={`checkin-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm" onClick={() => openZoom(toProxyUrl(url))}>
+                          <img src={toProxyUrl(url)} className="w-full h-full object-cover" alt="운행 전 사진" />
                         </div>
                       )
                     )
@@ -483,8 +491,8 @@ export default function DetailModal({
                 {[selectedLog.checkout_photo_url, ...(selectedLog.checkout_exterior_urls || [])].filter(Boolean).length > 0
                   ? [selectedLog.checkout_photo_url, ...(selectedLog.checkout_exterior_urls || [])].map((url, i) =>
                       url && (
-                        <div key={`checkout-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm relative" onClick={() => openZoom(url)}>
-                          <Image src={url} fill className="object-cover" alt="운행 후 사진" sizes="80px" />
+                        <div key={`checkout-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm" onClick={() => openZoom(toProxyUrl(url))}>
+                          <img src={toProxyUrl(url)} className="w-full h-full object-cover" alt="운행 후 사진" />
                         </div>
                       )
                     )
@@ -615,7 +623,6 @@ export default function DetailModal({
                         <input
                           type="file"
                           accept="image/*"
-                          capture="environment"
                           className="hidden"
                           onChange={handleDashChange}
                         />
@@ -678,7 +685,6 @@ export default function DetailModal({
                         <input
                           type="file"
                           accept="image/*"
-                          capture="environment"
                           multiple
                           className="hidden"
                           onChange={handleExteriorChange}
