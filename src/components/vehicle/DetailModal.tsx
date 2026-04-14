@@ -157,11 +157,12 @@ export default function DetailModal({
     setExteriorPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const uploadFile = async (file: File, prefix: string): Promise<string> => {
+  const compressAndUpload = async (file: File): Promise<string> => {
     const compressed = await imageCompression(file, {
-      maxSizeMB: 1,
-      maxWidthOrHeight: 1920,
-      useWebWorker: false,
+      maxSizeMB: 0.8,
+      maxWidthOrHeight: 1280,
+      useWebWorker: true,
+      initialQuality: 0.8,
     });
     const folder = String(selectedLog?.id ?? "vehicle");
     const formData = new FormData();
@@ -235,10 +236,9 @@ export default function DetailModal({
 
     setUploading(true);
     try {
-      const dashUrl = await uploadFile(dashImage!, `${action}_dash`);
-      const extUrls = await Promise.all(
-        exteriorFiles.map((f, i) => uploadFile(f, `${action}_ext_${i}`)),
-      );
+      const allFiles = [dashImage!, ...exteriorFiles];
+      const allUrls = await Promise.all(allFiles.map((f) => compressAndUpload(f)));
+      const [dashUrl, ...extUrls] = allUrls;
 
       const updates: any = {};
       if (action === "checkin") {
