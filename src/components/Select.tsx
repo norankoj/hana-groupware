@@ -26,6 +26,7 @@ export default function Select({
   className = "",
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 외부 클릭 시 닫기
@@ -76,7 +77,14 @@ export default function Select({
       {/* 선택 박스 (Trigger) */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!isOpen && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            setOpenUpward(spaceBelow < 260);
+          }
+          setIsOpen(!isOpen);
+        }}
         style={{ colorScheme: "light" }}
         className={`flex items-center justify-between text-left transition-all duration-200 outline-none
           ${className} 
@@ -116,7 +124,7 @@ export default function Select({
 
       {/* 드롭다운 메뉴 */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto custom-scrollbar animate-fadeIn">
+        <div className={`absolute z-50 w-full bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto custom-scrollbar animate-fadeIn ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}>
           {hasGroups
             ? Object.entries(groupedOptions).map(([group, opts]) => (
                 <div key={group}>

@@ -85,6 +85,23 @@ export default function DetailModal({
 
   const [checkinMileage, setCheckinMileage] = useState<number | "">("");
   const [checkinFuel, setCheckinFuel] = useState<number>(100);
+
+  // 연료 레벨 레이블 (실제 차량 8칸 기준)
+  const FUEL_LEVELS = [
+    { value: 100, label: "F" },
+    { value: 87,  label: "7/8" },
+    { value: 75,  label: "6/8" },
+    { value: 62,  label: "5/8" },
+    { value: 50,  label: "4/8" },
+    { value: 37,  label: "3/8" },
+    { value: 25,  label: "2/8" },
+    { value: 12,  label: "E" },
+  ];
+  const fuelLabel = (v: number | undefined | null) => {
+    if (v == null) return null;
+    const match = FUEL_LEVELS.find((f) => f.value === v);
+    return match ? match.label : `${v}%`;
+  };
   const [checkoutForm, setCheckoutForm] = useState({
     mileage: "" as number | "",
     cleanup: true,
@@ -425,7 +442,7 @@ export default function DetailModal({
                   <span className="text-sm">
                     출발{" "}
                     <span className="font-bold text-blue-600">
-                      {selectedLog.fuel_level_start}%
+                      {fuelLabel(selectedLog.fuel_level_start)}
                     </span>
                   </span>
                 )}
@@ -437,9 +454,9 @@ export default function DetailModal({
                   <span className="text-sm">
                     도착{" "}
                     <span
-                      className={`font-bold ${selectedLog.fuel_level_end < 30 ? "text-red-500" : "text-green-600"}`}
+                      className={`font-bold ${selectedLog.fuel_level_end <= 25 ? "text-red-500" : "text-green-600"}`}
                     >
-                      {selectedLog.fuel_level_end}%
+                      {fuelLabel(selectedLog.fuel_level_end)}
                     </span>
                   </span>
                 )}
@@ -555,26 +572,33 @@ export default function DetailModal({
                 {actionType === "checkin" ? "출발 연료" : "도착 연료"}
               </label>
               <div className="flex flex-wrap gap-2">
-                {[100, 90, 80, 70, 60, 50, 40, 30, 20, 10].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() =>
-                      actionType === "checkin"
-                        ? setCheckinFuel(v)
-                        : setCheckoutForm((p) => ({ ...p, fuel: v }))
-                    }
-                    className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition ${
-                      (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) === v
-                        ? v <= 30
-                          ? "bg-red-500 text-white border-red-500"
-                          : "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    {v}%
-                  </button>
-                ))}
+                {FUEL_LEVELS.map(({ value, label }) => {
+                  const selected = (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) === value;
+                  const isLow = value <= 12;
+                  const isWarn = value === 25;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        actionType === "checkin"
+                          ? setCheckinFuel(value)
+                          : setCheckoutForm((p) => ({ ...p, fuel: value }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition min-w-[48px] ${
+                        selected
+                          ? isLow
+                            ? "bg-red-500 text-white border-red-500"
+                            : isWarn
+                              ? "bg-orange-400 text-white border-orange-400"
+                              : "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

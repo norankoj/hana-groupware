@@ -84,11 +84,6 @@ export async function uploadToMinio(
   const client = getMinioClient();
   const bucket = BUCKETS[bucketKey];
 
-  // Public 버킷이면 정책 자동 설정
-  if (PUBLIC_BUCKETS.includes(bucketKey)) {
-    await ensurePublicBuckets();
-  }
-
   const ext = fileName.split(".").pop() ?? "bin";
   const baseName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
   const objectName = folder ? `${folder}/${baseName}` : baseName;

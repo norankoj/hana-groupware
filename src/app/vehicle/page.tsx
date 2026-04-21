@@ -295,6 +295,80 @@ export default function VehicleReservationPage() {
     }
   };
 
+  /* 정기 예약 생성 */
+  const handleRecurringReserve = async ({
+    days,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+  }: {
+    days: number[];
+    startDate: string;
+    endDate: string;
+    startTime: string;
+    endTime: string;
+  }) => {
+    if (!form.resource_id) return toast.error("차량을 선택해주세요.");
+    if (days.length === 0) return toast.error("반복 요일을 선택해주세요.");
+    if (!startDate || !endDate) return toast.error("반복 기간을 설정해주세요.");
+    if (startDate > endDate) return toast.error("종료일이 시작일보다 빠릅니다.");
+    if (!form.purpose || !form.destination || !form.driver_name || !form.department)
+      return toast.error("모든 정보를 입력해주세요.");
+
+    // 선택 요일에 해당하는 날짜 목록 생성
+    const entries: { start: Date; end: Date }[] = [];
+    const cur = new Date(startDate);
+    const last = new Date(endDate);
+    while (cur <= last) {
+      if (days.includes(cur.getDay())) {
+        const start = new Date(`${format(cur, "yyyy-MM-dd")}T${startTime}`);
+        const end = new Date(`${format(cur, "yyyy-MM-dd")}T${endTime}`);
+        if (start < end) entries.push({ start, end });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    if (entries.length === 0) return toast.error("선택한 요일과 기간에 해당하는 날짜가 없습니다.");
+
+    // 겹치는 예약 제외
+    const available = entries.filter(({ start, end }) =>
+      !logs.some(
+        (l) =>
+          l.resource_id === form.resource_id &&
+          l.vehicle_status !== "returned" &&
+          start < new Date(l.end_at) &&
+          end > new Date(l.start_at),
+      ),
+    );
+
+    const skipped = entries.length - available.length;
+    if (available.length === 0) return toast.error("모든 날짜가 이미 예약되어 있습니다.");
+
+    if (!(await showConfirm(
+      `총 ${available.length}건 예약을 생성합니다.${skipped > 0 ? `\n(중복 ${skipped}건 제외)` : ""}\n계속하시겠습니까?`
+    ))) return;
+
+    const rows = available.map(({ start, end }) => ({
+      resource_id: form.resource_id,
+      user_id: currentUser,
+      start_at: start.toISOString(),
+      end_at: end.toISOString(),
+      purpose: form.purpose,
+      destination: form.destination,
+      driver_name: form.driver_name,
+      department: form.department,
+      vehicle_status: "reserved",
+    }));
+
+    const { error } = await supabase.from("reservations").insert(rows);
+    if (error) return toast.error(error.message);
+
+    toast.success(`${available.length}건 정기 예약이 완료되었습니다!`);
+    setIsReserveModalOpen(false);
+    fetchData();
+  };
+
   // 1. 검색 및 상태 필터
   const filteredLogs = logs.filter((log) => {
     const matchesStatus =
@@ -549,7 +623,7 @@ export default function VehicleReservationPage() {
         <StatsSection logs={logs} vehicles={vehicles} />
       ) : (
       <div
-        className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex-col h-auto md:h-[600px] ${
+        className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible flex-col h-auto md:h-[600px] ${
           mobileTab === "reserve" ? "hidden md:flex" : "flex"
         }`}
       >
@@ -883,6 +957,7 @@ export default function VehicleReservationPage() {
         setForm={setForm}
         vehicles={vehicles}
         handleReserve={handleReserve}
+        handleRecurringReserve={handleRecurringReserve}
         handleRangeChange={handleRangeChange}
       />
       <DetailModal
