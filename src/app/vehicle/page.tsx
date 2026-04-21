@@ -309,12 +309,13 @@ export default function VehicleReservationPage() {
     startTime: string;
     endTime: string;
   }): Promise<void> => {
-    if (!form.resource_id) return toast.error("차량을 선택해주세요.");
-    if (days.length === 0) return toast.error("반복 요일을 선택해주세요.");
-    if (!startDate || !endDate) return toast.error("반복 기간을 설정해주세요.");
-    if (startDate > endDate) return toast.error("종료일이 시작일보다 빠릅니다.");
-    if (!form.purpose || !form.destination || !form.driver_name || !form.department)
-      return toast.error("모든 정보를 입력해주세요.");
+    if (!form.resource_id) { toast.error("차량을 선택해주세요."); return; }
+    if (days.length === 0) { toast.error("반복 요일을 선택해주세요."); return; }
+    if (!startDate || !endDate) { toast.error("반복 기간을 설정해주세요."); return; }
+    if (startDate > endDate) { toast.error("종료일이 시작일보다 빠릅니다."); return; }
+    if (!form.purpose || !form.destination || !form.driver_name || !form.department) {
+      toast.error("모든 정보를 입력해주세요."); return;
+    }
 
     // 선택 요일에 해당하는 날짜 목록 생성
     const entries: { start: Date; end: Date }[] = [];
@@ -329,7 +330,7 @@ export default function VehicleReservationPage() {
       cur.setDate(cur.getDate() + 1);
     }
 
-    if (entries.length === 0) return toast.error("선택한 요일과 기간에 해당하는 날짜가 없습니다.");
+    if (entries.length === 0) { toast.error("선택한 요일과 기간에 해당하는 날짜가 없습니다."); return; }
 
     // 겹치는 예약 제외
     const available = entries.filter(({ start, end }) =>
@@ -343,7 +344,7 @@ export default function VehicleReservationPage() {
     );
 
     const skipped = entries.length - available.length;
-    if (available.length === 0) return toast.error("모든 날짜가 이미 예약되어 있습니다.");
+    if (available.length === 0) { toast.error("모든 날짜가 이미 예약되어 있습니다."); return; }
 
     if (!(await showConfirm(
       `총 ${available.length}건 예약을 생성합니다.${skipped > 0 ? `\n(중복 ${skipped}건 제외)` : ""}\n계속하시겠습니까?`
@@ -362,7 +363,7 @@ export default function VehicleReservationPage() {
     }));
 
     const { error } = await supabase.from("reservations").insert(rows);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
 
     toast.success(`${available.length}건 정기 예약이 완료되었습니다!`);
     setIsReserveModalOpen(false);
