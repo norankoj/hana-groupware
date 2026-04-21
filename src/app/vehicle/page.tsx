@@ -308,7 +308,7 @@ export default function VehicleReservationPage() {
     endDate: string;
     startTime: string;
     endTime: string;
-  }) => {
+  }): Promise<void> => {
     if (!form.resource_id) return toast.error("차량을 선택해주세요.");
     if (days.length === 0) return toast.error("반복 요일을 선택해주세요.");
     if (!startDate || !endDate) return toast.error("반복 기간을 설정해주세요.");
