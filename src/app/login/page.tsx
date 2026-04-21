@@ -96,7 +96,6 @@ export default function LoginPage() {
         const { data: allowedUser } = await supabase
           .from("allowed_users")
           .select("*")
-          .eq("name", name.trim())
           .eq("phone", cleanPhone)
           .maybeSingle();
 
