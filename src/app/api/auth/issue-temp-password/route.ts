@@ -36,17 +36,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // 속도 제한: 10분 내 동일 전화번호로 재요청 방지
+    // 10분 내 인증 요청 기록 확인 (재전송으로 여러 행이 생길 수 있으므로 limit(1) 사용)
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: recentCode } = await supabaseAdmin
+    const { data: recentCodes } = await supabaseAdmin
       .from("verification_codes")
       .select("id")
       .eq("phone", normalizedPhone)
       .gte("created_at", tenMinutesAgo)
-      .maybeSingle();
+      .order("created_at", { ascending: false })
+      .limit(1);
 
     // verification_codes가 없으면 SMS 인증을 거치지 않은 것 — 차단
-    if (!recentCode) {
+    if (!recentCodes || recentCodes.length === 0) {
       return NextResponse.json(
         { error: "휴대폰 인증을 먼저 완료해주세요." },
         { status: 403 },
