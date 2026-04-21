@@ -65,16 +65,15 @@ export async function GET() {
     const calendars: { id: string; summary: string; backgroundColor: string; accessRole: string }[] =
       listData.items ?? [];
 
-    // ② KST 기준 이번달 1일 ~ 다음달 말일 전체 범위
+    // ② KST 기준 올해 1월 1일 ~ 12월 31일 전체 범위
     // Vercel 서버는 UTC이므로 KST(+9) 오프셋 직접 계산
     const KST = 9 * 60 * 60 * 1000;
     const nowKST = new Date(Date.now() + KST);
     const y = nowKST.getUTCFullYear();
-    const m = nowKST.getUTCMonth(); // 0-based
-    // 이전달 1일 00:00 KST → UTC
-    const timeMin = new Date(Date.UTC(y, m - 1, 1) - KST).toISOString();
-    // 다음달 말일 23:59:59 KST → UTC (다다음달 1일 UTC = 다음달 말일 이후)
-    const timeMax = new Date(Date.UTC(y, m + 2, 1) - KST).toISOString();
+    // 올해 1월 1일 00:00 KST → UTC
+    const timeMin = new Date(Date.UTC(y, 0, 1) - KST).toISOString();
+    // 내년 1월 1일 00:00 KST → UTC (= 올해 12월 31일 자정 이후)
+    const timeMax = new Date(Date.UTC(y + 1, 0, 1) - KST).toISOString();
 
     // ③ 각 캘린더별 이벤트 병렬 조회 (읽기 권한 있는 것 + 필터 적용)
     const eventFetches = calendars
@@ -91,7 +90,7 @@ export async function GET() {
           timeMax,
           singleEvents: "true",
           orderBy: "startTime",
-          maxResults: "100",
+          maxResults: "500",
         });
         const res = await fetch(
           `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
