@@ -49,6 +49,9 @@ export default function VacationHistory({
     sick: approvedRequests
       .filter((r) => r.type === "병가")
       .reduce((acc, cur) => acc + cur.days_count, 0),
+    reserve: approvedRequests
+      .filter((r) => r.type === "예비군")
+      .reduce((acc, cur) => acc + cur.days_count, 0),
     special: approvedRequests
       .filter((r) => r.type === "특별휴가")
       .reduce((acc, cur) => acc + cur.days_count, 0),
@@ -124,6 +127,8 @@ export default function VacationHistory({
             <span className="text-gray-500">경조사 <span className="font-bold text-gray-700">{typeStats.congrats}일</span></span>
             <span className="w-px h-3 bg-gray-300 hidden sm:inline-block" />
             <span className="text-gray-500">병가 <span className="font-bold text-gray-700">{typeStats.sick}일</span></span>
+            <span className="w-px h-3 bg-gray-300 hidden sm:inline-block" />
+            <span className="text-gray-500">예비군 <span className="font-bold text-gray-700">{typeStats.reserve}일</span></span>
             <span className="w-px h-3 bg-gray-300 hidden sm:inline-block" />
             <span className="text-gray-500">특별 <span className="font-bold text-gray-700">{typeStats.special}일</span></span>
           </div>

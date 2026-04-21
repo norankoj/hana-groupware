@@ -318,11 +318,11 @@ export default function VacationCalendar({
         createPortal(
           <>
             <div
-              className="fixed inset-0 z-[9998]"
+              className="fixed inset-0 z-[10000]"
               onClick={() => setShowRangePicker(false)}
             />
             <div
-              className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+              className="fixed z-[10001] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
               style={{
                 top: pickerPos.top,
                 left: pickerPos.left,
@@ -859,6 +859,7 @@ export default function VacationCalendar({
               "오후반차",
               "경조사",
               "병가",
+              "예비군",
               "특별휴가",
             ]}
           />

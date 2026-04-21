@@ -19,6 +19,7 @@ export const TYPE_OPTIONS = [
   { value: "오후반차", label: "오후반차" },
   { value: "경조사", label: "경조사" },
   { value: "병가", label: "병가" },
+  { value: "예비군", label: "예비군" },
   { value: "특별휴가", label: "특별휴가" },
   { value: "비전트립", label: "비전트립" },
 ];
