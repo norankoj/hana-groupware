@@ -5,7 +5,7 @@ import webpush from "web-push";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 
 webpush.setVapidDetails(
-  process.env.VAPID_EMAIL!,
+  `mailto:${process.env.VAPID_EMAIL!}`,
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 );
