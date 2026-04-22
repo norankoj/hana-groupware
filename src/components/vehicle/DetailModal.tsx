@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { format } from "date-fns";
 import Calendar from "react-calendar";
@@ -58,12 +58,12 @@ const InfoRow = ({
   isLast?: boolean;
 }) => (
   <div
-    className={`flex border-b border-gray-200 ${isLast ? "border-b-0" : ""}`}
+    className={`flex border-b border-gray-100 ${isLast ? "border-b-0" : ""}`}
   >
-    <div className="w-32 sm:w-36 bg-gray-50 p-4 sm:p-5 text-base font-bold text-gray-600 flex items-center shrink-0 border-r border-gray-200">
+    <div className="w-24 sm:w-28 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-800 flex items-center shrink-0 border-r border-gray-100">
       {label}
     </div>
-    <div className="flex-1 p-4 sm:p-5 text-base text-gray-800 flex items-center bg-white min-w-0 break-keep leading-relaxed">
+    <div className="flex-1 px-3 py-2.5 text-sm text-gray-800 flex items-center bg-white min-w-0 break-keep leading-relaxed">
       {children}
     </div>
   </div>
@@ -82,6 +82,14 @@ export default function DetailModal({
 }: DetailModalProps) {
   const supabase = createClient();
   const [uploading, setUploading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const [checkinMileage, setCheckinMileage] = useState<number | "">("");
   const [checkinFuel, setCheckinFuel] = useState<number>(100);
@@ -433,10 +441,191 @@ export default function DetailModal({
         dashImage !== null &&
         exteriorFiles.length > 0;
 
+  const ActionSection = isMyTurn ? (
+    <div className={`bg-white border rounded-sm overflow-hidden ${actionType === "checkin" ? "border-green-200" : "border-red-200"}`}>
+      {/* 상단 헤더 바 */}
+      <div className={`px-4 py-2.5 flex items-center gap-2 border-b ${actionType === "checkin" ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}>
+        <span className={`w-1.5 h-4 rounded-full shrink-0 ${actionType === "checkin" ? "bg-green-500" : "bg-red-500"}`} />
+        <span className={`text-sm font-bold ${actionType === "checkin" ? "text-green-700" : "text-red-700"}`}>
+          {actionType === "checkin" ? "이용 시작" : "반납하기"}
+        </span>
+      </div>
+
+      <div className="p-4 space-y-5">
+        {/* 계기판 거리 */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            {actionType === "checkin" ? "출발 전" : "도착 후"} 계기판 거리 (km)
+            <span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input
+            type="number"
+            className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-base font-mono bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none placeholder:text-gray-300 transition"
+            placeholder={actionType === "checkin" ? "예: 54000" : `출발: ${selectedLog?.start_mileage?.toLocaleString()}`}
+            onChange={(e) =>
+              actionType === "checkin"
+                ? setCheckinMileage(Number(e.target.value))
+                : setCheckoutForm({ ...checkoutForm, mileage: Number(e.target.value) })
+            }
+          />
+        </div>
+
+        {/* 연료 */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            {actionType === "checkin" ? "출발 연료" : "도착 연료"}
+          </label>
+          <div className="grid grid-cols-8 gap-1">
+            {FUEL_LEVELS.map(({ value, label }) => {
+              const selected = (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) === value;
+              const isLow = value <= 12;
+              const isWarn = value === 25;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    actionType === "checkin"
+                      ? setCheckinFuel(value)
+                      : setCheckoutForm((p) => ({ ...p, fuel: value }))
+                  }
+                  className={`py-2 text-sm font-bold border rounded-sm transition cursor-pointer ${
+                    selected
+                      ? isLow
+                        ? "bg-red-500 text-white border-red-500 hover:bg-red-600"
+                        : isWarn
+                          ? "bg-orange-400 text-white border-orange-400 hover:bg-orange-500"
+                          : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                      : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 사진 등록 */}
+        <div>
+          <div className="flex justify-between items-center mb-3">
+            <label className="text-sm font-semibold text-gray-700">
+              사진 등록 <span className="text-red-500">*</span>
+            </label>
+            <span className="text-xs text-gray-400">계기판 1장, 외관 최대 10장</span>
+          </div>
+          <div className="space-y-4">
+            {/* 계기판 */}
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-2">계기판 (필수)</p>
+              <div className="flex gap-2">
+                {!dashPreview ? (
+                  <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition">
+                    <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-xs text-gray-400">0/1</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleDashChange} />
+                  </label>
+                ) : (
+                  <div className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200">
+                    <img src={dashPreview!} className="w-full h-full object-cover" alt="계기판" />
+                    <button onClick={() => { setDashImage(null); setDashPreview(null); }}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* 외관 */}
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-2">차량 외관 (필수 권장)</p>
+              <div className="flex flex-wrap gap-2">
+                {exteriorFiles.length < 10 && (
+                  <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition shrink-0">
+                    <svg className="w-6 h-6 text-blue-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="text-xs text-blue-400">{exteriorFiles.length}/10</span>
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleExteriorChange} />
+                  </label>
+                )}
+                {exteriorPreviews.map((src, idx) => (
+                  <div key={idx} className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200 shrink-0 group">
+                    <img src={src} className="w-full h-full object-cover" alt="외관" />
+                    <button onClick={() => removeExterior(idx)}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 반납 추가 정보 */}
+        {actionType === "checkout" && (
+          <div className="space-y-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-2.5">
+              <input type="checkbox" id="cleanup" className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
+                checked={checkoutForm.cleanup}
+                onChange={(e) => setCheckoutForm({ ...checkoutForm, cleanup: e.target.checked })} />
+              <label htmlFor="cleanup" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
+                차량 내부 쓰레기 정리를 완료했습니다.
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                주차 위치 <span className="text-red-500">*</span>
+              </label>
+              <input type="text" placeholder="예: 교육관"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
+                value={checkoutForm.parking}
+                onChange={(e) => setCheckoutForm({ ...checkoutForm, parking: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">차량 특이사항 (선택)</label>
+              <textarea placeholder="스크래치, 경고등, 기타 이상 사항 등" rows={3}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition resize-none"
+                value={checkoutForm.condition}
+                onChange={(e) => setCheckoutForm({ ...checkoutForm, condition: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">이상 유형 (해당 시 선택)</label>
+              <div className="flex flex-wrap gap-2">
+                {[{ key: "accident", label: "사고" }, { key: "breakdown", label: "고장" }, { key: "scratch", label: "흠집" }, { key: "other", label: "기타" }].map(({ key, label }) => (
+                  <button key={key} type="button"
+                    onClick={() => setCheckoutForm((p) => ({ ...p, incidentType: p.incidentType === key ? null : key }))}
+                    className={`px-3 py-1.5 rounded-sm text-sm font-semibold border transition cursor-pointer ${checkoutForm.incidentType === key ? "bg-red-500 text-white border-red-500 hover:bg-red-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300"}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   const ModalContent = (
     <div className="space-y-8 pb-4">
-      {/* 1. 차량 정보 */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+      {/* 이용시작 / 반납하기 (상단) */}
+      {ActionSection}
+
+      {/* 상세 정보 */}
+      <div className="border border-gray-200 rounded-sm overflow-hidden bg-white">
+        <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-100 bg-gray-50">
+          <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
+          <span className="text-sm font-bold text-gray-600">상세 정보</span>
+        </div>
         <InfoRow label="차량 정보">
           <span className="font-bold text-gray-900 mr-2 text-base">
             {selectedLog?.resources?.name}
@@ -452,12 +641,21 @@ export default function DetailModal({
             {renderTextWithPhoneIcon(INSURANCE_MOCK)}
           </div>
         </InfoRow>
+        {selectedLog?.profiles?.full_name && (
+          <InfoRow label="예약자">
+            <span className="font-medium">
+              {selectedLog.profiles.full_name}
+            </span>
+          </InfoRow>
+        )}
         <InfoRow label="운전자">
           <span className="font-medium">{selectedLog?.driver_name}</span>
-          <span className="text-gray-400 text-sm ml-2">
-            ({selectedLog?.department})
-          </span>
         </InfoRow>
+        {selectedLog?.department && (
+          <InfoRow label="사용부서">
+            <span>{selectedLog.department}</span>
+          </InfoRow>
+        )}
         <InfoRow label="운행 시간">
           {selectedLog &&
             format(new Date(selectedLog.start_at), "yyyy-MM-dd HH:mm")}{" "}
@@ -471,11 +669,11 @@ export default function DetailModal({
 
       {/* 2. 운행 결과 (반납 완료 시) */}
       {selectedLog?.vehicle_status === "returned" && (
-        <div>
-          <h3 className="text-lg font-bold text-gray-800 border-l-4 border-gray-800 pl-3 mb-4">
-            운행 결과
-          </h3>
-          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+        <div className="border border-gray-200 rounded-sm overflow-hidden bg-white">
+          <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-100 bg-gray-50">
+            <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
+            <span className="text-sm font-bold text-gray-600">운행 결과</span>
+          </div>
             <InfoRow label="주행 거리">
               {selectedLog.start_mileage?.toLocaleString()} km →{" "}
               <span className="font-bold text-blue-600 ml-2 text-base">
@@ -557,7 +755,7 @@ export default function DetailModal({
                       url && (
                         <div
                           key={`checkin-${i}`}
-                          className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm"
+                          className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
                           onClick={() => openZoom(toProxyUrl(url))}
                         >
                           <img
@@ -603,7 +801,7 @@ export default function DetailModal({
                       url && (
                         <div
                           key={`checkout-${i}`}
-                          className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm"
+                          className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
                           onClick={() => openZoom(toProxyUrl(url))}
                         >
                           <img
@@ -636,336 +834,8 @@ export default function DetailModal({
               </div>
             </InfoRow>
           </div>
-        </div>
       )}
 
-      {/* 3. 입력 폼 (운행 전/후) */}
-      {isMyTurn && (
-        <div className="pt-4">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">
-            {actionType === "checkin" ? (
-              <span className="px-3 py-1 rounded bg-green-50 w-max text-lg font-bold text-green-600">
-                이용 시작
-              </span>
-            ) : (
-              <span className="px-3 py-1 rounded bg-red-50 w-max text-lg font-bold text-red-600">
-                반납하기
-              </span>
-            )}
-          </h3>
-
-          <div
-            className={`bg-white border rounded-2xl p-5 sm:p-7 space-y-8 shadow-sm ${
-              actionType === "checkin" ? "border-green-200" : "border-red-200"
-            }`}
-          >
-            {/* 주행거리 */}
-            <div>
-              <label className="block text-base font-bold text-gray-800 mb-3">
-                {actionType === "checkin" ? "출발 전" : "도착 후"} 계기판 거리
-                (km) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                className="w-full p-4 border border-gray-300 rounded-xl text-xl font-mono focus:ring-2 focus:ring-gray-400 outline-none placeholder:text-gray-300 transition"
-                placeholder={
-                  actionType === "checkin"
-                    ? "예: 54000"
-                    : `출발: ${selectedLog?.start_mileage?.toLocaleString()}`
-                }
-                onChange={(e) =>
-                  actionType === "checkin"
-                    ? setCheckinMileage(Number(e.target.value))
-                    : setCheckoutForm({
-                        ...checkoutForm,
-                        mileage: Number(e.target.value),
-                      })
-                }
-              />
-            </div>
-
-            {/* 연료 */}
-            <div>
-              <label className="block text-base font-bold text-gray-800 mb-3">
-                {actionType === "checkin" ? "출발 연료" : "도착 연료"}
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {FUEL_LEVELS.map(({ value, label }) => {
-                  const selected =
-                    (actionType === "checkin"
-                      ? checkinFuel
-                      : checkoutForm.fuel) === value;
-                  const isLow = value <= 12;
-                  const isWarn = value === 25;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() =>
-                        actionType === "checkin"
-                          ? setCheckinFuel(value)
-                          : setCheckoutForm((p) => ({ ...p, fuel: value }))
-                      }
-                      className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition min-w-[48px] ${
-                        selected
-                          ? isLow
-                            ? "bg-red-500 text-white border-red-500"
-                            : isWarn
-                              ? "bg-orange-400 text-white border-orange-400"
-                              : "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 첨부파일 영역 */}
-            <div>
-              <div className="flex justify-between items-end mb-3">
-                <label className="block text-base font-bold text-gray-800">
-                  사진 등록 <span className="text-blue-600">*</span>
-                </label>
-                <span className="text-sm text-gray-500">
-                  계기판 1장, 외관 최대 10장
-                </span>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 space-y-6">
-                {/* 계기판 */}
-                <div>
-                  <p className="text-sm font-bold text-gray-700 mb-3">
-                    계기판 (필수)
-                  </p>
-                  <div className="flex gap-3">
-                    {!dashPreview ? (
-                      <label className="w-[100px] h-[100px] flex flex-col items-center justify-center bg-white border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition shadow-sm">
-                        <svg
-                          className="w-8 h-8 text-gray-400 mb-1"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                        <span className="text-xs text-gray-500 font-medium">
-                          0/1
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleDashChange}
-                        />
-                      </label>
-                    ) : (
-                      <div className="w-[100px] h-[100px] relative rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                        <img
-                          src={dashPreview!}
-                          className="w-full h-full object-cover"
-                          alt="계기판 사진 미리보기"
-                        />
-                        <button
-                          onClick={() => {
-                            setDashImage(null);
-                            setDashPreview(null);
-                          }}
-                          className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80 transition"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 외관 */}
-                <div>
-                  <p className="text-sm font-bold text-gray-700 mb-3">
-                    차량 외관 (필수 권장)
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    {exteriorFiles.length < 10 && (
-                      <label className="w-[100px] h-[100px] flex flex-col items-center justify-center bg-white border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition shadow-sm shrink-0">
-                        <svg
-                          className="w-8 h-8 text-blue-400 mb-1"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 4v16m8-8H4"
-                          />
-                        </svg>
-                        <span className="text-xs text-blue-500 font-bold">
-                          {exteriorFiles.length}/10
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          onChange={handleExteriorChange}
-                        />
-                      </label>
-                    )}
-                    {exteriorPreviews.map((src, idx) => (
-                      <div
-                        key={idx}
-                        className="w-[100px] h-[100px] relative rounded-xl overflow-hidden border border-gray-200 shadow-sm shrink-0 group"
-                      >
-                        <img
-                          src={src}
-                          className="w-full h-full object-cover"
-                          alt="외관 사진 미리보기"
-                        />
-                        <button
-                          onClick={() => removeExterior(idx)}
-                          className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 반납 추가 정보 */}
-            {actionType === "checkout" && (
-              <div className="space-y-5 pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="cleanup"
-                    className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
-                    checked={checkoutForm.cleanup}
-                    onChange={(e) =>
-                      setCheckoutForm({
-                        ...checkoutForm,
-                        cleanup: e.target.checked,
-                      })
-                    }
-                  />
-                  <label
-                    htmlFor="cleanup"
-                    className="text-base font-bold text-gray-800 cursor-pointer select-none"
-                  >
-                    차량 내부 쓰레기 정리를 완료했습니다.
-                  </label>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      주차 위치 <span className="text-blue-600">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="예: 교육관"
-                      className="w-full p-4 border border-gray-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-gray-400 transition bg-white"
-                      value={checkoutForm.parking}
-                      onChange={(e) =>
-                        setCheckoutForm({
-                          ...checkoutForm,
-                          parking: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      차량 특이사항 (선택)
-                    </label>
-                    <textarea
-                      placeholder="스크래치, 경고등, 기타 이상 사항 등"
-                      rows={3}
-                      className="w-full p-4 border border-gray-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-gray-400 transition bg-white resize-none"
-                      value={checkoutForm.condition}
-                      onChange={(e) =>
-                        setCheckoutForm({
-                          ...checkoutForm,
-                          condition: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* 사고/이상 유형 */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    이상 유형 (해당 시 선택)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: "accident", label: "사고" },
-                      { key: "breakdown", label: "고장" },
-                      { key: "scratch", label: "흠집" },
-                      { key: "other", label: "기타" },
-                    ].map(({ key, label }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() =>
-                          setCheckoutForm((p) => ({
-                            ...p,
-                            incidentType: p.incidentType === key ? null : key,
-                          }))
-                        }
-                        className={`px-4 py-2 rounded-full text-sm border font-bold transition ${
-                          checkoutForm.incidentType === key
-                            ? "bg-red-500 text-white border-red-500"
-                            : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -973,7 +843,7 @@ export default function DetailModal({
     <div className="flex flex-col gap-2 w-full">
       {/* 예약 연장 폼 */}
       {showExtendForm && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 space-y-2">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-sm p-3 space-y-2">
           <span className="text-sm font-bold text-yellow-700 block">
             연장 반납 시간 설정
           </span>
@@ -982,12 +852,12 @@ export default function DetailModal({
             <div className="relative flex-1">
               <div
                 onClick={() => setShowExtendCalendar((v) => !v)}
-                className="cursor-pointer border border-gray-300 rounded-lg p-2 text-sm bg-white text-center font-bold focus:ring-2 focus:ring-yellow-400 select-none"
+                className="cursor-pointer border border-gray-300 rounded-sm p-2 text-sm bg-white text-center font-bold focus:ring-2 focus:ring-yellow-400 select-none"
               >
                 {extendDate || "날짜 선택"}
               </div>
               {showExtendCalendar && (
-                <div className="absolute bottom-full left-0 z-50 mb-1 bg-white border border-gray-200 rounded-xl shadow-2xl p-2 animate-fadeIn">
+                <div className="absolute bottom-full left-0 z-50 mb-1 bg-white border border-gray-200 rounded-sm shadow-2xl p-2 animate-fadeIn">
                   <Calendar
                     onChange={(val) => {
                       if (val && !Array.isArray(val)) {
@@ -1011,13 +881,13 @@ export default function DetailModal({
               type="time"
               value={extendTime}
               onChange={(e) => setExtendTime(e.target.value)}
-              className="w-28 border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
+              className="w-28 border border-gray-300 rounded-sm p-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
             />
           </div>
           <div className="flex gap-2">
             <button
               onClick={handleExtend}
-              className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-bold transition"
+              className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-sm text-sm font-bold transition"
             >
               확인
             </button>
@@ -1026,7 +896,7 @@ export default function DetailModal({
                 setShowExtendForm(false);
                 setShowExtendCalendar(false);
               }}
-              className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm font-bold transition"
+              className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-sm text-sm font-bold transition"
             >
               취소
             </button>
@@ -1045,7 +915,7 @@ export default function DetailModal({
         {!isMyTurn && (
           <button
             onClick={onClose}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-4 rounded-xl text-lg font-bold transition"
+            className="flex-1 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 py-4 rounded-sm text-lg font-bold transition cursor-pointer"
           >
             닫기
           </button>
@@ -1055,7 +925,7 @@ export default function DetailModal({
           effectiveStatus === "noshow" && (
             <button
               onClick={handleRestoreNoshow}
-              className="flex-1 bg-orange-50 hover:bg-orange-100 text-orange-600 py-4 rounded-xl text-lg font-bold transition border border-orange-200"
+              className="flex-1 bg-orange-50 hover:bg-orange-100 active:bg-orange-200 text-orange-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-orange-200"
             >
               노쇼 복구
             </button>
@@ -1063,7 +933,7 @@ export default function DetailModal({
         {isMyTurn && actionType === "checkin" && onCancel && (
           <button
             onClick={() => onCancel(selectedLog!.id)}
-            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-4 rounded-xl text-lg font-bold transition border border-red-200"
+            className="flex-1 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-red-200"
           >
             예약 취소
           </button>
@@ -1076,7 +946,7 @@ export default function DetailModal({
               setExtendTime(end.toISOString().slice(11, 16));
               setShowExtendForm(true);
             }}
-            className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 py-4 rounded-xl text-lg font-bold transition border border-yellow-200"
+            className="flex-1 bg-yellow-50 hover:bg-yellow-100 active:bg-yellow-200 text-yellow-700 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-yellow-200"
           >
             시간 연장
           </button>
@@ -1085,10 +955,12 @@ export default function DetailModal({
           <button
             onClick={() => handleSubmit(actionType)}
             disabled={uploading || !isFormValid}
-            className={`flex-1 text-white py-4 rounded-xl text-lg font-bold shadow-md transition ${
+            className={`flex-1 text-white py-4 rounded-sm text-lg font-bold transition ${
               uploading || !isFormValid
                 ? "bg-gray-300 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
+                : actionType === "checkin"
+                  ? "bg-green-500 hover:bg-green-600 active:bg-green-700 cursor-pointer"
+                  : "bg-red-600 hover:bg-red-700 active:bg-red-800 cursor-pointer"
             }`}
           >
             {uploading
@@ -1107,7 +979,7 @@ export default function DetailModal({
       {/* 업로드 로딩 오버레이 */}
       {uploading && (
         <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
-          <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
+          <div className="bg-white rounded-sm px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-gray-800 font-bold text-base">
               사진 업로드 중...
@@ -1128,24 +1000,22 @@ export default function DetailModal({
         }
       `}</style>
 
-      {/* --- PC 뷰 (일반 모달) --- */}
-      <div className="hidden md:block">
-        <Modal
-          isOpen={isOpen}
-          onClose={onClose}
-          title="운행 상세 정보"
-          footer={ModalFooter}
-        >
-          {ModalContent}
-        </Modal>
-      </div>
+      {/* --- PC 뷰 (일반 모달) — createPortal이 body에 직접 붙으므로 isMobile로 조건 제어 --- */}
+      <Modal
+        isOpen={isOpen && !isMobile}
+        onClose={onClose}
+        title="운행 상세 정보"
+        footer={ModalFooter}
+      >
+        {ModalContent}
+      </Modal>
 
-      {/* --- 모바일 뷰 (새 페이지로 이동하는 것처럼 렌더링) --- */}
-      {isOpen && (
-        <div className="md:hidden fixed inset-0 z-[9999] bg-white flex flex-col animate-slideInRight overflow-hidden">
+      {/* --- 모바일 뷰 (전체화면 슬라이드) --- */}
+      {isOpen && isMobile && (
+        <div className="fixed inset-0 z-[9999] bg-white flex flex-col animate-slideInRight overflow-hidden">
           {/* 모바일 헤더 */}
-          <div className="bg-white px-5 py-5 flex items-center justify-between border-b border-gray-200 shrink-0 sticky top-0 z-10 shadow-sm">
-            <h2 className="text-xl font-extrabold text-gray-900">
+          <div className="bg-white px-5 py-5 flex items-center justify-between border-b border-gray-200 shrink-0 sticky top-0 z-10">
+            <h2 className="text-lg font-bold text-gray-900">
               운행 상세 정보
             </h2>
             <button
