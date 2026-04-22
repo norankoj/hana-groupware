@@ -55,7 +55,11 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("[proxy-image] 오류:", error);
-    return new NextResponse("파일을 불러올 수 없습니다", { status: 404 });
+    const msg = error?.message || error?.code || "unknown";
+    console.error("[proxy-image] 오류:", msg);
+    return new NextResponse("파일을 불러올 수 없습니다", {
+      status: 404,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 }

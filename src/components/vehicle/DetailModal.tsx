@@ -180,6 +180,8 @@ export default function DetailModal({
       maxWidthOrHeight: 1280,
       useWebWorker: true,
       initialQuality: 0.8,
+    }).catch((compErr: any) => {
+      throw new Error("이미지 압축 실패: " + (compErr?.message || String(compErr)));
     });
     const folder = String(selectedLog?.id ?? "vehicle");
     const formData = new FormData();
@@ -189,10 +191,12 @@ export default function DetailModal({
     const res = await fetch("/api/upload", { method: "POST", body: formData });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error ?? "사진 업로드 실패");
+      const errMsg = body?.error || `사진 업로드 실패 (${res.status})`;
+      throw new Error(errMsg);
     }
-    const { url } = await res.json();
-    return url;
+    const body = await res.json();
+    if (!body?.url) throw new Error("업로드 응답에 URL이 없습니다");
+    return body.url as string;
   };
 
   const handleExtend = async () => {
@@ -293,7 +297,8 @@ export default function DetailModal({
       onRefresh();
       onClose();
     } catch (e: any) {
-      toast.error("오류 발생: " + e.message);
+      const msg = e?.message || e?.toString?.() || "알 수 없는 오류";
+      toast.error("오류 발생: " + msg);
     } finally {
       setUploading(false);
     }
@@ -495,7 +500,22 @@ export default function DetailModal({
                   ? [selectedLog.checkin_photo_url, ...(selectedLog.checkin_exterior_urls || [])].map((url, i) =>
                       url && (
                         <div key={`checkin-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm" onClick={() => openZoom(toProxyUrl(url))}>
-                          <img src={toProxyUrl(url)} className="w-full h-full object-cover" alt="운행 전 사진" />
+                          <img
+                            src={toProxyUrl(url)}
+                            className="w-full h-full object-cover"
+                            alt="운행 전 사진"
+                            onError={(e) => {
+                              const t = e.currentTarget;
+                              t.style.display = "none";
+                              const parent = t.parentElement;
+                              if (parent && !parent.querySelector(".img-error")) {
+                                const div = document.createElement("div");
+                                div.className = "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                                div.innerHTML = '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                                parent.appendChild(div);
+                              }
+                            }}
+                          />
                         </div>
                       )
                     )
@@ -509,7 +529,22 @@ export default function DetailModal({
                   ? [selectedLog.checkout_photo_url, ...(selectedLog.checkout_exterior_urls || [])].map((url, i) =>
                       url && (
                         <div key={`checkout-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm" onClick={() => openZoom(toProxyUrl(url))}>
-                          <img src={toProxyUrl(url)} className="w-full h-full object-cover" alt="운행 후 사진" />
+                          <img
+                            src={toProxyUrl(url)}
+                            className="w-full h-full object-cover"
+                            alt="운행 후 사진"
+                            onError={(e) => {
+                              const t = e.currentTarget;
+                              t.style.display = "none";
+                              const parent = t.parentElement;
+                              if (parent && !parent.querySelector(".img-error")) {
+                                const div = document.createElement("div");
+                                div.className = "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                                div.innerHTML = '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                                parent.appendChild(div);
+                              }
+                            }}
+                          />
                         </div>
                       )
                     )

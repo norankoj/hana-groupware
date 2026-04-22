@@ -52,7 +52,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, objectName, url, bucket: bucketKey });
   } catch (error: any) {
     console.error("[upload POST] 오류:", error);
-    return NextResponse.json({ error: error.message ?? "업로드 실패" }, { status: 500 });
+    const msg = error?.message || error?.code || String(error) || "업로드 실패";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
