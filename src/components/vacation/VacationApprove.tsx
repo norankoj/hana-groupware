@@ -405,6 +405,19 @@ export default function VacationApprove({
     if (isApproved && DEDUCTIBLE_TYPES.includes(selectedRequest.type)) {
       await supabase.rpc("increment_used_leave_days", { target_user_id: selectedRequest.user_id, days: selectedRequest.days_count });
     }
+    // 신청자에게 푸시 알림
+    fetch("/api/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userIds: [selectedRequest.user_id],
+        title: isApproved ? "휴가 승인" : "휴가 반려",
+        body: isApproved
+          ? `${selectedRequest.type} 신청이 승인되었습니다.`
+          : `${selectedRequest.type} 신청이 반려되었습니다. 사유: ${rejectReason}`,
+        url: "/vacation",
+      }),
+    }).catch(() => {});
     toast.success("처리되었습니다.");
     setIsDetailModalOpen(false);
     onRefresh();

@@ -265,6 +265,7 @@ export default function VehicleReservationPage() {
 
     if (!(await showConfirm("차량을 예약하시겠습니까?"))) return;
 
+    const reminderAt = new Date(endAt.getTime() - 20 * 60 * 1000);
     const { error } = await supabase.from("reservations").insert({
       resource_id: form.resource_id,
       user_id: currentUser,
@@ -275,6 +276,8 @@ export default function VehicleReservationPage() {
       driver_name: form.driver_name,
       department: form.department,
       vehicle_status: "reserved",
+      reminder_at: reminderAt.toISOString(),
+      reminder_sent: false,
     });
 
     if (error) toast.error(error.message);
@@ -360,6 +363,8 @@ export default function VehicleReservationPage() {
       driver_name: form.driver_name,
       department: form.department,
       vehicle_status: "reserved",
+      reminder_at: new Date(end.getTime() - 20 * 60 * 1000).toISOString(),
+      reminder_sent: false,
     }));
 
     const { error } = await supabase.from("reservations").insert(rows);

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import Link from "next/link";
 import NoticePopup from "@/components/notice/NoticePopup";
+import PushSubscriber from "@/components/PushSubscriber";
 import DashboardBanner from "@/components/dashboard/DashboardBanner";
 import type { WeatherData } from "@/components/dashboard/DashboardBanner";
 import CalendarSection from "@/components/dashboard/CalendarSection";
@@ -279,6 +280,8 @@ export default function Home() {
     <div className="space-y-6">
       {/* 공지 팝업 */}
       <NoticePopup />
+      {/* 푸시 알림 구독 */}
+      <PushSubscriber />
 
       {/* ── Row 1: 배너 카드 (고정) ── */}
       <DashboardBanner

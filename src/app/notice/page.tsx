@@ -119,6 +119,7 @@ export default function NoticePage() {
     is_pinned: false,
     popup_enabled: false,
     popup_days: 1,
+    send_notification: false,
   });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -274,6 +275,19 @@ export default function NoticePage() {
           .update({ attachments })
           .eq("id", inserted.id);
       }
+      // 알림 발송 체크된 경우에만 전체 사용자에게 푸시
+      if (inserted && form.send_notification) {
+        fetch("/api/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            toAll: true,
+            title: `새 공지사항`,
+            body: form.title,
+            url: `/notice/${inserted.id}`,
+          }),
+        }).catch(() => {});
+      }
     }
 
     setSaving(false);
@@ -287,6 +301,7 @@ export default function NoticePage() {
       is_pinned: false,
       popup_enabled: false,
       popup_days: 1,
+      send_notification: false,
     });
     fetchNotices();
   };
@@ -336,6 +351,7 @@ export default function NoticePage() {
                 is_pinned: false,
                 popup_enabled: false,
                 popup_days: 1,
+                send_notification: false,
               });
               setIsWriteOpen(true);
             }}
@@ -672,6 +688,24 @@ export default function NoticePage() {
                   </label>
                 )}
               </div>
+
+              {/* 알림 발송 (관리자만, 신규 작성 시만) */}
+              {canAdmin && !editTarget && (
+                <label className="flex items-center gap-2 cursor-pointer px-1">
+                  <input
+                    type="checkbox"
+                    checked={form.send_notification}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, send_notification: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded accent-blue-600"
+                  />
+                  <span className="text-sm font-semibold text-gray-700">
+                    전체 알림 발송
+                  </span>
+                  <span className="text-xs text-gray-400">(모든 사용자에게 푸시 알림)</span>
+                </label>
+              )}
 
               {/* 팝업 설정 (관리자만) */}
               {canAdmin && (
