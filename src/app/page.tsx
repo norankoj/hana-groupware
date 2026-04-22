@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import NoticePopup from "@/components/notice/NoticePopup";
 import DashboardBanner from "@/components/dashboard/DashboardBanner";
+import type { WeatherData } from "@/components/dashboard/DashboardBanner";
 import CalendarSection from "@/components/dashboard/CalendarSection";
 import TodayReservationWidget from "@/components/dashboard/TodayReservationWidget";
 import GoogleCalendarWidget from "@/components/dashboard/GoogleCalendarWidget";
@@ -59,11 +60,23 @@ export default function Home() {
   const [gcalError, setGcalError] = useState(false);
   const [gcalUpdatedAt, setGcalUpdatedAt] = useState<string | null>(null);
 
+  // 날씨 데이터 — HeaderWeatherBadge(ClientLayout)와 DashboardBanner 중복 fetch 방지
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+
   useEffect(() => {
     const today = new Date();
     setParkingText(
       `오늘은 ${today.getDate()}일, 앞자리가 ${today.getDate() % 2 === 0 ? "짝수" : "홀수"}차량이 주차하는 날입니다.`,
     );
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/weather")
+      .then((r) => r.json())
+      .then((json) => { if (!json.error) setWeather(json); })
+      .catch(() => {})
+      .finally(() => setWeatherLoading(false));
   }, []);
 
   useEffect(() => {
@@ -274,6 +287,8 @@ export default function Home() {
         myPendingCount={myPendingCount}
         canViewCalendar={canViewCalendar}
         parkingText={parkingText}
+        weather={weather}
+        weatherLoading={weatherLoading}
       />
 
       {canViewCalendar && (

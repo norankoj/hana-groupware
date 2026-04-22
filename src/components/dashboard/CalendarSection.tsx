@@ -224,7 +224,7 @@ export default function CalendarSection({
     <>
       <style>{calendarCustomStyles}</style>
 
-      <section className="flex-1 order-2 2xl:order-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[820px]">
+      <section className="flex-1 order-2 2xl:order-1 bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col h-auto lg:h-[820px]">
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/30 shrink-0 gap-2">
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-hidden">
             <svg

@@ -438,9 +438,6 @@ export default function ClientLayout({
               </button>
             </div>
 
-            {/* 가운데 날씨 뱃지 */}
-            {/* <HeaderWeatherBadge /> */}
-
             {/* 우측 프로필 영역 */}
             <div className="relative" ref={dropdownRef}>
               <button
