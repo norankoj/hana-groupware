@@ -11,6 +11,7 @@ import { toProxyUrl } from "@/utils/minio-url";
 const NoticeEditor = dynamic(() => import("@/components/notice/NoticeEditor"), { ssr: false });
 
 type Profile = { id: string; full_name: string; position: string; role: string };
+type Viewer = { full_name: string };
 type NoticeAttachment = { name: string; url: string; type: "image" | "file"; objectName?: string };
 type Notice = {
   id: number;
@@ -74,6 +75,7 @@ export default function NoticeDetailPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [viewers, setViewers] = useState<Viewer[]>([]);
 
   // 수정 상태
   const [isEditing, setIsEditing] = useState(false);
@@ -116,6 +118,28 @@ export default function NoticeDetailPage() {
       const { data: cur } = await supabase.from("notices").select("view_count").eq("id", id).single();
       if (cur) {
         await supabase.from("notices").update({ view_count: (cur.view_count || 0) + 1 }).eq("id", id);
+      }
+      // 조회 기록 저장 (중복 시 무시)
+      if (p) {
+        await supabase.from("notice_views").upsert(
+          { notice_id: Number(id), user_id: p.id },
+          { onConflict: "notice_id,user_id", ignoreDuplicates: true },
+        );
+      }
+      // 조회자 목록 fetch (2-step: notice_views → profiles)
+      const { data: viewData } = await supabase
+        .from("notice_views")
+        .select("user_id")
+        .eq("notice_id", id);
+      if (viewData && viewData.length > 0) {
+        const userIds = viewData.map((v: any) => v.user_id);
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds);
+        if (profileData) {
+          setViewers(profileData.map((p: any) => ({ full_name: p.full_name })));
+        }
       }
     };
     init();
@@ -276,7 +300,7 @@ export default function NoticeDetailPage() {
               </span>
             )}
             {notice.popup_enabled && (
-              <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded">
+              <span className="text-[11px] font-bold text-orange-500 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
                 팝업 공지
               </span>
             )}
@@ -357,6 +381,15 @@ export default function NoticeDetailPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* 조회자 */}
+        {viewers.length > 0 && (
+          <div className="px-6 pb-4">
+            <p className="text-xs text-gray-400">
+              읽음 · {viewers.map((v) => v.full_name).join(", ")}
+            </p>
           </div>
         )}
 

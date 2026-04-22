@@ -471,7 +471,7 @@ export default function NoticePage() {
                     {notice.title}
                   </span>
                   {notice.popup_enabled && (
-                    <span className="shrink-0 text-[10px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">
+                    <span className="shrink-0 text-[10px] font-bold text-orange-500 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">
                       팝업
                     </span>
                   )}
