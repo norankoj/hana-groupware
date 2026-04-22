@@ -659,7 +659,7 @@ export default function NoticePage() {
             </div>
 
             <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
-              {/* 카테고리 + 고정 */}
+              {/* 카테고리 + 고정 + 전체 알림 */}
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex gap-1.5">
                   {["일반", "공지", "중요"].map((cat) => (
@@ -673,39 +673,38 @@ export default function NoticePage() {
                   ))}
                 </div>
                 {canAdmin && (
-                  <label className="flex items-center gap-2 cursor-pointer ml-auto">
-                    <input
-                      type="checkbox"
-                      checked={form.is_pinned}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, is_pinned: e.target.checked }))
-                      }
-                      className="w-4 h-4 rounded accent-blue-600"
-                    />
-                    <span className="text-sm font-semibold text-gray-600">
-                      상단 고정
-                    </span>
-                  </label>
+                  <div className="flex items-center gap-4 ml-auto">
+                    {!editTarget && (
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.send_notification}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, send_notification: e.target.checked }))
+                          }
+                          className="w-4 h-4 rounded accent-blue-600"
+                        />
+                        <span className="text-sm font-semibold text-gray-600">
+                          전체 알림 발송
+                        </span>
+                      </label>
+                    )}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.is_pinned}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, is_pinned: e.target.checked }))
+                        }
+                        className="w-4 h-4 rounded accent-blue-600"
+                      />
+                      <span className="text-sm font-semibold text-gray-600">
+                        상단 고정
+                      </span>
+                    </label>
+                  </div>
                 )}
               </div>
-
-              {/* 알림 발송 (관리자만, 신규 작성 시만) */}
-              {canAdmin && !editTarget && (
-                <label className="flex items-center gap-2 cursor-pointer px-1">
-                  <input
-                    type="checkbox"
-                    checked={form.send_notification}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, send_notification: e.target.checked }))
-                    }
-                    className="w-4 h-4 rounded accent-blue-600"
-                  />
-                  <span className="text-sm font-semibold text-gray-700">
-                    전체 알림 발송
-                  </span>
-                  <span className="text-xs text-gray-400">(모든 사용자에게 푸시 알림)</span>
-                </label>
-              )}
 
               {/* 팝업 설정 (관리자만) */}
               {canAdmin && (
