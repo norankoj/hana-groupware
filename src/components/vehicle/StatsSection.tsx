@@ -59,7 +59,10 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
         map[l.resource_id].totalKm += l.end_mileage - l.start_mileage;
       }
     });
-    return Object.values(map).sort((a, b) => b.count - a.count);
+    // km 기준 정렬 → 같으면 횟수 기준
+    return Object.values(map).sort(
+      (a, b) => b.totalKm - a.totalKm || b.count - a.count,
+    );
   }, [monthLogs, vehicles]);
 
   const totalKm = vehicleStats.reduce((s, v) => s + v.totalKm, 0);
@@ -124,8 +127,9 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
         ) : (
           <div className="space-y-3">
             {vehicleStats.map((stat) => {
+              // 막대 = 주행거리 기준 (실제 사용량 반영)
               const barWidth =
-                totalCount > 0 ? (stat.count / totalCount) * 100 : 0;
+                totalKm > 0 ? (stat.totalKm / totalKm) * 100 : 0;
               return (
                 <div key={stat.name} className="flex items-center gap-3">
                   <span className="text-sm font-bold text-gray-700 w-20 shrink-0 truncate">
@@ -138,13 +142,17 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
                     />
                   </div>
                   <div className="text-right text-xs w-32 shrink-0">
-                    <span className="font-bold text-gray-800">
-                      {stat.count}회
-                    </span>
-                    {stat.totalKm > 0 && (
-                      <span className="text-gray-400 ml-2">
-                        {stat.totalKm.toLocaleString()} km
-                      </span>
+                    {stat.totalKm > 0 ? (
+                      <>
+                        <span className="font-bold text-blue-700">
+                          {stat.totalKm.toLocaleString()} km
+                        </span>
+                        <span className="text-gray-400 ml-1.5">
+                          {stat.count}회
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-400">{stat.count}회</span>
                     )}
                   </div>
                 </div>

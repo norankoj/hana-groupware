@@ -60,10 +60,10 @@ const InfoRow = ({
   <div
     className={`flex border-b border-gray-200 ${isLast ? "border-b-0" : ""}`}
   >
-    <div className="w-32 sm:w-36 bg-gray-50 p-4 sm:p-5 text-sm font-bold text-gray-600 flex items-center shrink-0 border-r border-gray-200">
+    <div className="w-32 sm:w-36 bg-gray-50 p-4 sm:p-5 text-base font-bold text-gray-600 flex items-center shrink-0 border-r border-gray-200">
       {label}
     </div>
-    <div className="flex-1 p-4 sm:p-5 text-sm text-gray-800 flex items-center bg-white min-w-0 break-keep leading-relaxed">
+    <div className="flex-1 p-4 sm:p-5 text-base text-gray-800 flex items-center bg-white min-w-0 break-keep leading-relaxed">
       {children}
     </div>
   </div>
@@ -89,13 +89,13 @@ export default function DetailModal({
   // 연료 레벨 레이블 (실제 차량 8칸 기준)
   const FUEL_LEVELS = [
     { value: 100, label: "F" },
-    { value: 87,  label: "7/8" },
-    { value: 75,  label: "6/8" },
-    { value: 62,  label: "5/8" },
-    { value: 50,  label: "4/8" },
-    { value: 37,  label: "3/8" },
-    { value: 25,  label: "2/8" },
-    { value: 12,  label: "E" },
+    { value: 87, label: "7/8" },
+    { value: 75, label: "6/8" },
+    { value: 62, label: "5/8" },
+    { value: 50, label: "4/8" },
+    { value: 37, label: "3/8" },
+    { value: 25, label: "2/8" },
+    { value: 12, label: "E" },
   ];
   const fuelLabel = (v: number | undefined | null) => {
     if (v == null) return null;
@@ -123,6 +123,9 @@ export default function DetailModal({
   const [zoomImages, setZoomImages] = useState<string[]>([]);
   const [zoomIndex, setZoomIndex] = useState<number>(0);
 
+  // 노쇼 복구 후 로컬에서만 status를 "reserved"로 표시 (autoExpireReservations 재실행 방지)
+  const [restoredAsReserved, setRestoredAsReserved] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setDashImage(null);
@@ -145,6 +148,7 @@ export default function DetailModal({
       setShowExtendCalendar(false);
       setZoomImages([]);
       setZoomIndex(0);
+      setRestoredAsReserved(false);
     }
   }, [isOpen]);
 
@@ -181,7 +185,9 @@ export default function DetailModal({
       useWebWorker: true,
       initialQuality: 0.8,
     }).catch((compErr: any) => {
-      throw new Error("이미지 압축 실패: " + (compErr?.message || String(compErr)));
+      throw new Error(
+        "이미지 압축 실패: " + (compErr?.message || String(compErr)),
+      );
     });
     const folder = String(selectedLog?.id ?? "vehicle");
     const formData = new FormData();
@@ -212,15 +218,42 @@ export default function DetailModal({
       `반납 시간을 ${extendDate} ${extendTime}으로 연장하시겠습니까?`,
     );
     if (!ok) return;
-    const { error } = await supabase
-      .from("reservations")
-      .update({ end_at: newEndAt.toISOString() })
-      .eq("id", selectedLog.id);
-    if (error) return toast.error(error.message);
+    const res = await fetch("/api/vehicle/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reservationId: selectedLog.id,
+        updates: { end_at: newEndAt.toISOString() },
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok) return toast.error(result.error || "연장 실패");
     toast.success("반납 시간이 연장되었습니다.");
     setShowExtendForm(false);
     onRefresh();
     onClose();
+  };
+
+  const handleRestoreNoshow = async () => {
+    if (!selectedLog) return;
+    const ok = await showConfirm(
+      "노쇼 복구",
+      "노쇼 상태를 '예약됨'으로 복구하시겠습니까?\n복구 후 바로 운행 시작 입력이 가능합니다.",
+    );
+    if (!ok) return;
+    const { error } = await supabase
+      .from("reservations")
+      .update({ vehicle_status: "reserved" })
+      .eq("id", selectedLog.id);
+    if (error) {
+      toast.error("복구 실패: " + error.message);
+    } else {
+      // 모달을 닫지 않고 로컬 상태만 변경 —
+      // onRefresh()를 호출하면 autoExpireReservations()가 즉시 재실행되어
+      // end_at이 오래된 예약은 다시 noshow로 돌아가는 문제가 있음
+      setRestoredAsReserved(true);
+      toast.success("복구 완료! 아래에서 운행 시작을 입력해주세요.");
+    }
   };
 
   const handleSubmit = async (action: "checkin" | "checkout") => {
@@ -251,14 +284,18 @@ export default function DetailModal({
     }
 
     const ok = await showConfirm(
-      action === "checkin" ? "운행을 시작하시겠습니까?" : "반납을 완료하시겠습니까?",
+      action === "checkin"
+        ? "운행을 시작하시겠습니까?"
+        : "반납을 완료하시겠습니까?",
     );
     if (!ok) return;
 
     setUploading(true);
     try {
       const allFiles = [dashImage!, ...exteriorFiles];
-      const allUrls = await Promise.all(allFiles.map((f) => compressAndUpload(f)));
+      const allUrls = await Promise.all(
+        allFiles.map((f) => compressAndUpload(f)),
+      );
       const [dashUrl, ...extUrls] = allUrls;
 
       const updates: any = {};
@@ -282,11 +319,16 @@ export default function DetailModal({
         }
       }
 
-      const { error } = await supabase
-        .from("reservations")
-        .update(updates)
-        .eq("id", selectedLog.id);
-      if (error) throw error;
+      // 서버 API 경유: 클라이언트 RLS 우회 (service_role 사용)
+      const res = await fetch("/api/vehicle/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId: selectedLog.id, updates }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || `저장 실패 (${res.status})`);
+      }
 
       // resources.current_mileage 업데이트는 DB 트리거(trigger_update_mileage)가 처리
       if (action === "checkin") {
@@ -310,7 +352,9 @@ export default function DetailModal({
       ...(selectedLog?.checkin_exterior_urls || []),
       selectedLog?.checkout_photo_url,
       ...(selectedLog?.checkout_exterior_urls || []),
-    ].filter(Boolean).map((u) => toProxyUrl(u as string));
+    ]
+      .filter(Boolean)
+      .map((u) => toProxyUrl(u as string));
 
     setZoomImages(allImages);
     setZoomIndex(allImages.indexOf(url));
@@ -367,12 +411,17 @@ export default function DetailModal({
 
   const isAdmin =
     currentProfile?.is_approver === true || currentProfile?.role === "admin";
+
+  // 노쇼 복구 후에는 로컬에서 "reserved"로 취급
+  const effectiveStatus = restoredAsReserved
+    ? "reserved"
+    : selectedLog?.vehicle_status;
+
   const isMyTurn =
     (selectedLog?.user_id === currentUser || isAdmin) &&
-    selectedLog?.vehicle_status !== "returned" &&
-    selectedLog?.vehicle_status !== "noshow";
-  const actionType =
-    selectedLog?.vehicle_status === "reserved" ? "checkin" : "checkout";
+    effectiveStatus !== "returned" &&
+    effectiveStatus !== "noshow";
+  const actionType = effectiveStatus === "reserved" ? "checkin" : "checkout";
 
   const isFormValid =
     actionType === "checkin"
@@ -405,7 +454,7 @@ export default function DetailModal({
         </InfoRow>
         <InfoRow label="운전자">
           <span className="font-medium">{selectedLog?.driver_name}</span>
-          <span className="text-gray-400 text-xs ml-2">
+          <span className="text-gray-400 text-sm ml-2">
             ({selectedLog?.department})
           </span>
         </InfoRow>
@@ -432,7 +481,7 @@ export default function DetailModal({
               <span className="font-bold text-blue-600 ml-2 text-base">
                 {selectedLog.end_mileage?.toLocaleString()} km
               </span>
-              <span className="ml-2 text-sm text-gray-400">
+              <span className="ml-2 text-base text-gray-400">
                 (
                 {(
                   selectedLog.end_mileage! - selectedLog.start_mileage!
@@ -444,7 +493,7 @@ export default function DetailModal({
             <InfoRow label="연료 상태">
               <div className="flex items-center gap-3">
                 {selectedLog.fuel_level_start != null && (
-                  <span className="text-sm">
+                  <span className="text-base">
                     출발{" "}
                     <span className="font-bold text-blue-600">
                       {fuelLabel(selectedLog.fuel_level_start)}
@@ -456,7 +505,7 @@ export default function DetailModal({
                     <span className="text-gray-400">→</span>
                   )}
                 {selectedLog.fuel_level_end != null && (
-                  <span className="text-sm">
+                  <span className="text-base">
                     도착{" "}
                     <span
                       className={`font-bold ${selectedLog.fuel_level_end <= 25 ? "text-red-500" : "text-green-600"}`}
@@ -496,10 +545,21 @@ export default function DetailModal({
             </InfoRow>
             <InfoRow label="운행 전">
               <div className="flex flex-wrap gap-2 py-1">
-                {[selectedLog.checkin_photo_url, ...(selectedLog.checkin_exterior_urls || [])].filter(Boolean).length > 0
-                  ? [selectedLog.checkin_photo_url, ...(selectedLog.checkin_exterior_urls || [])].map((url, i) =>
+                {[
+                  selectedLog.checkin_photo_url,
+                  ...(selectedLog.checkin_exterior_urls || []),
+                ].filter(Boolean).length > 0 ? (
+                  [
+                    selectedLog.checkin_photo_url,
+                    ...(selectedLog.checkin_exterior_urls || []),
+                  ].map(
+                    (url, i) =>
                       url && (
-                        <div key={`checkin-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm" onClick={() => openZoom(toProxyUrl(url))}>
+                        <div
+                          key={`checkin-${i}`}
+                          className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm"
+                          onClick={() => openZoom(toProxyUrl(url))}
+                        >
                           <img
                             src={toProxyUrl(url)}
                             className="w-full h-full object-cover"
@@ -508,27 +568,44 @@ export default function DetailModal({
                               const t = e.currentTarget;
                               t.style.display = "none";
                               const parent = t.parentElement;
-                              if (parent && !parent.querySelector(".img-error")) {
+                              if (
+                                parent &&
+                                !parent.querySelector(".img-error")
+                              ) {
                                 const div = document.createElement("div");
-                                div.className = "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
-                                div.innerHTML = '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                                div.className =
+                                  "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                                div.innerHTML =
+                                  '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
                                 parent.appendChild(div);
                               }
                             }}
                           />
                         </div>
-                      )
-                    )
-                  : <p className="text-sm text-gray-400">없음</p>
-                }
+                      ),
+                  )
+                ) : (
+                  <p className="text-sm text-gray-400">없음</p>
+                )}
               </div>
             </InfoRow>
             <InfoRow label="운행 후" isLast>
               <div className="flex flex-wrap gap-2 py-1">
-                {[selectedLog.checkout_photo_url, ...(selectedLog.checkout_exterior_urls || [])].filter(Boolean).length > 0
-                  ? [selectedLog.checkout_photo_url, ...(selectedLog.checkout_exterior_urls || [])].map((url, i) =>
+                {[
+                  selectedLog.checkout_photo_url,
+                  ...(selectedLog.checkout_exterior_urls || []),
+                ].filter(Boolean).length > 0 ? (
+                  [
+                    selectedLog.checkout_photo_url,
+                    ...(selectedLog.checkout_exterior_urls || []),
+                  ].map(
+                    (url, i) =>
                       url && (
-                        <div key={`checkout-${i}`} className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm" onClick={() => openZoom(toProxyUrl(url))}>
+                        <div
+                          key={`checkout-${i}`}
+                          className="w-[80px] h-[80px] shrink-0 rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition shadow-sm"
+                          onClick={() => openZoom(toProxyUrl(url))}
+                        >
                           <img
                             src={toProxyUrl(url)}
                             className="w-full h-full object-cover"
@@ -537,19 +614,25 @@ export default function DetailModal({
                               const t = e.currentTarget;
                               t.style.display = "none";
                               const parent = t.parentElement;
-                              if (parent && !parent.querySelector(".img-error")) {
+                              if (
+                                parent &&
+                                !parent.querySelector(".img-error")
+                              ) {
                                 const div = document.createElement("div");
-                                div.className = "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
-                                div.innerHTML = '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                                div.className =
+                                  "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                                div.innerHTML =
+                                  '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
                                 parent.appendChild(div);
                               }
                             }}
                           />
                         </div>
-                      )
-                    )
-                  : <p className="text-sm text-gray-400">없음</p>
-                }
+                      ),
+                  )
+                ) : (
+                  <p className="text-sm text-gray-400">없음</p>
+                )}
               </div>
             </InfoRow>
           </div>
@@ -608,7 +691,10 @@ export default function DetailModal({
               </label>
               <div className="flex flex-wrap gap-2">
                 {FUEL_LEVELS.map(({ value, label }) => {
-                  const selected = (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) === value;
+                  const selected =
+                    (actionType === "checkin"
+                      ? checkinFuel
+                      : checkoutForm.fuel) === value;
                   const isLow = value <= 12;
                   const isWarn = value === 25;
                   return (
@@ -861,8 +947,7 @@ export default function DetailModal({
                         onClick={() =>
                           setCheckoutForm((p) => ({
                             ...p,
-                            incidentType:
-                              p.incidentType === key ? null : key,
+                            incidentType: p.incidentType === key ? null : key,
                           }))
                         }
                         className={`px-4 py-2 rounded-full text-sm border font-bold transition ${
@@ -965,6 +1050,16 @@ export default function DetailModal({
             닫기
           </button>
         )}
+        {/* 본인 또는 관리자 — 노쇼 복구 */}
+        {(isAdmin || selectedLog?.user_id === currentUser) &&
+          effectiveStatus === "noshow" && (
+            <button
+              onClick={handleRestoreNoshow}
+              className="flex-1 bg-orange-50 hover:bg-orange-100 text-orange-600 py-4 rounded-xl text-lg font-bold transition border border-orange-200"
+            >
+              노쇼 복구
+            </button>
+          )}
         {isMyTurn && actionType === "checkin" && onCancel && (
           <button
             onClick={() => onCancel(selectedLog!.id)}
@@ -999,7 +1094,7 @@ export default function DetailModal({
             {uploading
               ? "처리 중..."
               : actionType === "checkin"
-                ? "운행 시작 완료"
+                ? "운행 시작"
                 : "반납 완료"}
           </button>
         )}
@@ -1014,7 +1109,9 @@ export default function DetailModal({
         <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
           <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-gray-800 font-bold text-base">사진 업로드 중...</p>
+            <p className="text-gray-800 font-bold text-base">
+              사진 업로드 중...
+            </p>
             <p className="text-gray-400 text-sm">잠시만 기다려 주세요</p>
           </div>
         </div>

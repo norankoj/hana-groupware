@@ -159,9 +159,9 @@ export default function VehicleReservationPage() {
   };
 
   const autoExpireReservations = async () => {
-    // 반납 예정 시간 + 3시간 경과 후 노쇼 처리 (짧은 지연 기록 허용)
+    // 반납 예정 시간 + 3일 경과 후 노쇼 처리 (기록 입력 유예 기간)
     const expireThreshold = new Date(
-      Date.now() - 3 * 60 * 60 * 1000,
+      Date.now() - 3 * 24 * 60 * 60 * 1000,
     ).toISOString();
     await supabase
       .from("reservations")
