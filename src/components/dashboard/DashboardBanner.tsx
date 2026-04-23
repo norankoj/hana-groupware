@@ -23,6 +23,7 @@ type AlarmItem = {
   badge: string;
   badgeColor: string;
   title: string;
+  subtitle?: string;
   date: string;
   href: string;
 };
@@ -46,21 +47,22 @@ function AlarmCard() {
         .from("notices")
         .select("id, title, category, created_at")
         .order("created_at", { ascending: false })
-        .limit(4),
+        .limit(6),
       supabase
         .from("reservations")
         .select(
-          "id, created_at, profiles:user_id(full_name), resources:resource_id(name, category)",
+          "id, created_at, start_at, end_at, profiles:user_id(full_name), resources:resource_id(name, category)",
         )
         .neq("status", "cancelled")
         .order("created_at", { ascending: false })
-        .limit(4),
+        .limit(6),
     ]).then(([{ data: notices }, { data: reservations }]) => {
       const noticeItems: AlarmItem[] = (notices ?? []).map((n) => ({
         id: `n-${n.id}`,
         badge: n.category,
         badgeColor: ALARM_BADGE_STYLE[n.category] ?? ALARM_BADGE_STYLE["일반"],
         title: n.title,
+        subtitle: format(new Date(n.created_at), "M.d(EEE) 공지", { locale: ko }),
         date: n.created_at,
         href: "/notice",
       }));
@@ -74,11 +76,24 @@ function AlarmCard() {
         ) as { full_name?: string } | null;
         const isVehicle = resource?.category === "vehicle";
         const badge = isVehicle ? "차량" : "시설";
+
+        let subtitle: string | undefined;
+        if (r.start_at && r.end_at) {
+          const start = new Date(r.start_at);
+          const end = new Date(r.end_at);
+          const startStr = format(start, "M.d(EEE) HH:mm", { locale: ko });
+          const endSameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
+          subtitle = endSameDay
+            ? `${startStr}~${format(end, "HH:mm")}`
+            : `${format(start, "M.d(EEE)", { locale: ko })} ~ ${format(end, "M.d(EEE)", { locale: ko })}`;
+        }
+
         return {
           id: `r-${r.id}`,
           badge,
           badgeColor: ALARM_BADGE_STYLE[badge],
           title: `${resource?.name ?? ""}${profile?.full_name ? ` · ${profile.full_name}님` : ""} 예약`,
+          subtitle,
           date: r.created_at,
           href: isVehicle ? "/vehicle" : "/reservation",
         };
@@ -86,7 +101,7 @@ function AlarmCard() {
 
       const merged = [...noticeItems, ...reservationItems]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 3);
+        .slice(0, 8);
 
       setItems(merged);
       setLoading(false);
@@ -94,8 +109,8 @@ function AlarmCard() {
   }, []);
 
   return (
-    <div className="lg:w-2/5 min-w-0 bg-white rounded-2xl border border-gray-200 p-5 flex flex-col justify-between min-h-[140px] sm:min-h-[168px] overflow-hidden">
-      <p className="text-xs font-semibold text-gray-400 tracking-wide mb-2">
+    <div className="lg:w-2/5 min-w-0 bg-white rounded-2xl border border-gray-200 p-5 flex flex-col h-[140px] sm:h-[168px] overflow-hidden">
+      <p className="text-xs font-semibold text-gray-400 tracking-wide mb-2 shrink-0">
         🔔 최근 알림
       </p>
 
@@ -113,22 +128,29 @@ function AlarmCard() {
           최근 활동이 없습니다.
         </p>
       ) : (
-        <ul className="flex-1 flex flex-col justify-center gap-2.5">
+        <ul className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1">
           {items.map((item) => (
             <li key={item.id}>
               <Link
                 href={item.href}
-                className="flex items-center gap-2 min-w-0 hover:bg-gray-50 rounded-lg px-1 py-0.5 transition-colors"
+                className="flex items-start gap-2 min-w-0 hover:bg-gray-50 rounded-lg px-1 py-0.5 transition-colors"
               >
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${item.badgeColor}`}
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${item.badgeColor}`}
                 >
                   {item.badge}
                 </span>
-                <span className="text-sm text-gray-700 font-medium truncate flex-1">
-                  {item.title}
-                </span>
-                <span className="text-[10px] text-gray-400 shrink-0 whitespace-nowrap">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-gray-700 font-medium truncate block">
+                    {item.title}
+                  </span>
+                  {item.subtitle && (
+                    <span className="text-[11px] text-gray-400 truncate block">
+                      {item.subtitle}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap mt-0.5">
                   {format(new Date(item.date), "M.d", { locale: ko })}
                 </span>
               </Link>
