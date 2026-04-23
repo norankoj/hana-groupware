@@ -187,16 +187,17 @@ export default function DetailModal({
   };
 
   const compressAndUpload = async (file: File): Promise<string> => {
-    const compressed = await imageCompression(file, {
-      maxSizeMB: 0.8,
-      maxWidthOrHeight: 1280,
-      useWebWorker: true,
-      initialQuality: 0.8,
-    }).catch((compErr: any) => {
-      throw new Error(
-        "이미지 압축 실패: " + (compErr?.message || String(compErr)),
-      );
-    });
+    let compressed: File = file;
+    try {
+      compressed = await imageCompression(file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true,
+        initialQuality: 0.8,
+      });
+    } catch {
+      // 압축 실패 시 원본 파일로 업로드 진행
+    }
     const folder = String(selectedLog?.id ?? "vehicle");
     const formData = new FormData();
     formData.append("file", compressed, file.name || "photo.jpg");
@@ -442,11 +443,19 @@ export default function DetailModal({
         exteriorFiles.length > 0;
 
   const ActionSection = isMyTurn ? (
-    <div className={`bg-white border rounded-sm overflow-hidden ${actionType === "checkin" ? "border-green-200" : "border-red-200"}`}>
+    <div
+      className={`bg-white border rounded-sm overflow-hidden ${actionType === "checkin" ? "border-green-200" : "border-red-200"}`}
+    >
       {/* 상단 헤더 바 */}
-      <div className={`px-4 py-2.5 flex items-center gap-2 border-b ${actionType === "checkin" ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}>
-        <span className={`w-1.5 h-4 rounded-full shrink-0 ${actionType === "checkin" ? "bg-green-500" : "bg-red-500"}`} />
-        <span className={`text-sm font-bold ${actionType === "checkin" ? "text-green-700" : "text-red-700"}`}>
+      <div
+        className={`px-4 py-2.5 flex items-center gap-2 border-b ${actionType === "checkin" ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}
+      >
+        <span
+          className={`w-1.5 h-4 rounded-full shrink-0 ${actionType === "checkin" ? "bg-green-500" : "bg-red-500"}`}
+        />
+        <span
+          className={`text-sm font-bold ${actionType === "checkin" ? "text-green-700" : "text-red-700"}`}
+        >
           {actionType === "checkin" ? "이용 시작" : "반납하기"}
         </span>
       </div>
@@ -461,11 +470,18 @@ export default function DetailModal({
           <input
             type="number"
             className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-base font-mono bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none placeholder:text-gray-300 transition"
-            placeholder={actionType === "checkin" ? "예: 54000" : `출발: ${selectedLog?.start_mileage?.toLocaleString()}`}
+            placeholder={
+              actionType === "checkin"
+                ? "예: 54000"
+                : `출발: ${selectedLog?.start_mileage?.toLocaleString()}`
+            }
             onChange={(e) =>
               actionType === "checkin"
                 ? setCheckinMileage(Number(e.target.value))
-                : setCheckoutForm({ ...checkoutForm, mileage: Number(e.target.value) })
+                : setCheckoutForm({
+                    ...checkoutForm,
+                    mileage: Number(e.target.value),
+                  })
             }
           />
         </div>
@@ -477,7 +493,9 @@ export default function DetailModal({
           </label>
           <div className="grid grid-cols-8 gap-1">
             {FUEL_LEVELS.map(({ value, label }) => {
-              const selected = (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) === value;
+              const selected =
+                (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) ===
+                value;
               const isLow = value <= 12;
               const isWarn = value === 25;
               return (
@@ -512,29 +530,70 @@ export default function DetailModal({
             <label className="text-sm font-semibold text-gray-700">
               사진 등록 <span className="text-red-500">*</span>
             </label>
-            <span className="text-xs text-gray-400">계기판 1장, 외관 최대 10장</span>
+            <span className="text-xs text-gray-400">
+              계기판 1장, 외관 최대 10장
+            </span>
           </div>
           <div className="space-y-4">
             {/* 계기판 */}
             <div>
-              <p className="text-xs font-medium text-gray-400 mb-2">계기판 (필수)</p>
+              <p className="text-xs font-medium text-gray-400 mb-2">
+                계기판 (필수)
+              </p>
               <div className="flex gap-2">
                 {!dashPreview ? (
                   <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition">
-                    <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <svg
+                      className="w-6 h-6 text-gray-400 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
                     </svg>
                     <span className="text-xs text-gray-400">0/1</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleDashChange} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleDashChange}
+                    />
                   </label>
                 ) : (
                   <div className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200">
-                    <img src={dashPreview!} className="w-full h-full object-cover" alt="계기판" />
-                    <button onClick={() => { setDashImage(null); setDashPreview(null); }}
-                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition">
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    <img
+                      src={dashPreview!}
+                      className="w-full h-full object-cover"
+                      alt="계기판"
+                    />
+                    <button
+                      onClick={() => {
+                        setDashImage(null);
+                        setDashPreview(null);
+                      }}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -543,24 +602,61 @@ export default function DetailModal({
             </div>
             {/* 외관 */}
             <div>
-              <p className="text-xs font-medium text-gray-400 mb-2">차량 외관 (필수 권장)</p>
+              <p className="text-xs font-medium text-gray-400 mb-2">
+                차량 외관 (필수 권장)
+              </p>
               <div className="flex flex-wrap gap-2">
                 {exteriorFiles.length < 10 && (
                   <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition shrink-0">
-                    <svg className="w-6 h-6 text-blue-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <svg
+                      className="w-6 h-6 text-blue-400 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
                     </svg>
-                    <span className="text-xs text-blue-400">{exteriorFiles.length}/10</span>
-                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleExteriorChange} />
+                    <span className="text-xs text-blue-400">
+                      {exteriorFiles.length}/10
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleExteriorChange}
+                    />
                   </label>
                 )}
                 {exteriorPreviews.map((src, idx) => (
-                  <div key={idx} className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200 shrink-0 group">
-                    <img src={src} className="w-full h-full object-cover" alt="외관" />
-                    <button onClick={() => removeExterior(idx)}
-                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  <div
+                    key={idx}
+                    className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200 shrink-0 group"
+                  >
+                    <img
+                      src={src}
+                      className="w-full h-full object-cover"
+                      alt="외관"
+                    />
+                    <button
+                      onClick={() => removeExterior(idx)}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -574,10 +670,22 @@ export default function DetailModal({
         {actionType === "checkout" && (
           <div className="space-y-4 pt-4 border-t border-gray-100">
             <div className="flex items-center gap-2.5">
-              <input type="checkbox" id="cleanup" className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
+              <input
+                type="checkbox"
+                id="cleanup"
+                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
                 checked={checkoutForm.cleanup}
-                onChange={(e) => setCheckoutForm({ ...checkoutForm, cleanup: e.target.checked })} />
-              <label htmlFor="cleanup" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
+                onChange={(e) =>
+                  setCheckoutForm({
+                    ...checkoutForm,
+                    cleanup: e.target.checked,
+                  })
+                }
+              />
+              <label
+                htmlFor="cleanup"
+                className="text-sm font-semibold text-gray-700 cursor-pointer select-none"
+              >
                 차량 내부 쓰레기 정리를 완료했습니다.
               </label>
             </div>
@@ -585,25 +693,55 @@ export default function DetailModal({
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                 주차 위치 <span className="text-red-500">*</span>
               </label>
-              <input type="text" placeholder="예: 교육관"
+              <input
+                type="text"
+                placeholder="예: 교육관"
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
                 value={checkoutForm.parking}
-                onChange={(e) => setCheckoutForm({ ...checkoutForm, parking: e.target.value })} />
+                onChange={(e) =>
+                  setCheckoutForm({ ...checkoutForm, parking: e.target.value })
+                }
+              />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">차량 특이사항 (선택)</label>
-              <textarea placeholder="스크래치, 경고등, 기타 이상 사항 등" rows={3}
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                차량 특이사항 (선택)
+              </label>
+              <textarea
+                placeholder="스크래치, 경고등, 기타 이상 사항 등"
+                rows={3}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition resize-none"
                 value={checkoutForm.condition}
-                onChange={(e) => setCheckoutForm({ ...checkoutForm, condition: e.target.value })} />
+                onChange={(e) =>
+                  setCheckoutForm({
+                    ...checkoutForm,
+                    condition: e.target.value,
+                  })
+                }
+              />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">이상 유형 (해당 시 선택)</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                이상 유형 (해당 시 선택)
+              </label>
               <div className="flex flex-wrap gap-2">
-                {[{ key: "accident", label: "사고" }, { key: "breakdown", label: "고장" }, { key: "scratch", label: "흠집" }, { key: "other", label: "기타" }].map(({ key, label }) => (
-                  <button key={key} type="button"
-                    onClick={() => setCheckoutForm((p) => ({ ...p, incidentType: p.incidentType === key ? null : key }))}
-                    className={`px-3 py-1.5 rounded-sm text-sm font-semibold border transition cursor-pointer ${checkoutForm.incidentType === key ? "bg-red-500 text-white border-red-500 hover:bg-red-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300"}`}>
+                {[
+                  { key: "accident", label: "사고" },
+                  { key: "breakdown", label: "고장" },
+                  { key: "scratch", label: "흠집" },
+                  { key: "other", label: "기타" },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() =>
+                      setCheckoutForm((p) => ({
+                        ...p,
+                        incidentType: p.incidentType === key ? null : key,
+                      }))
+                    }
+                    className={`px-3 py-1.5 rounded-sm text-sm font-semibold border transition cursor-pointer ${checkoutForm.incidentType === key ? "bg-red-500 text-white border-red-500 hover:bg-red-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300"}`}
+                  >
                     {label}
                   </button>
                 ))}
@@ -674,168 +812,161 @@ export default function DetailModal({
             <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
             <span className="text-sm font-bold text-gray-600">운행 결과</span>
           </div>
-            <InfoRow label="주행 거리">
-              {selectedLog.start_mileage?.toLocaleString()} km →{" "}
-              <span className="font-bold text-blue-600 ml-2 text-base">
-                {selectedLog.end_mileage?.toLocaleString()} km
-              </span>
-              <span className="ml-2 text-base text-gray-400">
-                (
-                {(
-                  selectedLog.end_mileage! - selectedLog.start_mileage!
-                ).toLocaleString()}{" "}
-                km 주행)
-              </span>
-            </InfoRow>
-            <InfoRow label="주차 위치">{selectedLog.parking_location}</InfoRow>
-            <InfoRow label="연료 상태">
-              <div className="flex items-center gap-3">
-                {selectedLog.fuel_level_start != null && (
-                  <span className="text-base">
-                    출발{" "}
-                    <span className="font-bold text-blue-600">
-                      {fuelLabel(selectedLog.fuel_level_start)}
-                    </span>
+          <InfoRow label="주행 거리">
+            {selectedLog.start_mileage?.toLocaleString()} km →{" "}
+            <span className="font-bold text-blue-600 ml-2 text-base">
+              {selectedLog.end_mileage?.toLocaleString()} km
+            </span>
+            <span className="ml-2 text-base text-gray-400">
+              (
+              {(
+                selectedLog.end_mileage! - selectedLog.start_mileage!
+              ).toLocaleString()}{" "}
+              km 주행)
+            </span>
+          </InfoRow>
+          <InfoRow label="주차 위치">{selectedLog.parking_location}</InfoRow>
+          <InfoRow label="연료 상태">
+            <div className="flex items-center gap-3">
+              {selectedLog.fuel_level_start != null && (
+                <span className="text-base">
+                  출발{" "}
+                  <span className="font-bold text-blue-600">
+                    {fuelLabel(selectedLog.fuel_level_start)}
                   </span>
-                )}
-                {selectedLog.fuel_level_start != null &&
-                  selectedLog.fuel_level_end != null && (
-                    <span className="text-gray-400">→</span>
-                  )}
-                {selectedLog.fuel_level_end != null && (
-                  <span className="text-base">
-                    도착{" "}
-                    <span
-                      className={`font-bold ${selectedLog.fuel_level_end <= 25 ? "text-red-500" : "text-green-600"}`}
-                    >
-                      {fuelLabel(selectedLog.fuel_level_end)}
-                    </span>
-                  </span>
-                )}
-                {selectedLog.fuel_level_start == null &&
-                  selectedLog.fuel_level_end == null && (
-                    <span className="text-gray-400 text-sm">미기록</span>
-                  )}
-              </div>
-            </InfoRow>
-            <InfoRow label="차량 상태">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
-                <span
-                  className={`px-3 py-1 rounded w-max text-xs font-bold ${selectedLog.cleanup_status ? "bg-gray-100 text-gray-700" : "bg-red-50 text-red-600"}`}
-                >
-                  {selectedLog.cleanup_status ? "청소 완료" : "청소 미흡"}
                 </span>
-                {selectedLog.incident_type && (
-                  <span className="px-3 py-1 rounded text-xs font-bold bg-red-100 text-red-600">
-                    {selectedLog.incident_type === "accident"
-                      ? "사고"
-                      : selectedLog.incident_type === "breakdown"
-                        ? "고장"
-                        : selectedLog.incident_type === "scratch"
-                          ? "흠집"
-                          : "기타"}
-                  </span>
+              )}
+              {selectedLog.fuel_level_start != null &&
+                selectedLog.fuel_level_end != null && (
+                  <span className="text-gray-400">→</span>
                 )}
-                <span className="text-gray-800">
-                  {selectedLog.vehicle_condition || "특이사항 없음"}
+              {selectedLog.fuel_level_end != null && (
+                <span className="text-base">
+                  도착{" "}
+                  <span
+                    className={`font-bold ${selectedLog.fuel_level_end <= 25 ? "text-red-500" : "text-green-600"}`}
+                  >
+                    {fuelLabel(selectedLog.fuel_level_end)}
+                  </span>
                 </span>
-              </div>
-            </InfoRow>
-            <InfoRow label="운행 전">
-              <div className="flex flex-wrap gap-2 py-1">
-                {[
+              )}
+              {selectedLog.fuel_level_start == null &&
+                selectedLog.fuel_level_end == null && (
+                  <span className="text-gray-400 text-sm">미기록</span>
+                )}
+            </div>
+          </InfoRow>
+          <InfoRow label="차량 상태">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
+              <span
+                className={`px-3 py-1 rounded w-max text-xs font-bold ${selectedLog.cleanup_status ? "bg-gray-100 text-gray-700" : "bg-red-50 text-red-600"}`}
+              >
+                {selectedLog.cleanup_status ? "청소 완료" : "청소 미흡"}
+              </span>
+              {selectedLog.incident_type && (
+                <span className="px-3 py-1 rounded text-xs font-bold bg-red-100 text-red-600">
+                  {selectedLog.incident_type === "accident"
+                    ? "사고"
+                    : selectedLog.incident_type === "breakdown"
+                      ? "고장"
+                      : selectedLog.incident_type === "scratch"
+                        ? "흠집"
+                        : "기타"}
+                </span>
+              )}
+              <span className="text-gray-800">
+                {selectedLog.vehicle_condition || "특이사항 없음"}
+              </span>
+            </div>
+          </InfoRow>
+          <InfoRow label="운행 전">
+            <div className="flex flex-wrap gap-2 py-1">
+              {[
+                selectedLog.checkin_photo_url,
+                ...(selectedLog.checkin_exterior_urls || []),
+              ].filter(Boolean).length > 0 ? (
+                [
                   selectedLog.checkin_photo_url,
                   ...(selectedLog.checkin_exterior_urls || []),
-                ].filter(Boolean).length > 0 ? (
-                  [
-                    selectedLog.checkin_photo_url,
-                    ...(selectedLog.checkin_exterior_urls || []),
-                  ].map(
-                    (url, i) =>
-                      url && (
-                        <div
-                          key={`checkin-${i}`}
-                          className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
-                          onClick={() => openZoom(toProxyUrl(url))}
-                        >
-                          <img
-                            src={toProxyUrl(url)}
-                            className="w-full h-full object-cover"
-                            alt="운행 전 사진"
-                            onError={(e) => {
-                              const t = e.currentTarget;
-                              t.style.display = "none";
-                              const parent = t.parentElement;
-                              if (
-                                parent &&
-                                !parent.querySelector(".img-error")
-                              ) {
-                                const div = document.createElement("div");
-                                div.className =
-                                  "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
-                                div.innerHTML =
-                                  '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
-                                parent.appendChild(div);
-                              }
-                            }}
-                          />
-                        </div>
-                      ),
-                  )
-                ) : (
-                  <p className="text-sm text-gray-400">없음</p>
-                )}
-              </div>
-            </InfoRow>
-            <InfoRow label="운행 후" isLast>
-              <div className="flex flex-wrap gap-2 py-1">
-                {[
+                ].map(
+                  (url, i) =>
+                    url && (
+                      <div
+                        key={`checkin-${i}`}
+                        className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                        onClick={() => openZoom(toProxyUrl(url))}
+                      >
+                        <img
+                          src={toProxyUrl(url)}
+                          className="w-full h-full object-cover"
+                          alt="운행 전 사진"
+                          onError={(e) => {
+                            const t = e.currentTarget;
+                            t.style.display = "none";
+                            const parent = t.parentElement;
+                            if (parent && !parent.querySelector(".img-error")) {
+                              const div = document.createElement("div");
+                              div.className =
+                                "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                              div.innerHTML =
+                                '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                              parent.appendChild(div);
+                            }
+                          }}
+                        />
+                      </div>
+                    ),
+                )
+              ) : (
+                <p className="text-sm text-gray-400">없음</p>
+              )}
+            </div>
+          </InfoRow>
+          <InfoRow label="운행 후" isLast>
+            <div className="flex flex-wrap gap-2 py-1">
+              {[
+                selectedLog.checkout_photo_url,
+                ...(selectedLog.checkout_exterior_urls || []),
+              ].filter(Boolean).length > 0 ? (
+                [
                   selectedLog.checkout_photo_url,
                   ...(selectedLog.checkout_exterior_urls || []),
-                ].filter(Boolean).length > 0 ? (
-                  [
-                    selectedLog.checkout_photo_url,
-                    ...(selectedLog.checkout_exterior_urls || []),
-                  ].map(
-                    (url, i) =>
-                      url && (
-                        <div
-                          key={`checkout-${i}`}
-                          className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
-                          onClick={() => openZoom(toProxyUrl(url))}
-                        >
-                          <img
-                            src={toProxyUrl(url)}
-                            className="w-full h-full object-cover"
-                            alt="운행 후 사진"
-                            onError={(e) => {
-                              const t = e.currentTarget;
-                              t.style.display = "none";
-                              const parent = t.parentElement;
-                              if (
-                                parent &&
-                                !parent.querySelector(".img-error")
-                              ) {
-                                const div = document.createElement("div");
-                                div.className =
-                                  "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
-                                div.innerHTML =
-                                  '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
-                                parent.appendChild(div);
-                              }
-                            }}
-                          />
-                        </div>
-                      ),
-                  )
-                ) : (
-                  <p className="text-sm text-gray-400">없음</p>
-                )}
-              </div>
-            </InfoRow>
-          </div>
+                ].map(
+                  (url, i) =>
+                    url && (
+                      <div
+                        key={`checkout-${i}`}
+                        className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                        onClick={() => openZoom(toProxyUrl(url))}
+                      >
+                        <img
+                          src={toProxyUrl(url)}
+                          className="w-full h-full object-cover"
+                          alt="운행 후 사진"
+                          onError={(e) => {
+                            const t = e.currentTarget;
+                            t.style.display = "none";
+                            const parent = t.parentElement;
+                            if (parent && !parent.querySelector(".img-error")) {
+                              const div = document.createElement("div");
+                              div.className =
+                                "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                              div.innerHTML =
+                                '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                              parent.appendChild(div);
+                            }
+                          }}
+                        />
+                      </div>
+                    ),
+                )
+              ) : (
+                <p className="text-sm text-gray-400">없음</p>
+              )}
+            </div>
+          </InfoRow>
+        </div>
       )}
-
     </div>
   );
 
@@ -1015,9 +1146,7 @@ export default function DetailModal({
         <div className="fixed inset-0 z-[9999] bg-white flex flex-col animate-slideInRight overflow-hidden">
           {/* 모바일 헤더 */}
           <div className="bg-white px-5 py-5 flex items-center justify-between border-b border-gray-200 shrink-0 sticky top-0 z-10">
-            <h2 className="text-lg font-bold text-gray-900">
-              운행 상세 정보
-            </h2>
+            <h2 className="text-lg font-bold text-gray-900">운행 상세 정보</h2>
             <button
               onClick={onClose}
               className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition"
