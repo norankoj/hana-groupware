@@ -321,7 +321,7 @@ export default function NoticeDetailPage() {
           <div className="flex items-center gap-3 mt-2.5 text-xs text-gray-400 flex-wrap">
             <span>{notice.profiles?.full_name} · {notice.profiles?.position}</span>
             <span>{format(new Date(notice.created_at), "yyyy.MM.dd HH:mm", { locale: ko })}</span>
-            <span>조회 {notice.view_count}</span>
+            <span>읽음 {viewers.length}명</span>
           </div>
         </div>
 

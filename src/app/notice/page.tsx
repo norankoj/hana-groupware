@@ -34,6 +34,7 @@ type Notice = {
   updated_at: string;
   author_id: string;
   profiles?: { full_name: string; position: string } | null;
+  notice_views?: { count: number }[];
 };
 
 const CATEGORIES = ["전체", "공지", "일반", "중요"];
@@ -148,7 +149,7 @@ export default function NoticePage() {
     setLoading(true);
     let query = supabase
       .from("notices")
-      .select("*, profiles:author_id(full_name, position)", { count: "exact" });
+      .select("*, profiles:author_id(full_name, position), notice_views(count)", { count: "exact" });
     if (activeCategory !== "전체") query = query.eq("category", activeCategory);
     if (search.trim()) query = query.ilike("title", `%${search.trim()}%`);
     query = query
@@ -420,7 +421,7 @@ export default function NoticePage() {
           <span className="text-center">카테고리</span>
           <span className="text-center">작성자</span>
           <span className="text-center">첨부</span>
-          <span className="text-center">조회</span>
+          <span className="text-center">읽음</span>
           <span className="text-center">날짜</span>
         </div>
 
@@ -530,7 +531,7 @@ export default function NoticePage() {
                   )}
                 </div>
                 <div className="hidden sm:flex items-center justify-center text-xs text-gray-400">
-                  {notice.view_count || 0}
+                  {notice.notice_views?.[0]?.count ?? 0}
                 </div>
                 <div className="hidden sm:flex items-center justify-center text-xs text-gray-400">
                   {format(new Date(notice.created_at), "MM.dd", { locale: ko })}
