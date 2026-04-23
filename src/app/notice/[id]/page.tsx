@@ -11,7 +11,7 @@ import { toProxyUrl } from "@/utils/minio-url";
 const NoticeEditor = dynamic(() => import("@/components/notice/NoticeEditor"), { ssr: false });
 
 type Profile = { id: string; full_name: string; position: string; role: string };
-type Viewer = { full_name: string };
+type Viewer = { id: string; full_name: string };
 type NoticeAttachment = { name: string; url: string; type: "image" | "file"; objectName?: string };
 type Notice = {
   id: number;
@@ -76,6 +76,8 @@ export default function NoticeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Viewer[]>([]);
+  const [allUsers, setAllUsers] = useState<Viewer[]>([]);
+  const [showViewersModal, setShowViewersModal] = useState(false);
 
   // 수정 상태
   const [isEditing, setIsEditing] = useState(false);
@@ -126,6 +128,13 @@ export default function NoticeDetailPage() {
           { onConflict: "notice_id,user_id", ignoreDuplicates: true },
         );
       }
+      // 전체 사용자 목록 fetch
+      const { data: allProfiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .neq("status", "inactive");
+      if (allProfiles) setAllUsers(allProfiles.map((p: any) => ({ id: p.id, full_name: p.full_name })));
+
       // 조회자 목록 fetch (2-step: notice_views → profiles)
       const { data: viewData } = await supabase
         .from("notice_views")
@@ -138,7 +147,7 @@ export default function NoticeDetailPage() {
           .select("id, full_name")
           .in("id", userIds);
         if (profileData) {
-          setViewers(profileData.map((p: any) => ({ full_name: p.full_name })));
+          setViewers(profileData.map((p: any) => ({ id: p.id, full_name: p.full_name })));
         }
       }
     };
@@ -384,14 +393,71 @@ export default function NoticeDetailPage() {
           </div>
         )}
 
-        {/* 조회자 */}
-        {viewers.length > 0 && (
-          <div className="px-6 pb-4">
-            <p className="text-xs text-gray-400">
-              읽음 · {viewers.map((v) => v.full_name).join(", ")}
-            </p>
-          </div>
-        )}
+        {/* 읽음 현황 */}
+        <div className="border-t border-gray-100">
+          {/* 토글 버튼 */}
+          <button
+            onClick={() => setShowViewersModal((v) => !v)}
+            className="w-full px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>읽음 <strong className="text-gray-700">{viewers.length}</strong>명</span>
+              <span className="text-blue-500 font-semibold underline underline-offset-2">보기</span>
+            </div>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showViewersModal ? "rotate-180" : ""}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* 펼쳐지는 내용 — grid-rows 트릭으로 smooth */}
+          {(() => {
+            const sortKo = (arr: Viewer[]) => [...arr].sort((a, b) => a.full_name.localeCompare(b.full_name, "ko"));
+            const viewerIds = new Set(viewers.map((v) => v.id));
+            const readList = sortKo(viewers);
+            const unreadList = sortKo(allUsers.filter((u) => !viewerIds.has(u.id)));
+            return (
+              <div className={`grid transition-all duration-300 ease-in-out ${showViewersModal ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                <div className="overflow-hidden">
+                  <div className="px-6 pb-5 space-y-4">
+                    {/* 읽은 사람 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                        <span className="text-xs font-bold text-gray-600">읽은 사람</span>
+                        <span className="text-[11px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">{readList.length}명</span>
+                      </div>
+                      {readList.length === 0 ? (
+                        <p className="text-xs text-gray-400 pl-3">아직 읽은 사람이 없습니다.</p>
+                      ) : (
+                        <p className="text-xs text-gray-600 pl-3 leading-relaxed">
+                          {readList.map((v) => v.full_name).join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                    {/* 안읽은 사람 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0" />
+                        <span className="text-xs font-bold text-gray-600">안읽은 사람</span>
+                        <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">{unreadList.length}명</span>
+                      </div>
+                      {unreadList.length === 0 ? (
+                        <p className="text-xs text-gray-400 pl-3">모두 읽었습니다! 🎉</p>
+                      ) : (
+                        <p className="text-xs text-gray-400 pl-3 leading-relaxed">
+                          {unreadList.map((u) => u.full_name).join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
 
         {/* 수정/삭제 버튼 */}
         {canEdit && (
