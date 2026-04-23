@@ -4,8 +4,8 @@ import withPWAInit from "@ducanh2912/next-pwa";
 // 1. PWA 설정
 const withPWA = withPWAInit({
   dest: "public",
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
+  cacheOnFrontEndNav: false,
+  aggressiveFrontEndNavCaching: false,
   reloadOnOnline: true,
   // swcMinify: true,
   disable: process.env.NODE_ENV === "development", // 개발 모드일 땐 PWA 끄기
