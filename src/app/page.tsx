@@ -196,7 +196,7 @@ export default function Home() {
           start_date: v.start_date,
           end_date: v.end_date,
           title: v.type,
-          time_label: "하루 종일",
+          time_label: v.type?.includes("오전") ? "오전 반차" : v.type?.includes("오후") ? "오후 반차" : "하루 종일",
           display_name: v.profiles.full_name,
           profiles: v.profiles,
         });

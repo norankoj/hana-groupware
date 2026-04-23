@@ -590,7 +590,13 @@ export default function CalendarSection({
                             <span
                               className={`text-xs text-gray-500 truncate ${e.type === "schedule" && "font-semibold text-indigo-600"}`}
                             >
-                              {e.title} {e.location && `(${e.location})`}
+                              {e.title}
+                              {e.type === "vacation" && e.start_date !== e.end_date && (
+                                <span className="text-gray-400 font-normal">
+                                  ({e.start_date.slice(5).replace("-", ".")}&nbsp;~&nbsp;{e.end_date.slice(5).replace("-", ".")})
+                                </span>
+                              )}
+                              {e.location && ` (${e.location})`}
                             </span>
                           </div>
                         </div>
@@ -601,16 +607,11 @@ export default function CalendarSection({
                         >
                           {e.type === "schedule" ? "일정" : "휴가"}
                         </span>
-                        <span className="text-[11px] text-gray-400 font-medium tabular-nums tracking-tight">
-                          {e.start_date === e.end_date ? (
-                            e.time_label
-                          ) : (
-                            <>
-                              {e.start_date.slice(5).replace("-", ".")}~
-                              {e.end_date.slice(5).replace("-", ".")}
-                            </>
-                          )}
-                        </span>
+                        {e.type === "schedule" && (
+                          <span className="text-[11px] text-gray-400 font-medium tabular-nums tracking-tight">
+                            {e.time_label}
+                          </span>
+                        )}
                       </div>
                     </li>
                   ))}
