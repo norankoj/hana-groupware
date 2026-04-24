@@ -4,14 +4,14 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL!}`,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
-
 export async function POST(request: Request) {
   try {
+    webpush.setVapidDetails(
+      `mailto:${process.env.VAPID_EMAIL!}`,
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!,
+    );
+
     const { userIds, toAll, title, body, url } = await request.json();
 
     const admin = createAdmin(

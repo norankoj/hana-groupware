@@ -43,9 +43,9 @@ export default function Modal({
   if (!isOpen || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-      <div className={`bg-white rounded-sm w-full max-w-[600px] overflow-hidden flex flex-col max-h-[90vh] border border-gray-200 ${className}`}>
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 sm:p-4">
+      <div className={`bg-white w-full sm:rounded-sm sm:max-w-[600px] overflow-hidden flex flex-col h-[92dvh] sm:h-auto sm:max-h-[90vh] border-0 sm:border border-gray-200 rounded-t-2xl sm:rounded-t-sm ${className}`}>
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
           <h2 className="text-lg font-bold text-gray-900 tracking-tight">
             {title}
           </h2>
@@ -74,7 +74,7 @@ export default function Modal({
 
         {/* 푸터 */}
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3 shrink-0">
             {footer}
           </div>
         )}

@@ -4,13 +4,13 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL!}`,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
-
 export async function GET(request: Request) {
+  webpush.setVapidDetails(
+    `mailto:${process.env.VAPID_EMAIL!}`,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  );
+
   // 보안: CRON_SECRET 검증
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

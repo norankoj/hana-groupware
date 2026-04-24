@@ -7,6 +7,7 @@ export async function middleware(request: NextRequest) {
   if (
     request.nextUrl.pathname.startsWith("/api/auth") ||
     request.nextUrl.pathname.startsWith("/api/sms") ||
+    request.nextUrl.pathname.startsWith("/api/cron") ||
     request.nextUrl.pathname === "/login"
   ) {
     return NextResponse.next();
@@ -81,10 +82,24 @@ export async function middleware(request: NextRequest) {
 
     const myRole = profile?.role || "member";
 
+    // vehicle_manager: 메인 페이지 접근 시 /vehicle로 리다이렉트
+    if (myRole === "vehicle_manager" && path === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/vehicle";
+      return NextResponse.redirect(url);
+    }
+
+    // vehicle_manager: /vehicle 하위 경로만 허용 (그 외 차단)
+    if (myRole === "vehicle_manager" && !path.startsWith("/vehicle") && path !== "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/vehicle";
+      return NextResponse.redirect(url);
+    }
+
     if (menuRule) {
-      // DB에 등록된 메뉴: 허용 역할 목록 검사
+      // DB에 등록된 메뉴: 허용 역할 목록 검사 (vehicle_manager는 별도 처리했으므로 제외)
       const allowedRoles: string[] = menuRule.roles || [];
-      if (!allowedRoles.includes(myRole) && path !== "/") {
+      if (!allowedRoles.includes(myRole) && path !== "/" && myRole !== "vehicle_manager") {
         const url = request.nextUrl.clone();
         url.pathname = "/";
         url.searchParams.set("error", "unauthorized");

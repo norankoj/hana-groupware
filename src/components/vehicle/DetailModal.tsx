@@ -94,21 +94,21 @@ export default function DetailModal({
   const [checkinMileage, setCheckinMileage] = useState<number | "">("");
   const [checkinFuel, setCheckinFuel] = useState<number>(100);
 
-  // 연료 레벨 레이블 (실제 차량 8칸 기준)
-  const FUEL_LEVELS = [
-    { value: 100, label: "F" },
-    { value: 87, label: "7/8" },
-    { value: 75, label: "6/8" },
-    { value: 62, label: "5/8" },
-    { value: 50, label: "4/8" },
-    { value: 37, label: "3/8" },
-    { value: 25, label: "2/8" },
-    { value: 12, label: "E" },
-  ];
+  // 연료 게이지 - 5% 단위 스냅 + 눈금 위치 포함
+  const SNAP_POINTS = [...new Set([
+    ...Array.from({ length: 21 }, (_, i) => i * 5), // 0,5,10,...,100
+    12, 37, 62, 87,                                  // 작은 눈금 위치도 스냅에 포함
+  ])].sort((a, b) => a - b);
+
+  // 시각적 눈금 (렌더링 전용 — 스냅 포인트와 별개)
+  const TICK_MARKS  = [0, 12, 25, 37, 50, 62, 75, 87, 100];
+  const LARGE_TICKS = new Set([0, 25, 50, 75, 100]);
+
   const fuelLabel = (v: number | undefined | null) => {
     if (v == null) return null;
-    const match = FUEL_LEVELS.find((f) => f.value === v);
-    return match ? match.label : `${v}%`;
+    if (v === 0)   return "E";
+    if (v === 100) return "F";
+    return `${v}%`;
   };
   const [checkoutForm, setCheckoutForm] = useState({
     mileage: "" as number | "",
@@ -134,6 +134,13 @@ export default function DetailModal({
   // 노쇼 복구 후 로컬에서만 status를 "reserved"로 표시 (autoExpireReservations 재실행 방지)
   const [restoredAsReserved, setRestoredAsReserved] = useState(false);
 
+  // 이전 탑승자 메모
+  const [prevNote, setPrevNote] = useState<{
+    driver: string;
+    note: string;
+    date: string;
+  } | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       setDashImage(null);
@@ -157,6 +164,28 @@ export default function DetailModal({
       setZoomImages([]);
       setZoomIndex(0);
       setRestoredAsReserved(false);
+      setPrevNote(null);
+
+      // 이용시작(reserved) 시 — 해당 차량의 가장 최근 반납 기록에서 메모 조회
+      if (selectedLog?.vehicle_status === "reserved" && selectedLog?.resource_id) {
+        supabase
+          .from("reservations")
+          .select("vehicle_condition, driver_name, end_at")
+          .eq("resource_id", selectedLog.resource_id)
+          .eq("vehicle_status", "returned")
+          .order("end_at", { ascending: false })
+          .limit(1)
+          .single()
+          .then(({ data }) => {
+            if (data?.vehicle_condition && data.vehicle_condition !== "이상 없음") {
+              setPrevNote({
+                driver: data.driver_name,
+                note: data.vehicle_condition,
+                date: data.end_at,
+              });
+            }
+          });
+      }
     }
   }, [isOpen]);
 
@@ -272,8 +301,8 @@ export default function DetailModal({
       if (String(checkinMileage).trim() === "")
         return toast.error("계기판 거리를 입력해주세요.");
       if (!dashImage) return toast.error("계기판 사진은 필수입니다.");
-      if (exteriorFiles.length === 0)
-        return toast.error("차량 외관 사진을 최소 1장 등록해주세요.");
+      if (exteriorFiles.length < 4)
+        return toast.error("차량 외관 사진을 최소 4장 등록해주세요.");
     } else {
       if (String(checkoutForm.mileage).trim() === "")
         return toast.error("도착 거리를 입력해주세요.");
@@ -288,8 +317,8 @@ export default function DetailModal({
       if (String(checkoutForm.parking).trim() === "")
         return toast.error("주차 위치를 입력해주세요.");
       if (!dashImage) return toast.error("계기판 사진은 필수입니다.");
-      if (exteriorFiles.length === 0)
-        return toast.error("차량 외관 사진을 최소 1장 등록해주세요.");
+      if (exteriorFiles.length < 4)
+        return toast.error("차량 외관 사진을 최소 4장 등록해주세요.");
     }
 
     const ok = await showConfirm(
@@ -436,11 +465,11 @@ export default function DetailModal({
     actionType === "checkin"
       ? String(checkinMileage).trim() !== "" &&
         dashImage !== null &&
-        exteriorFiles.length > 0
+        exteriorFiles.length >= 4
       : String(checkoutForm.mileage).trim() !== "" &&
         String(checkoutForm.parking).trim() !== "" &&
         dashImage !== null &&
-        exteriorFiles.length > 0;
+        exteriorFiles.length >= 4;
 
   const ActionSection = isMyTurn ? (
     <div
@@ -461,6 +490,25 @@ export default function DetailModal({
       </div>
 
       <div className="p-4 space-y-5">
+        {/* 이전 탑승자 메모 (이용시작 시에만 표시) */}
+        {actionType === "checkin" && prevNote && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
+            <div className="shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-amber-700 mb-1">
+                이전 탑승자 메모 · {prevNote.driver} ({format(new Date(prevNote.date), "M.d")})
+              </p>
+              <p className="text-sm text-amber-800 leading-relaxed whitespace-pre-wrap break-words">
+                {prevNote.note}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* 계기판 거리 */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -486,43 +534,99 @@ export default function DetailModal({
           />
         </div>
 
-        {/* 연료 */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            {actionType === "checkin" ? "출발 연료" : "도착 연료"}
-          </label>
-          <div className="grid grid-cols-8 gap-1">
-            {FUEL_LEVELS.map(({ value, label }) => {
-              const selected =
-                (actionType === "checkin" ? checkinFuel : checkoutForm.fuel) ===
-                value;
-              const isLow = value <= 12;
-              const isWarn = value === 25;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() =>
-                    actionType === "checkin"
-                      ? setCheckinFuel(value)
-                      : setCheckoutForm((p) => ({ ...p, fuel: value }))
-                  }
-                  className={`py-2 text-sm font-bold border rounded-sm transition cursor-pointer ${
-                    selected
-                      ? isLow
-                        ? "bg-red-500 text-white border-red-500 hover:bg-red-600"
-                        : isWarn
-                          ? "bg-orange-400 text-white border-orange-400 hover:bg-orange-500"
-                          : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                      : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
-                  }`}
+        {/* 연료 게이지 — 슬라이더 */}
+        {(() => {
+          const currentFuel = actionType === "checkin" ? checkinFuel : checkoutForm.fuel;
+          const setFuel = (v: number) =>
+            actionType === "checkin"
+              ? setCheckinFuel(v)
+              : setCheckoutForm((p) => ({ ...p, fuel: v }));
+
+          const isLow  = currentFuel <= 12;
+          const isWarn = currentFuel <= 25;
+          const fillColor  = isLow ? "bg-red-400"   : isWarn ? "bg-amber-400" : "bg-sky-400";
+          const thumbRing  = isLow ? "ring-red-300"  : isWarn ? "ring-amber-300" : "ring-sky-300";
+          const valueColor = isLow ? "text-red-500"  : isWarn ? "text-amber-500" : "text-sky-600";
+
+          const displayLabel = fuelLabel(currentFuel)!;
+
+          const snapFromPointer = (clientX: number, rect: DOMRect) => {
+            const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            const raw = Math.round(pct * 100);
+            return SNAP_POINTS.reduce((a, b) =>
+              Math.abs(b - raw) < Math.abs(a - raw) ? b : a,
+            );
+          };
+
+          return (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                {actionType === "checkin" ? "출발 연료" : "도착 연료"}
+              </label>
+              <div className="rounded-xl border border-gray-200 bg-white px-5 pt-3 pb-4 select-none">
+
+                {/* 현재값 표시 */}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-gray-400 font-medium">연료 게이지</span>
+                  <span className={`text-sm font-bold ${valueColor}`}>{displayLabel}</span>
+                </div>
+
+                {/* 드래그 가능한 슬라이더 */}
+                <div
+                  className="relative h-8 flex items-center cursor-pointer touch-none"
+                  onPointerDown={(e) => {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    setFuel(snapFromPointer(e.clientX, e.currentTarget.getBoundingClientRect()));
+                  }}
+                  onPointerMove={(e) => {
+                    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+                    setFuel(snapFromPointer(e.clientX, e.currentTarget.getBoundingClientRect()));
+                  }}
                 >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  {/* 배경 트랙 */}
+                  <div className="absolute inset-x-0 h-1.5 bg-gray-100 rounded-full" />
+                  {/* 채움 */}
+                  <div
+                    className={`absolute left-0 h-1.5 rounded-full transition-[width] duration-75 ${fillColor}`}
+                    style={{ width: `${currentFuel}%` }}
+                  />
+                  {/* 썸 — 타원 */}
+                  <div
+                    className={`absolute h-5 w-10 bg-gradient-to-b from-white to-gray-50 rounded-full shadow-md ring-2 pointer-events-none transition-[left] duration-75 ${thumbRing}`}
+                    style={{ left: `clamp(0px, calc(${currentFuel}% - 20px), calc(100% - 40px))` }}
+                  />
+                </div>
+
+                {/* 눈금 (TICK_MARKS 기준 — overflow:visible로 E/F 클립 방지) */}
+                <div className="relative mt-0.5 h-6" style={{ overflow: "visible" }}>
+                  {TICK_MARKS.map((v) => {
+                    const isLarge = LARGE_TICKS.has(v);
+                    return (
+                      <div
+                        key={v}
+                        className="absolute flex flex-col items-center cursor-pointer"
+                        style={{ left: `${v}%`, transform: "translateX(-50%)" }}
+                        onClick={() => setFuel(v)}
+                      >
+                        <div
+                          className={`rounded-full ${
+                            isLarge ? "w-0.5 h-3 bg-gray-400" : "w-px h-2 bg-gray-200"
+                          }`}
+                        />
+                        {(v === 0 || v === 100) && (
+                          <span className="text-[10px] font-bold text-gray-400 mt-0.5">
+                            {v === 0 ? "E" : "F"}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 사진 등록 */}
         <div>
@@ -531,7 +635,7 @@ export default function DetailModal({
               사진 등록 <span className="text-red-500">*</span>
             </label>
             <span className="text-xs text-gray-400">
-              계기판 1장, 외관 최대 10장
+              계기판 1장 필수, 외관 4장 이상 필수
             </span>
           </div>
           <div className="space-y-4">
@@ -602,8 +706,12 @@ export default function DetailModal({
             </div>
             {/* 외관 */}
             <div>
-              <p className="text-xs font-medium text-gray-400 mb-2">
-                차량 외관 (필수 권장)
+              <p className="text-xs font-medium text-gray-500 mb-1">
+                차량 외관{" "}
+                <span className="text-red-500 font-bold">필수 4장 이상</span>
+              </p>
+              <p className="text-[11px] font-bold text-red-500 mb-2">
+                ※ 차량 대각선 방향으로 최소 4장 이상 찍어주세요
               </p>
               <div className="flex flex-wrap gap-2">
                 {exteriorFiles.length < 10 && (
@@ -621,8 +729,12 @@ export default function DetailModal({
                         d="M12 4v16m8-8H4"
                       />
                     </svg>
-                    <span className="text-xs text-blue-400">
-                      {exteriorFiles.length}/10
+                    <span
+                      className={`text-xs font-bold ${exteriorFiles.length < 4 ? "text-red-500" : "text-green-500"}`}
+                    >
+                      {exteriorFiles.length < 4
+                        ? `${exteriorFiles.length}/4 필요`
+                        : `${exteriorFiles.length}장`}
                     </span>
                     <input
                       type="file"

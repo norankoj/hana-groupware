@@ -13,6 +13,7 @@ import { uploadToMinio, getPublicUrl, deleteFromMinio, BucketKey } from "@/utils
 // 허용 MIME 타입
 const ALLOWED_TYPES = [
   "image/jpeg", "image/png", "image/webp", "image/gif",
+  "image/heic", "image/heif",  // iOS 카메라 사진
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

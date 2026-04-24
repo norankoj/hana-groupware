@@ -109,7 +109,7 @@ function AlarmCard() {
   }, []);
 
   return (
-    <div className="lg:w-2/5 min-w-0 bg-white rounded-2xl border border-gray-200 p-5 flex flex-col h-[140px] sm:h-[168px] overflow-hidden">
+    <div className="lg:w-2/5 min-w-0 bg-white rounded-2xl border border-gray-200 p-5 flex flex-col h-[260px] sm:h-[168px] overflow-hidden">
       <p className="text-xs font-semibold text-gray-400 tracking-wide mb-2 shrink-0">
         🔔 최근 알림
       </p>

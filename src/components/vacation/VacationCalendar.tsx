@@ -380,15 +380,14 @@ export default function VacationCalendar({
         )}
 
       {/* 메인 레이아웃 */}
-      {/* 2. 수정: 왼쪽 패널 높이를 모바일에서도 고정 (h-[580px]) */}
       <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[650px] animate-fadeIn">
-        {/* 달력/리스트 영역 */}
-        <div className="lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-gray-200 h-[580px] lg:h-[650px] w-full flex flex-col">
+        {/* 달력/리스트 영역 — 모바일에서는 아래로(order-2), PC에서는 왼쪽(order-1) */}
+        <div className="order-2 lg:order-1 lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-gray-200 h-[580px] lg:h-[650px] w-full flex flex-col">
           {/* 1. 수정: 모바일에서는 2줄 (날짜 위 / 버튼 아래), PC에서는 1줄 */}
           {/* Grid를 사용하여 모바일 정렬 제어 */}
           <div className="grid grid-cols-2 gap-y-3 sm:flex sm:flex-row sm:justify-between sm:items-center mb-6 w-full relative">
-            {/* 1. 달력/리스트 토글 */}
-            <div className="col-start-1 row-start-2 sm:col-auto sm:row-auto sm:order-1 w-auto sm:w-1/3 flex justify-start">
+            {/* 1. 달력/리스트 토글 — 모바일 숨김 */}
+            <div className="hidden sm:flex col-start-1 row-start-2 sm:col-auto sm:row-auto sm:order-1 w-auto sm:w-1/3 justify-start">
               <div className="flex bg-gray-100 p-1 rounded-lg">
                 <button
                   onClick={() => setCalendarViewMode("month")}
@@ -462,7 +461,7 @@ export default function VacationCalendar({
               </button>
             </div>
 
-            {/* 3. 오늘 + 등록 버튼 */}
+            {/* 3. 오늘(모바일 숨김) + 등록 버튼 */}
             <div className="col-start-2 row-start-2 sm:col-auto sm:row-auto sm:order-3 w-auto sm:w-1/3 flex items-center justify-end gap-2">
               <button
                 onClick={() => {
@@ -470,7 +469,7 @@ export default function VacationCalendar({
                   setDate(now);
                   setActiveStartDate(now);
                 }}
-                className="px-3 py-1.5 text-sm font-bold bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition border border-blue-100 cursor-pointer"
+                className="hidden sm:inline-flex px-3 py-1.5 text-sm font-bold bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition border border-blue-100 cursor-pointer"
               >
                 오늘
               </button>
@@ -715,8 +714,8 @@ export default function VacationCalendar({
           )}
         </div>
 
-        {/* 오른쪽: 통계 & 최근 신청 내역 */}
-        <div className="lg:flex-1 w-full flex flex-col gap-6 h-auto lg:h-[650px]">
+        {/* 오른쪽: 통계 & 최근 신청 내역 — 모바일에서는 위로(order-1), PC에서는 오른쪽(order-2) */}
+        <div className="order-1 lg:order-2 lg:flex-1 w-full flex flex-col gap-6 h-auto lg:h-[650px]">
           {/* 내 연차 현황 */}
           <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
