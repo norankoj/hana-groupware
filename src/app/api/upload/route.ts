@@ -12,8 +12,12 @@ import { uploadToMinio, getPublicUrl, deleteFromMinio, BucketKey } from "@/utils
 
 // 허용 MIME 타입
 const ALLOWED_TYPES = [
-  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "image/jpeg", "image/jpg",   // JPEG (일부 Android는 image/jpg로 전송)
+  "image/png", "image/webp", "image/gif",
   "image/heic", "image/heif",  // iOS 카메라 사진
+  "image/avif",                // Android 12+ 기본 포맷 (Pixel, 갤럭시 등)
+  "image/bmp", "image/x-bmp", // BMP (일부 구형 Android)
+  "image/tiff", "image/x-tiff", // TIFF (Samsung Pro 모드 등)
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

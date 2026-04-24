@@ -35,7 +35,7 @@ type VehicleLog = {
   fuel_level_end?: number;
   incident_type?: string;
   profiles?: { full_name: string; position: string };
-  resources?: { name: string; description: string; insurance_info?: string };
+  resources?: { name: string; description: string; insurance_info?: string; fuel_segments?: number };
 };
 
 interface DetailModalProps {
@@ -94,15 +94,22 @@ export default function DetailModal({
   const [checkinMileage, setCheckinMileage] = useState<number | "">("");
   const [checkinFuel, setCheckinFuel] = useState<number>(100);
 
-  // 연료 게이지 - 5% 단위 스냅 + 눈금 위치 포함
-  const SNAP_POINTS = [...new Set([
-    ...Array.from({ length: 21 }, (_, i) => i * 5), // 0,5,10,...,100
-    12, 37, 62, 87,                                  // 작은 눈금 위치도 스냅에 포함
-  ])].sort((a, b) => a - b);
+  // 연료 게이지 칸 수 (DB resources.fuel_segments 에서 로드)
+  const [fuelSegments, setFuelSegments] = useState(8);
+  const [showFuelSettings, setShowFuelSettings] = useState(false);
 
-  // 시각적 눈금 (렌더링 전용 — 스냅 포인트와 별개)
-  const TICK_MARKS  = [0, 12, 25, 37, 50, 62, 75, 87, 100];
-  const LARGE_TICKS = new Set([0, 25, 50, 75, 100]);
+  // fuelSegments 에 따른 동적 스냅/눈금 계산
+  const SNAP_POINTS = fuelSegments === 10
+    ? Array.from({ length: 21 }, (_, i) => i * 5) // 5% 단위 스냅 (10칸 경계 + 중간)
+    : [...new Set([...Array.from({ length: 21 }, (_, i) => i * 5), 12, 37, 62, 87])].sort((a, b) => a - b);
+
+  const TICK_MARKS = fuelSegments === 10
+    ? [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+    : [0, 12, 25, 37, 50, 62, 75, 87, 100];
+
+  const LARGE_TICKS = fuelSegments === 10
+    ? new Set([0, 50, 100])
+    : new Set([0, 25, 50, 75, 100]);
 
   const fuelLabel = (v: number | undefined | null) => {
     if (v == null) return null;
@@ -118,6 +125,9 @@ export default function DetailModal({
     fuel: 100,
     incidentType: null as string | null,
   });
+  const [correctingStart, setCorrectingStart] = useState(false);
+  const [correctedStart, setCorrectedStart] = useState<number | "">("");
+
   const [showExtendForm, setShowExtendForm] = useState(false);
   const [extendDate, setExtendDate] = useState("");
   const [extendTime, setExtendTime] = useState("");
@@ -157,6 +167,10 @@ export default function DetailModal({
         fuel: 100,
         incidentType: null,
       });
+      setCorrectingStart(false);
+      setCorrectedStart("");
+      setFuelSegments(selectedLog?.resources?.fuel_segments ?? 8);
+      setShowFuelSettings(false);
       setShowExtendForm(false);
       setExtendDate("");
       setExtendTime("");
@@ -294,6 +308,17 @@ export default function DetailModal({
     }
   };
 
+  const saveFuelSegments = async (segments: number) => {
+    setFuelSegments(segments);
+    setShowFuelSettings(false);
+    if (!selectedLog?.resource_id) return;
+    const { error } = await supabase
+      .from("resources")
+      .update({ fuel_segments: segments })
+      .eq("id", selectedLog.resource_id);
+    if (error) toast.error("설정 저장 실패");
+  };
+
   const handleSubmit = async (action: "checkin" | "checkout") => {
     if (!selectedLog) return;
 
@@ -306,13 +331,17 @@ export default function DetailModal({
     } else {
       if (String(checkoutForm.mileage).trim() === "")
         return toast.error("도착 거리를 입력해주세요.");
+      const effectiveStart =
+        correctingStart && correctedStart !== ""
+          ? Number(correctedStart)
+          : selectedLog.start_mileage;
       if (
-        selectedLog.start_mileage !== null &&
-        selectedLog.start_mileage !== undefined &&
-        Number(checkoutForm.mileage) <= selectedLog.start_mileage
+        effectiveStart !== null &&
+        effectiveStart !== undefined &&
+        Number(checkoutForm.mileage) <= effectiveStart
       )
         return toast.error(
-          `도착 거리(${checkoutForm.mileage}km)는 출발 거리(${selectedLog.start_mileage}km)보다 커야 합니다.`,
+          `도착 거리(${checkoutForm.mileage}km)는 출발 거리(${effectiveStart}km)보다 커야 합니다.`,
         );
       if (String(checkoutForm.parking).trim() === "")
         return toast.error("주차 위치를 입력해주세요.");
@@ -354,6 +383,9 @@ export default function DetailModal({
         updates.fuel_level_end = checkoutForm.fuel;
         if (checkoutForm.incidentType) {
           updates.incident_type = checkoutForm.incidentType;
+        }
+        if (correctingStart && correctedStart !== "") {
+          updates.start_mileage = Number(correctedStart);
         }
       }
 
@@ -534,6 +566,55 @@ export default function DetailModal({
           />
         </div>
 
+        {/* 출발 거리 수정 (반납 시만 노출) */}
+        {actionType === "checkout" && selectedLog?.start_mileage != null && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs text-gray-500 shrink-0">기록된 출발 거리</span>
+                <span className="text-sm font-mono font-bold text-gray-700 truncate">
+                  {correctingStart && correctedStart !== ""
+                    ? Number(correctedStart).toLocaleString()
+                    : selectedLog.start_mileage.toLocaleString()}{" "}
+                  km
+                </span>
+                {correctingStart && correctedStart !== "" && (
+                  <span className="text-xs text-orange-500 font-bold shrink-0">(수정됨)</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCorrectingStart((v) => !v);
+                  if (correctingStart) setCorrectedStart("");
+                }}
+                className="text-xs text-blue-600 font-bold hover:underline shrink-0 cursor-pointer"
+              >
+                {correctingStart ? "취소" : "출발 거리 수정"}
+              </button>
+            </div>
+            {correctingStart && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  수정할 출발 거리 (km) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  className="w-full px-3 py-2.5 border border-orange-200 rounded-sm text-base font-mono bg-orange-50 focus:bg-white focus:border-orange-400 focus:ring-1 focus:ring-orange-300 outline-none placeholder:text-gray-300 transition"
+                  placeholder={`기존: ${selectedLog.start_mileage.toLocaleString()}`}
+                  value={correctedStart}
+                  onChange={(e) =>
+                    setCorrectedStart(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  출발 시 잘못 입력한 계기판 거리를 수정합니다.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 연료 게이지 — 슬라이더 */}
         {(() => {
           const currentFuel = actionType === "checkin" ? checkinFuel : checkoutForm.fuel;
@@ -542,8 +623,8 @@ export default function DetailModal({
               ? setCheckinFuel(v)
               : setCheckoutForm((p) => ({ ...p, fuel: v }));
 
-          const isLow  = currentFuel <= 12;
-          const isWarn = currentFuel <= 25;
+          const isLow  = currentFuel <= (fuelSegments === 10 ? 10 : 12);
+          const isWarn = currentFuel <= (fuelSegments === 10 ? 20 : 25);
           const fillColor  = isLow ? "bg-red-400"   : isWarn ? "bg-amber-400" : "bg-sky-400";
           const thumbRing  = isLow ? "ring-red-300"  : isWarn ? "ring-amber-300" : "ring-sky-300";
           const valueColor = isLow ? "text-red-500"  : isWarn ? "text-amber-500" : "text-sky-600";
@@ -560,9 +641,43 @@ export default function DetailModal({
 
           return (
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                {actionType === "checkin" ? "출발 연료" : "도착 연료"}
-              </label>
+              {/* 레이블 + 칸 수 설정 버튼 */}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-semibold text-gray-700">
+                  {actionType === "checkin" ? "출발 연료" : "도착 연료"}
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowFuelSettings((v) => !v)}
+                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100 transition cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {fuelSegments}칸
+                  </button>
+                  {showFuelSettings && (
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-1.5 flex gap-1">
+                      {[8, 10].map((seg) => (
+                        <button
+                          key={seg}
+                          type="button"
+                          onClick={() => saveFuelSegments(seg)}
+                          className={`px-3 py-1.5 rounded text-xs font-bold transition cursor-pointer ${
+                            fuelSegments === seg
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {seg}칸
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="rounded-xl border border-gray-200 bg-white px-5 pt-3 pb-4 select-none">
 
                 {/* 현재값 표시 */}

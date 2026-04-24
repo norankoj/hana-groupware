@@ -88,6 +88,7 @@ export default function VehicleReservationPage() {
   const [currentProfile, setCurrentProfile] = useState<{
     is_approver: boolean;
     role: string;
+    is_vehicle_notify: boolean;
   } | null>(null);
   const [activeCardId, setActiveCardId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"log" | "stats">("log");
@@ -231,7 +232,7 @@ export default function VehicleReservationPage() {
       setCurrentUser(user.id);
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, is_approver, role")
+        .select("full_name, is_approver, role, is_vehicle_notify")
         .eq("id", user.id)
         .single();
       if (profile) {
@@ -239,6 +240,7 @@ export default function VehicleReservationPage() {
         setCurrentProfile({
           is_approver: profile.is_approver || false,
           role: profile.role || "user",
+          is_vehicle_notify: profile.is_vehicle_notify || false,
         });
       }
     }
@@ -742,8 +744,7 @@ export default function VehicleReservationPage() {
                     </span>
                   </button>
 
-                  {(currentProfile?.is_approver ||
-                    currentProfile?.role === "admin") && (
+                  {currentProfile?.is_vehicle_notify && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
