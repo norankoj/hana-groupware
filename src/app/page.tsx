@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import NoticePopup from "@/components/notice/NoticePopup";
 import PushSubscriber from "@/components/PushSubscriber";
+import PushPromptBanner from "@/components/PushPromptBanner";
 import DashboardBanner from "@/components/dashboard/DashboardBanner";
 import type { WeatherData } from "@/components/dashboard/DashboardBanner";
 import CalendarSection from "@/components/dashboard/CalendarSection";
@@ -282,6 +283,8 @@ export default function Home() {
       <NoticePopup />
       {/* 푸시 알림 구독 */}
       <PushSubscriber />
+      {/* iOS/Android 알림 안내 배너 */}
+      <PushPromptBanner />
 
       {/* ── Row 1: 배너 카드 (고정) ── */}
       <DashboardBanner

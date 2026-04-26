@@ -33,7 +33,7 @@ type FormState = {
 };
 
 interface RecurringOptions {
-  days: number[];        // 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토
+  days: number[];
   startDate: string;
   endDate: string;
   startTime: string;
@@ -52,6 +52,54 @@ interface VehicleReserveModalProps {
   handleRangeChange: (value: any) => void;
 }
 
+// "2026-04-24" → "2026년 4월 24일"
+const formatDateDisplay = (dateStr: string) => {
+  if (!dateStr) return "날짜 선택";
+  const [y, m, d] = dateStr.split("-");
+  return `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
+};
+
+// 시간 선택 컴포넌트 (OS 로케일 포맷 회피)
+const TimeSelect = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (time: string) => void;
+}) => {
+  const parts = value ? value.split(":") : ["09", "00"];
+  const hr = parts[0] ?? "09";
+  const min = parts[1] ?? "00";
+  const MINUTE_OPTS = ["00", "10", "20", "30", "40", "50"];
+  // 현재 분 값이 목록에 없으면 임시 추가
+  const minuteOptions = MINUTE_OPTS.includes(min)
+    ? MINUTE_OPTS
+    : [...MINUTE_OPTS, min].sort();
+
+  return (
+    <div className="flex gap-1.5">
+      <select
+        value={hr}
+        onChange={(e) => onChange(`${e.target.value}:${min}`)}
+        className="flex-1 border border-gray-300 rounded-lg px-2 py-3 bg-white text-gray-900 outline-none focus:border-blue-500 text-sm font-semibold"
+      >
+        {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((h) => (
+          <option key={h} value={h}>{h}시</option>
+        ))}
+      </select>
+      <select
+        value={min}
+        onChange={(e) => onChange(`${hr}:${e.target.value}`)}
+        className="flex-1 border border-gray-300 rounded-lg px-2 py-3 bg-white text-gray-900 outline-none focus:border-blue-500 text-sm font-semibold"
+      >
+        {minuteOptions.map((m) => (
+          <option key={m} value={m}>{m}분</option>
+        ))}
+      </select>
+    </div>
+  );
+};
+
 export default function VehicleReserveModal({
   isOpen,
   onClose,
@@ -63,17 +111,12 @@ export default function VehicleReserveModal({
   setForm,
   handleRangeChange,
 }: VehicleReserveModalProps) {
-  // 예약 타입 상태 (single: 당일, multi: 기간, recurring: 정기)
   const [reserveType, setReserveType] = useState<"single" | "multi" | "recurring">("single");
-
-  // 정기 예약 상태
   const [recurringDays, setRecurringDays] = useState<number[]>([]);
   const [recurringSubmitting, setRecurringSubmitting] = useState(false);
-
   const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
   const [activeInput, setActiveInput] = useState<"start" | "end" | null>(null);
 
-  // 예약 타입 변경 시 날짜 동기화
   useEffect(() => {
     if (reserveType === "single") {
       setForm((prev) => ({ ...prev, end_date: prev.start_date }));
@@ -81,24 +124,17 @@ export default function VehicleReserveModal({
   }, [reserveType, form.start_date, setForm]);
 
   const onCalendarChange = (value: any) => {
-    // 기간 예약일 때
     if ((reserveType === "multi" || reserveType === "recurring") && Array.isArray(value)) {
       handleRangeChange(value);
       setActiveInput(null);
-    }
-    // 당일 예약일 때 (날짜 하나만 선택)
-    else if (reserveType === "single" && !Array.isArray(value)) {
+    } else if (reserveType === "single" && !Array.isArray(value)) {
       const dateStr = format(value, "yyyy-MM-dd");
-      setForm((prev) => ({
-        ...prev,
-        start_date: dateStr,
-        end_date: dateStr,
-      }));
+      setForm((prev) => ({ ...prev, start_date: dateStr, end_date: dateStr }));
       setActiveInput(null);
     }
   };
 
-  // 달력 팝업 컴포넌트
+  // 날짜 선택 팝업 (react-calendar)
   const calendarPopup = (
     <div className="absolute top-full left-0 z-50 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-[300px] sm:w-[350px]">
       <Calendar
@@ -117,17 +153,14 @@ export default function VehicleReserveModal({
           if (view !== "month") return null;
           const dateStr = format(date, "yyyy-MM-dd");
           if (HOLIDAYS[dateStr]) return "holiday-day";
-
           const isUnavailable = logs?.some(
             (req) =>
               req.resource_id === form.resource_id &&
-              (req.vehicle_status === "reserved" ||
-                req.vehicle_status === "in_use") &&
+              (req.vehicle_status === "reserved" || req.vehicle_status === "in_use") &&
               dateStr >= format(new Date(req.start_at), "yyyy-MM-dd") &&
               dateStr <= format(new Date(req.end_at), "yyyy-MM-dd"),
           );
-          if (isUnavailable)
-            return "!bg-gray-100 !text-gray-400 cursor-not-allowed";
+          if (isUnavailable) return "!bg-gray-100 !text-gray-400 cursor-not-allowed";
         }}
         tileDisabled={({ date, view }) => {
           if (view !== "month") return false;
@@ -135,22 +168,46 @@ export default function VehicleReserveModal({
           return logs?.some(
             (req) =>
               req.resource_id === form.resource_id &&
-              (req.vehicle_status === "reserved" ||
-                req.vehicle_status === "in_use") &&
+              (req.vehicle_status === "reserved" || req.vehicle_status === "in_use") &&
               dateStr >= format(new Date(req.start_at), "yyyy-MM-dd") &&
               dateStr <= format(new Date(req.end_at), "yyyy-MM-dd"),
           );
         }}
       />
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setActiveInput(null);
-        }}
+        onClick={(e) => { e.stopPropagation(); setActiveInput(null); }}
         className="w-full mt-2 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600 font-bold"
       >
         닫기
       </button>
+    </div>
+  );
+
+  // 날짜 선택 버튼 (input 대신 styled div — OS 포맷 회피)
+  const DateButton = ({
+    dateStr,
+    which,
+    label,
+    className = "",
+  }: {
+    dateStr: string;
+    which: "start" | "end";
+    label: string;
+    className?: string;
+  }) => (
+    <div className={`relative ${className}`}>
+      <div
+        onClick={() => setActiveInput(activeInput === which ? null : which)}
+        className="cursor-pointer"
+      >
+        <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
+          {label}
+        </label>
+        <div className="w-full border border-gray-300 rounded-lg p-3 bg-white text-gray-900 text-center font-bold text-sm select-none">
+          {formatDateDisplay(dateStr)}
+        </div>
+      </div>
+      {activeInput === which && calendarPopup}
     </div>
   );
 
@@ -194,10 +251,8 @@ export default function VehicleReserveModal({
       <div className="space-y-5">
         {/* 차량 선택 */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">
-            차량 선택
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1 custom-scrollbar">
+          <label className="block text-xs font-bold text-gray-500 mb-1">차량 선택</label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
             {vehicles.map((v) => (
               <button
                 key={v.id}
@@ -209,14 +264,13 @@ export default function VehicleReserveModal({
                 }`}
               >
                 <div className="font-bold text-sm break-keep">{v.name}</div>
-                <div className="text-[10px] opacity-70 mt-1">
-                  {v.description}
-                </div>
+                <div className="text-[10px] opacity-70 mt-1">{v.description}</div>
               </button>
             ))}
           </div>
         </div>
 
+        {/* 예약 타입 탭 */}
         <div className="bg-blue-50 p-1 rounded-xl flex border border-blue-100">
           {(["single", "multi", "recurring"] as const).map((type) => (
             <button
@@ -234,128 +288,61 @@ export default function VehicleReserveModal({
         </div>
 
         {/* 날짜 및 시간 입력 */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {reserveType === "single" ? (
-            // === 당일 예약 UI ===
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 relative">
-                <div
-                  onClick={() =>
-                    setActiveInput(activeInput === "start" ? null : "start")
-                  }
-                  className="cursor-pointer"
-                >
-                  <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
-                    사용 날짜
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 bg-white pointer-events-none text-center font-bold focus:border-blue-500 outline-none"
-                    value={form.start_date}
-                    readOnly
+            // === 당일 예약 ===
+            <>
+              <DateButton
+                dateStr={form.start_date}
+                which="start"
+                label="사용 날짜"
+                className="col-span-2"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">시작 시간</label>
+                  <TimeSelect
+                    value={form.start_time}
+                    onChange={(t) => setForm({ ...form, start_time: t })}
                   />
                 </div>
-                {activeInput === "start" && calendarPopup}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">종료 시간</label>
+                  <TimeSelect
+                    value={form.end_time}
+                    onChange={(t) => setForm({ ...form, end_time: t })}
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">
-                  시작 시간
-                </label>
-                {/* [수정] input type="time"으로 복귀 */}
-                <input
-                  type="time"
-                  className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
-                  value={form.start_time}
-                  onChange={(e) =>
-                    setForm({ ...form, start_time: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">
-                  종료 시간
-                </label>
-                {/* [수정] input type="time"으로 복귀 */}
-                <input
-                  type="time"
-                  className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
-                  value={form.end_time}
-                  onChange={(e) =>
-                    setForm({ ...form, end_time: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            </>
           ) : (
-            // === 기간/정기 예약 UI (공용) ===
+            // === 기간/정기 예약 ===
             <>
               <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <div
-                    onClick={() =>
-                      setActiveInput(activeInput === "start" ? null : "start")
-                    }
-                    className="cursor-pointer"
-                  >
-                    <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
-                      {reserveType === "recurring" ? "반복 시작일" : "시작일"}
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full border p-2 rounded-lg border-gray-300 text-gray-900 bg-white pointer-events-none focus:border-blue-500 outline-none"
-                      value={form.start_date}
-                      readOnly
-                    />
-                  </div>
-                  {activeInput === "start" && calendarPopup}
-                </div>
+                <DateButton
+                  dateStr={form.start_date}
+                  which="start"
+                  label={reserveType === "recurring" ? "반복 시작일" : "시작일"}
+                />
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    시간
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full border p-2 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
+                  <label className="block text-xs font-bold text-gray-500 mb-1">시작 시간</label>
+                  <TimeSelect
                     value={form.start_time}
-                    onChange={(e) =>
-                      setForm({ ...form, start_time: e.target.value })
-                    }
+                    onChange={(t) => setForm({ ...form, start_time: t })}
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <div
-                    onClick={() =>
-                      setActiveInput(activeInput === "end" ? null : "end")
-                    }
-                    className="cursor-pointer"
-                  >
-                    <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
-                      {reserveType === "recurring" ? "반복 종료일" : "종료일"}
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full border p-2 rounded-lg border-gray-300 text-gray-900 bg-white pointer-events-none focus:border-blue-500 outline-none"
-                      value={form.end_date}
-                      readOnly
-                    />
-                  </div>
-                  {activeInput === "end" && calendarPopup}
-                </div>
+                <DateButton
+                  dateStr={form.end_date}
+                  which="end"
+                  label={reserveType === "recurring" ? "반복 종료일" : "종료일"}
+                />
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    시간
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full border p-2 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
+                  <label className="block text-xs font-bold text-gray-500 mb-1">종료 시간</label>
+                  <TimeSelect
                     value={form.end_time}
-                    onChange={(e) =>
-                      setForm({ ...form, end_time: e.target.value })
-                    }
+                    onChange={(t) => setForm({ ...form, end_time: t })}
                   />
                 </div>
               </div>
@@ -363,7 +350,7 @@ export default function VehicleReserveModal({
           )}
         </div>
 
-        {/* 선택 날짜 예약 현황 타임라인 */}
+        {/* 선택 날짜 예약 현황 */}
         {(() => {
           const selectedVehicleLogs = logs.filter(
             (l) =>
@@ -380,17 +367,11 @@ export default function VehicleReserveModal({
           if (dayLogs.length === 0) return null;
           return (
             <div className="bg-red-50 border border-red-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-red-600 mb-2">
-                해당 날짜 이미 예약된 시간대
-              </p>
+              <p className="text-xs font-bold text-red-600 mb-2">해당 날짜 이미 예약된 시간대</p>
               <div className="flex flex-wrap gap-1">
                 {dayLogs.map((l) => (
-                  <span
-                    key={l.id}
-                    className="text-xs bg-red-100 text-red-600 px-2.5 py-1 rounded-full font-bold"
-                  >
-                    {format(new Date(l.start_at), "HH:mm")}~
-                    {format(new Date(l.end_at), "HH:mm")}
+                  <span key={l.id} className="text-xs bg-red-100 text-red-600 px-2.5 py-1 rounded-full font-bold">
+                    {format(new Date(l.start_at), "HH:mm")}~{format(new Date(l.end_at), "HH:mm")}
                   </span>
                 ))}
               </div>
@@ -398,7 +379,7 @@ export default function VehicleReserveModal({
           );
         })()}
 
-        {/* 정기 예약 — 요일 선택만 */}
+        {/* 정기 예약 — 요일 선택 */}
         {reserveType === "recurring" && (
           <div className="space-y-3 bg-purple-50 border border-purple-100 rounded-xl p-4">
             <label className="block text-xs font-bold text-gray-500">반복 요일 선택</label>
@@ -429,19 +410,18 @@ export default function VehicleReserveModal({
             {recurringDays.length > 0 && form.start_date && form.end_date && (
               <p className="text-xs text-purple-700 bg-purple-100 rounded-lg px-3 py-2 font-medium">
                 {form.start_date} ~ {form.end_date} 기간 중{" "}
-                <span className="font-bold">{[...recurringDays].sort().map((d) => DAY_LABELS[d]).join(", ")}요일</span>에
-                매주 {form.start_time} ~ {form.end_time} 예약이 생성됩니다.
+                <span className="font-bold">
+                  {[...recurringDays].sort().map((d) => DAY_LABELS[d]).join(", ")}요일
+                </span>에 매주 {form.start_time} ~ {form.end_time} 예약이 생성됩니다.
               </p>
             )}
           </div>
         )}
 
-        {/* 나머지 입력 폼 (부서, 운전자 등) */}
+        {/* 부서 / 운전자 / 목적지 / 운행목적 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">
-              사용 부서
-            </label>
+            <label className="block text-xs font-bold text-gray-500 mb-1">사용 부서</label>
             <input
               type="text"
               placeholder="예: 행정실"
@@ -451,24 +431,18 @@ export default function VehicleReserveModal({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">
-              운전자
-            </label>
+            <label className="block text-xs font-bold text-gray-500 mb-1">운전자</label>
             <input
               type="text"
               placeholder="성명"
               className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
               value={form.driver_name}
-              onChange={(e) =>
-                setForm({ ...form, driver_name: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, driver_name: e.target.value })}
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">
-            목적지
-          </label>
+          <label className="block text-xs font-bold text-gray-500 mb-1">목적지</label>
           <input
             type="text"
             placeholder="예: 영통 홈플러스"
@@ -478,9 +452,7 @@ export default function VehicleReserveModal({
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">
-            운행 목적
-          </label>
+          <label className="block text-xs font-bold text-gray-500 mb-1">운행 목적</label>
           <textarea
             placeholder="구체적인 목적 입력"
             className="w-full h-24 border p-3 rounded-lg resize-none border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white"
