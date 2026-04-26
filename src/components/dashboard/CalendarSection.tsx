@@ -16,7 +16,9 @@ import {
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { HOLIDAYS } from "@/constants/holidays";
-import ScheduleAddModal from "@/components/ScheduleAddModal";
+import ScheduleAddModal, {
+  type EditableSchedule,
+} from "@/components/ScheduleAddModal";
 import ScheduleDetailModal from "@/components/ScheduleDetailModal";
 
 const calendarCustomStyles = `
@@ -171,6 +173,7 @@ export default function CalendarSection({
     );
   });
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [editEvent, setEditEvent] = useState<EditableSchedule | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedDetailEvent, setSelectedDetailEvent] =
     useState<CalendarEvent | null>(null);
@@ -202,6 +205,20 @@ export default function CalendarSection({
   const openEventDetail = (event: CalendarEvent) => {
     setSelectedDetailEvent(event);
     setDetailModalOpen(true);
+  };
+
+  const handleEditSchedule = (event: CalendarEvent) => {
+    setEditEvent({
+      original_id: event.original_id,
+      title: event.title,
+      start_date: event.start_date,
+      end_date: event.end_date,
+      time_label: event.time_label,
+      location: event.location,
+      attendees: event.attendees,
+    });
+    setDetailModalOpen(false);
+    setIsScheduleModalOpen(true);
   };
 
   const handleDeleteSchedule = async (event: CalendarEvent) => {
@@ -241,7 +258,7 @@ export default function CalendarSection({
               />
             </svg>
             <h3 className="text-base sm:text-lg font-bold text-gray-800 tracking-tight truncate">
-              통합 일정{" "}
+              통합 일정
               <span className="hidden sm:inline">(휴가 &amp; 사역)</span>
             </h3>
           </div>
@@ -265,7 +282,10 @@ export default function CalendarSection({
               </div>
             </div>
             <button
-              onClick={() => setIsScheduleModalOpen(true)}
+              onClick={() => {
+                setEditEvent(null);
+                setIsScheduleModalOpen(true);
+              }}
               className="bg-blue-600 text-white px-2.5 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-bold shadow-sm hover:bg-blue-700 transition flex items-center gap-1 whitespace-nowrap"
             >
               <svg
@@ -591,11 +611,14 @@ export default function CalendarSection({
                               className={`text-xs text-gray-500 truncate ${e.type === "schedule" && "font-semibold text-indigo-600"}`}
                             >
                               {e.title}
-                              {e.type === "vacation" && e.start_date !== e.end_date && (
-                                <span className="text-gray-400 font-normal">
-                                  ({e.start_date.slice(5).replace("-", ".")}&nbsp;~&nbsp;{e.end_date.slice(5).replace("-", ".")})
-                                </span>
-                              )}
+                              {e.type === "vacation" &&
+                                e.start_date !== e.end_date && (
+                                  <span className="text-gray-400 font-normal">
+                                    ({e.start_date.slice(5).replace("-", ".")}
+                                    &nbsp;~&nbsp;
+                                    {e.end_date.slice(5).replace("-", ".")})
+                                  </span>
+                                )}
                               {e.location && ` (${e.location})`}
                             </span>
                           </div>
@@ -649,6 +672,7 @@ export default function CalendarSection({
         profile={profile}
         users={users}
         onSuccess={onRefresh}
+        editEvent={editEvent}
       />
       <ScheduleDetailModal
         isOpen={detailModalOpen}
@@ -656,6 +680,7 @@ export default function CalendarSection({
         event={selectedDetailEvent}
         profile={profile}
         onDelete={handleDeleteSchedule}
+        onEdit={handleEditSchedule}
       />
     </>
   );

@@ -16,6 +16,7 @@ type ScheduleDetailModalProps = {
   event: CalendarEvent | null;
   profile?: Profile | null;
   onDelete?: (event: CalendarEvent) => Promise<void>;
+  onEdit?: (event: CalendarEvent) => void;
 };
 
 export default function ScheduleDetailModal({
@@ -24,6 +25,7 @@ export default function ScheduleDetailModal({
   event,
   profile,
   onDelete,
+  onEdit,
 }: ScheduleDetailModalProps) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -32,7 +34,7 @@ export default function ScheduleDetailModal({
 
   const isAdmin = profile?.role === "admin" || profile?.role === "director";
   const isOwner = profile?.id === event.user_id;
-  const canDelete = event.type === "schedule" && (isOwner || isAdmin);
+  const canManage = event.type === "schedule" && (isOwner || isAdmin);
 
   const handleDeleteClick = () => setConfirming(true);
 
@@ -63,17 +65,27 @@ export default function ScheduleDetailModal({
     </div>
   ) : (
     <div className="flex gap-2 w-full">
-      {canDelete && (
-        <button
-          onClick={handleDeleteClick}
-          className="flex-1 bg-gray-100 text-red-500 py-3 rounded-lg font-bold hover:bg-red-50 transition"
-        >
-          삭제
-        </button>
+      {canManage && (
+        <>
+          {/* 수정 버튼 */}
+          <button
+            onClick={() => onEdit?.(event)}
+            className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-lg font-bold hover:bg-blue-100 transition border border-blue-100"
+          >
+            수정
+          </button>
+          {/* 삭제 버튼 */}
+          <button
+            onClick={handleDeleteClick}
+            className="flex-1 bg-gray-100 text-red-500 py-3 rounded-lg font-bold hover:bg-red-50 transition"
+          >
+            삭제
+          </button>
+        </>
       )}
       <button
         onClick={onClose}
-        className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm"
+        className={`py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white ${canManage ? "flex-1" : "flex-1"}`}
       >
         닫기
       </button>
@@ -104,9 +116,7 @@ export default function ScheduleDetailModal({
 
         <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
           <div>
-            <h3 className="text-xl font-extrabold text-gray-900">
-              {event.title}
-            </h3>
+            <h3 className="text-xl font-extrabold text-gray-900">{event.title}</h3>
             <p className="text-sm text-gray-500 font-medium mt-1">
               {event.time_label} {event.location && `· ${event.location}`}
             </p>
@@ -115,13 +125,9 @@ export default function ScheduleDetailModal({
 
         <div className="space-y-4">
           <div className="flex items-start gap-4">
-            <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">
-              등록자
-            </span>
+            <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">등록자</span>
             <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-              <span className="text-sm font-bold text-gray-900">
-                {event.profiles.full_name}
-              </span>
+              <span className="text-sm font-bold text-gray-900">{event.profiles.full_name}</span>
             </div>
           </div>
 
@@ -129,18 +135,14 @@ export default function ScheduleDetailModal({
             event.attendees &&
             event.attendees.length > 0 && (
               <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
-                <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-2">
-                  동행자
-                </span>
+                <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-2">동행자</span>
                 <div className="flex flex-wrap gap-2">
                   {event.attendees.map((a) => (
                     <div
                       key={a.id}
                       className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100"
                     >
-                      <span className="text-sm font-bold text-gray-700 pr-1">
-                        {a.name}
-                      </span>
+                      <span className="text-sm font-bold text-gray-700 pr-1">{a.name}</span>
                     </div>
                   ))}
                 </div>
