@@ -13,6 +13,7 @@ import "@/styles/calendar.css";
 import HistoryModal from "@/components/vehicle/HistoryModal";
 import MaintenanceModal from "@/components/vehicle/MaintenanceModal";
 import StatsSection from "@/components/vehicle/StatsSection";
+import ScheduleTab from "@/components/vehicle/ScheduleTab";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
 
@@ -91,7 +92,9 @@ export default function VehicleReservationPage() {
     is_vehicle_notify: boolean;
   } | null>(null);
   const [activeCardId, setActiveCardId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"log" | "stats">("log");
+  const [activeTab, setActiveTab] = useState<"log" | "stats" | "schedule">(
+    "log",
+  );
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [selectedVehicleMaintenance, setSelectedVehicleMaintenance] =
     useState<Vehicle | null>(null);
@@ -161,7 +164,10 @@ export default function VehicleReservationPage() {
     const res = await fetch("/api/vehicle/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservationId: id, updates: { status: "cancelled" } }),
+      body: JSON.stringify({
+        reservationId: id,
+        updates: { status: "cancelled" },
+      }),
     });
     const result = await res.json();
     if (!res.ok) {
@@ -875,23 +881,19 @@ export default function VehicleReservationPage() {
         })}
       </div>
 
-      {/* --- 운행 일지 / 통계 탭 (PC 전용) --- */}
-      {(currentProfile?.is_approver || currentProfile?.role === "admin") && (
-        <div
-          className={`hidden md:flex gap-1 bg-gray-100 p-1 rounded-xl w-fit ${
-            mobileTab === "reserve" ? "hidden" : ""
+      {/* --- 운행 일지 / 통계 / 스케줄 탭 (PC 전용) --- */}
+      <div className="hidden md:flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab("log")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${
+            activeTab === "log"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-500"
           }`}
         >
-          <button
-            onClick={() => setActiveTab("log")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${
-              activeTab === "log"
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-500"
-            }`}
-          >
-            운행 일지
-          </button>
+          운행 일지
+        </button>
+        {(currentProfile?.is_approver || currentProfile?.role === "admin") && (
           <button
             onClick={() => setActiveTab("stats")}
             className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${
@@ -902,20 +904,52 @@ export default function VehicleReservationPage() {
           >
             월별 통계
           </button>
+        )}
+        <button
+          onClick={() => setActiveTab("schedule")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${
+            activeTab === "schedule"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-500"
+          }`}
+        >
+          스케줄
+        </button>
+      </div>
+
+      {/* 통계 탭 — PC 전용 */}
+      {activeTab === "stats" &&
+        (currentProfile?.is_approver || currentProfile?.role === "admin") && (
+          <div className="hidden md:block">
+            <StatsSection logs={logs} vehicles={vehicles} />
+          </div>
+        )}
+
+      {/* 스케줄 탭 — PC 전용 */}
+      {activeTab === "schedule" && (
+        <div className="hidden md:block">
+          <ScheduleTab
+            vehicles={vehicles}
+            logs={logs}
+            onSelectLog={(log) => {
+              setSelectedLog(log);
+              setIsDetailModalOpen(true);
+            }}
+          />
         </div>
       )}
 
-      {activeTab === "stats" &&
-      (currentProfile?.is_approver || currentProfile?.role === "admin") ? (
-        <StatsSection logs={logs} vehicles={vehicles} />
-      ) : (
+      {/* 운행 일지 — 모바일 항상 표시, PC는 log 탭일 때만 표시 */}
+      {
         <div
           className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible flex-col h-auto md:h-[600px] ${
-            mobileTab === "reserve" ? "hidden md:flex" : "flex"
+            mobileTab === "reserve"
+              ? `hidden ${activeTab === "log" ? "md:flex" : "md:hidden"}`
+              : `flex ${activeTab === "log" ? "md:flex" : "md:hidden"}`
           }`}
         >
           {/* 검색 및 필터 헤더 */}
-          <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center shrink-0">
+          <div className="p-4 border rounded-lg border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center shrink-0">
             <div className="hidden md:flex items-center gap-2 font-bold text-gray-700">
               <span>운행 일지</span>
               <span className="text-xs text-gray-400 font-normal">
@@ -1240,7 +1274,7 @@ export default function VehicleReservationPage() {
             </div>
           )}
         </div>
-      )}
+      }
 
       {/* 대여 설정 모달 — createPortal 기반 Modal 사용 (z-index 이슈 해결) */}
       <Modal
