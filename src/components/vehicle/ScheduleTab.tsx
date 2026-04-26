@@ -20,6 +20,7 @@ import { ko } from "date-fns/locale";
 type VehicleLog = {
   id: number;
   resource_id: number;
+  user_id: string;
   start_at: string;
   end_at: string;
   driver_name: string;
