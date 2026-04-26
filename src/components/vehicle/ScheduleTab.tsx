@@ -28,7 +28,7 @@ type VehicleLog = {
   destination: string;
   purpose: string;
   vehicle_status: "reserved" | "in_use" | "returned" | "noshow";
-  resources?: { name: string };
+  resources?: { name: string; description: string; insurance_info?: string; fuel_segments?: number };
 };
 
 type Vehicle = {
