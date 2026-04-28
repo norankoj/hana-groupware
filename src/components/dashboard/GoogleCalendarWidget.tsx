@@ -587,19 +587,41 @@ export default function GoogleCalendarWidget({
       .finally(() => setLoading(false));
   }, []);
 
-  // 로딩 완료 후 오늘 날짜를 스크롤 컨테이너 맨 위로 스크롤
+  // 오늘 날짜 행으로 스크롤
+  // - display:none 상태(숨겨진 인스턴스)이면 getBoundingClientRect()가 0을 반환하므로 스킵
+  // - window resize 시 재실행: 화면 폭 변화로 이 위젯이 보이게 될 때도 올바르게 스크롤
   useEffect(() => {
-    if (!loading && todayRef.current && scrollRef.current && isSameMonth(currentMonth, today)) {
-      setTimeout(() => {
-        const container = scrollRef.current;
-        const item = todayRef.current;
-        if (!container || !item) return;
-        const itemRect = item.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        const scrollOffset = itemRect.top - containerRect.top + container.scrollTop;
-        container.scrollTo({ top: Math.max(0, scrollOffset), behavior: "smooth" });
-      }, 200);
-    }
+    if (loading || !isSameMonth(currentMonth, today)) return;
+
+    const doScroll = (animate: boolean) => {
+      const container = scrollRef.current;
+      const item = todayRef.current;
+      if (!container || !item) return;
+      // offsetParent === null → 해당 요소 또는 부모가 display:none → 숨겨진 인스턴스 스킵
+      if (container.offsetParent === null) return;
+      const offset =
+        item.getBoundingClientRect().top -
+        container.getBoundingClientRect().top +
+        container.scrollTop;
+      container.scrollTo({ top: Math.max(0, offset), behavior: animate ? "smooth" : "instant" });
+    };
+
+    // 초기 로딩 후 스크롤 (smooth)
+    const initTimer = setTimeout(() => doScroll(true), 200);
+
+    // 화면 크기 변경 시 재스크롤 (instant, 150ms debounce)
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => doScroll(false), 150);
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      clearTimeout(initTimer);
+      clearTimeout(resizeTimer);
+      window.removeEventListener("resize", onResize);
+    };
   }, [loading, currentMonth]);
 
   /**

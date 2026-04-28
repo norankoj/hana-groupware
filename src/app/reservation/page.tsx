@@ -278,6 +278,7 @@ export default function FacilityReservationPage() {
           end_at: iterEnd.toISOString(),
           purpose: form.purpose,
           group_id: groupId,
+          status: "confirmed",
         });
         iterStart = addDays(iterStart, 7);
         iterEnd = addDays(iterEnd, 7);
@@ -298,6 +299,7 @@ export default function FacilityReservationPage() {
         start_at: baseStart.toISOString(),
         end_at: baseEnd.toISOString(),
         purpose: form.purpose,
+        status: "confirmed",
       });
     }
 

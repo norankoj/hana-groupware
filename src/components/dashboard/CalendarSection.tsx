@@ -308,7 +308,7 @@ export default function CalendarSection({
 
         <div className="flex flex-col lg:flex-row flex-1 overflow-visible lg:overflow-hidden">
           <div className="flex-[2] flex flex-col border-r border-gray-200 p-6 min-w-0">
-            <div className="flex flex-wrap items-center justify-between gap-y-4 mb-4 w-full">
+            <div className="relative z-10 flex flex-wrap items-center justify-between gap-y-4 mb-4 w-full">
               <div className="order-1 w-auto sm:w-1/3 flex justify-start">
                 <div className="flex bg-gray-100 p-1 rounded-lg">
                   <button

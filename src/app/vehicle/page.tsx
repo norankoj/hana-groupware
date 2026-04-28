@@ -949,7 +949,7 @@ export default function VehicleReservationPage() {
           }`}
         >
           {/* 검색 및 필터 헤더 */}
-          <div className="p-4 border rounded-lg border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center shrink-0">
+          <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-3 justify-between items-center shrink-0">
             <div className="hidden md:flex items-center gap-2 font-bold text-gray-700">
               <span>운행 일지</span>
               <span className="text-xs text-gray-400 font-normal">

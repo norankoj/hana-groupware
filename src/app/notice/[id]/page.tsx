@@ -247,6 +247,44 @@ export default function NoticeDetailPage() {
     router.push("/notice");
   };
 
+  const shareToKakao = () => {
+    if (!notice) return;
+    const url = window.location.href;
+    const doShare = () => {
+      const kakao = (window as any).Kakao;
+      if (!kakao.isInitialized()) {
+        kakao.init(process.env.NEXT_PUBLIC_KAKAO_APP_KEY ?? "");
+      }
+      // SDK 내부 window.open을 가로채 항상 작은 팝업 크기로 고정
+      const originalOpen = window.open.bind(window);
+      (window as any).open = (u: string, t: string) =>
+        originalOpen(u, t, "width=450,height=640,resizable=no,scrollbars=yes");
+      kakao.Share.sendDefault({
+        objectType: "feed",
+        content: {
+          title: notice.title,
+          description: `${notice.profiles?.full_name ?? ""}${notice.profiles?.position ? " · " + notice.profiles.position : ""}`,
+          imageUrl: `${window.location.origin}/icons/icon-512x512.png`,
+          link: { mobileWebUrl: url, webUrl: url },
+        },
+        buttons: [
+          { title: "공지 보기", link: { mobileWebUrl: url, webUrl: url } },
+        ],
+      });
+      // 바로 복원
+      (window as any).open = originalOpen;
+    };
+    if ((window as any).Kakao) {
+      doShare();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
+      script.crossOrigin = "anonymous";
+      script.onload = doShare;
+      document.head.appendChild(script);
+    }
+  };
+
   const removeAttachment = async (att: NoticeAttachment) => {
     if (!notice) return;
     // MinIO 파일 삭제
@@ -302,26 +340,41 @@ export default function NoticeDetailPage() {
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
         {/* 헤더 */}
         <div className="px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            {notice.is_pinned && (
-              <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                📌 고정
-              </span>
-            )}
-            {notice.popup_enabled && (
-              <span className="text-[11px] font-bold text-orange-500 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
-                팝업 공지
-              </span>
-            )}
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${CATEGORY_STYLE[notice.category] || CATEGORY_STYLE["일반"]}`}>
-              {notice.category}
-            </span>
-          </div>
-          <h1 className="text-xl font-bold text-gray-900 leading-snug">{notice.title}</h1>
-          <div className="flex items-center gap-3 mt-2.5 text-xs text-gray-400 flex-wrap">
-            <span>{notice.profiles?.full_name} · {notice.profiles?.position}</span>
-            <span>{format(new Date(notice.created_at), "yyyy.MM.dd HH:mm", { locale: ko })}</span>
-            <span>읽음 {viewers.length}명</span>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                {notice.is_pinned && (
+                  <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                    📌 고정
+                  </span>
+                )}
+                {notice.popup_enabled && (
+                  <span className="text-[11px] font-bold text-orange-500 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
+                    팝업 공지
+                  </span>
+                )}
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${CATEGORY_STYLE[notice.category] || CATEGORY_STYLE["일반"]}`}>
+                  {notice.category}
+                </span>
+              </div>
+              <h1 className="text-xl font-bold text-gray-900 leading-snug">{notice.title}</h1>
+              <div className="flex items-center gap-3 mt-2.5 text-xs text-gray-400 flex-wrap">
+                <span>{notice.profiles?.full_name} · {notice.profiles?.position}</span>
+                <span>{format(new Date(notice.created_at), "yyyy.MM.dd HH:mm", { locale: ko })}</span>
+                <span>읽음 {viewers.length}명</span>
+              </div>
+            </div>
+            {/* 카카오톡 공유 버튼 */}
+            <button
+              onClick={shareToKakao}
+              title="카카오톡으로 공유"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FEE500] hover:bg-[#FFD700] text-gray-900 transition-colors mt-0.5"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3C6.477 3 2 6.954 2 11.647c0 2.955 1.696 5.565 4.293 7.14-.19.73-.572 1.98-.676 2.455-.098.484.178.474.373.341.15-.103 2.016-1.368 2.828-1.921.66.096 1.337.147 2.032.147 5.523 0 10-4.08 10-8.162C22 6.954 17.523 3 12 3z" />
+              </svg>
+              카카오톡
+            </button>
           </div>
         </div>
 

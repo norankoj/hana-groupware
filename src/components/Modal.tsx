@@ -10,6 +10,7 @@ type ModalProps = {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  bodyClassName?: string;
 };
 
 export default function Modal({
@@ -19,6 +20,7 @@ export default function Modal({
   children,
   footer,
   className = "",
+  bodyClassName = "",
 }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -70,7 +72,7 @@ export default function Modal({
         </div>
 
         {/* 본문 */}
-        <div className="flex-1 min-h-0 p-6 overflow-y-auto">{children}</div>
+        <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName || "p-6"}`}>{children}</div>
 
         {/* 푸터 */}
         {footer && (

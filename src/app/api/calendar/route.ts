@@ -1,12 +1,9 @@
 // GET /api/calendar
-// 구글 캘린더 API — 내 계정의 모든 캘린더에서 오늘~7일 이내 일정 조회
+// 구글 캘린더 API — 서비스 계정으로 인증 (만료 없음)
 import { NextResponse } from "next/server";
+import { createSign } from "crypto";
 
 export const revalidate = 300; // 5분 캐시
-
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
-const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN!;
 
 // 표시할 캘린더 이름 목록 (| 구분, 미설정 시 전체 표시)
 // 예: GOOGLE_CALENDAR_FILTER=고목사 공적스케쥴|교회일정|사역,훈련,참조
@@ -15,20 +12,44 @@ const CALENDAR_FILTER = process.env.GOOGLE_CALENDAR_FILTER
   ? process.env.GOOGLE_CALENDAR_FILTER.split("|").map((s) => s.trim())
   : [];
 
-/** Refresh Token → Access Token 발급 */
+/** 서비스 계정 JWT → Access Token 발급 (만료 없음) */
 async function getAccessToken(): Promise<string> {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
+  const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY!;
+  // Vercel 환경변수에서 \n 이스케이프된 경우 복원
+  const privateKey = rawKey.replace(/\\n/g, "\n");
+
+  const now = Math.floor(Date.now() / 1000);
+  const header  = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: email,
+    scope: "https://www.googleapis.com/auth/calendar.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  };
+
+  const b64 = (obj: object) =>
+    Buffer.from(JSON.stringify(obj)).toString("base64url");
+  const signingInput = `${b64(header)}.${b64(payload)}`;
+
+  const sign = createSign("RSA-SHA256");
+  sign.update(signingInput);
+  const signature = sign.sign(privateKey, "base64url");
+
+  const jwt = `${signingInput}.${signature}`;
+
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      refresh_token: REFRESH_TOKEN,
-      grant_type: "refresh_token",
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
     }),
   });
   const data = await res.json();
-  if (!data.access_token) throw new Error("Access token 발급 실패: " + JSON.stringify(data));
+  if (!data.access_token)
+    throw new Error("서비스 계정 토큰 발급 실패: " + JSON.stringify(data));
   return data.access_token;
 }
 
@@ -45,9 +66,9 @@ export type CalendarEvent = {
 };
 
 export async function GET() {
-  if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
     return NextResponse.json(
-      { error: "구글 캘린더 환경변수가 설정되지 않았습니다." },
+      { error: "구글 서비스 계정 환경변수가 설정되지 않았습니다." },
       { status: 503 },
     );
   }
