@@ -167,3 +167,13 @@ abbr[title] {
 .react-calendar button {
   font-family: inherit !important;
 }
+
+/* 정기 예약 반복 날짜 하이라이트 */
+.recurring-highlight {
+  background: #dbeafe !important;
+  color: #1e40af !important;
+}
+.recurring-highlight abbr {
+  color: #1e40af !important;
+  font-weight: 600;
+}

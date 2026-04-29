@@ -10,6 +10,8 @@ type Vehicle = {
   id: number;
   name: string;
   description: string;
+  is_rented?: boolean;
+  renter_name?: string;
 };
 
 type VehicleLog = {
@@ -124,11 +126,18 @@ export default function VehicleReserveModal({
   const [driverSearch, setDriverSearch] = useState("");
   const [showDriverList, setShowDriverList] = useState(false);
 
-  // 모달 열릴 때 검색 상태 초기화
+  // 모달 열릴 때 검색 상태 초기화 + 대여중 차량 선택 시 자동 변경
   useEffect(() => {
     if (!isOpen) {
       setDriverSearch("");
       setShowDriverList(false);
+    } else {
+      // 현재 선택된 차량이 대여중이면 첫 번째 사용 가능 차량으로 변경
+      const selected = vehicles.find((v) => v.id === form.resource_id);
+      if (selected?.is_rented) {
+        const available = vehicles.find((v) => !v.is_rented);
+        if (available) setForm((prev) => ({ ...prev, resource_id: available.id }));
+      }
     }
   }, [isOpen]);
 
@@ -268,15 +277,25 @@ export default function VehicleReserveModal({
             {vehicles.map((v) => (
               <button
                 key={v.id}
-                onClick={() => setForm({ ...form, resource_id: v.id })}
-                className={`px-3 py-3 rounded-xl border transition flex flex-col items-center justify-center text-center ${
-                  form.resource_id === v.id
-                    ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 shadow-sm"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                onClick={() => !v.is_rented && setForm({ ...form, resource_id: v.id })}
+                disabled={!!v.is_rented}
+                title={v.is_rented ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}` : undefined}
+                className={`px-3 py-3 rounded-xl border transition flex flex-col items-center justify-center text-center relative overflow-hidden ${
+                  v.is_rented
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-400 cursor-not-allowed opacity-70"
+                    : form.resource_id === v.id
+                      ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 shadow-sm"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
                 <div className="font-bold text-sm break-keep">{v.name}</div>
-                <div className="text-[10px] opacity-70 mt-1">{v.description}</div>
+                {v.is_rented ? (
+                  <div className="text-[10px] mt-1 font-semibold text-indigo-500">
+                    대여중{v.renter_name ? ` · ${v.renter_name}` : ""}
+                  </div>
+                ) : (
+                  <div className="text-[10px] opacity-70 mt-1">{v.description}</div>
+                )}
               </button>
             ))}
           </div>

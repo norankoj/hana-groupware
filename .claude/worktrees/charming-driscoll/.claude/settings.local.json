@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc *)",
-      "Bash(cmd /c \"cd C:\\\\dev\\\\hana-groupware && npx tsc --noEmit 2>&1\")"
+      "Bash(cmd /c \"cd C:\\\\dev\\\\hana-groupware && npx tsc --noEmit 2>&1\")",
+      "Bash(findstr /i \"vehicle\")",
+      "Bash(xargs grep *)",
+      "Read(//c/dev/hana-groupware/**)",
+      "Read(//c/dev/hana-groupware/supabase/**)"
     ]
   }
 }

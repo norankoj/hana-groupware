@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
 import "react-calendar/dist/Calendar.css";
@@ -120,6 +122,20 @@ export default function VehicleReservationPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedVehicleHistory, setSelectedVehicleHistory] =
     useState<Vehicle | null>(null);
+
+  const [logPopover, setLogPopover] = useState<{
+    log: VehicleLog;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // 스크롤 시 팝오버 자동 닫기
+  useEffect(() => {
+    if (!logPopover) return;
+    const close = () => setLogPopover(null);
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [logPopover]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -1110,7 +1126,11 @@ export default function VehicleReservationPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {currentLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50/50 transition">
+                  <tr
+                    key={log.id}
+                    className="hover:bg-blue-50/40 transition cursor-pointer"
+                    onClick={(e) => setLogPopover({ log, x: e.clientX, y: e.clientY })}
+                  >
                     <td className="px-4 py-3">
                       <span
                         className={`px-2 py-1 rounded text-xs font-bold ${
@@ -1169,7 +1189,7 @@ export default function VehicleReservationPage() {
                         "-"
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => {
                           setSelectedLog(log);
@@ -1177,7 +1197,7 @@ export default function VehicleReservationPage() {
                         }}
                         className="text-slate-600 border border-slate-300 px-3 py-1 rounded hover:bg-slate-50 text-xs font-bold transition"
                       >
-                        상세
+                        관리
                       </button>
                     </td>
                   </tr>
@@ -1414,6 +1434,184 @@ export default function VehicleReservationPage() {
         selectedVehicleHistory={selectedVehicleHistory}
         logs={logs}
       />
+
+      {/* ── 운행기록 빠른 팝오버 ── */}
+      {logPopover && typeof window !== "undefined" &&
+        createPortal(
+          <>
+            {/* 외부 클릭 → 닫기 */}
+            <div
+              className="fixed inset-0"
+              style={{ zIndex: 99998 }}
+              onClick={() => setLogPopover(null)}
+            />
+
+            {/* 팝오버 카드 */}
+            <div
+              className="fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-gray-100"
+              style={{
+                zIndex: 99999,
+                top: Math.max(16, Math.min(logPopover.y - 10, window.innerHeight - 440)),
+                left:
+                  logPopover.x + 316 < window.innerWidth
+                    ? logPopover.x + 8
+                    : logPopover.x - 308,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {(() => {
+                const log = logPopover.log;
+                const STATUS_CFG: Record<string, { label: string; headerBg: string; textCls: string }> = {
+                  in_use:   { label: "운행중", headerBg: "bg-green-50",  textCls: "text-green-700"  },
+                  reserved: { label: "예약",   headerBg: "bg-blue-50",   textCls: "text-blue-700"   },
+                  returned: { label: "반납",   headerBg: "bg-gray-50",   textCls: "text-gray-500"   },
+                  noshow:   { label: "노쇼",   headerBg: "bg-orange-50", textCls: "text-orange-600" },
+                };
+                const cfg = STATUS_CFG[log.vehicle_status] ?? STATUS_CFG.reserved;
+                const start = new Date(log.start_at);
+                const end = new Date(log.end_at);
+                const sameDay =
+                  format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
+
+                const InfoLine = ({
+                  label,
+                  children,
+                }: {
+                  label: string;
+                  children: React.ReactNode;
+                }) => (
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs text-gray-400 w-[52px] shrink-0 pt-0.5">
+                      {label}
+                    </span>
+                    <span className="text-sm text-gray-800 font-medium leading-snug flex-1 min-w-0">
+                      {children}
+                    </span>
+                  </div>
+                );
+
+                return (
+                  <>
+                    {/* 헤더 */}
+                    <div
+                      className={`px-5 py-4 flex items-start justify-between gap-3 ${cfg.headerBg}`}
+                    >
+                      <div className="min-w-0">
+                        <span className={`text-xs font-bold ${cfg.textCls}`}>
+                          {cfg.label}
+                        </span>
+                        <p className="text-base font-extrabold text-gray-900 mt-0.5 leading-snug truncate">
+                          {log.resources?.name ?? "차량"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setLogPopover(null)}
+                        className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-black/10 transition text-gray-500"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* 본문 */}
+                    <div className="px-5 py-4 space-y-2.5">
+                      <InfoLine label="운행 시간">
+                        {format(start, "MM.dd(EEE)", { locale: ko })}{" "}
+                        {format(start, "HH:mm")} ~{" "}
+                        {sameDay
+                          ? format(end, "HH:mm")
+                          : format(end, "MM.dd HH:mm")}
+                      </InfoLine>
+
+                      <InfoLine label="운전자">
+                        {log.driver_name}
+                        {log.department && (
+                          <span className="text-gray-400">
+                            {" "}
+                            · {log.department}
+                          </span>
+                        )}
+                      </InfoLine>
+
+                      <InfoLine label="목적지">
+                        <span className="truncate block">{log.destination}</span>
+                      </InfoLine>
+
+                      <InfoLine label="운행 목적">
+                        <span className="line-clamp-2">{log.purpose}</span>
+                      </InfoLine>
+
+                      {/* 반납 시 — 주행거리 + 주차위치 */}
+                      {log.vehicle_status === "returned" &&
+                        log.start_mileage != null &&
+                        log.end_mileage != null && (
+                          <>
+                            <div className="border-t border-gray-100 pt-1" />
+                            <InfoLine label="주행 거리">
+                              <span className="font-bold text-blue-600">
+                                {(
+                                  log.end_mileage - log.start_mileage
+                                ).toLocaleString()}{" "}
+                                km
+                              </span>
+                              <span className="text-xs text-gray-400 ml-1">
+                                ({log.start_mileage.toLocaleString()} →{" "}
+                                {log.end_mileage.toLocaleString()})
+                              </span>
+                            </InfoLine>
+                            {log.parking_location && (
+                              <InfoLine label="주차 위치">
+                                {log.parking_location}
+                              </InfoLine>
+                            )}
+                          </>
+                        )}
+                    </div>
+
+                    {/* 하단 버튼 */}
+                    <div className="px-5 pb-4">
+                      <button
+                        onClick={() => {
+                          setSelectedLog(log);
+                          setIsDetailModalOpen(true);
+                          setLogPopover(null);
+                        }}
+                        className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white text-sm font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                      >
+                        운행 관리
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </>,
+          document.body,
+        )}
     </div>
   );
 }
