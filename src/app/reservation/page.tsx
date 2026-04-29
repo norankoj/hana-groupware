@@ -45,6 +45,7 @@ type Reservation = {
   end_at: string;
   purpose: string;
   status: string;
+  reservee_name?: string | null;   // 엑셀 업로드 시 성도 이름
   profiles?: { full_name: string; position: string };
   group_id?: string;
 };
@@ -480,7 +481,7 @@ export default function FacilityReservationPage() {
     const tooltipTxt = fl
       ? fl
       : rsvHit
-        ? `${rsvHit.profiles?.full_name || "예약됨"} · ${format(new Date(rsvHit.start_at), "H:mm")}~${format(new Date(rsvHit.end_at), "H:mm")}`
+        ? `${rsvHit.reservee_name || rsvHit.profiles?.full_name || "예약됨"} · ${format(new Date(rsvHit.start_at), "H:mm")}~${format(new Date(rsvHit.end_at), "H:mm")}`
         : `${hour}:00`;
 
     return (
@@ -983,7 +984,7 @@ export default function FacilityReservationPage() {
                           </span>
                         )}
                         <span className="text-xs text-gray-400">
-                          {r.profiles?.full_name}
+                          {r.reservee_name || r.profiles?.full_name}
                         </span>
                         {r.user_id === currentUser && (
                           <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">
@@ -1073,11 +1074,11 @@ export default function FacilityReservationPage() {
           <div className="space-y-6 pt-2">
             <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
               <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl">
-                {detailRsv.profiles?.full_name?.slice(0, 1)}
+                {(detailRsv.reservee_name || detailRsv.profiles?.full_name)?.slice(0, 1)}
               </div>
               <div>
                 <div className="font-bold text-gray-900 text-lg">
-                  {detailRsv.profiles?.full_name}
+                  {detailRsv.reservee_name || detailRsv.profiles?.full_name}
                 </div>
                 <div className="text-sm text-gray-500">
                   {detailRsv.profiles?.position}
@@ -1194,7 +1195,7 @@ export default function FacilityReservationPage() {
                     · 예약됨
                   </p>
                   <p className="text-base font-extrabold text-gray-900 leading-snug">
-                    {slotPopover.rsv.profiles?.full_name || "예약자"}
+                    {slotPopover.rsv.reservee_name || slotPopover.rsv.profiles?.full_name || "예약자"}
                   </p>
                   {slotPopover.rsv.profiles?.position && (
                     <p className="text-xs text-gray-400 mt-0.5">

@@ -35,6 +35,7 @@ type PopupReservation = {
   start_at: string;
   end_at: string;
   purpose: string;
+  reservee_name?: string | null; // 엑셀 업로드 시 성도 이름
   driver_name?: string | null;
   department?: string | null;
   destination?: string | null;
@@ -101,12 +102,30 @@ function AlarmDetailPopup({
     const now = new Date();
 
     // 오늘 범위 (차량용)
-    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd   = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
 
     // 이번 달 범위 (시설용)
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+      0,
+      0,
+      0,
+      0,
+    );
+    const monthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     const facilitySelect =
       "id, start_at, end_at, purpose, profiles:user_id(full_name), resources:resource_id(name, category)";
@@ -136,24 +155,44 @@ function AlarmDetailPopup({
         .select("id, title, category, created_at")
         .order("created_at", { ascending: false })
         .limit(10),
-    ]).then(([{ data: facilityData }, { data: vehicleData }, { data: noticeData }]) => {
-      const toItem = (r: any): PopupReservation => {
-        const res  = Array.isArray(r.resources) ? r.resources[0] : r.resources;
-        const prof = Array.isArray(r.profiles)  ? r.profiles[0]  : r.profiles;
-        return {
-          id: r.id, start_at: r.start_at, end_at: r.end_at,
-          purpose: r.purpose, driver_name: r.driver_name,
-          department: r.department, destination: r.destination,
-          profiles: prof, resources: res,
+    ]).then(
+      ([
+        { data: facilityData },
+        { data: vehicleData },
+        { data: noticeData },
+      ]) => {
+        const toItem = (r: any): PopupReservation => {
+          const res = Array.isArray(r.resources) ? r.resources[0] : r.resources;
+          const prof = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+          return {
+            id: r.id,
+            start_at: r.start_at,
+            end_at: r.end_at,
+            purpose: r.purpose,
+            reservee_name: r.reservee_name ?? null,
+            driver_name: r.driver_name,
+            department: r.department,
+            destination: r.destination,
+            profiles: prof,
+            resources: res,
+          };
         };
-      };
 
-      const facility = (facilityData ?? []).map(toItem).filter((r) => r.resources?.category !== "vehicle");
-      const vehicle  = (vehicleData  ?? []).map(toItem).filter((r) => r.resources?.category === "vehicle");
+        const facility = (facilityData ?? [])
+          .map(toItem)
+          .filter((r) => r.resources?.category !== "vehicle");
+        const vehicle = (vehicleData ?? [])
+          .map(toItem)
+          .filter((r) => r.resources?.category === "vehicle");
 
-      setData({ facility, vehicle, notices: (noticeData ?? []) as PopupNotice[] });
-      setLoading(false);
-    });
+        setData({
+          facility,
+          vehicle,
+          notices: (noticeData ?? []) as PopupNotice[],
+        });
+        setLoading(false);
+      },
+    );
   }, [isOpen]);
 
   const skeletons = (
@@ -185,13 +224,15 @@ function AlarmDetailPopup({
     <div className="space-y-3">
       {data!.facility.map((r) => {
         const start = new Date(r.start_at);
-        const end   = new Date(r.end_at);
+        const end = new Date(r.end_at);
         return (
           <div
             key={r.id}
             className={cardCls}
             onClick={(e) => {
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              const rect = (
+                e.currentTarget as HTMLElement
+              ).getBoundingClientRect();
               setPopover({ reservation: r, isVehicle: false, rect });
             }}
           >
@@ -207,9 +248,9 @@ function AlarmDetailPopup({
               {r.purpose || "예약"}
             </p>
             <p className="text-xs text-gray-400 tabular-nums">
-              {format(start, "HH:mm")}~{format(end, "HH:mm")}{" "}·{" "}
+              {format(start, "HH:mm")}~{format(end, "HH:mm")} ·{" "}
               <span className="text-gray-600 font-medium">
-                {r.profiles?.full_name ?? "—"}
+                {r.reservee_name || r.profiles?.full_name || "—"}
               </span>
             </p>
           </div>
@@ -479,7 +520,7 @@ function AlarmDetailPopup({
                     ) : (
                       <InfoRow
                         label="예약자"
-                        value={`${r.profiles?.full_name ?? "—"}`}
+                        value={r.reservee_name || r.profiles?.full_name || "—"}
                       />
                     )}
                   </>
@@ -574,7 +615,7 @@ function AlarmCard() {
           id: `r-${r.id}`,
           badge,
           badgeColor: ALARM_BADGE_STYLE[badge],
-          title: `${resource?.name ?? ""}${profile?.full_name ? ` · ${profile.full_name}님` : ""} 예약`,
+          title: `${resource?.name ?? ""}${profile?.full_name ? ` · ${profile.full_name}` : ""} 예약`,
           subtitle,
           date: r.created_at,
           href: isVehicle ? "/vehicle" : "/reservation",
