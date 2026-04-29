@@ -98,52 +98,60 @@ function AlarmDetailPopup({
     setData(null);
     setPopover(null);
     const supabase = createClient();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const now = new Date();
+
+    // 오늘 범위 (차량용)
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd   = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+
+    // 이번 달 범위 (시설용)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const facilitySelect =
+      "id, start_at, end_at, purpose, profiles:user_id(full_name), resources:resource_id(name, category)";
+    const vehicleSelect =
+      "id, start_at, end_at, purpose, driver_name, department, destination, profiles:user_id(full_name), resources:resource_id(name, category)";
 
     Promise.all([
+      // 시설 예약: 이번 달 전체
       supabase
         .from("reservations")
-        .select(
-          "id, start_at, end_at, purpose, driver_name, department, destination, profiles:user_id(full_name), resources:resource_id(name, category)",
-        )
+        .select(facilitySelect)
+        .or("status.is.null,status.neq.cancelled")
+        .gte("start_at", monthStart.toISOString())
+        .lte("start_at", monthEnd.toISOString())
+        .order("start_at"),
+      // 차량 예약: 오늘 하루
+      supabase
+        .from("reservations")
+        .select(vehicleSelect)
         .or("status.is.null,status.neq.cancelled")
         .gte("start_at", todayStart.toISOString())
         .lte("start_at", todayEnd.toISOString())
         .order("start_at"),
+      // 공지
       supabase
         .from("notices")
         .select("id, title, category, created_at")
         .order("created_at", { ascending: false })
         .limit(10),
-    ]).then(([{ data: rsvData }, { data: noticeData }]) => {
-      const allRsv = (rsvData ?? []) as any[];
-      const facility: PopupReservation[] = [];
-      const vehicle: PopupReservation[] = [];
-      allRsv.forEach((r) => {
-        const res = Array.isArray(r.resources) ? r.resources[0] : r.resources;
-        const prof = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
-        const item: PopupReservation = {
-          id: r.id,
-          start_at: r.start_at,
-          end_at: r.end_at,
-          purpose: r.purpose,
-          driver_name: r.driver_name,
-          department: r.department,
-          destination: r.destination,
-          profiles: prof,
-          resources: res,
+    ]).then(([{ data: facilityData }, { data: vehicleData }, { data: noticeData }]) => {
+      const toItem = (r: any): PopupReservation => {
+        const res  = Array.isArray(r.resources) ? r.resources[0] : r.resources;
+        const prof = Array.isArray(r.profiles)  ? r.profiles[0]  : r.profiles;
+        return {
+          id: r.id, start_at: r.start_at, end_at: r.end_at,
+          purpose: r.purpose, driver_name: r.driver_name,
+          department: r.department, destination: r.destination,
+          profiles: prof, resources: res,
         };
-        if (res?.category === "vehicle") vehicle.push(item);
-        else facility.push(item);
-      });
-      setData({
-        facility,
-        vehicle,
-        notices: (noticeData ?? []) as PopupNotice[],
-      });
+      };
+
+      const facility = (facilityData ?? []).map(toItem).filter((r) => r.resources?.category !== "vehicle");
+      const vehicle  = (vehicleData  ?? []).map(toItem).filter((r) => r.resources?.category === "vehicle");
+
+      setData({ facility, vehicle, notices: (noticeData ?? []) as PopupNotice[] });
       setLoading(false);
     });
   }, [isOpen]);
@@ -172,20 +180,18 @@ function AlarmDetailPopup({
   const facilityCards = loading ? (
     skeletons
   ) : (data?.facility.length ?? 0) === 0 ? (
-    empty("오늘 시설 예약 없음")
+    empty("이번 달 시설 예약 없음")
   ) : (
     <div className="space-y-3">
       {data!.facility.map((r) => {
         const start = new Date(r.start_at);
-        const end = new Date(r.end_at);
+        const end   = new Date(r.end_at);
         return (
           <div
             key={r.id}
             className={cardCls}
             onClick={(e) => {
-              const rect = (
-                e.currentTarget as HTMLElement
-              ).getBoundingClientRect();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
               setPopover({ reservation: r, isVehicle: false, rect });
             }}
           >
@@ -193,15 +199,15 @@ function AlarmDetailPopup({
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 truncate max-w-[120px]">
                 {r.resources?.name ?? "시설"}
               </span>
-              <span className="text-[10px] text-gray-400 tabular-nums shrink-0">
-                {format(start, "HH:mm")}~{format(end, "HH:mm")}
+              <span className="text-[10px] font-bold text-gray-500 tabular-nums shrink-0">
+                {format(start, "M/d (EEE)", { locale: ko })}
               </span>
             </div>
             <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-1">
               {r.purpose || "예약"}
             </p>
-            <p className="text-xs text-gray-400">
-              예약자{" "}
+            <p className="text-xs text-gray-400 tabular-nums">
+              {format(start, "HH:mm")}~{format(end, "HH:mm")}{" "}·{" "}
               <span className="text-gray-600 font-medium">
                 {r.profiles?.full_name ?? "—"}
               </span>
@@ -333,7 +339,7 @@ function AlarmDetailPopup({
           <div className="flex h-full divide-x divide-gray-100 overflow-x-auto">
             <div className="flex-1 min-w-[300px] flex flex-col px-6 py-6 overflow-hidden">
               {colHeader(
-                "시설 예약",
+                `시설 예약 · ${format(new Date(), "M월")}`,
                 data?.facility.length ?? 0,
                 "bg-purple-50 text-purple-700",
               )}
