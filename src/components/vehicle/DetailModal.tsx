@@ -15,6 +15,7 @@ type VehicleLog = {
   id: number;
   resource_id: number;
   user_id: string;
+  driver_user_id?: string;
   start_at: string;
   end_at: string;
   purpose: string;
@@ -43,6 +44,7 @@ interface DetailModalProps {
   onClose: () => void;
   selectedLog: VehicleLog | null;
   currentUser: string | null;
+  currentUserName?: string | null;
   currentProfile?: { is_approver: boolean; role: string } | null;
   onRefresh: () => void;
   onCancel?: (id: number) => void;
@@ -76,6 +78,7 @@ export default function DetailModal({
   onClose,
   selectedLog,
   currentUser,
+  currentUserName,
   currentProfile,
   onRefresh,
   onCancel,
@@ -487,8 +490,10 @@ export default function DetailModal({
     ? "reserved"
     : selectedLog?.vehicle_status;
 
+  // 예약자(user_id) 또는 운전자(driver_name === 현재 유저 이름) 또는 관리자
+  const isDriver = !!currentUserName && selectedLog?.driver_name === currentUserName;
   const isMyTurn =
-    (selectedLog?.user_id === currentUser || isAdmin) &&
+    (selectedLog?.user_id === currentUser || isDriver || isAdmin) &&
     effectiveStatus !== "returned" &&
     effectiveStatus !== "noshow";
   const actionType = effectiveStatus === "reserved" ? "checkin" : "checkout";

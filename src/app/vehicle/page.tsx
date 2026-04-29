@@ -46,6 +46,7 @@ type VehicleLog = {
   id: number;
   resource_id: number;
   user_id: string;
+  driver_user_id?: string;
   start_at: string;
   end_at: string;
   purpose: string;
@@ -74,6 +75,12 @@ type VehicleLog = {
   };
 };
 
+type StaffMember = {
+  id: string;
+  full_name: string;
+  position: string;
+};
+
 const toTimePercent = (dt: Date) =>
   Math.min(
     100,
@@ -86,10 +93,12 @@ export default function VehicleReservationPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [currentProfile, setCurrentProfile] = useState<{
     is_approver: boolean;
     role: string;
     is_vehicle_notify: boolean;
+    full_name: string;
   } | null>(null);
   const [activeCardId, setActiveCardId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"log" | "stats" | "schedule">(
@@ -136,6 +145,7 @@ export default function VehicleReservationPage() {
     purpose: "",
     destination: "",
     driver_name: "",
+    driver_user_id: "",
     department: "",
   });
 
@@ -242,14 +252,23 @@ export default function VehicleReservationPage() {
         .eq("id", user.id)
         .single();
       if (profile) {
-        setForm((prev) => ({ ...prev, driver_name: profile.full_name }));
+        setForm((prev) => ({ ...prev, driver_name: profile.full_name, driver_user_id: user.id }));
         setCurrentProfile({
           is_approver: profile.is_approver || false,
           role: profile.role || "user",
+          full_name: profile.full_name || "",
           is_vehicle_notify: profile.is_vehicle_notify || false,
         });
       }
     }
+
+    // staffList 로드
+    supabase
+      .from("profiles")
+      .select("id, full_name, position")
+      .neq("status", "inactive")
+      .order("full_name")
+      .then(({ data }) => { if (data) setStaffList(data as StaffMember[]); });
 
     const { data: vData } = await supabase
       .from("resources")
@@ -336,7 +355,7 @@ export default function VehicleReservationPage() {
     if (!(await showConfirm("차량을 예약하시겠습니까?"))) return;
 
     const reminderAt = new Date(endAt.getTime() - 20 * 60 * 1000);
-    const { error } = await supabase.from("reservations").insert({
+    const baseInsert = {
       resource_id: form.resource_id,
       user_id: currentUser,
       start_at: startAt.toISOString(),
@@ -348,8 +367,19 @@ export default function VehicleReservationPage() {
       vehicle_status: "reserved",
       reminder_at: reminderAt.toISOString(),
       reminder_sent: false,
+    };
+
+    let insertResult = await supabase.from("reservations").insert({
+      ...baseInsert,
+      ...(form.driver_user_id ? { driver_user_id: form.driver_user_id } : {}),
     });
 
+    // driver_user_id 컬럼 없을 경우 fallback
+    if (insertResult.error && form.driver_user_id) {
+      insertResult = await supabase.from("reservations").insert(baseInsert);
+    }
+
+    const error = insertResult.error;
     if (error) toast.error(error.message);
     else {
       const vehicleName =
@@ -484,7 +514,7 @@ export default function VehicleReservationPage() {
     )
       return;
 
-    const rows = available.map(({ start, end }) => ({
+    const baseRows = available.map(({ start, end }) => ({
       resource_id: form.resource_id,
       user_id: currentUser,
       start_at: start.toISOString(),
@@ -498,7 +528,16 @@ export default function VehicleReservationPage() {
       reminder_sent: false,
     }));
 
-    const { error } = await supabase.from("reservations").insert(rows);
+    const rows = form.driver_user_id
+      ? baseRows.map((r) => ({ ...r, driver_user_id: form.driver_user_id }))
+      : baseRows;
+
+    let recurResult = await supabase.from("reservations").insert(rows);
+    // driver_user_id 컬럼 없을 경우 fallback
+    if (recurResult.error && form.driver_user_id) {
+      recurResult = await supabase.from("reservations").insert(baseRows);
+    }
+    const error = recurResult.error;
     if (error) {
       toast.error(error.message);
       return;
@@ -544,7 +583,7 @@ export default function VehicleReservationPage() {
       log.driver_name.includes(searchTerm) ||
       log.resources?.name.includes(searchTerm) ||
       log.destination.includes(searchTerm);
-    const matchesMine = !myReservationsOnly || log.user_id === currentUser;
+    const matchesMine = !myReservationsOnly || log.user_id === currentUser || log.driver_user_id === currentUser;
     return matchesStatus && matchesSearch && matchesMine;
   });
 
@@ -1352,12 +1391,14 @@ export default function VehicleReservationPage() {
         handleReserve={handleReserve}
         handleRecurringReserve={handleRecurringReserve}
         handleRangeChange={handleRangeChange}
+        staffList={staffList}
       />
       <DetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         selectedLog={selectedLog}
         currentUser={currentUser}
+        currentUserName={currentProfile?.full_name ?? null}
         currentProfile={currentProfile}
         onRefresh={fetchData}
         onCancel={handleCancelReservation}

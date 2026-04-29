@@ -160,7 +160,7 @@ const ProxyModal = memo(function ProxyModal({
 
           {/* 직원 검색 콤보박스 */}
           <div ref={staffInputRef} className="relative">
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">직원 선택 <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">선택 <span className="text-red-500">*</span></label>
             {proxyForm.userId ? (
               <div className="flex items-center gap-2 p-2.5 border border-blue-400 rounded-md bg-blue-50">
                 <div className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">

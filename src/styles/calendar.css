@@ -102,6 +102,22 @@ abbr[title] {
   color: #ef4444 !important;
 }
 
+/* 예약 있는 날짜 — 날짜 아래 주황 점 표시 (비활성화 X) */
+.has-reservation {
+  position: relative;
+}
+.has-reservation::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #f97316;
+}
+
 /* 이전/다음 달 날짜 색상 */
 .react-calendar__month-view__days__day--neighboringMonth,
 .react-calendar__tile.react-calendar__month-view__days__day--neighboringMonth {
