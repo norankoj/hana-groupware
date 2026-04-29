@@ -268,7 +268,11 @@ export default function VehicleReservationPage() {
         .eq("id", user.id)
         .single();
       if (profile) {
-        setForm((prev) => ({ ...prev, driver_name: profile.full_name, driver_user_id: user.id }));
+        setForm((prev) => ({
+          ...prev,
+          driver_name: profile.full_name,
+          driver_user_id: user.id,
+        }));
         setCurrentProfile({
           is_approver: profile.is_approver || false,
           role: profile.role || "user",
@@ -284,7 +288,9 @@ export default function VehicleReservationPage() {
       .select("id, full_name, position")
       .neq("status", "inactive")
       .order("full_name")
-      .then(({ data }) => { if (data) setStaffList(data as StaffMember[]); });
+      .then(({ data }) => {
+        if (data) setStaffList(data as StaffMember[]);
+      });
 
     const { data: vData } = await supabase
       .from("resources")
@@ -599,7 +605,10 @@ export default function VehicleReservationPage() {
       log.driver_name.includes(searchTerm) ||
       log.resources?.name.includes(searchTerm) ||
       log.destination.includes(searchTerm);
-    const matchesMine = !myReservationsOnly || log.user_id === currentUser || log.driver_user_id === currentUser;
+    const matchesMine =
+      !myReservationsOnly ||
+      log.user_id === currentUser ||
+      log.driver_user_id === currentUser;
     return matchesStatus && matchesSearch && matchesMine;
   });
 
@@ -703,6 +712,28 @@ export default function VehicleReservationPage() {
           const oilOverdue = oilRemaining !== null && oilRemaining <= 0;
           const oilSoon =
             oilRemaining !== null && oilRemaining > 0 && oilRemaining <= 1000;
+
+          // 최근 반납 기준 주유량
+          const lastReturnedLog = logs
+            .filter(
+              (l) =>
+                l.resource_id === v.id &&
+                l.vehicle_status === "returned" &&
+                l.fuel_level_end != null,
+            )
+            .sort(
+              (a, b) =>
+                new Date(b.end_at).getTime() - new Date(a.end_at).getTime(),
+            )[0];
+          const lastFuel = lastReturnedLog?.fuel_level_end ?? null;
+          const fuelLabel = (val: number) =>
+            val === 0 ? "E" : val === 100 ? "F" : `${val}%`;
+          const fuelColor = (val: number) =>
+            val <= 25
+              ? "text-red-500"
+              : val <= 50
+                ? "text-amber-500"
+                : "text-emerald-600";
 
           return (
             <div
@@ -917,18 +948,35 @@ export default function VehicleReservationPage() {
                 </div>
               )}
 
-              {/* 누적 주행거리 */}
-              <div className="z-10 mt-auto">
-                <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
-                  누적 주행거리
-                </p>
-                <div className="inline-flex items-baseline gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 -ml-1.5 rounded-lg">
-                  <span className="text-[18px] font-semibold text-slate-800 tracking-tight">
-                    {(v.current_mileage || 0).toLocaleString()}
-                  </span>
-                  <span className="text-[12px] font-medium text-gray-500">
-                    km
-                  </span>
+              {/* 누적 주행거리 + 주유량 */}
+              <div className="z-10 mt-auto flex items-end gap-3">
+                {/* 누적 주행거리 */}
+                <div>
+                  <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
+                    누적 주행거리
+                  </p>
+
+                  <div className="inline-flex items-baseline gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 -ml-1.5 rounded-lg">
+                    <span className="text-[18px] font-semibold text-slate-800 tracking-tight">
+                      {(v.current_mileage || 0).toLocaleString()}
+                    </span>
+                    <span className="text-[12px] font-medium text-gray-500">
+                      km
+                    </span>
+                    {/* 최근 반납 주유량 (누적 주행거리가 0이면 숨김) */}
+                    {v.current_mileage > 0 && lastFuel != null && (
+                      <div className="pb-[1px] ">
+                        {/* <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
+                      주유량
+                    </p> */}
+                        <div
+                          className={`inline-flex items-center gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 rounded-lg text-[13px] font-bold ${fuelColor(lastFuel)}`}
+                        >
+                          {fuelLabel(lastFuel)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1129,7 +1177,9 @@ export default function VehicleReservationPage() {
                   <tr
                     key={log.id}
                     className="hover:bg-blue-50/40 transition cursor-pointer"
-                    onClick={(e) => setLogPopover({ log, x: e.clientX, y: e.clientY })}
+                    onClick={(e) =>
+                      setLogPopover({ log, x: e.clientX, y: e.clientY })
+                    }
                   >
                     <td className="px-4 py-3">
                       <span
@@ -1189,7 +1239,10 @@ export default function VehicleReservationPage() {
                         "-"
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className="px-4 py-3 text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => {
                           setSelectedLog(log);
@@ -1436,7 +1489,8 @@ export default function VehicleReservationPage() {
       />
 
       {/* ── 운행기록 빠른 팝오버 ── */}
-      {logPopover && typeof window !== "undefined" &&
+      {logPopover &&
+        typeof window !== "undefined" &&
         createPortal(
           <>
             {/* 외부 클릭 → 닫기 */}
@@ -1451,7 +1505,10 @@ export default function VehicleReservationPage() {
               className="fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-gray-100"
               style={{
                 zIndex: 99999,
-                top: Math.max(16, Math.min(logPopover.y - 10, window.innerHeight - 440)),
+                top: Math.max(
+                  16,
+                  Math.min(logPopover.y - 10, window.innerHeight - 440),
+                ),
                 left:
                   logPopover.x + 316 < window.innerWidth
                     ? logPopover.x + 8
@@ -1461,13 +1518,33 @@ export default function VehicleReservationPage() {
             >
               {(() => {
                 const log = logPopover.log;
-                const STATUS_CFG: Record<string, { label: string; headerBg: string; textCls: string }> = {
-                  in_use:   { label: "운행중", headerBg: "bg-green-50",  textCls: "text-green-700"  },
-                  reserved: { label: "예약",   headerBg: "bg-blue-50",   textCls: "text-blue-700"   },
-                  returned: { label: "반납",   headerBg: "bg-gray-50",   textCls: "text-gray-500"   },
-                  noshow:   { label: "노쇼",   headerBg: "bg-orange-50", textCls: "text-orange-600" },
+                const STATUS_CFG: Record<
+                  string,
+                  { label: string; headerBg: string; textCls: string }
+                > = {
+                  in_use: {
+                    label: "운행중",
+                    headerBg: "bg-green-50",
+                    textCls: "text-green-700",
+                  },
+                  reserved: {
+                    label: "예약",
+                    headerBg: "bg-blue-50",
+                    textCls: "text-blue-700",
+                  },
+                  returned: {
+                    label: "반납",
+                    headerBg: "bg-gray-50",
+                    textCls: "text-gray-500",
+                  },
+                  noshow: {
+                    label: "노쇼",
+                    headerBg: "bg-orange-50",
+                    textCls: "text-orange-600",
+                  },
                 };
-                const cfg = STATUS_CFG[log.vehicle_status] ?? STATUS_CFG.reserved;
+                const cfg =
+                  STATUS_CFG[log.vehicle_status] ?? STATUS_CFG.reserved;
                 const start = new Date(log.start_at);
                 const end = new Date(log.end_at);
                 const sameDay =
@@ -1545,7 +1622,9 @@ export default function VehicleReservationPage() {
                       </InfoLine>
 
                       <InfoLine label="목적지">
-                        <span className="truncate block">{log.destination}</span>
+                        <span className="truncate block">
+                          {log.destination}
+                        </span>
                       </InfoLine>
 
                       <InfoLine label="운행 목적">
