@@ -606,7 +606,7 @@ export default function FacilityReservationPage() {
                     )}
 
                     {/* Book button */}
-                    <button className="w-full py-2.5 bg-blue-600 group-hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 mt-auto">
+                    {/* <button className="w-full py-2.5 bg-blue-600 group-hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 mt-auto">
                       예약하기
                       <svg
                         className="w-4 h-4"
@@ -621,7 +621,7 @@ export default function FacilityReservationPage() {
                           d="M9 5l7 7-7 7"
                         />
                       </svg>
-                    </button>
+                    </button> */}
                   </div>
                 );
               })}

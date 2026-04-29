@@ -194,9 +194,14 @@ export default function ExcelUploadModal({
   const validRows = rows.filter((r) => !r._error);
   const errorRows = rows.filter((r) =>  r._error);
 
+  const [saveProgress, setSaveProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const CHUNK_SIZE = 100; // 100행씩 나눠서 저장
+
   const handleSave = async () => {
     if (validRows.length === 0) return;
     setSaving(true);
+
     const inserts = validRows.map((r) => ({
       resource_id:   r._resourceId!,
       user_id:       currentUserId,
@@ -206,16 +211,34 @@ export default function ExcelUploadModal({
       purpose:       r.사용목적,
       status:        "confirmed",
     }));
-    const { error } = await supabase.from("reservations").insert(inserts);
-    setSaving(false);
-    if (error) {
-      toast.error("저장 실패: " + error.message);
-    } else {
-      toast.success(`${validRows.length}건 예약이 등록되었습니다.`);
-      setRows([]);
-      onSuccess();
-      onClose();
+
+    // 100행씩 청크 분할 저장
+    const chunks: typeof inserts[] = [];
+    for (let i = 0; i < inserts.length; i += CHUNK_SIZE) {
+      chunks.push(inserts.slice(i, i + CHUNK_SIZE));
     }
+
+    setSaveProgress({ done: 0, total: inserts.length });
+
+    for (const chunk of chunks) {
+      const { error } = await supabase.from("reservations").insert(chunk);
+      if (error) {
+        setSaving(false);
+        setSaveProgress(null);
+        toast.error("저장 실패: " + error.message);
+        return;
+      }
+      setSaveProgress((prev) =>
+        prev ? { ...prev, done: prev.done + chunk.length } : null,
+      );
+    }
+
+    setSaving(false);
+    setSaveProgress(null);
+    toast.success(`${validRows.length}건 예약이 등록되었습니다.`);
+    setRows([]);
+    onSuccess();
+    onClose();
   };
 
   // ── 공통 input 스타일 ─────────────────────────────────────────────────────
@@ -249,9 +272,13 @@ export default function ExcelUploadModal({
             <button
               onClick={handleSave}
               disabled={saving || validRows.length === 0}
-              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50 text-sm"
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50 text-sm min-w-[100px]"
             >
-              {saving ? "저장 중..." : `${validRows.length}건 저장`}
+              {saveProgress
+                ? `${saveProgress.done} / ${saveProgress.total}건…`
+                : saving
+                  ? "저장 중..."
+                  : `${validRows.length}건 저장`}
             </button>
           </div>
         ) : null
@@ -309,7 +336,7 @@ export default function ExcelUploadModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <p className="text-sm font-bold text-gray-600">.xlsx / .xls / .csv 파일을 드래그하거나 클릭해서 선택</p>
-              <p className="text-xs text-gray-400">최대 1,000행까지 처리 가능</p>
+              <p className="text-xs text-gray-400">행 수 제한 없음 · 100행씩 나눠 저장</p>
             </div>
           )}
         </div>
