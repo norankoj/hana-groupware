@@ -115,6 +115,8 @@ export default function VehicleReservationPage() {
 
   // [신규] 모바일 전용 탭 (예약 vs 운행일지)
   const [mobileTab, setMobileTab] = useState<"reserve" | "log">("reserve");
+  // PC 하단 행 오프셋 (상단 4개 고정, 하단은 1칸씩 슬라이드)
+  const [bottomRowOffset, setBottomRowOffset] = useState(0);
 
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -632,6 +634,285 @@ export default function VehicleReservationPage() {
     currentPage * itemsPerPage,
   );
 
+  // ── 차량 카드 렌더 헬퍼 (모바일 그리드 · PC 캐러셀 공용) ──────────────────
+  const renderVehicleCard = (v: Vehicle) => {
+    const currentUsage = logs.find(
+      (l) => l.resource_id === v.id && l.vehicle_status === "in_use",
+    );
+    const carImage = VEHICLE_IMAGES[v.name];
+    const isActive = activeCardId === v.id;
+
+    // 엔진오일 교환 상태
+    const oilRemaining =
+      v.oil_changed_km && v.current_mileage
+        ? v.oil_changed_km + 7000 - v.current_mileage
+        : null;
+    const oilOverdue = oilRemaining !== null && oilRemaining <= 0;
+    const oilSoon =
+      oilRemaining !== null && oilRemaining > 0 && oilRemaining <= 1000;
+
+    // 최근 반납 기준 주유량
+    const lastReturnedLog = logs
+      .filter(
+        (l) =>
+          l.resource_id === v.id &&
+          l.vehicle_status === "returned" &&
+          l.fuel_level_end != null,
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.end_at).getTime() - new Date(a.end_at).getTime(),
+      )[0];
+    const lastFuel = lastReturnedLog?.fuel_level_end ?? null;
+    const fuelLabel = (val: number) =>
+      val === 0 ? "E" : val === 100 ? "F" : `${val}%`;
+    const fuelColor = (val: number) =>
+      val <= 25
+        ? "text-red-500"
+        : val <= 50
+          ? "text-amber-500"
+          : "text-emerald-600";
+
+    return (
+      <div
+        key={v.id}
+        onClick={() => setActiveCardId(isActive ? null : v.id)}
+        onMouseLeave={() => setActiveCardId(null)}
+        tabIndex={0}
+        className={`bg-white p-5 rounded-xl shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group transition outline-none border ${
+          v.is_rented
+            ? "border-indigo-300"
+            : oilOverdue
+              ? "border-red-300"
+              : oilSoon
+                ? "border-amber-300"
+                : "border-gray-200"
+        }`}
+      >
+        <div
+          className={`absolute inset-0 z-20 bg-slate-900/60 backdrop-blur-[4px] transition-opacity duration-300 flex flex-col justify-center gap-2.5 p-4
+          ${
+            isActive
+              ? "opacity-100 visible"
+              : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
+          }
+          `}
+        >
+          {/* Primary: 예약하기 */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!v.is_rented) {
+                handleReserveWithCar(v.id);
+                setActiveCardId(null);
+              }
+            }}
+            disabled={!!v.is_rented}
+            className={`w-full py-3.5 text-sm font-bold rounded-xl transition-all active:scale-[0.98] ${
+              v.is_rented
+                ? "bg-white/10 text-white/40 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-lg shadow-blue-900/40"
+            }`}
+          >
+            {v.is_rented
+              ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}`
+              : "예약하기"}
+          </button>
+
+          {/* Secondary: 기록 / 정비 / 대여(admin) */}
+          <div className="flex gap-1.5 w-full">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenHistory(v);
+                setActiveCardId(null);
+              }}
+              className="flex-1 flex flex-col items-center gap-1 py-2.5 bg-white hover:bg-gray-100 text-slate-700 rounded-xl transition-all cursor-pointer shadow-sm"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                />
+              </svg>
+              <span className="text-[10px] font-bold leading-none">기록</span>
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedVehicleMaintenance(v);
+                setIsMaintenanceModalOpen(true);
+                setActiveCardId(null);
+              }}
+              className="flex-1 flex flex-col items-center gap-1 py-2.5 bg-white hover:bg-gray-100 text-slate-700 rounded-xl transition-all cursor-pointer shadow-sm"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="text-[10px] font-bold leading-none">정비</span>
+            </button>
+
+            {currentProfile?.is_vehicle_notify && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenRentalModal(v);
+                  setActiveCardId(null);
+                }}
+                className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm ${
+                  v.is_rented
+                    ? "bg-orange-500 hover:bg-orange-400 text-white"
+                    : "bg-white hover:bg-gray-100 text-slate-700"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                  />
+                </svg>
+                <span className="text-[10px] font-bold leading-none">
+                  {v.is_rented ? "해제" : "대여"}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 상태 뱃지 */}
+        <div
+          className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-xs font-bold z-10 ${
+            v.is_rented
+              ? "bg-indigo-100 text-indigo-700"
+              : currentUsage
+                ? "bg-green-100 text-green-700 animate-pulse"
+                : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {v.is_rented ? (
+            <div className="text-right">
+              <div>대여중</div>
+              {v.renter_name && (
+                <div className="text-[9px] font-medium opacity-70">
+                  {v.renter_name}
+                </div>
+              )}
+            </div>
+          ) : currentUsage ? (
+            "운행중"
+          ) : (
+            "대기중"
+          )}
+        </div>
+
+        <div className="z-10">
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-[17px] font-semibold text-gray-900 tracking-tight leading-tight">
+              {v.name}
+            </h3>
+            {(oilOverdue || oilSoon) && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span
+                    className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${oilOverdue ? "bg-red-400" : "bg-amber-400"}`}
+                  />
+                  <span
+                    className={`relative inline-flex h-2 w-2 rounded-full ${oilOverdue ? "bg-red-500" : "bg-amber-500"}`}
+                  />
+                </span>
+                <span
+                  className={`text-[10px] font-bold ${oilOverdue ? "text-red-500" : "text-amber-500"}`}
+                >
+                  {oilOverdue
+                    ? "오일 교환 필요"
+                    : `오일 교환 ${oilRemaining!.toLocaleString()}km 전`}
+                </span>
+              </div>
+            )}
+          </div>
+          <p className="text-[13px] text-gray-400 font-medium tracking-tight mt-0.5 font-mono">
+            {v.description}
+          </p>
+        </div>
+
+        {carImage ? (
+          <Image
+            src={carImage}
+            alt={v.name}
+            width={400}
+            height={250}
+            className={`absolute h-auto object-contain opacity-90 transition-transform duration-500 ease-out group-hover:scale-105
+               ${
+                 v.name.includes("스타리아")
+                   ? "w-36 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
+                   : v.name.includes("쏘나타")
+                     ? "w-44 -right-6 -bottom-0 group-hover:scale-110"
+                     : "w-36 -right-4 bottom-1 group-hover:scale-110"
+               }
+            `}
+          />
+        ) : (
+          <div className="absolute right-4 bottom-4 opacity-5 text-gray-900">
+            <span className="text-4xl font-black">CAR</span>
+          </div>
+        )}
+
+        {/* 누적 주행거리 + 주유량 */}
+        <div className="z-10 mt-auto flex items-end gap-3">
+          {/* 누적 주행거리 */}
+          <div>
+            <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
+              누적 주행거리
+            </p>
+
+            <div className="inline-flex items-baseline gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 -ml-1.5 rounded-lg">
+              <span className="text-[18px] font-semibold text-slate-800 tracking-tight">
+                {(v.current_mileage || 0).toLocaleString()}
+              </span>
+              <span className="text-[12px] font-medium text-gray-500">km</span>
+              {/* 최근 반납 주유량 (누적 주행거리가 0이면 숨김) */}
+              {v.current_mileage > 0 && lastFuel != null && (
+                <div className="pb-[1px] ">
+                  <div
+                    className={`inline-flex items-center gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 rounded-lg text-[13px] font-bold ${fuelColor(lastFuel)}`}
+                  >
+                    {fuelLabel(lastFuel)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  // ────────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="w-full max-w-7xl mx-auto p-2 pb-20 space-y-6">
       <div className="md:hidden bg-slate-100 p-1.5 rounded-xl flex shadow-inner mb-2">
@@ -691,298 +972,66 @@ export default function VehicleReservationPage() {
         </button>
       </div>
 
-      {/* --- 차량 대시보드 (카드) --- */}
+      {/* --- 차량 대시보드 (카드) — 모바일: 전체 스크롤 그리드 --- */}
       <div
-        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6 ${
-          mobileTab === "log" ? "hidden md:grid" : "grid"
+        className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 md:hidden ${
+          mobileTab === "log" ? "hidden" : "grid"
         }`}
       >
-        {vehicles.map((v) => {
-          const currentUsage = logs.find(
-            (l) => l.resource_id === v.id && l.vehicle_status === "in_use",
-          );
-          const carImage = VEHICLE_IMAGES[v.name];
-          const isActive = activeCardId === v.id;
+        {vehicles.map((v) => renderVehicleCard(v))}
+      </div>
 
-          // 엔진오일 교환 상태
-          const oilRemaining =
-            v.oil_changed_km && v.current_mileage
-              ? v.oil_changed_km + 7000 - v.current_mileage
-              : null;
-          const oilOverdue = oilRemaining !== null && oilRemaining <= 0;
-          const oilSoon =
-            oilRemaining !== null && oilRemaining > 0 && oilRemaining <= 1000;
+      {/* --- 차량 대시보드 (카드) — PC: 상단 4개 고정 + 하단 행 슬라이드 --- */}
+      {(() => {
+        const topVehicles = vehicles.slice(0, 4);
+        // 하단: 4개 창을 1칸씩 슬라이드 (vehicles[4+offset] ~ [4+offset+3])
+        const maxOffset = Math.max(0, vehicles.length - 8);
+        const bottomVehicles = vehicles.slice(
+          4 + bottomRowOffset,
+          4 + bottomRowOffset + 4,
+        );
+        const canPrev = bottomRowOffset > 0;
+        const canNext = bottomRowOffset < maxOffset;
+        return (
+          <div className={`hidden md:block mb-6 ${mobileTab === "log" ? "md:hidden" : ""}`}>
+            {/* 상단 행: 항상 고정 */}
+            <div className="grid grid-cols-4 gap-4">
+              {topVehicles.map((v) => renderVehicleCard(v))}
+            </div>
 
-          // 최근 반납 기준 주유량
-          const lastReturnedLog = logs
-            .filter(
-              (l) =>
-                l.resource_id === v.id &&
-                l.vehicle_status === "returned" &&
-                l.fuel_level_end != null,
-            )
-            .sort(
-              (a, b) =>
-                new Date(b.end_at).getTime() - new Date(a.end_at).getTime(),
-            )[0];
-          const lastFuel = lastReturnedLog?.fuel_level_end ?? null;
-          const fuelLabel = (val: number) =>
-            val === 0 ? "E" : val === 100 ? "F" : `${val}%`;
-          const fuelColor = (val: number) =>
-            val <= 25
-              ? "text-red-500"
-              : val <= 50
-                ? "text-amber-500"
-                : "text-emerald-600";
-
-          return (
-            <div
-              key={v.id}
-              onClick={() => setActiveCardId(isActive ? null : v.id)}
-              onMouseLeave={() => setActiveCardId(null)}
-              tabIndex={0}
-              className={`bg-white p-5 rounded-xl shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group transition outline-none border ${
-                v.is_rented
-                  ? "border-indigo-300"
-                  : oilOverdue
-                    ? "border-red-300"
-                    : oilSoon
-                      ? "border-amber-300"
-                      : "border-gray-200"
-              }`}
-            >
-              <div
-                className={`absolute inset-0 z-20 bg-slate-900/60 backdrop-blur-[4px] transition-opacity duration-300 flex flex-col justify-center gap-2.5 p-4
-                ${
-                  isActive
-                    ? "opacity-100 visible"
-                    : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
-                }
-                `}
-              >
-                {/* Primary: 예약하기 */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!v.is_rented) {
-                      handleReserveWithCar(v.id);
-                      setActiveCardId(null);
-                    }
-                  }}
-                  disabled={!!v.is_rented}
-                  className={`w-full py-3.5 text-sm font-bold rounded-xl transition-all active:scale-[0.98] ${
-                    v.is_rented
-                      ? "bg-white/10 text-white/40 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-lg shadow-blue-900/40"
-                  }`}
-                >
-                  {v.is_rented
-                    ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}`
-                    : "예약하기"}
-                </button>
-
-                {/* Secondary: 기록 / 정비 / 대여(admin) */}
-                <div className="flex gap-1.5 w-full">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenHistory(v);
-                      setActiveCardId(null);
-                    }}
-                    className="flex-1 flex flex-col items-center gap-1 py-2.5 bg-white hover:bg-gray-100 text-slate-700 rounded-xl transition-all cursor-pointer shadow-sm"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.8}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                      />
-                    </svg>
-                    <span className="text-[10px] font-bold leading-none">
-                      기록
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedVehicleMaintenance(v);
-                      setIsMaintenanceModalOpen(true);
-                      setActiveCardId(null);
-                    }}
-                    className="flex-1 flex flex-col items-center gap-1 py-2.5 bg-white hover:bg-gray-100 text-slate-700 rounded-xl transition-all cursor-pointer shadow-sm"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.8}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <span className="text-[10px] font-bold leading-none">
-                      정비
-                    </span>
-                  </button>
-
-                  {currentProfile?.is_vehicle_notify && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenRentalModal(v);
-                        setActiveCardId(null);
-                      }}
-                      className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm ${
-                        v.is_rented
-                          ? "bg-orange-500 hover:bg-orange-400 text-white"
-                          : "bg-white hover:bg-gray-100 text-slate-700"
-                      }`}
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.8}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
-                        />
-                      </svg>
-                      <span className="text-[10px] font-bold leading-none">
-                        {v.is_rented ? "해제" : "대여"}
-                      </span>
-                    </button>
-                  )}
+            {/* 하단 행: 5번째 차량부터, 1칸씩 슬라이드 */}
+            {vehicles.length > 4 && (
+              <div className="mt-4 relative">
+                <div className="grid grid-cols-4 gap-4">
+                  {bottomVehicles.map((v) => renderVehicleCard(v))}
                 </div>
-              </div>
-
-              {/* 상태 뱃지 */}
-              <div
-                className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-xs font-bold z-10 ${
-                  v.is_rented
-                    ? "bg-indigo-100 text-indigo-700"
-                    : currentUsage
-                      ? "bg-green-100 text-green-700 animate-pulse"
-                      : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {v.is_rented ? (
-                  <div className="text-right">
-                    <div>대여중</div>
-                    {v.renter_name && (
-                      <div className="text-[9px] font-medium opacity-70">
-                        {v.renter_name}
-                      </div>
-                    )}
-                  </div>
-                ) : currentUsage ? (
-                  "운행중"
-                ) : (
-                  "대기중"
+                {maxOffset > 0 && (
+                  <>
+                    <button
+                      onClick={() => setBottomRowOffset((o) => Math.max(0, o - 1))}
+                      disabled={!canPrev}
+                      className="absolute -left-7 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white shadow-lg disabled:opacity-20 disabled:cursor-not-allowed transition"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setBottomRowOffset((o) => Math.min(maxOffset, o + 1))}
+                      disabled={!canNext}
+                      className="absolute -right-7 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white shadow-lg disabled:opacity-20 disabled:cursor-not-allowed transition"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
                 )}
               </div>
-
-              <div className="z-10">
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-[17px] font-semibold text-gray-900 tracking-tight leading-tight">
-                    {v.name}
-                  </h3>
-                  {(oilOverdue || oilSoon) && (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="relative flex h-2 w-2 shrink-0">
-                        <span
-                          className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${oilOverdue ? "bg-red-400" : "bg-amber-400"}`}
-                        />
-                        <span
-                          className={`relative inline-flex h-2 w-2 rounded-full ${oilOverdue ? "bg-red-500" : "bg-amber-500"}`}
-                        />
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold ${oilOverdue ? "text-red-500" : "text-amber-500"}`}
-                      >
-                        {oilOverdue
-                          ? "오일 교환 필요"
-                          : `오일 교환 ${oilRemaining!.toLocaleString()}km 전`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <p className="text-[13px] text-gray-400 font-medium tracking-tight mt-0.5 font-mono">
-                  {v.description}
-                </p>
-              </div>
-
-              {carImage ? (
-                <Image
-                  src={carImage}
-                  alt={v.name}
-                  width={400}
-                  height={250}
-                  className={`absolute h-auto object-contain opacity-90 transition-transform duration-500 ease-out group-hover:scale-105
-                     ${
-                       v.name.includes("스타리아")
-                         ? "w-36 -right-8 -bottom-0 scale-125 origin-bottom-right group-hover:scale-[1.35]"
-                         : v.name.includes("쏘나타")
-                           ? "w-44 -right-6 -bottom-0 group-hover:scale-110"
-                           : "w-36 -right-4 bottom-1 group-hover:scale-110"
-                     }
-                  `}
-                />
-              ) : (
-                <div className="absolute right-4 bottom-4 opacity-5 text-gray-900">
-                  <span className="text-4xl font-black">CAR</span>
-                </div>
-              )}
-
-              {/* 누적 주행거리 + 주유량 */}
-              <div className="z-10 mt-auto flex items-end gap-3">
-                {/* 누적 주행거리 */}
-                <div>
-                  <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
-                    누적 주행거리
-                  </p>
-
-                  <div className="inline-flex items-baseline gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 -ml-1.5 rounded-lg">
-                    <span className="text-[18px] font-semibold text-slate-800 tracking-tight">
-                      {(v.current_mileage || 0).toLocaleString()}
-                    </span>
-                    <span className="text-[12px] font-medium text-gray-500">
-                      km
-                    </span>
-                    {/* 최근 반납 주유량 (누적 주행거리가 0이면 숨김) */}
-                    {v.current_mileage > 0 && lastFuel != null && (
-                      <div className="pb-[1px] ">
-                        {/* <p className="text-[10px] text-gray-400 font-medium mb-0.5 tracking-tight">
-                      주유량
-                    </p> */}
-                        <div
-                          className={`inline-flex items-center gap-0.5 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 rounded-lg text-[13px] font-bold ${fuelColor(lastFuel)}`}
-                        >
-                          {fuelLabel(lastFuel)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* --- 운행 일지 / 통계 / 스케줄 탭 (PC 전용) --- */}
       <div className="hidden md:flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">

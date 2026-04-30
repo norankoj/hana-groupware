@@ -101,45 +101,30 @@ function AlarmDetailPopup({
     const supabase = createClient();
     const now = new Date();
 
-    // 오늘 범위 (차량용)
+    // 오늘 범위 (공통 시작)
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
 
-    // 이번 달 범위 (시설용)
-    const monthStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1,
-      0,
-      0,
-      0,
-      0,
-    );
-    const monthEnd = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    );
+    // 오늘 포함 3일 범위 (시설용)
+    const threeDayEnd = new Date(todayStart);
+    threeDayEnd.setDate(threeDayEnd.getDate() + 2);
+    threeDayEnd.setHours(23, 59, 59, 999);
 
     const facilitySelect =
-      "id, start_at, end_at, purpose, profiles:user_id(full_name), resources:resource_id(name, category)";
+      "id, start_at, end_at, purpose, reservee_name, profiles:user_id(full_name), resources:resource_id(name, category)";
     const vehicleSelect =
       "id, start_at, end_at, purpose, driver_name, department, destination, profiles:user_id(full_name), resources:resource_id(name, category)";
 
     Promise.all([
-      // 시설 예약: 이번 달 전체
+      // 시설 예약: 오늘 포함 3일
       supabase
         .from("reservations")
         .select(facilitySelect)
         .or("status.is.null,status.neq.cancelled")
-        .gte("start_at", monthStart.toISOString())
-        .lte("start_at", monthEnd.toISOString())
+        .gte("start_at", todayStart.toISOString())
+        .lte("start_at", threeDayEnd.toISOString())
         .order("start_at"),
       // 차량 예약: 오늘 하루
       supabase
@@ -219,7 +204,7 @@ function AlarmDetailPopup({
   const facilityCards = loading ? (
     skeletons
   ) : (data?.facility.length ?? 0) === 0 ? (
-    empty("이번 달 시설 예약 없음")
+    empty("최근 시설 예약 없음")
   ) : (
     <div className="space-y-3">
       {data!.facility.map((r) => {
@@ -380,7 +365,7 @@ function AlarmDetailPopup({
           <div className="flex h-full divide-x divide-gray-100 overflow-x-auto">
             <div className="flex-1 min-w-[300px] flex flex-col px-6 py-6 overflow-hidden">
               {colHeader(
-                `시설 예약 · ${format(new Date(), "M월")}`,
+                "시설 예약",
                 data?.facility.length ?? 0,
                 "bg-purple-50 text-purple-700",
               )}
