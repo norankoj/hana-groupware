@@ -9,6 +9,7 @@ import "@/styles/calendar.css";
 import {
   format,
   addWeeks,
+  subWeeks,
   addDays,
   isBefore,
   isToday,
@@ -45,7 +46,7 @@ type Reservation = {
   end_at: string;
   purpose: string;
   status: string;
-  reservee_name?: string | null;   // 엑셀 업로드 시 성도 이름
+  reservee_name?: string | null;
   profiles?: { full_name: string; position: string };
   group_id?: string;
 };
@@ -140,16 +141,28 @@ export default function FacilityReservationPage() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // views
+  const [view, setView] = useState<"list" | "book" | "weekly">("list");
+
   // list view – today's bars
   const [todayRsv, setTodayRsv] = useState<Reservation[]>([]);
 
   // book view
-  const [view, setView] = useState<"list" | "book">("list");
   const [selectedRes, setSelectedRes] = useState<Resource | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calMonth, setCalMonth] = useState<Date>(new Date());
   const [dateRsv, setDateRsv] = useState<Reservation[]>([]);
   const [monthRsv, setMonthRsv] = useState<Reservation[]>([]);
+
+  // weekly view
+  const [weeklyBld, setWeeklyBld] = useState<string | null>(null);
+  const [weeklySelectedResId, setWeeklySelectedResId] = useState<number | null>(
+    null,
+  );
+  const [weeklyWeekStart, setWeeklyWeekStart] = useState<Date>(
+    startOfWeek(new Date(), { weekStartsOn: 0 }),
+  );
+  const [weeklyRsv, setWeeklyRsv] = useState<Reservation[]>([]);
 
   // time selection
   const [selStart, setSelStart] = useState<number | null>(null);
@@ -220,20 +233,48 @@ export default function FacilityReservationPage() {
     setMonthRsv(data ? (data as any) : []);
   };
 
+  const fetchWeeklyRsv = async () => {
+    if (!weeklyBld) return;
+    const weekEnd = endOfWeek(weeklyWeekStart, { weekStartsOn: 0 });
+    const bldResIds = resources
+      .filter((r) => r.category === weeklyBld)
+      .map((r) => r.id);
+
+    if (bldResIds.length > 0) {
+      const { data } = await supabase
+        .from("reservations")
+        .select("*, profiles:user_id(full_name, position)")
+        .in("resource_id", bldResIds)
+        .gte("start_at", weeklyWeekStart.toISOString())
+        .lte("end_at", weekEnd.toISOString())
+        .neq("status", "cancelled");
+      setWeeklyRsv(data ? (data as any) : []);
+    } else {
+      setWeeklyRsv([]);
+    }
+  };
+
   useEffect(() => {
     fetchInitial();
   }, []);
+
   useEffect(() => {
     if (view === "book" && selectedRes) fetchDateRsv(selectedDate);
   }, [view, selectedDate, selectedRes]);
+
   useEffect(() => {
     if (view === "book") fetchMonthRsv(calMonth);
   }, [view, calMonth, selectedRes]);
+
+  useEffect(() => {
+    if (view === "weekly") fetchWeeklyRsv();
+  }, [view, weeklyBld, weeklyWeekStart, resources]);
+
   useEffect(() => {
     setSlotPopover(null);
-  }, [selectedDate, view]);
+  }, [selectedDate, view, weeklyWeekStart]);
 
-  // ── open book ──────────────────────────────────────────────────────────────
+  // ── open views ─────────────────────────────────────────────────────────────
   const openBook = (res: Resource) => {
     setSelectedRes(res);
     setSelectedDate(new Date());
@@ -246,7 +287,21 @@ export default function FacilityReservationPage() {
     setView("book");
   };
 
-  // ── hour click ─────────────────────────────────────────────────────────────
+  const openWeekly = (bldId: string) => {
+    setWeeklyBld(bldId);
+    setWeeklyWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+
+    if (bldId !== "church") {
+      const bldRes = resources.filter((r) => r.category === bldId);
+      setWeeklySelectedResId(bldRes.length > 0 ? bldRes[0].id : null);
+    } else {
+      setWeeklySelectedResId(null);
+    }
+
+    setView("weekly");
+  };
+
+  // ── hour click (Book View) ─────────────────────────────────────────────────
   const handleHourClick = (hour: number) => {
     if (!selectedRes) return;
     const st = slotStatus(
@@ -273,7 +328,6 @@ export default function FacilityReservationPage() {
     }
   };
 
-  // ── recurring dates set (for calendar highlight) ───────────────────────
   const recurDates = useMemo<Set<string>>(() => {
     if (!isRecurring || !selectedRes) return new Set();
     const dates = new Set<string>();
@@ -294,14 +348,15 @@ export default function FacilityReservationPage() {
     return hour >= lo && hour <= hi;
   };
 
-  // ── 카카오톡 공유 복사 ──────────────────────────────────────────────────────
   const copyShareText = (
     rsv: { start_at: string; end_at: string; purpose: string },
     resourceName: string,
   ) => {
-    const dateStr   = format(new Date(rsv.start_at), "yyyy년 M월 d일 (EEE)", { locale: ko });
+    const dateStr = format(new Date(rsv.start_at), "yyyy년 M월 d일 (EEE)", {
+      locale: ko,
+    });
     const startTime = format(new Date(rsv.start_at), "HH:mm");
-    const endTime   = format(new Date(rsv.end_at),   "HH:mm");
+    const endTime = format(new Date(rsv.end_at), "HH:mm");
     const text = `[장소사용]\n\n* 날짜 : ${dateStr}\n* 시간 : ${startTime} ~ ${endTime}\n* 장소 : ${resourceName}\n* 사용목적 : ${rsv.purpose}`;
     navigator.clipboard
       .writeText(text)
@@ -379,7 +434,6 @@ export default function FacilityReservationPage() {
     const { error } = await supabase.from("reservations").insert(toInsert);
     if (error) toast.error("예약 실패: " + error.message);
     else {
-      // 단일 예약이면 바로 복사 토스트 제공
       if (!isRecurring && toInsert.length === 1) {
         toast(
           (t) => (
@@ -388,7 +442,11 @@ export default function FacilityReservationPage() {
               <button
                 onClick={() => {
                   copyShareText(
-                    { start_at: toInsert[0].start_at, end_at: toInsert[0].end_at, purpose: toInsert[0].purpose },
+                    {
+                      start_at: toInsert[0].start_at,
+                      end_at: toInsert[0].end_at,
+                      purpose: toInsert[0].purpose,
+                    },
                     selectedRes!.name,
                   );
                   toast.dismiss(t.id);
@@ -425,6 +483,7 @@ export default function FacilityReservationPage() {
       toast.success("취소되었습니다.");
       setDetailRsv(null);
       fetchDateRsv(selectedDate);
+      if (view === "weekly") fetchWeeklyRsv();
       fetchInitial();
     }
   };
@@ -440,6 +499,7 @@ export default function FacilityReservationPage() {
       toast.success("전체 일정이 취소되었습니다.");
       setDetailRsv(null);
       fetchDateRsv(selectedDate);
+      if (view === "weekly") fetchWeeklyRsv();
       fetchInitial();
     }
   };
@@ -448,7 +508,6 @@ export default function FacilityReservationPage() {
   const barSegments = (resId: number, resName: string) =>
     HOURS.map((h) => slotStatus(h, new Date(), resName, todayRsv, resId));
 
-  // ── reserved period string (today) ────────────────────────────────────────
   const todayPeriods = (resId: number) =>
     todayRsv
       .filter((r) => r.resource_id === resId)
@@ -459,7 +518,7 @@ export default function FacilityReservationPage() {
       .join(", ");
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Slot Cell
+  // Slot Cell Component (Book View)
   // ─────────────────────────────────────────────────────────────────────────
   const SlotCell = ({ hour }: { hour: number }) => {
     if (!selectedRes) return null;
@@ -518,7 +577,6 @@ export default function FacilityReservationPage() {
                     ? "현재"
                     : ""}
         </span>
-        {/* Striped overlay for reserved/fixed */}
         {(st === "reserved" || st === "fixed") && (
           <div
             className="absolute inset-0 rounded-xl opacity-[0.12] pointer-events-none"
@@ -530,6 +588,94 @@ export default function FacilityReservationPage() {
         )}
       </button>
     );
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // WEEKLY VIEW HELPERS (Absolute Overlay)
+  // ─────────────────────────────────────────────────────────────────────────
+  const getWeeklyDayEvents = (date: Date) => {
+    if (!weeklyBld) return [];
+    let bldRes = resources.filter((r) => r.category === weeklyBld);
+
+    // 교회는 전체 표출, 교육관은 선택된 탭 공간만 표출
+    if (weeklyBld !== "church" && weeklySelectedResId) {
+      bldRes = bldRes.filter((r) => r.id === weeklySelectedResId);
+    }
+
+    const items: {
+      type: "fixed" | "rsv";
+      resName: string;
+      label: string;
+      startH: number;
+      endH: number;
+      rsv?: Reservation;
+    }[] = [];
+
+    bldRes.forEach((res) => {
+      // 1. 고정 일정 (교회 한정)
+      if (res.name.includes("본당")) {
+        const dow = getDay(date);
+        if (dow === 0)
+          items.push({
+            type: "fixed",
+            resName: res.name,
+            label: "주일예배",
+            startH: 8,
+            endH: 17,
+          });
+        if (dow === 5)
+          items.push({
+            type: "fixed",
+            resName: res.name,
+            label: "금요예배",
+            startH: 19,
+            endH: 23,
+          });
+      }
+
+      // 2. 실제 예약 일정
+      const hits = weeklyRsv.filter((r) => {
+        if (r.resource_id !== res.id) return false;
+        return (
+          format(new Date(r.start_at), "yyyy-MM-dd") ===
+          format(date, "yyyy-MM-dd")
+        );
+      });
+
+      hits.forEach((h) => {
+        let sHour =
+          getHours(new Date(h.start_at)) +
+          new Date(h.start_at).getMinutes() / 60;
+        let eHour =
+          getHours(new Date(h.end_at)) + new Date(h.end_at).getMinutes() / 60;
+
+        // 종료 시간이 자정이거나 다음날로 넘어갈 경우 끝 시간(23시)까지 꽉 채움
+        if (
+          new Date(h.end_at).getDate() !== new Date(h.start_at).getDate() ||
+          eHour === 0
+        ) {
+          eHour = 23;
+        }
+
+        const startH = Math.max(START_HOUR, sHour);
+        const endH = Math.min(END_HOUR, Math.max(startH + 0.5, eHour)); // 최소 30분 높이 보장
+
+        if (startH < END_HOUR && endH > START_HOUR) {
+          items.push({
+            type: "rsv",
+            resName: res.name,
+            label: h.purpose,
+            startH,
+            endH,
+            rsv: h,
+          });
+        }
+      });
+    });
+
+    // 시간순 정렬 (겹치는 레이아웃 계산을 위함)
+    items.sort((a, b) => a.startH - b.startH);
+    return items;
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -545,21 +691,49 @@ export default function FacilityReservationPage() {
             {/* Building header */}
             <div className="flex items-center gap-3 mb-5">
               <div className="w-1 h-7 bg-blue-600 rounded-full" />
-              <div className="flex-1">
-                <h2 className="text-lg font-bold text-gray-900">{bld.label}</h2>
-                <p className="text-xs text-gray-400">{bld.desc}</p>
+              <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between min-w-0 gap-2">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    {bld.label}
+                  </h2>
+                  <p className="text-xs text-gray-400">{bld.desc}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openWeekly(bld.id);
+                    }}
+                    className="flex items-center gap-1.5 text-xs text-blue-600 font-bold bg-blue-50 hover:bg-blue-100 border border-blue-100 px-3 py-1.5 rounded-lg transition-all shadow-sm shrink-0"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    주간 시간표
+                  </button>
+                  {bld.notionUrl && (
+                    <a
+                      href={bld.notionUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-all shrink-0 shadow-sm"
+                    >
+                      이용안내 →
+                    </a>
+                  )}
+                </div>
               </div>
-              {bld.notionUrl && (
-                <a
-                  href={bld.notionUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-blue-300 hover:shadow transition-all shrink-0"
-                >
-                  이용안내 →
-                </a>
-              )}
             </div>
 
             {/* Space cards */}
@@ -577,7 +751,6 @@ export default function FacilityReservationPage() {
                     onClick={() => openBook(res)}
                     className="bg-white border border-gray-200 rounded-2xl p-5 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all group flex flex-col gap-4"
                   >
-                    {/* Card top */}
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
                         <div>
@@ -606,7 +779,6 @@ export default function FacilityReservationPage() {
                       </span>
                     </div>
 
-                    {/* Availability bar */}
                     <div>
                       <div className="flex h-4 rounded-lg overflow-hidden gap-[1px]">
                         {segs.map((st, i) => (
@@ -634,7 +806,6 @@ export default function FacilityReservationPage() {
                       </div>
                     </div>
 
-                    {/* Today status */}
                     {periods ? (
                       <p className="text-xs text-red-500 -mt-1">
                         🔴 예약된 시간대: {periods}
@@ -644,24 +815,6 @@ export default function FacilityReservationPage() {
                         🟢 오늘 예약 없음
                       </p>
                     )}
-
-                    {/* Book button */}
-                    {/* <button className="w-full py-2.5 bg-blue-600 group-hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 mt-auto">
-                      예약하기
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button> */}
                   </div>
                 );
               })}
@@ -673,12 +826,12 @@ export default function FacilityReservationPage() {
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BOOK VIEW
+  // WEEKLY VIEW
   // ─────────────────────────────────────────────────────────────────────────
-  const BookView = selectedRes && (
-    <div className="flex flex-col gap-5">
+  const WeeklyView = weeklyBld && (
+    <div className="flex flex-col gap-5 animate-fade-in">
       {/* Back + Title */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => setView("list")}
           className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition px-2 py-1.5 rounded-lg hover:bg-gray-100"
@@ -698,7 +851,249 @@ export default function FacilityReservationPage() {
           </svg>
           목록으로
         </button>
-        <div className="h-4 w-px bg-gray-200" />
+        <div className="h-4 w-px bg-gray-200 hidden sm:block" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <h2 className="text-xl font-bold text-gray-900">
+            {BUILDINGS.find((b) => b.id === weeklyBld)?.label} 주간 시간표
+          </h2>
+        </div>
+      </div>
+
+      {/* Week Controls & Location Tabs (Same Line) */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white px-5 py-3.5 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl p-1 bg-gray-50">
+            <button
+              onClick={() => setWeeklyWeekStart(subWeeks(weeklyWeekStart, 1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-gray-500 transition"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+            <span className="text-[13px] font-bold text-gray-800 tabular-nums px-1">
+              {format(weeklyWeekStart, "MM.dd")} ~{" "}
+              {format(endOfWeek(weeklyWeekStart), "MM.dd")}
+            </span>
+            <button
+              onClick={() => setWeeklyWeekStart(addWeeks(weeklyWeekStart, 1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-gray-500 transition"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+          </div>
+          <button
+            onClick={() =>
+              setWeeklyWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))
+            }
+            className="px-2.5 py-1.5 text-xs font-bold text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+          >
+            이번 주
+          </button>
+        </div>
+
+        {/* 장소(공간) 선택 탭 */}
+        {weeklyBld !== "church" && (
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-full">
+            {resources
+              .filter((r) => r.category === weeklyBld)
+              .map((res) => (
+                <button
+                  key={res.id}
+                  onClick={() => setWeeklySelectedResId(res.id)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
+                    weeklySelectedResId === res.id
+                      ? "bg-gray-800 text-white shadow-sm"
+                      : "bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700 border border-gray-200/60"
+                  }`}
+                >
+                  {res.name}
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+
+      {/* Timetable Grid (Absolute Positioned Events) */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto shadow-sm">
+        <div className="min-w-[800px] flex flex-col text-sm text-gray-700">
+          {/* Header Row */}
+          <div className="flex border-b border-gray-200 bg-gray-50">
+            <div className="w-[60px] shrink-0 border-r border-gray-200 p-2 flex items-center justify-center text-xs font-bold text-gray-500">
+              시간
+            </div>
+            {Array.from({ length: 7 }).map((_, i) => {
+              const d = addDays(weeklyWeekStart, i);
+              const isTodayDt = isToday(d);
+              const isWeekend = getDay(d) === 0 || getDay(d) === 6;
+              return (
+                <div
+                  key={i}
+                  className={`flex-1 p-2 border-r border-gray-200 text-center ${isTodayDt ? "bg-blue-50/50 text-blue-700" : ""}`}
+                >
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span
+                      className={`text-sm font-bold ${isTodayDt ? "" : isWeekend ? "text-red-500" : "text-gray-700"}`}
+                    >
+                      {format(d, "EEE", { locale: ko })}
+                    </span>
+                    <span className="text-[11px] font-medium opacity-70">
+                      {format(d, "MM.dd")}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Grid Body */}
+          <div className="flex relative">
+            {/* Time Axis Column */}
+            <div className="w-[60px] shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col">
+              {HOURS.map((hour) => (
+                <div
+                  key={hour}
+                  className="h-10 border-b border-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-400"
+                >
+                  {hour}:00
+                </div>
+              ))}
+            </div>
+
+            {/* Day Columns */}
+            {Array.from({ length: 7 }).map((_, dayIdx) => {
+              const d = addDays(weeklyWeekStart, dayIdx);
+              const events = getWeeklyDayEvents(d);
+              const isTodayDt = isToday(d);
+
+              return (
+                <div
+                  key={dayIdx}
+                  className={`flex-1 border-r border-gray-200 relative group min-w-[100px] ${isTodayDt ? "bg-blue-50/10" : ""}`}
+                >
+                  {/* Background Lines */}
+                  {HOURS.map((hour) => (
+                    <div
+                      key={hour}
+                      className="h-10 border-b border-gray-100 group-hover:bg-gray-50/50 transition-colors"
+                    />
+                  ))}
+
+                  {/* Absolute Events Overlay */}
+                  {events.map((evt, eIdx) => {
+                    // 1시간 = 40px (h-10)
+                    const top = (evt.startH - START_HOUR) * 40;
+                    const height = (evt.endH - evt.startH) * 40;
+
+                    // 겹치는 일정 처리 로직
+                    const overlapping = events.filter(
+                      (e) =>
+                        Math.max(evt.startH, e.startH) <
+                        Math.min(evt.endH, e.endH),
+                    );
+                    const overlapCount = Math.max(1, overlapping.length);
+                    const overlapIndex = overlapping.findIndex(
+                      (e) => e === evt,
+                    );
+                    const width = `calc(${100 / overlapCount}% - 6px)`;
+                    const left = `calc(${overlapIndex * (100 / overlapCount)}% + 3px)`;
+
+                    return (
+                      <div
+                        key={eIdx}
+                        style={{ top, height, left, width }}
+                        className={`absolute p-1.5 rounded-lg text-[11px] leading-tight shadow-sm overflow-hidden flex flex-col gap-0.5 border transition-all cursor-pointer z-10 hover:z-20 ${
+                          evt.type === "fixed"
+                            ? "bg-gray-100/95 text-gray-500 border-gray-200"
+                            : "bg-blue-50/95 text-blue-800 border-blue-200 hover:border-blue-400 hover:shadow-md"
+                        }`}
+                        onClick={(e) => {
+                          if (evt.type === "rsv" && evt.rsv) {
+                            const rect =
+                              e.currentTarget.getBoundingClientRect();
+                            setSlotPopover({
+                              rsv: evt.rsv,
+                              x: rect.left,
+                              y: rect.top,
+                            });
+                          }
+                        }}
+                      >
+                        {weeklyBld === "church" ? (
+                          <>
+                            <span className="font-extrabold truncate opacity-90">
+                              {evt.resName}
+                            </span>
+                            <span className="truncate text-[10px] text-gray-600">
+                              {evt.label}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-extrabold whitespace-normal line-clamp-3 opacity-90 leading-snug">
+                            {evt.label}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BOOK VIEW
+  // ─────────────────────────────────────────────────────────────────────────
+  const BookView = selectedRes && (
+    <div className="flex flex-col gap-5">
+      {/* Back + Title */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => setView("list")}
+          className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition px-2 py-1.5 rounded-lg hover:bg-gray-100"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          목록으로
+        </button>
+        <div className="h-4 w-px bg-gray-200 hidden sm:block" />
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <h2 className="text-xl font-bold text-gray-900">
             {selectedRes.name}
@@ -764,7 +1159,6 @@ export default function FacilityReservationPage() {
                 }}
               />
             </div>
-            {/* Legend */}
             <div className="px-5 pb-4 flex items-center gap-4 text-xs text-gray-400">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />{" "}
@@ -784,7 +1178,6 @@ export default function FacilityReservationPage() {
 
         {/* ── Right: Time + Form ── */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
-          {/* Time slot picker */}
           <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
               <p className="text-sm font-bold text-gray-700">시간 선택</p>
@@ -816,8 +1209,6 @@ export default function FacilityReservationPage() {
                     ? "⏱️ 종료 시간을 클릭하세요 (선택한 시간 +1시간까지 예약됩니다)"
                     : "✅ 범위가 선택되었습니다. 아래에서 예약을 완료하세요."}
               </p>
-
-              {/* AM */}
               <div>
                 <p className="text-xs font-bold text-gray-400 mb-2">오전</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -826,8 +1217,6 @@ export default function FacilityReservationPage() {
                   ))}
                 </div>
               </div>
-
-              {/* PM */}
               <div>
                 <p className="text-xs font-bold text-gray-400 mb-2">오후</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -836,8 +1225,6 @@ export default function FacilityReservationPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Color legend */}
               <div className="flex flex-wrap gap-4 pt-3 border-t border-gray-100">
                 {[
                   { cls: "bg-blue-600", label: "선택" },
@@ -862,7 +1249,6 @@ export default function FacilityReservationPage() {
 
           {/* Booking form */}
           <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
-            {/* Summary */}
             {selStart !== null && selEnd !== null && (
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                 <p className="text-xs font-bold text-blue-700 mb-2">
@@ -887,7 +1273,6 @@ export default function FacilityReservationPage() {
                 </div>
               </div>
             )}
-
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1.5">
                 사용 목적 <span className="text-red-500">*</span>
@@ -900,8 +1285,6 @@ export default function FacilityReservationPage() {
                 className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 resize-none outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition bg-gray-50 focus:bg-white"
               />
             </div>
-
-            {/* Recurring toggle */}
             <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-100">
               <span className="text-sm font-bold text-gray-700">
                 정기 예약 (매주 반복)
@@ -930,7 +1313,6 @@ export default function FacilityReservationPage() {
                 />
               </div>
             )}
-
             <button
               onClick={handleReserve}
               disabled={selStart === null || selEnd === null || !purpose.trim()}
@@ -991,20 +1373,32 @@ export default function FacilityReservationPage() {
                             내 예약
                           </span>
                         )}
-                        {/* 카카오톡 공유 복사 버튼 */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             copyShareText(
                               r,
-                              resources.find((res) => res.id === r.resource_id)?.name ?? selectedRes?.name ?? "",
+                              resources.find((res) => res.id === r.resource_id)
+                                ?.name ??
+                                selectedRes?.name ??
+                                "",
                             );
                           }}
                           title="카카오톡 공유용 복사"
                           className="w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 transition"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
                           </svg>
                         </button>
                       </div>
@@ -1059,6 +1453,8 @@ export default function FacilityReservationPage() {
         </div>
       ) : view === "list" ? (
         ListView
+      ) : view === "weekly" ? (
+        WeeklyView
       ) : (
         BookView
       )}
@@ -1074,7 +1470,9 @@ export default function FacilityReservationPage() {
           <div className="space-y-6 pt-2">
             <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
               <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl">
-                {(detailRsv.reservee_name || detailRsv.profiles?.full_name)?.slice(0, 1)}
+                {(
+                  detailRsv.reservee_name || detailRsv.profiles?.full_name
+                )?.slice(0, 1)}
               </div>
               <div>
                 <div className="font-bold text-gray-900 text-lg">
@@ -1161,13 +1559,11 @@ export default function FacilityReservationPage() {
         typeof window !== "undefined" &&
         createPortal(
           <>
-            {/* 외부 클릭 닫기 */}
             <div
               className="fixed inset-0"
               style={{ zIndex: 99998 }}
               onClick={() => setSlotPopover(null)}
             />
-            {/* 팝오버 카드 */}
             <div
               className="fixed bg-white rounded-2xl shadow-2xl w-[272px] overflow-hidden border border-gray-100"
               style={{
@@ -1183,7 +1579,6 @@ export default function FacilityReservationPage() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 헤더 */}
               <div className="px-5 py-4 bg-blue-50 flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[11px] font-bold text-blue-500 uppercase mb-1">
@@ -1195,7 +1590,9 @@ export default function FacilityReservationPage() {
                     · 예약됨
                   </p>
                   <p className="text-base font-extrabold text-gray-900 leading-snug">
-                    {slotPopover.rsv.reservee_name || slotPopover.rsv.profiles?.full_name || "예약자"}
+                    {slotPopover.rsv.reservee_name ||
+                      slotPopover.rsv.profiles?.full_name ||
+                      "예약자"}
                   </p>
                   {slotPopover.rsv.profiles?.position && (
                     <p className="text-xs text-gray-400 mt-0.5">
@@ -1222,8 +1619,19 @@ export default function FacilityReservationPage() {
                   </svg>
                 </button>
               </div>
-              {/* 본문 */}
               <div className="px-5 py-4 space-y-2.5">
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-gray-400 w-10 shrink-0 pt-0.5">
+                    장소
+                  </span>
+                  <span className="text-sm text-gray-800 font-semibold truncate">
+                    {
+                      resources.find(
+                        (r) => r.id === slotPopover.rsv.resource_id,
+                      )?.name
+                    }
+                  </span>
+                </div>
                 <div className="flex items-start gap-3">
                   <span className="text-xs text-gray-400 w-10 shrink-0 pt-0.5">
                     시간
@@ -1249,19 +1657,30 @@ export default function FacilityReservationPage() {
                     <span className="text-xs text-gray-400">매주 반복</span>
                   </div>
                 )}
-                {/* 카카오톡 공유 복사 버튼 */}
                 <button
                   onClick={() => {
                     copyShareText(
                       slotPopover.rsv,
-                      resources.find((r) => r.id === slotPopover.rsv.resource_id)?.name ?? "",
+                      resources.find(
+                        (r) => r.id === slotPopover.rsv.resource_id,
+                      )?.name ?? "",
                     );
                     setSlotPopover(null);
                   }}
                   className="w-full mt-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-bold text-xs transition border border-yellow-200"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
                   </svg>
                   카카오톡 공유용 복사
                 </button>
