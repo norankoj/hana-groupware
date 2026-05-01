@@ -36,7 +36,12 @@ type VehicleLog = {
   fuel_level_end?: number;
   incident_type?: string;
   profiles?: { full_name: string; position: string };
-  resources?: { name: string; description: string; insurance_info?: string; fuel_segments?: number };
+  resources?: {
+    name: string;
+    description: string;
+    insurance_info?: string;
+    fuel_segments?: number;
+  };
 };
 
 interface DetailModalProps {
@@ -48,6 +53,7 @@ interface DetailModalProps {
   currentProfile?: { is_approver: boolean; role: string } | null;
   onRefresh: () => void;
   onCancel?: (id: number) => void;
+  onEdit?: (log: VehicleLog) => void; // [신규] 수정 버튼 클릭 시 실행할 함수
 }
 
 const InfoRow = ({
@@ -82,6 +88,7 @@ export default function DetailModal({
   currentProfile,
   onRefresh,
   onCancel,
+  onEdit, // 추가됨
 }: DetailModalProps) {
   const supabase = createClient();
   const [uploading, setUploading] = useState(false);
@@ -102,21 +109,30 @@ export default function DetailModal({
   const [showFuelSettings, setShowFuelSettings] = useState(false);
 
   // fuelSegments 에 따른 동적 스냅/눈금 계산
-  const SNAP_POINTS = fuelSegments === 10
-    ? Array.from({ length: 21 }, (_, i) => i * 5) // 5% 단위 스냅 (10칸 경계 + 중간)
-    : [...new Set([...Array.from({ length: 21 }, (_, i) => i * 5), 12, 37, 62, 87])].sort((a, b) => a - b);
+  const SNAP_POINTS =
+    fuelSegments === 10
+      ? Array.from({ length: 21 }, (_, i) => i * 5) // 5% 단위 스냅 (10칸 경계 + 중간)
+      : [
+          ...new Set([
+            ...Array.from({ length: 21 }, (_, i) => i * 5),
+            12,
+            37,
+            62,
+            87,
+          ]),
+        ].sort((a, b) => a - b);
 
-  const TICK_MARKS = fuelSegments === 10
-    ? [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-    : [0, 12, 25, 37, 50, 62, 75, 87, 100];
+  const TICK_MARKS =
+    fuelSegments === 10
+      ? [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+      : [0, 12, 25, 37, 50, 62, 75, 87, 100];
 
-  const LARGE_TICKS = fuelSegments === 10
-    ? new Set([0, 50, 100])
-    : new Set([0, 25, 50, 75, 100]);
+  const LARGE_TICKS =
+    fuelSegments === 10 ? new Set([0, 50, 100]) : new Set([0, 25, 50, 75, 100]);
 
   const fuelLabel = (v: number | undefined | null) => {
     if (v == null) return null;
-    if (v === 0)   return "E";
+    if (v === 0) return "E";
     if (v === 100) return "F";
     return `${v}%`;
   };
@@ -184,7 +200,10 @@ export default function DetailModal({
       setPrevNote(null);
 
       // 이용시작(reserved) 시 — 해당 차량의 가장 최근 반납 기록에서 메모 조회
-      if (selectedLog?.vehicle_status === "reserved" && selectedLog?.resource_id) {
+      if (
+        selectedLog?.vehicle_status === "reserved" &&
+        selectedLog?.resource_id
+      ) {
         supabase
           .from("reservations")
           .select("vehicle_condition, driver_name, end_at")
@@ -192,9 +211,12 @@ export default function DetailModal({
           .eq("vehicle_status", "returned")
           .order("end_at", { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
           .then(({ data }) => {
-            if (data?.vehicle_condition && data.vehicle_condition !== "이상 없음") {
+            if (
+              data?.vehicle_condition &&
+              data.vehicle_condition !== "이상 없음"
+            ) {
               setPrevNote({
                 driver: data.driver_name,
                 note: data.vehicle_condition,
@@ -491,7 +513,8 @@ export default function DetailModal({
     : selectedLog?.vehicle_status;
 
   // 예약자(user_id) 또는 운전자(driver_name === 현재 유저 이름) 또는 관리자
-  const isDriver = !!currentUserName && selectedLog?.driver_name === currentUserName;
+  const isDriver =
+    !!currentUserName && selectedLog?.driver_name === currentUserName;
   const isMyTurn =
     (selectedLog?.user_id === currentUser || isDriver || isAdmin) &&
     effectiveStatus !== "returned" &&
@@ -531,13 +554,22 @@ export default function DetailModal({
         {actionType === "checkin" && prevNote && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
             <div className="shrink-0 mt-0.5">
-              <svg className="w-4 h-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              <svg
+                className="w-4 h-4 text-amber-500"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-amber-700 mb-1">
-                이전 탑승자 메모 · {prevNote.driver} ({format(new Date(prevNote.date), "M.d")})
+                이전 탑승자 메모 · {prevNote.driver} (
+                {format(new Date(prevNote.date), "M.d")})
               </p>
               <p className="text-sm text-amber-800 leading-relaxed whitespace-pre-wrap break-words">
                 {prevNote.note}
@@ -576,7 +608,9 @@ export default function DetailModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs text-gray-500 shrink-0">기록된 출발 거리</span>
+                <span className="text-xs text-gray-500 shrink-0">
+                  기록된 출발 거리
+                </span>
                 <span className="text-sm font-mono font-bold text-gray-700 truncate">
                   {correctingStart && correctedStart !== ""
                     ? Number(correctedStart).toLocaleString()
@@ -584,7 +618,9 @@ export default function DetailModal({
                   km
                 </span>
                 {correctingStart && correctedStart !== "" && (
-                  <span className="text-xs text-orange-500 font-bold shrink-0">(수정됨)</span>
+                  <span className="text-xs text-orange-500 font-bold shrink-0">
+                    (수정됨)
+                  </span>
                 )}
               </div>
               <button
@@ -609,7 +645,9 @@ export default function DetailModal({
                   placeholder={`기존: ${selectedLog.start_mileage.toLocaleString()}`}
                   value={correctedStart}
                   onChange={(e) =>
-                    setCorrectedStart(e.target.value === "" ? "" : Number(e.target.value))
+                    setCorrectedStart(
+                      e.target.value === "" ? "" : Number(e.target.value),
+                    )
                   }
                 />
                 <p className="text-xs text-gray-400 mt-1">
@@ -622,22 +660,38 @@ export default function DetailModal({
 
         {/* 연료 게이지 — 슬라이더 */}
         {(() => {
-          const currentFuel = actionType === "checkin" ? checkinFuel : checkoutForm.fuel;
+          const currentFuel =
+            actionType === "checkin" ? checkinFuel : checkoutForm.fuel;
           const setFuel = (v: number) =>
             actionType === "checkin"
               ? setCheckinFuel(v)
               : setCheckoutForm((p) => ({ ...p, fuel: v }));
 
-          const isLow  = currentFuel <= (fuelSegments === 10 ? 10 : 12);
+          const isLow = currentFuel <= (fuelSegments === 10 ? 10 : 12);
           const isWarn = currentFuel <= (fuelSegments === 10 ? 20 : 25);
-          const fillColor  = isLow ? "bg-red-400"   : isWarn ? "bg-amber-400" : "bg-sky-400";
-          const thumbRing  = isLow ? "ring-red-300"  : isWarn ? "ring-amber-300" : "ring-sky-300";
-          const valueColor = isLow ? "text-red-500"  : isWarn ? "text-amber-500" : "text-sky-600";
+          const fillColor = isLow
+            ? "bg-red-400"
+            : isWarn
+              ? "bg-amber-400"
+              : "bg-sky-400";
+          const thumbRing = isLow
+            ? "ring-red-300"
+            : isWarn
+              ? "ring-amber-300"
+              : "ring-sky-300";
+          const valueColor = isLow
+            ? "text-red-500"
+            : isWarn
+              ? "text-amber-500"
+              : "text-sky-600";
 
           const displayLabel = fuelLabel(currentFuel)!;
 
           const snapFromPointer = (clientX: number, rect: DOMRect) => {
-            const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            const pct = Math.max(
+              0,
+              Math.min(1, (clientX - rect.left) / rect.width),
+            );
             const raw = Math.round(pct * 100);
             return SNAP_POINTS.reduce((a, b) =>
               Math.abs(b - raw) < Math.abs(a - raw) ? b : a,
@@ -657,9 +711,24 @@ export default function DetailModal({
                     onClick={() => setShowFuelSettings((v) => !v)}
                     className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100 transition cursor-pointer"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
                     </svg>
                     {fuelSegments}칸
                   </button>
@@ -684,11 +753,14 @@ export default function DetailModal({
                 </div>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white px-5 pt-3 pb-4 select-none">
-
                 {/* 현재값 표시 */}
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-gray-400 font-medium">연료 게이지</span>
-                  <span className={`text-sm font-bold ${valueColor}`}>{displayLabel}</span>
+                  <span className="text-xs text-gray-400 font-medium">
+                    연료 게이지
+                  </span>
+                  <span className={`text-sm font-bold ${valueColor}`}>
+                    {displayLabel}
+                  </span>
                 </div>
 
                 {/* 드래그 가능한 슬라이더 */}
@@ -696,11 +768,21 @@ export default function DetailModal({
                   className="relative h-8 flex items-center cursor-pointer touch-none"
                   onPointerDown={(e) => {
                     e.currentTarget.setPointerCapture(e.pointerId);
-                    setFuel(snapFromPointer(e.clientX, e.currentTarget.getBoundingClientRect()));
+                    setFuel(
+                      snapFromPointer(
+                        e.clientX,
+                        e.currentTarget.getBoundingClientRect(),
+                      ),
+                    );
                   }}
                   onPointerMove={(e) => {
                     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-                    setFuel(snapFromPointer(e.clientX, e.currentTarget.getBoundingClientRect()));
+                    setFuel(
+                      snapFromPointer(
+                        e.clientX,
+                        e.currentTarget.getBoundingClientRect(),
+                      ),
+                    );
                   }}
                 >
                   {/* 배경 트랙 */}
@@ -713,12 +795,17 @@ export default function DetailModal({
                   {/* 썸 — 타원 */}
                   <div
                     className={`absolute h-5 w-10 bg-gradient-to-b from-white to-gray-50 rounded-full shadow-md ring-2 pointer-events-none transition-[left] duration-75 ${thumbRing}`}
-                    style={{ left: `clamp(0px, calc(${currentFuel}% - 20px), calc(100% - 40px))` }}
+                    style={{
+                      left: `clamp(0px, calc(${currentFuel}% - 20px), calc(100% - 40px))`,
+                    }}
                   />
                 </div>
 
                 {/* 눈금 (TICK_MARKS 기준 — overflow:visible로 E/F 클립 방지) */}
-                <div className="relative mt-0.5 h-6" style={{ overflow: "visible" }}>
+                <div
+                  className="relative mt-0.5 h-6"
+                  style={{ overflow: "visible" }}
+                >
                   {TICK_MARKS.map((v) => {
                     const isLarge = LARGE_TICKS.has(v);
                     return (
@@ -730,7 +817,9 @@ export default function DetailModal({
                       >
                         <div
                           className={`rounded-full ${
-                            isLarge ? "w-0.5 h-3 bg-gray-400" : "w-px h-2 bg-gray-200"
+                            isLarge
+                              ? "w-0.5 h-3 bg-gray-400"
+                              : "w-px h-2 bg-gray-200"
                           }`}
                         />
                         {(v === 0 || v === 100) && (
@@ -742,7 +831,6 @@ export default function DetailModal({
                     );
                   })}
                 </div>
-
               </div>
             </div>
           );
@@ -1283,6 +1371,7 @@ export default function DetailModal({
             닫기
           </button>
         )}
+
         {/* 본인 또는 관리자 — 노쇼 복구 */}
         {(isAdmin || selectedLog?.user_id === currentUser) &&
           effectiveStatus === "noshow" && (
@@ -1293,14 +1382,29 @@ export default function DetailModal({
               노쇼 복구
             </button>
           )}
-        {isMyTurn && actionType === "checkin" && onCancel && (
-          <button
-            onClick={() => onCancel(selectedLog!.id)}
-            className="flex-1 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-red-200"
-          >
-            예약 취소
-          </button>
+
+        {/* 예약 취소 및 예약 수정 버튼 */}
+        {isMyTurn && actionType === "checkin" && (
+          <>
+            {onCancel && (
+              <button
+                onClick={() => onCancel(selectedLog!.id)}
+                className="flex-1 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-red-200"
+              >
+                예약 취소
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={() => onEdit(selectedLog!)}
+                className="flex-1 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-blue-200"
+              >
+                예약 수정
+              </button>
+            )}
+          </>
         )}
+
         {isMyTurn && actionType === "checkout" && !showExtendForm && (
           <button
             onClick={() => {

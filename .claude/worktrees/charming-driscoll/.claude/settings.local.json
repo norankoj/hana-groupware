@@ -6,7 +6,11 @@
       "Bash(findstr /i \"vehicle\")",
       "Bash(xargs grep *)",
       "Read(//c/dev/hana-groupware/**)",
-      "Read(//c/dev/hana-groupware/supabase/**)"
+      "Read(//c/dev/hana-groupware/supabase/**)",
+      "Bash(node -e ' *)",
+      "Bash(node C:/dev/hana-groupware/fix_vehicle_bugs.mjs)",
+      "Bash(node patch_pc_ui.mjs)",
+      "Bash(node \"C:/dev/hana-groupware/patch_notes_collapse.mjs\")"
     ]
   }
 }
