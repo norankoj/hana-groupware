@@ -126,10 +126,16 @@ export default function VehicleReservationPage() {
   const [rentalName, setRentalName] = useState("");
 
   const [mobileTab, setMobileTab] = useState<"reserve" | "log">("reserve");
+  const [mobileMyOnly, setMobileMyOnly] = useState(true);
+  const [mobilePage, setMobilePage] = useState(1);
+  const [isReserving, setIsReserving] = useState(false);
+  const [mobileDriverSearch, setMobileDriverSearch] = useState("");
   const [pcSelectedVehicleId, setPcSelectedVehicleId] = useState<number | null>(
     null,
   );
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const [allViewMode, setAllViewMode] = useState<"log" | "schedule">("log");
+  const [scheduleVehicle, setScheduleVehicle] = useState<Vehicle | null>(null);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
 
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
@@ -341,7 +347,7 @@ export default function VehicleReservationPage() {
       if (vData.length > 0 && form.resource_id === 0) {
         setForm((prev) => ({ ...prev, resource_id: vData[0].id }));
       }
-      setPcSelectedVehicleId((prev) => prev ?? vData[0]?.id ?? null);
+      // 전체 차량이 default이므로 자동 선택 없음
     }
 
     const { data: lData, error: lError } = await supabase
@@ -429,6 +435,8 @@ export default function VehicleReservationPage() {
     )
       return;
 
+    setIsReserving(true);
+    try {
     const reminderAt = new Date(endAt.getTime() - 20 * 60 * 1000);
     const basePayload = {
       resource_id: form.resource_id,
@@ -519,6 +527,9 @@ export default function VehicleReservationPage() {
             }
           });
       }
+    }
+    } finally {
+      setIsReserving(false);
     }
   };
 
@@ -701,6 +712,18 @@ export default function VehicleReservationPage() {
   const currentLogs = sortedLogs.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
+  );
+
+  // 모바일 전용: 내 예약 + 운전자 이름 필터
+  const mobileSortedLogs = sortedLogs.filter((l) => {
+    const matchesMine = !mobileMyOnly || l.user_id === currentUser || l.driver_user_id === currentUser;
+    const matchesDriver = !mobileDriverSearch.trim() || l.driver_name.includes(mobileDriverSearch.trim());
+    return matchesMine && matchesDriver;
+  });
+  const mobileTotalPages = Math.ceil(mobileSortedLogs.length / itemsPerPage);
+  const mobileCurrentLogs = mobileSortedLogs.slice(
+    (mobilePage - 1) * itemsPerPage,
+    mobilePage * itemsPerPage,
   );
 
   const renderVehicleCard = (v: Vehicle) => {
@@ -1028,39 +1051,65 @@ export default function VehicleReservationPage() {
       <div
         className={`md:hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden ${mobileTab === "log" ? "block" : "hidden"}`}
       >
-        <div className="p-4 border-b border-gray-200 bg-gray-50 flex gap-2 items-center">
-          <div className="w-32 shrink-0">
-            <Select
-              value={statusFilter}
-              onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
-              options={[
-                { value: "all", label: "전체 상태" },
-                { value: "reserved", label: "예약중" },
-                { value: "in_use", label: "운행중" },
-                { value: "returned", label: "반납완료" },
-                { value: "noshow", label: "노쇼" },
-              ]}
-              className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
-            />
+        <div className="px-3 pt-3 pb-2.5 border-b border-gray-200 bg-gray-50 flex flex-col gap-2">
+          {/* 1행: 상태 필터 + 내 예약 토글 */}
+          <div className="flex gap-2 items-center">
+            <div className="w-32 shrink-0">
+              <Select
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); setCurrentPage(1); setMobilePage(1); }}
+                options={[
+                  { value: "all", label: "전체 상태" },
+                  { value: "reserved", label: "예약중" },
+                  { value: "in_use", label: "운행중" },
+                  { value: "returned", label: "반납완료" },
+                  { value: "noshow", label: "노쇼" },
+                ]}
+                className="w-full h-[38px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
+              />
+            </div>
+            <button
+              onClick={() => { setMobileMyOnly((v) => !v); setMobilePage(1); }}
+              className={`px-3 py-2 rounded-lg text-sm font-bold border transition shrink-0 h-[38px] ${
+                mobileMyOnly
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              내 예약
+            </button>
           </div>
-          <button
-            onClick={() => { setMyReservationsOnly((v) => !v); setCurrentPage(1); }}
-            className={`px-3 py-2 rounded-lg text-sm font-bold border transition shrink-0 h-[42px] ${
-              myReservationsOnly
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            내 예약
-          </button>
+          {/* 2행: 운전자 이름 검색 */}
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="text"
+              value={mobileDriverSearch}
+              onChange={(e) => { setMobileDriverSearch(e.target.value); setMobilePage(1); }}
+              placeholder="운전자 이름 검색"
+              className="w-full h-[38px] pl-9 pr-8 text-sm bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+            />
+            {mobileDriverSearch && (
+              <button
+                onClick={() => { setMobileDriverSearch(""); setMobilePage(1); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         <div className="p-3 space-y-3">
-          {currentLogs.length === 0 ? (
+          {mobileCurrentLogs.length === 0 ? (
             <div className="text-center py-10 text-gray-400 text-sm">
               운행 기록이 없습니다.
             </div>
           ) : (
-            currentLogs.map((log) => (
+            mobileCurrentLogs.map((log) => (
               <div
                 key={log.id}
                 className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
@@ -1134,22 +1183,22 @@ export default function VehicleReservationPage() {
             ))
           )}
         </div>
-        {totalPages > 1 && (
+        {mobileTotalPages > 1 && (
           <div className="flex justify-center py-4 border-t border-gray-200 bg-white">
             <div className="flex gap-1">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
+                disabled={mobilePage === 1}
                 className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50 text-sm"
               >
                 이전
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+              {Array.from({ length: mobileTotalPages }, (_, i) => i + 1).map(
                 (page) => (
                   <button
                     key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 rounded border text-sm ${currentPage === page ? "bg-slate-800 text-white border-slate-800" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                    onClick={() => setMobilePage(page)}
+                    className={`px-3 py-1 rounded border text-sm ${mobilePage === page ? "bg-slate-800 text-white border-slate-800" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
                   >
                     {page}
                   </button>
@@ -1157,9 +1206,9 @@ export default function VehicleReservationPage() {
               )}
               <button
                 onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  setMobilePage((p) => Math.min(mobileTotalPages, p + 1))
                 }
-                disabled={currentPage === totalPages || totalPages === 0}
+                disabled={mobilePage === mobileTotalPages || mobileTotalPages === 0}
                 className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50 text-sm"
               >
                 다음
@@ -1569,6 +1618,12 @@ export default function VehicleReservationPage() {
                         >
                           기록
                         </button>
+                        <button
+                          onClick={() => setScheduleVehicle(pcVehicle)}
+                          className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
+                        >
+                          스케줄
+                        </button>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-3">
@@ -1792,39 +1847,56 @@ export default function VehicleReservationPage() {
                 </>
               ) : (
                 <>
-                  <div className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm flex gap-2 items-center shrink-0">
-                    <div className="w-36 shrink-0">
-                      <Select
-                        value={statusFilter}
-                        onChange={(v) => {
-                          setStatusFilter(v);
-                          setCurrentPage(1);
-                        }}
-                        options={[
-                          { value: "all", label: "전체 상태" },
-                          { value: "reserved", label: "예약중" },
-                          { value: "in_use", label: "운행중" },
-                          { value: "returned", label: "반납완료" },
-                          { value: "noshow", label: "노쇼" },
-                        ]}
-                        className="w-full h-[38px] px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg"
-                      />
+                  <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-sm flex gap-2 items-center shrink-0 flex-wrap">
+                    {/* 탭 토글 */}
+                    <div className="flex gap-1 bg-gray-100 p-1 rounded-lg shrink-0">
+                      <button
+                        onClick={() => setAllViewMode("log")}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${allViewMode === "log" ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:bg-gray-100"}`}
+                      >
+                        운행기록
+                      </button>
+                      <button
+                        onClick={() => setAllViewMode("schedule")}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${allViewMode === "schedule" ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:bg-gray-100"}`}
+                      >
+                        스케줄
+                      </button>
                     </div>
-                    <input
-                      value={searchTerm}
-                      onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      placeholder="차량 · 운전자 · 목적지 검색"
-                      className="flex-1 h-[38px] px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    />
-                    <button
-                      onClick={() => { setMyReservationsOnly((v) => !v); setCurrentPage(1); }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition shrink-0 h-[38px] ${myReservationsOnly ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}`}
-                    >
-                      내 예약
-                    </button>
+                    {allViewMode === "log" && (
+                      <>
+                        <div className="w-32 shrink-0">
+                          <Select
+                            value={statusFilter}
+                            onChange={(v) => {
+                              setStatusFilter(v);
+                              setCurrentPage(1);
+                            }}
+                            options={[
+                              { value: "all", label: "전체 상태" },
+                              { value: "reserved", label: "예약중" },
+                              { value: "in_use", label: "운행중" },
+                              { value: "returned", label: "반납완료" },
+                              { value: "noshow", label: "노쇼" },
+                            ]}
+                            className="w-full h-[38px] px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <input
+                          value={searchTerm}
+                          onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          placeholder="차량 · 운전자 · 목적지 검색"
+                          className="flex-1 h-[38px] px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                        <button
+                          onClick={() => { setMyReservationsOnly((v) => !v); setCurrentPage(1); }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition shrink-0 h-[38px] ${myReservationsOnly ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}`}
+                        >
+                          내 예약
+                        </button>
                     <button
                       onClick={() => {
                         const rows = sortedLogs.map((l) => ({
@@ -1888,19 +1960,55 @@ export default function VehicleReservationPage() {
                       </svg>
                       <span>엑셀</span>
                     </button>
+                    </>
+                  )}
                   </div>
-                  <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                      <LogTable rows={pcCurrentLogs} />
+                  {allViewMode === "log" ? (
+                    <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <LogTable rows={pcCurrentLogs} />
+                      </div>
+                      <PcPagination />
                     </div>
-                    <PcPagination />
-                  </div>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                      <ScheduleTab
+                        vehicles={vehicles}
+                        logs={sortedLogs}
+                        onSelectLog={(log) => {
+                          setSelectedLog(log as any);
+                          setIsDetailModalOpen(true);
+                        }}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
         );
       })()}
+
+      {/* 차량별 스케줄 팝업 */}
+      <Modal
+        isOpen={!!scheduleVehicle}
+        onClose={() => setScheduleVehicle(null)}
+        title={scheduleVehicle ? `${scheduleVehicle.name} 스케줄` : "스케줄"}
+        className="!max-w-4xl"
+      >
+        {scheduleVehicle && (
+          <ScheduleTab
+            vehicles={[scheduleVehicle]}
+            logs={logs.filter((l) => l.resource_id === scheduleVehicle.id)}
+            defaultView="month"
+            onSelectLog={(log) => {
+              setScheduleVehicle(null);
+              setSelectedLog(log as any);
+              setIsDetailModalOpen(true);
+            }}
+          />
+        )}
+      </Modal>
 
       <Modal
         isOpen={rentalModalOpen && !!rentalVehicle}
@@ -1974,9 +2082,7 @@ export default function VehicleReservationPage() {
         handleRecurringReserve={handleRecurringReserve}
         handleRangeChange={handleRangeChange}
         staffList={staffList}
-        // [신규] VehicleReserveModal에서 수정 상태인지 알 수 있게 넘겨줍니다.
-        // 필요에 따라 VehicleReserveModal 컴포넌트 쪽에 isEditMode prop을 추가해주세요.
-        // isEditMode={!!editingLogId}
+        isReserving={isReserving}
       />
 
       {/* DetailModal에 onEdit 속성을 넘겨줍니다 */}

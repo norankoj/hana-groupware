@@ -10,7 +10,8 @@
       "Bash(node -e ' *)",
       "Bash(node C:/dev/hana-groupware/fix_vehicle_bugs.mjs)",
       "Bash(node patch_pc_ui.mjs)",
-      "Bash(node \"C:/dev/hana-groupware/patch_notes_collapse.mjs\")"
+      "Bash(node \"C:/dev/hana-groupware/patch_notes_collapse.mjs\")",
+      "Bash(node \"C:/dev/hana-groupware/patch_schedule.mjs\")"
     ]
   }
 }

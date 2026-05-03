@@ -559,6 +559,7 @@ function AlarmCard() {
           "id, created_at, start_at, end_at, profiles:user_id(full_name), resources:resource_id(name, category)",
         )
         .or("status.is.null,status.neq.cancelled")
+        .not("vehicle_status", "eq", "cancelled")
         .order("created_at", { ascending: false })
         .limit(5),
     ]).then(([{ data: notices }, { data: reservations }]) => {

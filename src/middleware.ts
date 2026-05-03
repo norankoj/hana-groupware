@@ -89,8 +89,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // vehicle_manager: /vehicle 하위 경로만 허용 (그 외 차단)
-    if (myRole === "vehicle_manager" && !path.startsWith("/vehicle") && path !== "/") {
+    // vehicle_manager: /vehicle 하위 경로 + /api/* 허용 (그 외 차단)
+    if (myRole === "vehicle_manager" && !path.startsWith("/vehicle") && !path.startsWith("/api") && path !== "/") {
       const url = request.nextUrl.clone();
       url.pathname = "/vehicle";
       return NextResponse.redirect(url);

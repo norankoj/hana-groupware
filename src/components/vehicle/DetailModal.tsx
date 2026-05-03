@@ -163,6 +163,20 @@ export default function DetailModal({
   // 노쇼 복구 후 로컬에서만 status를 "reserved"로 표시 (autoExpireReservations 재실행 방지)
   const [restoredAsReserved, setRestoredAsReserved] = useState(false);
 
+  // 관리자 운행결과 수정 모드
+  const [adminResultEdit, setAdminResultEdit] = useState(false);
+  const [adminFields, setAdminFields] = useState({
+    start_mileage: "" as number | "",
+    end_mileage: "" as number | "",
+    fuel_level_start: null as number | null,
+    fuel_level_end: null as number | null,
+    parking_location: "",
+    cleanup_status: true,
+    vehicle_condition: "이상 없음",
+    incident_type: null as string | null,
+  });
+  const [adminSaving, setAdminSaving] = useState(false);
+
   // 이전 탑승자 메모
   const [prevNote, setPrevNote] = useState<{
     driver: string;
@@ -186,6 +200,7 @@ export default function DetailModal({
         fuel: 100,
         incidentType: null,
       });
+      setAdminResultEdit(false);
       setCorrectingStart(false);
       setCorrectedStart("");
       setFuelSegments(selectedLog?.resources?.fuel_segments ?? 8);
@@ -505,7 +520,8 @@ export default function DetailModal({
   };
 
   const isAdmin =
-    currentProfile?.is_approver === true || currentProfile?.role === "admin";
+    currentProfile?.is_approver === true ||
+    currentProfile?.role === "admin";
 
   // 노쇼 복구 후에는 로컬에서 "reserved"로 취급
   const effectiveStatus = restoredAsReserved
@@ -1128,10 +1144,77 @@ export default function DetailModal({
       {/* 2. 운행 결과 (반납 완료 시) */}
       {selectedLog?.vehicle_status === "returned" && (
         <div className="border border-gray-200 rounded-sm overflow-hidden bg-white">
-          <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-100 bg-gray-50">
-            <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
-            <span className="text-sm font-bold text-gray-600">운행 결과</span>
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-gray-100 bg-gray-50">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
+              <span className="text-sm font-bold text-gray-600">운행 결과</span>
+            </div>
+            {isAdmin && !adminResultEdit && (
+              <button
+                onClick={() => {
+                  setAdminFields({
+                    start_mileage: selectedLog.start_mileage ?? "",
+                    end_mileage: selectedLog.end_mileage ?? "",
+                    fuel_level_start: selectedLog.fuel_level_start ?? null,
+                    fuel_level_end: selectedLog.fuel_level_end ?? null,
+                    parking_location: selectedLog.parking_location ?? "",
+                    cleanup_status: selectedLog.cleanup_status ?? true,
+                    vehicle_condition: selectedLog.vehicle_condition ?? "이상 없음",
+                    incident_type: selectedLog.incident_type ?? null,
+                  });
+                  setAdminResultEdit(true);
+                }}
+                className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                수정
+              </button>
+            )}
+            {isAdmin && adminResultEdit && (
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (!(await (async () => { const m = "운행 결과를 수정하시겠습니까?"; return window.confirm(m); })())) return;
+                    setAdminSaving(true);
+                    try {
+                      const res = await fetch("/api/vehicle/submit", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          reservationId: selectedLog.id,
+                          updates: {
+                            start_mileage: adminFields.start_mileage === "" ? null : Number(adminFields.start_mileage),
+                            end_mileage: adminFields.end_mileage === "" ? null : Number(adminFields.end_mileage),
+                            fuel_level_start: adminFields.fuel_level_start,
+                            fuel_level_end: adminFields.fuel_level_end,
+                            parking_location: adminFields.parking_location,
+                            cleanup_status: adminFields.cleanup_status,
+                            vehicle_condition: adminFields.vehicle_condition,
+                            incident_type: adminFields.incident_type,
+                          },
+                        }),
+                      });
+                      const json = await res.json();
+                      if (!res.ok) { toast.error(json.error || "수정 실패"); return; }
+                      toast.success("운행 결과가 수정되었습니다.");
+                      setAdminResultEdit(false);
+                      onRefresh();
+                    } finally {
+                      setAdminSaving(false);
+                    }
+                  }}
+                  disabled={adminSaving}
+                  className="text-xs text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1 rounded font-bold disabled:opacity-60"
+                >
+                  {adminSaving ? "저장 중..." : "저장"}
+                </button>
+                <button onClick={() => setAdminResultEdit(false)} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded font-bold">취소</button>
+              </div>
+            )}
           </div>
+
+          {/* 읽기 모드 */}
+          {!adminResultEdit && <>
           <InfoRow label="주행 거리">
             {selectedLog.start_mileage?.toLocaleString()} km →{" "}
             <span className="font-bold text-blue-600 ml-2 text-base">
@@ -1285,6 +1368,61 @@ export default function DetailModal({
               )}
             </div>
           </InfoRow>
+          </> /* !adminResultEdit 읽기 모드 끝 */}
+
+          {/* 관리자 편집 모드 */}
+          {adminResultEdit && (
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">출발 거리 (km)</label>
+                  <input type="number" value={adminFields.start_mileage} onChange={e => setAdminFields(p => ({ ...p, start_mileage: e.target.value === "" ? "" : Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="출발 거리" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">도착 거리 (km)</label>
+                  <input type="number" value={adminFields.end_mileage} onChange={e => setAdminFields(p => ({ ...p, end_mileage: e.target.value === "" ? "" : Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="도착 거리" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">출발 연료 (%)</label>
+                  <input type="number" min={0} max={100} value={adminFields.fuel_level_start ?? ""} onChange={e => setAdminFields(p => ({ ...p, fuel_level_start: e.target.value === "" ? null : Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="0~100" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">도착 연료 (%)</label>
+                  <input type="number" min={0} max={100} value={adminFields.fuel_level_end ?? ""} onChange={e => setAdminFields(p => ({ ...p, fuel_level_end: e.target.value === "" ? null : Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="0~100" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">주차 위치</label>
+                <input type="text" value={adminFields.parking_location} onChange={e => setAdminFields(p => ({ ...p, parking_location: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400" placeholder="주차 위치 입력" />
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="text-xs font-bold text-gray-500">청소 상태</label>
+                <button type="button" onClick={() => setAdminFields(p => ({ ...p, cleanup_status: !p.cleanup_status }))}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${adminFields.cleanup_status ? "bg-gray-100 text-gray-700 border-gray-300" : "bg-red-50 text-red-600 border-red-200"}`}>
+                  {adminFields.cleanup_status ? "청소 완료" : "청소 미흡"}
+                </button>
+                <label className="text-xs font-bold text-gray-500 ml-2">사고/이상</label>
+                <select value={adminFields.incident_type ?? ""} onChange={e => setAdminFields(p => ({ ...p, incident_type: e.target.value || null }))}
+                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:border-blue-400">
+                  <option value="">없음</option>
+                  <option value="accident">사고</option>
+                  <option value="breakdown">고장</option>
+                  <option value="scratch">흠집</option>
+                  <option value="other">기타</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">특이사항</label>
+                <textarea value={adminFields.vehicle_condition} onChange={e => setAdminFields(p => ({ ...p, vehicle_condition: e.target.value }))}
+                  rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400 resize-none" placeholder="특이사항 입력" />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1435,6 +1573,19 @@ export default function DetailModal({
               : actionType === "checkin"
                 ? "운행 시작"
                 : "반납 완료"}
+          </button>
+        )}
+
+        {/* 관리자 전용 수정 버튼 (반납 완료 상태) */}
+        {isAdmin && selectedLog?.vehicle_status === "returned" && onEdit && (
+          <button
+            onClick={() => onEdit(selectedLog!)}
+            className="w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-600 py-3 rounded-sm text-sm font-bold transition cursor-pointer border border-gray-200"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            관리자 수정
           </button>
         )}
       </div>

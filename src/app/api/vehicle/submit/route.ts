@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    const isAdmin = profile?.role === "admin" || profile?.role === "director" || profile?.is_approver === true;
+    const isAdmin = profile?.role === "admin" || profile?.role === "director" || profile?.role === "vehicle_manager" || profile?.is_approver === true;
     const isOwner = reservation.user_id === user.id;
 
     if (!isOwner && !isAdmin) {

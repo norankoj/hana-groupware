@@ -27,6 +27,7 @@ export default function Select({
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 외부 클릭 시 닫기
@@ -81,7 +82,14 @@ export default function Select({
           if (!isOpen && containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
             const spaceBelow = window.innerHeight - rect.bottom;
-            setOpenUpward(spaceBelow < 260);
+            const up = spaceBelow < 260;
+            setOpenUpward(up);
+            // position: fixed 로 overflow:hidden 부모 탈출
+            setDropdownStyle(
+              up
+                ? { position: "fixed", bottom: window.innerHeight - rect.top + 4, left: rect.left, width: rect.width, zIndex: 200 }
+                : { position: "fixed", top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 200 }
+            );
           }
           setIsOpen(!isOpen);
         }}
@@ -122,9 +130,12 @@ export default function Select({
         </svg>
       </button>
 
-      {/* 드롭다운 메뉴 */}
+      {/* 드롭다운 메뉴 — position:fixed로 overflow:hidden 부모 탈출 */}
       {isOpen && (
-        <div className={`absolute z-50 w-full bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto custom-scrollbar animate-fadeIn ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}>
+        <div
+          className="bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto custom-scrollbar animate-fadeIn"
+          style={dropdownStyle}
+        >
           {hasGroups
             ? Object.entries(groupedOptions).map(([group, opts]) => (
                 <div key={group}>
