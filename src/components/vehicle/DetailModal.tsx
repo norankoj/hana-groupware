@@ -671,7 +671,7 @@ export default function DetailModal({
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
+                capture={undefined}
                 className="hidden"
                 onChange={handleDashChange}
               />
@@ -1280,7 +1280,7 @@ export default function DetailModal({
                         <input
                           type="file"
                           accept="image/*"
-                          capture="environment"
+                          capture={undefined}
                           className="hidden"
                           onChange={handleEditCheckinPhotoChange}
                         />
@@ -1320,7 +1320,7 @@ export default function DetailModal({
                       <input
                         type="file"
                         accept="image/*"
-                        capture="environment"
+                        capture={undefined}
                         className="hidden"
                         onChange={handleEditCheckinPhotoChange}
                       />
