@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
+    "dev:staging": "cp .env.staging.local .env.local.bak && next dev --env-file .env.staging.local",
+    "staging": "cp .env.staging.local .env.local",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
@@ -40,6 +42,7 @@
     "react-hot-toast": "^2.6.0",
     "solapi": "^5.5.4",
     "sweetalert2": "^11.26.17",
+    "tesseract.js": "^7.0.0",
     "web-push": "^3.6.7",
     "xlsx": "^0.18.5"
   },

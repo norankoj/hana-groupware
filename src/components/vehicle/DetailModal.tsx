@@ -144,8 +144,14 @@ export default function DetailModal({
     fuel: 100,
     incidentType: null as string | null,
   });
-  const [correctingStart, setCorrectingStart] = useState(false);
-  const [correctedStart, setCorrectedStart] = useState<number | "">("");
+  // 반납 시 운행시작 정보 수정
+  const [showCheckinEdit, setShowCheckinEdit] = useState(false);
+  const [editCheckinMileage, setEditCheckinMileage] = useState<number | "">("");
+  const [editCheckinFuel, setEditCheckinFuel] = useState<number | null>(null);
+  const [editCheckinPhoto, setEditCheckinPhoto] = useState<File | null>(null);
+  const [editCheckinPhotoPreview, setEditCheckinPhotoPreview] = useState<
+    string | null
+  >(null);
 
   const [showExtendForm, setShowExtendForm] = useState(false);
   const [extendDate, setExtendDate] = useState("");
@@ -154,6 +160,7 @@ export default function DetailModal({
 
   const [dashImage, setDashImage] = useState<File | null>(null);
   const [dashPreview, setDashPreview] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
   const [exteriorFiles, setExteriorFiles] = useState<File[]>([]);
   const [exteriorPreviews, setExteriorPreviews] = useState<string[]>([]);
 
@@ -188,6 +195,7 @@ export default function DetailModal({
     if (isOpen) {
       setDashImage(null);
       setDashPreview(null);
+      setOcrLoading(false);
       setExteriorFiles([]);
       setExteriorPreviews([]);
       setCheckinMileage("");
@@ -201,8 +209,11 @@ export default function DetailModal({
         incidentType: null,
       });
       setAdminResultEdit(false);
-      setCorrectingStart(false);
-      setCorrectedStart("");
+      setShowCheckinEdit(false);
+      setEditCheckinMileage("");
+      setEditCheckinFuel(null);
+      setEditCheckinPhoto(null);
+      setEditCheckinPhotoPreview(null);
       setFuelSegments(selectedLog?.resources?.fuel_segments ?? 8);
       setShowFuelSettings(false);
       setShowExtendForm(false);
@@ -243,11 +254,55 @@ export default function DetailModal({
     }
   }, [isOpen]);
 
-  const handleDashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDashChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setDashImage(file);
       setDashPreview(URL.createObjectURL(file));
+
+      // TODO: 계기판 OCR — API 키 설정 후 아래 주석 해제
+      // setOcrLoading(true);
+      // try {
+      //   const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1280, useWebWorker: true });
+      //   const formData = new FormData();
+      //   formData.append("image", compressed);
+      //   const res = await fetch("/api/vehicle/ocr-mileage", { method: "POST", body: formData });
+      //   const json = await res.json();
+      //   const mileage: number | null = json.mileage ?? null;
+      //   const fuel: number | null = json.fuel ?? null;
+      //   const isCheckin = restoredAsReserved || selectedLog?.vehicle_status === "reserved";
+      //   if (mileage != null) {
+      //     if (isCheckin) setCheckinMileage(mileage);
+      //     else setCheckoutForm((prev) => ({ ...prev, mileage }));
+      //   }
+      //   if (fuel != null) {
+      //     if (isCheckin) setCheckinFuel(fuel);
+      //     else setCheckoutForm((prev) => ({ ...prev, fuel }));
+      //   }
+      //   if (mileage != null || fuel != null) {
+      //     const parts = [];
+      //     if (mileage != null) parts.push(`${mileage.toLocaleString()} km`);
+      //     if (fuel != null) parts.push(`연료 ${fuel === 0 ? "E" : fuel === 100 ? "F" : fuel + "%"}`);
+      //     toast.success(`🔢 인식 완료: ${parts.join(" · ")}`, { duration: 3000 });
+      //   } else {
+      //     toast("계기판 숫자를 인식하지 못했습니다. 직접 입력해주세요.", { icon: "📷", duration: 3000 });
+      //   }
+      // } catch {
+      //   // OCR 실패 — 수동 입력 가능
+      // } finally {
+      //   setOcrLoading(false);
+      // }
+    }
+  };
+
+  // 운행시작 사진 재촬영 (반납 시 수정)
+  const handleEditCheckinPhotoChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setEditCheckinPhoto(file);
+      setEditCheckinPhotoPreview(URL.createObjectURL(file));
     }
   };
 
@@ -366,16 +421,18 @@ export default function DetailModal({
       if (String(checkinMileage).trim() === "")
         return toast.error("계기판 거리를 입력해주세요.");
       if (!dashImage) return toast.error("계기판 사진은 필수입니다.");
-      if (exteriorFiles.length < 4)
+      if (!isApprover && exteriorFiles.length < 4)
         return toast.error("차량 외관 사진을 최소 4장 등록해주세요.");
     } else {
       if (String(checkoutForm.mileage).trim() === "")
         return toast.error("도착 거리를 입력해주세요.");
       const effectiveStart =
-        correctingStart && correctedStart !== ""
-          ? Number(correctedStart)
+        editCheckinMileage !== ""
+          ? Number(editCheckinMileage)
           : selectedLog.start_mileage;
+      // 거리가 입력된 경우에만 대소 검증
       if (
+        String(checkoutForm.mileage).trim() !== "" &&
         effectiveStart !== null &&
         effectiveStart !== undefined &&
         Number(checkoutForm.mileage) <= effectiveStart
@@ -383,10 +440,10 @@ export default function DetailModal({
         return toast.error(
           `도착 거리(${checkoutForm.mileage}km)는 출발 거리(${effectiveStart}km)보다 커야 합니다.`,
         );
-      if (String(checkoutForm.parking).trim() === "")
+      if (!isApprover && String(checkoutForm.parking).trim() === "")
         return toast.error("주차 위치를 입력해주세요.");
       if (!dashImage) return toast.error("계기판 사진은 필수입니다.");
-      if (exteriorFiles.length < 4)
+      if (!isApprover && exteriorFiles.length < 4)
         return toast.error("차량 외관 사진을 최소 4장 등록해주세요.");
     }
 
@@ -424,8 +481,17 @@ export default function DetailModal({
         if (checkoutForm.incidentType) {
           updates.incident_type = checkoutForm.incidentType;
         }
-        if (correctingStart && correctedStart !== "") {
-          updates.start_mileage = Number(correctedStart);
+        // 운행시작 정보 수정 반영
+        if (editCheckinMileage !== "") {
+          updates.start_mileage = Number(editCheckinMileage);
+        }
+        if (editCheckinFuel !== null) {
+          updates.fuel_level_start = editCheckinFuel;
+        }
+        // 운행시작 사진 수정 반영
+        if (editCheckinPhoto) {
+          const editPhotoUrl = await compressAndUpload(editCheckinPhoto);
+          updates.checkin_photo_url = editPhotoUrl;
         }
       }
 
@@ -520,8 +586,7 @@ export default function DetailModal({
   };
 
   const isAdmin =
-    currentProfile?.is_approver === true ||
-    currentProfile?.role === "admin";
+    currentProfile?.is_approver === true || currentProfile?.role === "admin";
 
   // 노쇼 복구 후에는 로컬에서 "reserved"로 취급
   const effectiveStatus = restoredAsReserved
@@ -537,15 +602,17 @@ export default function DetailModal({
     effectiveStatus !== "noshow";
   const actionType = effectiveStatus === "reserved" ? "checkin" : "checkout";
 
+  const isApprover = currentProfile?.is_approver === true;
+
+  // 공통 필수: 사진 + 주행거리 / 결재권자: 외관사진 선택, 일반: 외관 4장 + 주차위치 필수
   const isFormValid =
     actionType === "checkin"
-      ? String(checkinMileage).trim() !== "" &&
-        dashImage !== null &&
-        exteriorFiles.length >= 4
-      : String(checkoutForm.mileage).trim() !== "" &&
-        String(checkoutForm.parking).trim() !== "" &&
-        dashImage !== null &&
-        exteriorFiles.length >= 4;
+      ? dashImage !== null &&
+        String(checkinMileage).trim() !== "" &&
+        (isApprover || exteriorFiles.length >= 4)
+      : dashImage !== null &&
+        String(checkoutForm.mileage).trim() !== "" &&
+        (isApprover || (String(checkoutForm.parking).trim() !== "" && exteriorFiles.length >= 4));
 
   const ActionSection = isMyTurn ? (
     <div
@@ -566,6 +633,108 @@ export default function DetailModal({
       </div>
 
       <div className="p-4 space-y-5">
+        {/* ─── 계기판 사진 업로드 ──────────────────────────── */}
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-3">
+            계기판 사진 <span className="text-red-500">*</span>
+            <span className="text-xs font-normal text-gray-400 ml-2">
+              촬영 후 직접 입력해주세요
+            </span>
+          </p>
+          {!dashPreview ? (
+            <label className="flex flex-col items-center justify-center h-44 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition active:bg-gray-200">
+              <svg
+                className="w-12 h-12 text-gray-300 mb-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="text-gray-600 font-bold text-base">
+                탭하여 계기판 촬영
+              </span>
+              <span className="text-xs text-gray-400 mt-1.5">
+                촬영 후 아래에 직접 입력해주세요
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleDashChange}
+              />
+            </label>
+          ) : (
+            <div className="relative rounded-xl overflow-hidden border border-gray-200">
+              <img
+                src={dashPreview}
+                className="w-full h-44 object-cover"
+                alt="계기판"
+              />
+              {ocrLoading && (
+                <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-3">
+                  <svg
+                    className="w-9 h-9 text-white animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                    />
+                  </svg>
+                  <span className="text-white text-sm font-bold">
+                    계기판 인식 중...
+                  </span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setDashImage(null);
+                  setDashPreview(null);
+                  setCheckinMileage("");
+                  setCheckoutForm((p) => ({ ...p, mileage: "" }));
+                }}
+                className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80 transition"
+              >
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* 이전 탑승자 메모 (이용시작 시에만 표시) */}
         {actionType === "checkin" && prevNote && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
@@ -594,85 +763,68 @@ export default function DetailModal({
           </div>
         )}
 
-        {/* 계기판 거리 */}
+        {/* ─── 계기판 거리 ──────────────────────────────────── */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">
             {actionType === "checkin" ? "출발 전" : "도착 후"} 계기판 거리 (km)
             <span className="text-red-500 ml-0.5">*</span>
           </label>
-          <input
-            type="number"
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-base font-mono bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none placeholder:text-gray-300 transition"
-            placeholder={
-              actionType === "checkin"
-                ? "예: 54000"
-                : `출발: ${selectedLog?.start_mileage?.toLocaleString()}`
-            }
-            onChange={(e) =>
-              actionType === "checkin"
-                ? setCheckinMileage(Number(e.target.value))
-                : setCheckoutForm({
-                    ...checkoutForm,
-                    mileage: Number(e.target.value),
-                  })
-            }
-          />
-        </div>
-
-        {/* 출발 거리 수정 (반납 시만 노출) */}
-        {actionType === "checkout" && selectedLog?.start_mileage != null && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs text-gray-500 shrink-0">
-                  기록된 출발 거리
-                </span>
-                <span className="text-sm font-mono font-bold text-gray-700 truncate">
-                  {correctingStart && correctedStart !== ""
-                    ? Number(correctedStart).toLocaleString()
-                    : selectedLog.start_mileage.toLocaleString()}{" "}
-                  km
-                </span>
-                {correctingStart && correctedStart !== "" && (
-                  <span className="text-xs text-orange-500 font-bold shrink-0">
-                    (수정됨)
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setCorrectingStart((v) => !v);
-                  if (correctingStart) setCorrectedStart("");
-                }}
-                className="text-xs text-blue-600 font-bold hover:underline shrink-0 cursor-pointer"
-              >
-                {correctingStart ? "취소" : "출발 거리 수정"}
-              </button>
-            </div>
-            {correctingStart && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  수정할 출발 거리 (km) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2.5 border border-orange-200 rounded-sm text-base font-mono bg-orange-50 focus:bg-white focus:border-orange-400 focus:ring-1 focus:ring-orange-300 outline-none placeholder:text-gray-300 transition"
-                  placeholder={`기존: ${selectedLog.start_mileage.toLocaleString()}`}
-                  value={correctedStart}
-                  onChange={(e) =>
-                    setCorrectedStart(
+          <div className="relative">
+            <input
+              type="number"
+              value={
+                actionType === "checkin" ? checkinMileage : checkoutForm.mileage
+              }
+              className={`w-full px-3 py-2.5 border rounded-sm text-base font-mono bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none placeholder:text-gray-300 transition ${
+                ocrLoading ? "border-blue-300 bg-blue-50/30" : "border-gray-200"
+              }`}
+              placeholder={
+                ocrLoading
+                  ? "계기판 인식 중..."
+                  : actionType === "checkin"
+                    ? "예: 54000"
+                    : `출발: ${selectedLog?.start_mileage?.toLocaleString()}`
+              }
+              onChange={(e) =>
+                actionType === "checkin"
+                  ? setCheckinMileage(
                       e.target.value === "" ? "" : Number(e.target.value),
                     )
-                  }
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  출발 시 잘못 입력한 계기판 거리를 수정합니다.
-                </p>
+                  : setCheckoutForm({
+                      ...checkoutForm,
+                      mileage:
+                        e.target.value === "" ? "" : Number(e.target.value),
+                    })
+              }
+            />
+            {ocrLoading && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                <svg
+                  className="w-4 h-4 text-blue-500 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
+                  />
+                </svg>
+                <span className="text-xs text-blue-500 font-medium">
+                  인식 중
+                </span>
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {/* 연료 게이지 — 슬라이더 */}
         {(() => {
@@ -852,153 +1004,92 @@ export default function DetailModal({
           );
         })()}
 
-        {/* 사진 등록 */}
+        {/* ─── 외관 사진 ──────────────────────────────────── */}
         <div>
           <div className="flex justify-between items-center mb-3">
             <label className="text-sm font-semibold text-gray-700">
-              사진 등록 <span className="text-red-500">*</span>
+              차량 외관 사진
+              {isApprover ? (
+                <span className="text-gray-400 text-xs font-normal ml-1">
+                  (선택)
+                </span>
+              ) : (
+                <span className="text-red-500 ml-0.5">*</span>
+              )}
             </label>
             <span className="text-xs text-gray-400">
-              계기판 1장 필수, 외관 4장 이상 필수
+              {isApprover ? "선택 사항" : "4장 이상 필수"}
             </span>
           </div>
-          <div className="space-y-4">
-            {/* 계기판 */}
-            <div>
-              <p className="text-xs font-medium text-gray-400 mb-2">
-                계기판 (필수)
-              </p>
-              <div className="flex gap-2">
-                {!dashPreview ? (
-                  <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition">
-                    <svg
-                      className="w-6 h-6 text-gray-400 mb-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <span className="text-xs text-gray-400">0/1</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleDashChange}
-                    />
-                  </label>
-                ) : (
-                  <div className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200">
-                    <img
-                      src={dashPreview!}
-                      className="w-full h-full object-cover"
-                      alt="계기판"
-                    />
-                    <button
-                      onClick={() => {
-                        setDashImage(null);
-                        setDashPreview(null);
-                      }}
-                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
-                    >
-                      <svg
-                        className="w-3.5 h-3.5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* 외관 */}
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">
-                차량 외관{" "}
-                <span className="text-red-500 font-bold">필수 4장 이상</span>
-              </p>
-              <p className="text-[11px] font-bold text-red-500 mb-2">
-                ※ 차량 대각선 방향으로 최소 4장 이상 찍어주세요
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {exteriorFiles.length < 10 && (
-                  <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition shrink-0">
-                    <svg
-                      className="w-6 h-6 text-blue-400 mb-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    <span
-                      className={`text-xs font-bold ${exteriorFiles.length < 4 ? "text-red-500" : "text-green-500"}`}
-                    >
-                      {exteriorFiles.length < 4
-                        ? `${exteriorFiles.length}/4 필요`
-                        : `${exteriorFiles.length}장`}
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleExteriorChange}
-                    />
-                  </label>
-                )}
-                {exteriorPreviews.map((src, idx) => (
-                  <div
-                    key={idx}
-                    className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200 shrink-0 group"
+          {!isApprover && (
+            <p className="text-[11px] font-bold text-red-500 mb-3">
+              ※ 차량 대각선 방향으로 최소 4장 이상 찍어주세요
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {exteriorFiles.length < 10 && (
+              <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition shrink-0">
+                <svg
+                  className="w-6 h-6 text-blue-400 mb-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                <span
+                  className={`text-xs font-bold ${isApprover ? "text-gray-400" : exteriorFiles.length < 4 ? "text-red-500" : "text-green-500"}`}
+                >
+                  {isApprover
+                    ? exteriorFiles.length > 0
+                      ? `${exteriorFiles.length}장`
+                      : "추가"
+                    : exteriorFiles.length < 4
+                      ? `${exteriorFiles.length}/4`
+                      : `${exteriorFiles.length}장`}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleExteriorChange}
+                />
+              </label>
+            )}
+            {exteriorPreviews.map((src, idx) => (
+              <div
+                key={idx}
+                className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200 shrink-0"
+              >
+                <img
+                  src={src}
+                  className="w-full h-full object-cover"
+                  alt="외관"
+                />
+                <button
+                  onClick={() => removeExterior(idx)}
+                  className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
                   >
-                    <img
-                      src={src}
-                      className="w-full h-full object-cover"
-                      alt="외관"
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
                     />
-                    <button
-                      onClick={() => removeExterior(idx)}
-                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition"
-                    >
-                      <svg
-                        className="w-3.5 h-3.5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                  </svg>
+                </button>
               </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -1089,9 +1180,217 @@ export default function DetailModal({
     </div>
   ) : null;
 
+  // 반납 시 — 이용시작 정보 수정 카드 (반납하기 위에 표시)
+  const CheckinEditCard =
+    isMyTurn && actionType === "checkout" ? (
+      <div className="bg-white border border-green-200 rounded-sm overflow-hidden">
+        {/* 헤더 — 탭하면 펼침 */}
+        <button
+          type="button"
+          onClick={() => setShowCheckinEdit((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-green-50 hover:bg-green-100 transition text-left"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-1.5 h-4 rounded-full bg-green-500 shrink-0" />
+            <span className="text-sm font-bold text-green-700">
+              이용 시작 정보
+            </span>
+            <span className="text-xs text-gray-400 truncate">
+              {editCheckinMileage !== ""
+                ? `${Number(editCheckinMileage).toLocaleString()} km`
+                : selectedLog?.start_mileage != null
+                  ? `${selectedLog.start_mileage.toLocaleString()} km`
+                  : "미입력"}
+              {" · "}연료{" "}
+              {fuelLabel(
+                editCheckinFuel !== null
+                  ? editCheckinFuel
+                  : (selectedLog?.fuel_level_start ?? 100),
+              )}
+            </span>
+            {(editCheckinMileage !== "" ||
+              editCheckinFuel !== null ||
+              editCheckinPhoto) && (
+              <span className="text-[10px] text-orange-500 font-bold shrink-0">
+                (수정됨)
+              </span>
+            )}
+          </div>
+          <svg
+            className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${showCheckinEdit ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </button>
+
+        {/* 펼쳐진 내용 */}
+        {showCheckinEdit && (
+          <div className="p-4 space-y-4 border-t border-green-100">
+            {/* 출발 계기판 사진 */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">
+                출발 계기판 사진
+                <span className="text-xs font-normal text-gray-400 ml-1">
+                  (수정 시 재촬영)
+                </span>
+              </p>
+              {(() => {
+                const preview =
+                  editCheckinPhotoPreview ||
+                  (selectedLog?.checkin_photo_url
+                    ? toProxyUrl(selectedLog.checkin_photo_url)
+                    : null);
+                if (preview) {
+                  return (
+                    <div className="relative rounded-xl overflow-hidden border border-gray-200">
+                      <img
+                        src={preview}
+                        className="w-full h-36 object-cover"
+                        alt="출발 계기판"
+                      />
+                      <label className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-black/80 transition">
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                        재촬영
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={handleEditCheckinPhotoChange}
+                        />
+                      </label>
+                      {editCheckinPhotoPreview && (
+                        <span className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                          수정됨
+                        </span>
+                      )}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <label className="flex flex-col items-center justify-center h-28 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition">
+                      <svg
+                        className="w-8 h-8 text-gray-300 mb-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      <span className="text-sm text-gray-500 font-medium">
+                        출발 계기판 사진 촬영
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleEditCheckinPhotoChange}
+                      />
+                    </label>
+                  );
+                }
+              })()}
+            </div>
+
+            {/* 출발 계기판 거리 */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                출발 계기판 거리 (km)
+              </label>
+              <input
+                type="number"
+                value={editCheckinMileage}
+                onChange={(e) =>
+                  setEditCheckinMileage(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
+                placeholder={
+                  selectedLog?.start_mileage != null
+                    ? `현재: ${selectedLog.start_mileage.toLocaleString()}`
+                    : "km 입력"
+                }
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm font-mono bg-gray-50 focus:bg-white focus:border-green-400 outline-none transition"
+              />
+            </div>
+
+            {/* 출발 연료 */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                출발 연료
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[0, 12, 25, 37, 50, 62, 75, 87, 100].map((v) => {
+                  const cur =
+                    editCheckinFuel !== null
+                      ? editCheckinFuel
+                      : (selectedLog?.fuel_level_start ?? 100);
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setEditCheckinFuel(v)}
+                      className={`px-2.5 py-1.5 rounded text-xs font-bold border transition ${
+                        cur === v
+                          ? "bg-green-500 text-white border-green-500"
+                          : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                      }`}
+                    >
+                      {v === 0 ? "E" : v === 100 ? "F" : `${v}%`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    ) : null;
+
   const ModalContent = (
     <div className="space-y-8 pb-4">
-      {/* 이용시작 / 반납하기 (상단) */}
+      {/* 이용시작 정보 수정 카드 (반납 시 반납하기 위에 표시) */}
+      {CheckinEditCard}
+
+      {/* 이용시작 / 반납하기 */}
       {ActionSection}
 
       {/* 상세 정보 */}
@@ -1159,14 +1458,27 @@ export default function DetailModal({
                     fuel_level_end: selectedLog.fuel_level_end ?? null,
                     parking_location: selectedLog.parking_location ?? "",
                     cleanup_status: selectedLog.cleanup_status ?? true,
-                    vehicle_condition: selectedLog.vehicle_condition ?? "이상 없음",
+                    vehicle_condition:
+                      selectedLog.vehicle_condition ?? "이상 없음",
                     incident_type: selectedLog.incident_type ?? null,
                   });
                   setAdminResultEdit(true);
                 }}
                 className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
                 수정
               </button>
             )}
@@ -1174,7 +1486,13 @@ export default function DetailModal({
               <div className="flex gap-2">
                 <button
                   onClick={async () => {
-                    if (!(await (async () => { const m = "운행 결과를 수정하시겠습니까?"; return window.confirm(m); })())) return;
+                    if (
+                      !(await (async () => {
+                        const m = "운행 결과를 수정하시겠습니까?";
+                        return window.confirm(m);
+                      })())
+                    )
+                      return;
                     setAdminSaving(true);
                     try {
                       const res = await fetch("/api/vehicle/submit", {
@@ -1183,8 +1501,14 @@ export default function DetailModal({
                         body: JSON.stringify({
                           reservationId: selectedLog.id,
                           updates: {
-                            start_mileage: adminFields.start_mileage === "" ? null : Number(adminFields.start_mileage),
-                            end_mileage: adminFields.end_mileage === "" ? null : Number(adminFields.end_mileage),
+                            start_mileage:
+                              adminFields.start_mileage === ""
+                                ? null
+                                : Number(adminFields.start_mileage),
+                            end_mileage:
+                              adminFields.end_mileage === ""
+                                ? null
+                                : Number(adminFields.end_mileage),
                             fuel_level_start: adminFields.fuel_level_start,
                             fuel_level_end: adminFields.fuel_level_end,
                             parking_location: adminFields.parking_location,
@@ -1195,7 +1519,10 @@ export default function DetailModal({
                         }),
                       });
                       const json = await res.json();
-                      if (!res.ok) { toast.error(json.error || "수정 실패"); return; }
+                      if (!res.ok) {
+                        toast.error(json.error || "수정 실패");
+                        return;
+                      }
                       toast.success("운행 결과가 수정되었습니다.");
                       setAdminResultEdit(false);
                       onRefresh();
@@ -1208,207 +1535,312 @@ export default function DetailModal({
                 >
                   {adminSaving ? "저장 중..." : "저장"}
                 </button>
-                <button onClick={() => setAdminResultEdit(false)} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded font-bold">취소</button>
+                <button
+                  onClick={() => setAdminResultEdit(false)}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded font-bold"
+                >
+                  취소
+                </button>
               </div>
             )}
           </div>
 
           {/* 읽기 모드 */}
-          {!adminResultEdit && <>
-          <InfoRow label="주행 거리">
-            {selectedLog.start_mileage?.toLocaleString()} km →{" "}
-            <span className="font-bold text-blue-600 ml-2 text-base">
-              {selectedLog.end_mileage?.toLocaleString()} km
-            </span>
-            <span className="ml-2 text-base text-gray-400">
-              (
-              {(
-                selectedLog.end_mileage! - selectedLog.start_mileage!
-              ).toLocaleString()}{" "}
-              km 주행)
-            </span>
-          </InfoRow>
-          <InfoRow label="주차 위치">{selectedLog.parking_location}</InfoRow>
-          <InfoRow label="연료 상태">
-            <div className="flex items-center gap-3">
-              {selectedLog.fuel_level_start != null && (
-                <span className="text-base">
-                  출발{" "}
-                  <span className="font-bold text-blue-600">
-                    {fuelLabel(selectedLog.fuel_level_start)}
+          {
+            !adminResultEdit && (
+              <>
+                <InfoRow label="주행 거리">
+                  {selectedLog.start_mileage?.toLocaleString()} km →{" "}
+                  <span className="font-bold text-blue-600 ml-2 text-base">
+                    {selectedLog.end_mileage?.toLocaleString()} km
                   </span>
-                </span>
-              )}
-              {selectedLog.fuel_level_start != null &&
-                selectedLog.fuel_level_end != null && (
-                  <span className="text-gray-400">→</span>
-                )}
-              {selectedLog.fuel_level_end != null && (
-                <span className="text-base">
-                  도착{" "}
-                  <span
-                    className={`font-bold ${selectedLog.fuel_level_end <= 25 ? "text-red-500" : "text-green-600"}`}
-                  >
-                    {fuelLabel(selectedLog.fuel_level_end)}
+                  <span className="ml-2 text-base text-gray-400">
+                    (
+                    {(
+                      selectedLog.end_mileage! - selectedLog.start_mileage!
+                    ).toLocaleString()}{" "}
+                    km 주행)
                   </span>
-                </span>
-              )}
-              {selectedLog.fuel_level_start == null &&
-                selectedLog.fuel_level_end == null && (
-                  <span className="text-gray-400 text-sm">미기록</span>
-                )}
-            </div>
-          </InfoRow>
-          <InfoRow label="차량 상태">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
-              <span
-                className={`px-3 py-1 rounded w-max text-xs font-bold ${selectedLog.cleanup_status ? "bg-gray-100 text-gray-700" : "bg-red-50 text-red-600"}`}
-              >
-                {selectedLog.cleanup_status ? "청소 완료" : "청소 미흡"}
-              </span>
-              {selectedLog.incident_type && (
-                <span className="px-3 py-1 rounded text-xs font-bold bg-red-100 text-red-600">
-                  {selectedLog.incident_type === "accident"
-                    ? "사고"
-                    : selectedLog.incident_type === "breakdown"
-                      ? "고장"
-                      : selectedLog.incident_type === "scratch"
-                        ? "흠집"
-                        : "기타"}
-                </span>
-              )}
-              <span className="text-gray-800">
-                {selectedLog.vehicle_condition || "특이사항 없음"}
-              </span>
-            </div>
-          </InfoRow>
-          <InfoRow label="운행 전">
-            <div className="flex flex-wrap gap-2 py-1">
-              {[
-                selectedLog.checkin_photo_url,
-                ...(selectedLog.checkin_exterior_urls || []),
-              ].filter(Boolean).length > 0 ? (
-                [
-                  selectedLog.checkin_photo_url,
-                  ...(selectedLog.checkin_exterior_urls || []),
-                ].map(
-                  (url, i) =>
-                    url && (
-                      <div
-                        key={`checkin-${i}`}
-                        className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
-                        onClick={() => openZoom(toProxyUrl(url))}
-                      >
-                        <img
-                          src={toProxyUrl(url)}
-                          className="w-full h-full object-cover"
-                          alt="운행 전 사진"
-                          onError={(e) => {
-                            const t = e.currentTarget;
-                            t.style.display = "none";
-                            const parent = t.parentElement;
-                            if (parent && !parent.querySelector(".img-error")) {
-                              const div = document.createElement("div");
-                              div.className =
-                                "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
-                              div.innerHTML =
-                                '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
-                              parent.appendChild(div);
-                            }
-                          }}
-                        />
-                      </div>
-                    ),
-                )
-              ) : (
-                <p className="text-sm text-gray-400">없음</p>
-              )}
-            </div>
-          </InfoRow>
-          <InfoRow label="운행 후" isLast>
-            <div className="flex flex-wrap gap-2 py-1">
-              {[
-                selectedLog.checkout_photo_url,
-                ...(selectedLog.checkout_exterior_urls || []),
-              ].filter(Boolean).length > 0 ? (
-                [
-                  selectedLog.checkout_photo_url,
-                  ...(selectedLog.checkout_exterior_urls || []),
-                ].map(
-                  (url, i) =>
-                    url && (
-                      <div
-                        key={`checkout-${i}`}
-                        className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
-                        onClick={() => openZoom(toProxyUrl(url))}
-                      >
-                        <img
-                          src={toProxyUrl(url)}
-                          className="w-full h-full object-cover"
-                          alt="운행 후 사진"
-                          onError={(e) => {
-                            const t = e.currentTarget;
-                            t.style.display = "none";
-                            const parent = t.parentElement;
-                            if (parent && !parent.querySelector(".img-error")) {
-                              const div = document.createElement("div");
-                              div.className =
-                                "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
-                              div.innerHTML =
-                                '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
-                              parent.appendChild(div);
-                            }
-                          }}
-                        />
-                      </div>
-                    ),
-                )
-              ) : (
-                <p className="text-sm text-gray-400">없음</p>
-              )}
-            </div>
-          </InfoRow>
-          </> /* !adminResultEdit 읽기 모드 끝 */}
+                </InfoRow>
+                <InfoRow label="주차 위치">
+                  {selectedLog.parking_location}
+                </InfoRow>
+                <InfoRow label="연료 상태">
+                  <div className="flex items-center gap-3">
+                    {selectedLog.fuel_level_start != null && (
+                      <span className="text-base">
+                        출발{" "}
+                        <span className="font-bold text-blue-600">
+                          {fuelLabel(selectedLog.fuel_level_start)}
+                        </span>
+                      </span>
+                    )}
+                    {selectedLog.fuel_level_start != null &&
+                      selectedLog.fuel_level_end != null && (
+                        <span className="text-gray-400">→</span>
+                      )}
+                    {selectedLog.fuel_level_end != null && (
+                      <span className="text-base">
+                        도착{" "}
+                        <span
+                          className={`font-bold ${selectedLog.fuel_level_end <= 25 ? "text-red-500" : "text-green-600"}`}
+                        >
+                          {fuelLabel(selectedLog.fuel_level_end)}
+                        </span>
+                      </span>
+                    )}
+                    {selectedLog.fuel_level_start == null &&
+                      selectedLog.fuel_level_end == null && (
+                        <span className="text-gray-400 text-sm">미기록</span>
+                      )}
+                  </div>
+                </InfoRow>
+                <InfoRow label="차량 상태">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
+                    <span
+                      className={`px-3 py-1 rounded w-max text-xs font-bold ${selectedLog.cleanup_status ? "bg-gray-100 text-gray-700" : "bg-red-50 text-red-600"}`}
+                    >
+                      {selectedLog.cleanup_status ? "청소 완료" : "청소 미흡"}
+                    </span>
+                    {selectedLog.incident_type && (
+                      <span className="px-3 py-1 rounded text-xs font-bold bg-red-100 text-red-600">
+                        {selectedLog.incident_type === "accident"
+                          ? "사고"
+                          : selectedLog.incident_type === "breakdown"
+                            ? "고장"
+                            : selectedLog.incident_type === "scratch"
+                              ? "흠집"
+                              : "기타"}
+                      </span>
+                    )}
+                    <span className="text-gray-800">
+                      {selectedLog.vehicle_condition || "특이사항 없음"}
+                    </span>
+                  </div>
+                </InfoRow>
+                <InfoRow label="운행 전">
+                  <div className="flex flex-wrap gap-2 py-1">
+                    {[
+                      selectedLog.checkin_photo_url,
+                      ...(selectedLog.checkin_exterior_urls || []),
+                    ].filter(Boolean).length > 0 ? (
+                      [
+                        selectedLog.checkin_photo_url,
+                        ...(selectedLog.checkin_exterior_urls || []),
+                      ].map(
+                        (url, i) =>
+                          url && (
+                            <div
+                              key={`checkin-${i}`}
+                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                              onClick={() => openZoom(toProxyUrl(url))}
+                            >
+                              <img
+                                src={toProxyUrl(url)}
+                                className="w-full h-full object-cover"
+                                alt="운행 전 사진"
+                                onError={(e) => {
+                                  const t = e.currentTarget;
+                                  t.style.display = "none";
+                                  const parent = t.parentElement;
+                                  if (
+                                    parent &&
+                                    !parent.querySelector(".img-error")
+                                  ) {
+                                    const div = document.createElement("div");
+                                    div.className =
+                                      "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                                    div.innerHTML =
+                                      '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                                    parent.appendChild(div);
+                                  }
+                                }}
+                              />
+                            </div>
+                          ),
+                      )
+                    ) : (
+                      <p className="text-sm text-gray-400">없음</p>
+                    )}
+                  </div>
+                </InfoRow>
+                <InfoRow label="운행 후" isLast>
+                  <div className="flex flex-wrap gap-2 py-1">
+                    {[
+                      selectedLog.checkout_photo_url,
+                      ...(selectedLog.checkout_exterior_urls || []),
+                    ].filter(Boolean).length > 0 ? (
+                      [
+                        selectedLog.checkout_photo_url,
+                        ...(selectedLog.checkout_exterior_urls || []),
+                      ].map(
+                        (url, i) =>
+                          url && (
+                            <div
+                              key={`checkout-${i}`}
+                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                              onClick={() => openZoom(toProxyUrl(url))}
+                            >
+                              <img
+                                src={toProxyUrl(url)}
+                                className="w-full h-full object-cover"
+                                alt="운행 후 사진"
+                                onError={(e) => {
+                                  const t = e.currentTarget;
+                                  t.style.display = "none";
+                                  const parent = t.parentElement;
+                                  if (
+                                    parent &&
+                                    !parent.querySelector(".img-error")
+                                  ) {
+                                    const div = document.createElement("div");
+                                    div.className =
+                                      "img-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-[10px] gap-1";
+                                    div.innerHTML =
+                                      '<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>로드 실패</span>';
+                                    parent.appendChild(div);
+                                  }
+                                }}
+                              />
+                            </div>
+                          ),
+                      )
+                    ) : (
+                      <p className="text-sm text-gray-400">없음</p>
+                    )}
+                  </div>
+                </InfoRow>
+              </>
+            ) /* !adminResultEdit 읽기 모드 끝 */
+          }
 
           {/* 관리자 편집 모드 */}
           {adminResultEdit && (
             <div className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">출발 거리 (km)</label>
-                  <input type="number" value={adminFields.start_mileage} onChange={e => setAdminFields(p => ({ ...p, start_mileage: e.target.value === "" ? "" : Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="출발 거리" />
+                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                    출발 거리 (km)
+                  </label>
+                  <input
+                    type="number"
+                    value={adminFields.start_mileage}
+                    onChange={(e) =>
+                      setAdminFields((p) => ({
+                        ...p,
+                        start_mileage:
+                          e.target.value === "" ? "" : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    placeholder="출발 거리"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">도착 거리 (km)</label>
-                  <input type="number" value={adminFields.end_mileage} onChange={e => setAdminFields(p => ({ ...p, end_mileage: e.target.value === "" ? "" : Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="도착 거리" />
+                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                    도착 거리 (km)
+                  </label>
+                  <input
+                    type="number"
+                    value={adminFields.end_mileage}
+                    onChange={(e) =>
+                      setAdminFields((p) => ({
+                        ...p,
+                        end_mileage:
+                          e.target.value === "" ? "" : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    placeholder="도착 거리"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">출발 연료 (%)</label>
-                  <input type="number" min={0} max={100} value={adminFields.fuel_level_start ?? ""} onChange={e => setAdminFields(p => ({ ...p, fuel_level_start: e.target.value === "" ? null : Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="0~100" />
+                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                    출발 연료 (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={adminFields.fuel_level_start ?? ""}
+                    onChange={(e) =>
+                      setAdminFields((p) => ({
+                        ...p,
+                        fuel_level_start:
+                          e.target.value === "" ? null : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    placeholder="0~100"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">도착 연료 (%)</label>
-                  <input type="number" min={0} max={100} value={adminFields.fuel_level_end ?? ""} onChange={e => setAdminFields(p => ({ ...p, fuel_level_end: e.target.value === "" ? null : Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400" placeholder="0~100" />
+                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                    도착 연료 (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={adminFields.fuel_level_end ?? ""}
+                    onChange={(e) =>
+                      setAdminFields((p) => ({
+                        ...p,
+                        fuel_level_end:
+                          e.target.value === "" ? null : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    placeholder="0~100"
+                  />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">주차 위치</label>
-                <input type="text" value={adminFields.parking_location} onChange={e => setAdminFields(p => ({ ...p, parking_location: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400" placeholder="주차 위치 입력" />
+                <label className="block text-xs font-bold text-gray-500 mb-1">
+                  주차 위치
+                </label>
+                <input
+                  type="text"
+                  value={adminFields.parking_location}
+                  onChange={(e) =>
+                    setAdminFields((p) => ({
+                      ...p,
+                      parking_location: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400"
+                  placeholder="주차 위치 입력"
+                />
               </div>
               <div className="flex items-center gap-4">
-                <label className="text-xs font-bold text-gray-500">청소 상태</label>
-                <button type="button" onClick={() => setAdminFields(p => ({ ...p, cleanup_status: !p.cleanup_status }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${adminFields.cleanup_status ? "bg-gray-100 text-gray-700 border-gray-300" : "bg-red-50 text-red-600 border-red-200"}`}>
+                <label className="text-xs font-bold text-gray-500">
+                  청소 상태
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAdminFields((p) => ({
+                      ...p,
+                      cleanup_status: !p.cleanup_status,
+                    }))
+                  }
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${adminFields.cleanup_status ? "bg-gray-100 text-gray-700 border-gray-300" : "bg-red-50 text-red-600 border-red-200"}`}
+                >
                   {adminFields.cleanup_status ? "청소 완료" : "청소 미흡"}
                 </button>
-                <label className="text-xs font-bold text-gray-500 ml-2">사고/이상</label>
-                <select value={adminFields.incident_type ?? ""} onChange={e => setAdminFields(p => ({ ...p, incident_type: e.target.value || null }))}
-                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:border-blue-400">
+                <label className="text-xs font-bold text-gray-500 ml-2">
+                  사고/이상
+                </label>
+                <select
+                  value={adminFields.incident_type ?? ""}
+                  onChange={(e) =>
+                    setAdminFields((p) => ({
+                      ...p,
+                      incident_type: e.target.value || null,
+                    }))
+                  }
+                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:border-blue-400"
+                >
                   <option value="">없음</option>
                   <option value="accident">사고</option>
                   <option value="breakdown">고장</option>
@@ -1417,9 +1849,21 @@ export default function DetailModal({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">특이사항</label>
-                <textarea value={adminFields.vehicle_condition} onChange={e => setAdminFields(p => ({ ...p, vehicle_condition: e.target.value }))}
-                  rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400 resize-none" placeholder="특이사항 입력" />
+                <label className="block text-xs font-bold text-gray-500 mb-1">
+                  특이사항
+                </label>
+                <textarea
+                  value={adminFields.vehicle_condition}
+                  onChange={(e) =>
+                    setAdminFields((p) => ({
+                      ...p,
+                      vehicle_condition: e.target.value,
+                    }))
+                  }
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400 resize-none"
+                  placeholder="특이사항 입력"
+                />
               </div>
             </div>
           )}
@@ -1500,6 +1944,7 @@ export default function DetailModal({
         </p>
       )}
 
+      {/* ─── 버튼 영역 ─── */}
       <div className="flex gap-3 w-full">
         {!isMyTurn && (
           <button
@@ -1556,6 +2001,8 @@ export default function DetailModal({
             시간 연장
           </button>
         )}
+
+        {/* 제출 버튼 */}
         {isMyTurn && (
           <button
             onClick={() => handleSubmit(actionType)}
@@ -1568,11 +2015,13 @@ export default function DetailModal({
                   : "bg-red-600 hover:bg-red-700 active:bg-red-800 cursor-pointer"
             }`}
           >
-            {uploading
-              ? "처리 중..."
-              : actionType === "checkin"
-                ? "운행 시작"
-                : "반납 완료"}
+            {ocrLoading
+              ? "인식 중..."
+              : uploading
+                ? "처리 중..."
+                : actionType === "checkin"
+                  ? "운행 시작"
+                  : "반납 완료"}
           </button>
         )}
 
@@ -1582,8 +2031,18 @@ export default function DetailModal({
             onClick={() => onEdit(selectedLog!)}
             className="w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-600 py-3 rounded-sm text-sm font-bold transition cursor-pointer border border-gray-200"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
             </svg>
             관리자 수정
           </button>

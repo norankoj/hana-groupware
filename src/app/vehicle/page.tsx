@@ -1070,13 +1070,14 @@ export default function VehicleReservationPage() {
             </div>
             <button
               onClick={() => { setMobileMyOnly((v) => !v); setMobilePage(1); }}
-              className={`px-3 py-2 rounded-lg text-sm font-bold border transition shrink-0 h-[38px] ${
-                mobileMyOnly
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-              }`}
+              className="flex items-center gap-2 shrink-0 px-1 py-1 rounded-lg transition active:scale-95"
             >
-              내 예약
+              <span className={`text-sm font-bold transition-colors ${mobileMyOnly ? "text-blue-600" : "text-gray-400"}`}>
+                {mobileMyOnly ? "내 예약" : "전체"}
+              </span>
+              <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${mobileMyOnly ? "bg-blue-600" : "bg-gray-300"}`}>
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${mobileMyOnly ? "translate-x-6" : "translate-x-1"}`} />
+              </div>
             </button>
           </div>
           {/* 2행: 운전자 이름 검색 */}
