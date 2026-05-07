@@ -92,6 +92,7 @@ export default function DetailModal({
 }: DetailModalProps) {
   const supabase = createClient();
   const [uploading, setUploading] = useState(false);
+  const [uploadingMessage, setUploadingMessage] = useState("처리 중...");
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -454,6 +455,7 @@ export default function DetailModal({
     );
     if (!ok) return;
 
+    setUploadingMessage("저장 중...");
     setUploading(true);
     try {
       const allFiles = [dashImage!, ...exteriorFiles];
@@ -517,6 +519,33 @@ export default function DetailModal({
     } catch (e: any) {
       const msg = e?.message || e?.toString?.() || "알 수 없는 오류";
       toast.error("오류 발생: " + msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 관리자 운행 기록 삭제
+  const handleAdminDelete = async () => {
+    if (!selectedLog) return;
+    const ok = await showConfirm(
+      `이 운행 기록을 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.`,
+    );
+    if (!ok) return;
+    setUploadingMessage("삭제 중...");
+    setUploading(true);
+    try {
+      const res = await fetch("/api/vehicle/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId: selectedLog.id }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "삭제 실패");
+      toast.success("운행 기록이 삭제되었습니다.");
+      onRefresh();
+      onClose();
+    } catch (e: any) {
+      toast.error("삭제 실패: " + (e?.message || "알 수 없는 오류"));
     } finally {
       setUploading(false);
     }
@@ -1395,9 +1424,22 @@ export default function DetailModal({
 
       {/* 상세 정보 */}
       <div className="border border-gray-200 rounded-sm overflow-hidden bg-white">
-        <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-100 bg-gray-50">
-          <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
-          <span className="text-sm font-bold text-gray-600">상세 정보</span>
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-gray-100 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
+            <span className="text-sm font-bold text-gray-600">상세 정보</span>
+          </div>
+          {isAdmin && onEdit && (
+            <button
+              onClick={() => onEdit(selectedLog!)}
+              className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition px-2 py-1 rounded hover:bg-blue-50"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              수정
+            </button>
+          )}
         </div>
         <InfoRow label="차량 정보">
           <span className="font-bold text-gray-900 mr-2 text-base">
@@ -1946,7 +1988,10 @@ export default function DetailModal({
 
       {/* ─── 버튼 영역 ─── */}
       <div className="flex gap-3 w-full">
-        {!isMyTurn && (
+        {/* 닫기 — 항상 표시 (운행중·반납 상태에서 제출 버튼과 함께) */}
+        {(!isMyTurn ||
+          selectedLog?.vehicle_status === "returned" ||
+          selectedLog?.vehicle_status === "noshow") && (
           <button
             onClick={onClose}
             className="flex-1 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 py-4 rounded-sm text-lg font-bold transition cursor-pointer"
@@ -2003,7 +2048,7 @@ export default function DetailModal({
         )}
 
         {/* 제출 버튼 */}
-        {isMyTurn && (
+        {isMyTurn && selectedLog?.vehicle_status !== "returned" && (
           <button
             onClick={() => handleSubmit(actionType)}
             disabled={uploading || !isFormValid}
@@ -2015,38 +2060,25 @@ export default function DetailModal({
                   : "bg-red-600 hover:bg-red-700 active:bg-red-800 cursor-pointer"
             }`}
           >
-            {ocrLoading
-              ? "인식 중..."
-              : uploading
-                ? "처리 중..."
-                : actionType === "checkin"
-                  ? "운행 시작"
-                  : "반납 완료"}
+            {uploading
+              ? "처리 중..."
+              : actionType === "checkin"
+                ? "운행 시작"
+                : "반납 완료"}
           </button>
         )}
 
-        {/* 관리자 전용 수정 버튼 (반납 완료 상태) */}
-        {isAdmin && selectedLog?.vehicle_status === "returned" && onEdit && (
-          <button
-            onClick={() => onEdit(selectedLog!)}
-            className="w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-600 py-3 rounded-sm text-sm font-bold transition cursor-pointer border border-gray-200"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        {/* 관리자 삭제 버튼 — 운행중·반납완료 상태 */}
+        {isAdmin &&
+          (selectedLog?.vehicle_status === "in_use" || selectedLog?.vehicle_status === "returned") && (
+            <button
+              onClick={handleAdminDelete}
+              disabled={uploading}
+              className="flex-1 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            관리자 수정
-          </button>
-        )}
+              {uploading ? "삭제 중..." : "삭제"}
+            </button>
+          )}
       </div>
     </div>
   );
@@ -2059,7 +2091,7 @@ export default function DetailModal({
           <div className="bg-white rounded-sm px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-gray-800 font-bold text-base">
-              사진 업로드 중...
+              {uploadingMessage}
             </p>
             <p className="text-gray-400 text-sm">잠시만 기다려 주세요</p>
           </div>

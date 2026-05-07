@@ -153,6 +153,13 @@ export default function VehicleReservationPage() {
     x: number;
     y: number;
   } | null>(null);
+  const [isMobileView, setIsMobileView] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobileView(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (!logPopover) return;
@@ -2109,6 +2116,10 @@ export default function VehicleReservationPage() {
         setIsHistoryModalOpen={setIsHistoryModalOpen}
         selectedVehicleHistory={selectedVehicleHistory}
         logs={logs}
+        onOpenDetail={(log) => {
+          setSelectedLog(log as VehicleLog);
+          setIsDetailModalOpen(true);
+        }}
       />
 
       {logPopover &&
@@ -2116,23 +2127,30 @@ export default function VehicleReservationPage() {
         createPortal(
           <>
             <div
-              className="fixed inset-0"
+              className={`fixed inset-0 ${isMobileView ? "bg-black/40" : ""}`}
               style={{ zIndex: 99998 }}
               onClick={() => setLogPopover(null)}
             />
             <div
-              className="fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-gray-100"
-              style={{
-                zIndex: 99999,
-                top: Math.max(
-                  16,
-                  Math.min(logPopover.y - 10, window.innerHeight - 440),
-                ),
-                left:
-                  logPopover.x + 316 < window.innerWidth
-                    ? logPopover.x + 8
-                    : logPopover.x - 308,
-              }}
+              className={
+                isMobileView
+                  ? // 모바일: 하단 바텀시트
+                    "fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl overflow-hidden border-t border-gray-100 animate-slideUp"
+                  : // PC: 기존 플로팅 팝오버
+                    "fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-gray-100"
+              }
+              style={
+                isMobileView
+                  ? { zIndex: 99999 }
+                  : {
+                      zIndex: 99999,
+                      top: Math.max(16, Math.min(logPopover.y - 10, window.innerHeight - 440)),
+                      left:
+                        logPopover.x + 316 < window.innerWidth
+                          ? logPopover.x + 8
+                          : logPopover.x - 308,
+                    }
+              }
               onClick={(e) => e.stopPropagation()}
             >
               {(() => {
@@ -2188,6 +2206,12 @@ export default function VehicleReservationPage() {
 
                 return (
                   <>
+                    {/* 모바일 바텀시트 드래그 핸들 */}
+                    {isMobileView && (
+                      <div className="flex justify-center pt-3 pb-1">
+                        <div className="w-10 h-1 rounded-full bg-gray-300" />
+                      </div>
+                    )}
                     <div
                       className={`px-5 py-4 flex items-start justify-between gap-3 ${cfg.headerBg}`}
                     >

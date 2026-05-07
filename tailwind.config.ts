@@ -18,6 +18,20 @@ const config: Config = {
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
+      keyframes: {
+        slideUp: {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
+        },
+        fadeIn: {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+      },
+      animation: {
+        slideUp: "slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        fadeIn: "fadeIn 0.15s ease-out forwards",
+      },
     },
   },
   plugins: [require("@tailwindcss/typography")],
