@@ -109,7 +109,19 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 3. 삭제 대상 예약 조회 (사진 URL 포함) ──────────────────
-    const { data: reservation, error: fetchError } = await serverSupabase
+    type ReservationRow = {
+      id: number;
+      resource_id: number;
+      vehicle_status: string;
+      end_mileage: number | null;
+      start_mileage: number | null;
+      checkin_photo_url: string | null;
+      checkout_photo_url: string | null;
+      checkin_exterior_urls: string[] | null;
+      checkout_exterior_urls: string[] | null;
+    };
+
+    const { data: reservationRaw, error: fetchError } = await serverSupabase
       .from("reservations")
       .select(
         "id, resource_id, vehicle_status, end_mileage, start_mileage, " +
@@ -119,9 +131,11 @@ export async function POST(req: NextRequest) {
       .eq("id", reservationId)
       .single();
 
-    if (fetchError || !reservation) {
+    if (fetchError || !reservationRaw) {
       return NextResponse.json({ error: "예약을 찾을 수 없습니다." }, { status: 404 });
     }
+
+    const reservation = reservationRaw as unknown as ReservationRow;
 
     if (!["in_use", "returned"].includes(reservation.vehicle_status)) {
       return NextResponse.json(
