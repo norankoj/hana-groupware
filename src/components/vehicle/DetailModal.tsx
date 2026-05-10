@@ -77,7 +77,6 @@ const InfoRow = ({
   </div>
 );
 
-const INSURANCE_MOCK = "김건웅 간사 010-2344-2859";
 
 export default function DetailModal({
   isOpen,
@@ -1454,8 +1453,9 @@ export default function DetailModal({
         <InfoRow label="보험 정보">
           <div className="space-y-1.5 w-full">
             {selectedLog?.resources?.insurance_info &&
-              renderTextWithPhoneIcon(selectedLog.resources.insurance_info)}
-            {renderTextWithPhoneIcon(INSURANCE_MOCK)}
+              renderTextWithPhoneIcon(
+                selectedLog.resources.insurance_info.replace(/\s*\/\s*/g, "\n")
+              )}
           </div>
         </InfoRow>
         {selectedLog?.profiles?.full_name && (

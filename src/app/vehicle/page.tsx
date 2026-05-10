@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
 import "react-calendar/dist/Calendar.css";
 import DetailModal from "@/components/vehicle/DetailModal";
-import VehicleReserveModal from "@/components/vehicle/VehicleReserveModal";
+import VehicleReserveModal, { type FormState } from "@/components/vehicle/VehicleReserveModal";
 import "@/styles/calendar.css";
 import HistoryModal from "@/components/vehicle/HistoryModal";
 import MaintenanceModal from "@/components/vehicle/MaintenanceModal";
@@ -389,18 +389,7 @@ export default function VehicleReservationPage() {
     fetchData();
   }, []);
 
-  const handleRangeChange = (value: any) => {
-    if (Array.isArray(value) && value.length === 2) {
-      const [start, end] = value;
-      setForm((prev) => ({
-        ...prev,
-        start_date: format(start, "yyyy-MM-dd"),
-        end_date: format(end, "yyyy-MM-dd"),
-      }));
-    }
-  };
-
-  const handleReserve = async () => {
+  const handleReserve = async (form: FormState) => {
     if (
       !form.purpose ||
       !form.destination ||
@@ -447,7 +436,7 @@ export default function VehicleReservationPage() {
     const reminderAt = new Date(endAt.getTime() - 20 * 60 * 1000);
     const basePayload = {
       resource_id: form.resource_id,
-      user_id: currentUser, // 예약 생성자 (수정 시에도 덮어씌워질 수 있음, 필요시 제외)
+      user_id: currentUser,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       purpose: form.purpose,
@@ -461,7 +450,6 @@ export default function VehicleReservationPage() {
 
     if (editingLogId) {
       // 수정 로직 — 관리자도 수정 가능하도록 service_role API 경유
-      // user_id는 예약자 변경 방지를 위해 제외
       const { user_id: _omit, ...updatePayload } = basePayload;
       const _res = await fetch("/api/vehicle/submit", {
         method: "POST",
@@ -541,20 +529,22 @@ export default function VehicleReservationPage() {
   };
 
   /* 정기 예약 생성 */
-  const handleRecurringReserve = async ({
-    days,
-    startDate,
-    endDate,
-    startTime,
-    endTime,
-  }: {
-    days: number[];
-    startDate: string;
-    endDate: string;
-    startTime: string;
-    endTime: string;
-  }): Promise<void> => {
-    // ... 기존과 동일 (정기 예약은 수정 모드에선 숨김 처리하는 것이 좋습니다. VehicleReserveModal에서 처리) ...
+  const handleRecurringReserve = async (
+    {
+      days,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+    }: {
+      days: number[];
+      startDate: string;
+      endDate: string;
+      startTime: string;
+      endTime: string;
+    },
+    form: FormState,
+  ): Promise<void> => {
     if (!form.resource_id) {
       toast.error("차량을 선택해주세요.");
       return;
@@ -1696,10 +1686,10 @@ export default function VehicleReservationPage() {
                           보험 정보
                         </div>
                         <div className="text-xs font-medium text-gray-700 leading-snug space-y-0.5">
-                          {pcVehicle.insurance_info && (
-                            <div>{pcVehicle.insurance_info}</div>
-                          )}
-                          <div>김건웅 간사 010-2344-2859</div>
+                          {pcVehicle.insurance_info &&
+                            pcVehicle.insurance_info.split(/\s*\/\s*/).map((line, i) => (
+                              <div key={i}>{line.trim()}</div>
+                            ))}
                         </div>
                       </div>
                       <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
@@ -2104,13 +2094,11 @@ export default function VehicleReservationPage() {
       <VehicleReserveModal
         isOpen={isReserveModalOpen}
         onClose={handleCloseReserveModal}
-        form={form}
+        initialValues={form}
         logs={logs}
-        setForm={setForm}
         vehicles={vehicles}
-        handleReserve={handleReserve}
+        onReserve={handleReserve}
         handleRecurringReserve={handleRecurringReserve}
-        handleRangeChange={handleRangeChange}
         staffList={staffList}
         isReserving={isReserving}
       />

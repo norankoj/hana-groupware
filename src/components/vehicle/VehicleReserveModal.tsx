@@ -22,7 +22,7 @@ type VehicleLog = {
   vehicle_status: "reserved" | "in_use" | "returned" | "noshow";
 };
 
-type FormState = {
+export type FormState = {
   resource_id: number;
   start_date: string;
   start_time: string;
@@ -46,13 +46,11 @@ interface RecurringOptions {
 interface VehicleReserveModalProps {
   isOpen: boolean;
   onClose: () => void;
-  handleReserve: () => void;
-  handleRecurringReserve: (opts: RecurringOptions) => Promise<void>;
+  onReserve: (form: FormState) => void;
+  handleRecurringReserve: (opts: RecurringOptions, form: FormState) => Promise<void>;
   vehicles: Vehicle[];
   logs: VehicleLog[];
-  form: FormState;
-  setForm: React.Dispatch<React.SetStateAction<FormState>>;
-  handleRangeChange: (value: any) => void;
+  initialValues: FormState;
   staffList: { id: string; full_name: string; position: string }[];
   isReserving?: boolean;
 }
@@ -76,7 +74,6 @@ const TimeSelect = ({
   const hr = parts[0] ?? "09";
   const min = parts[1] ?? "00";
   const MINUTE_OPTS = ["00", "10", "20", "30", "40", "50"];
-  // 현재 분 값이 목록에 없으면 임시 추가
   const minuteOptions = MINUTE_OPTS.includes(min)
     ? MINUTE_OPTS
     : [...MINUTE_OPTS, min].sort();
@@ -114,49 +111,64 @@ const TimeSelect = ({
 export default function VehicleReserveModal({
   isOpen,
   onClose,
-  handleReserve,
+  onReserve,
   handleRecurringReserve,
   vehicles,
   logs,
-  form,
-  setForm,
-  handleRangeChange,
+  initialValues,
   staffList,
   isReserving = false,
 }: VehicleReserveModalProps) {
-  const [reserveType, setReserveType] = useState<
-    "single" | "multi" | "recurring"
-  >("single");
+  // ── form 상태를 모달 내부에서 관리 (타이핑 시 page.tsx 리렌더 방지) ──────
+  const [form, setForm] = useState<FormState>(initialValues);
+
+  // 모달 열릴 때마다 초기값 동기화
+  useEffect(() => {
+    if (isOpen) setForm(initialValues);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [reserveType, setReserveType] = useState<"single" | "multi" | "recurring">("single");
   const [recurringDays, setRecurringDays] = useState<number[]>([]);
   const [recurringSubmitting, setRecurringSubmitting] = useState(false);
   const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
   const [activeInput, setActiveInput] = useState<"start" | "end" | null>(null);
-
-  // 운전자 검색 목록 표시 여부
   const [showDriverList, setShowDriverList] = useState(false);
 
-  // 모달 열릴 때 상태 초기화 + 대여중 차량 선택 시 자동 변경
+  // 모달 닫힐 때 UI 상태 초기화
   useEffect(() => {
     if (!isOpen) {
       setShowDriverList(false);
+      setActiveInput(null);
     } else {
-      // 현재 선택된 차량이 대여중이면 첫 번째 사용 가능 차량으로 변경
+      // 대여중 차량이 선택된 경우 첫 번째 사용 가능 차량으로 변경
       const selected = vehicles.find((v) => v.id === form.resource_id);
       if (selected?.is_rented) {
         const available = vehicles.find((v) => !v.is_rented);
-        if (available)
-          setForm((prev) => ({ ...prev, resource_id: available.id }));
+        if (available) setForm((prev) => ({ ...prev, resource_id: available.id }));
       }
     }
-  }, [isOpen, form.resource_id, vehicles, setForm]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 당일 예약일 때 end_date = start_date 자동 동기화
   useEffect(() => {
     if (reserveType === "single") {
       setForm((prev) => ({ ...prev, end_date: prev.start_date }));
     }
-  }, [reserveType, form.start_date, setForm]);
+  }, [reserveType, form.start_date]);
 
-  // 검색어를 form.driver_name에 직접 바인딩하여 필터링
+  // 캘린더 날짜 범위 변경 (내부 처리)
+  const handleRangeChange = (value: any) => {
+    if (Array.isArray(value) && value.length === 2) {
+      const [start, end] = value;
+      setForm((prev) => ({
+        ...prev,
+        start_date: format(start, "yyyy-MM-dd"),
+        end_date: format(end, "yyyy-MM-dd"),
+      }));
+    }
+  };
+
+  // 운전자 검색 필터
   const filteredDrivers = useMemo(
     () =>
       staffList.filter(
@@ -168,10 +180,7 @@ export default function VehicleReserveModal({
   );
 
   const onCalendarChange = (value: any) => {
-    if (
-      (reserveType === "multi" || reserveType === "recurring") &&
-      Array.isArray(value)
-    ) {
+    if ((reserveType === "multi" || reserveType === "recurring") && Array.isArray(value)) {
       handleRangeChange(value);
       setActiveInput(null);
     } else if (reserveType === "single" && !Array.isArray(value)) {
@@ -200,12 +209,10 @@ export default function VehicleReserveModal({
           if (view !== "month") return null;
           const dateStr = format(date, "yyyy-MM-dd");
           if (HOLIDAYS[dateStr]) return "holiday-day";
-          // 해당 날짜에 예약이 있으면 점 표시
           const hasReservation = logs?.some(
             (req) =>
               req.resource_id === form.resource_id &&
-              (req.vehicle_status === "reserved" ||
-                req.vehicle_status === "in_use") &&
+              (req.vehicle_status === "reserved" || req.vehicle_status === "in_use") &&
               format(new Date(req.start_at), "yyyy-MM-dd") === dateStr,
           );
           if (hasReservation) return "has-reservation";
@@ -213,10 +220,7 @@ export default function VehicleReserveModal({
         }}
       />
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setActiveInput(null);
-        }}
+        onClick={(e) => { e.stopPropagation(); setActiveInput(null); }}
         className="w-full mt-2 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600 font-bold"
       >
         닫기
@@ -237,13 +241,8 @@ export default function VehicleReserveModal({
     className?: string;
   }) => (
     <div className={`relative ${className}`}>
-      <div
-        onClick={() => setActiveInput(activeInput === which ? null : which)}
-        className="cursor-pointer"
-      >
-        <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
-          {label}
-        </label>
+      <div onClick={() => setActiveInput(activeInput === which ? null : which)} className="cursor-pointer">
+        <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">{label}</label>
         <div className="w-full border border-gray-300 rounded-lg p-3 bg-white text-gray-900 text-center font-bold text-sm select-none">
           {formatDateDisplay(dateStr)}
         </div>
@@ -263,16 +262,19 @@ export default function VehicleReserveModal({
             onClick={async () => {
               if (reserveType === "recurring") {
                 setRecurringSubmitting(true);
-                await handleRecurringReserve({
-                  days: recurringDays,
-                  startDate: form.start_date,
-                  endDate: form.end_date,
-                  startTime: form.start_time,
-                  endTime: form.end_time,
-                });
+                await handleRecurringReserve(
+                  {
+                    days: recurringDays,
+                    startDate: form.start_date,
+                    endDate: form.end_date,
+                    startTime: form.start_time,
+                    endTime: form.end_time,
+                  },
+                  form,
+                );
                 setRecurringSubmitting(false);
               } else {
-                handleReserve();
+                onReserve(form);
               }
             }}
             disabled={recurringSubmitting || isReserving}
@@ -298,22 +300,14 @@ export default function VehicleReserveModal({
       <div className="space-y-5">
         {/* 차량 선택 */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">
-            차량 선택
-          </label>
+          <label className="block text-xs font-bold text-gray-500 mb-1">차량 선택</label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
             {vehicles.map((v) => (
               <button
                 key={v.id}
-                onClick={() =>
-                  !v.is_rented && setForm({ ...form, resource_id: v.id })
-                }
+                onClick={() => !v.is_rented && setForm((prev) => ({ ...prev, resource_id: v.id }))}
                 disabled={!!v.is_rented}
-                title={
-                  v.is_rented
-                    ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}`
-                    : undefined
-                }
+                title={v.is_rented ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}` : undefined}
                 className={`px-3 py-3 rounded-xl border transition flex flex-col items-center justify-center text-center relative overflow-hidden ${
                   v.is_rented
                     ? "border-indigo-200 bg-indigo-50 text-indigo-400 cursor-not-allowed opacity-70"
@@ -328,9 +322,7 @@ export default function VehicleReserveModal({
                     대여중{v.renter_name ? ` · ${v.renter_name}` : ""}
                   </div>
                 ) : (
-                  <div className="text-[10px] opacity-70 mt-1">
-                    {v.description}
-                  </div>
+                  <div className="text-[10px] opacity-70 mt-1">{v.description}</div>
                 )}
               </button>
             ))}
@@ -357,47 +349,35 @@ export default function VehicleReserveModal({
         {/* 날짜 및 시간 입력 */}
         <div className="space-y-3">
           {reserveType === "single" ? (
-            // === 당일 예약 ===
             <>
-              <DateButton
-                dateStr={form.start_date}
-                which="start"
-                label="사용 날짜"
-                className="col-span-2"
-              />
+              <DateButton dateStr={form.start_date} which="start" label="사용 날짜" className="col-span-2" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    시작 시간
-                  </label>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">시작 시간</label>
                   <TimeSelect
                     value={form.start_time}
                     onChange={(t) => {
                       const [h, m] = t.split(":").map(Number);
                       const endH = Math.min(h + 1, 23);
                       const autoEnd = `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-                      const currentEnd = form.end_time;
-                      setForm({
-                        ...form,
+                      setForm((prev) => ({
+                        ...prev,
                         start_time: t,
-                        end_time: currentEnd <= t ? autoEnd : currentEnd,
-                      });
+                        end_time: prev.end_time <= t ? autoEnd : prev.end_time,
+                      }));
                     }}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    종료 시간
-                  </label>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">종료 시간</label>
                   <TimeSelect
                     value={form.end_time}
-                    onChange={(t) => setForm({ ...form, end_time: t })}
+                    onChange={(t) => setForm((prev) => ({ ...prev, end_time: t }))}
                   />
                 </div>
               </div>
             </>
           ) : (
-            // === 기간/정기 예약 ===
             <>
               <div className="grid grid-cols-2 gap-3">
                 <DateButton
@@ -406,21 +386,18 @@ export default function VehicleReserveModal({
                   label={reserveType === "recurring" ? "반복 시작일" : "시작일"}
                 />
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    시작 시간
-                  </label>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">시작 시간</label>
                   <TimeSelect
                     value={form.start_time}
                     onChange={(t) => {
                       const [h, m] = t.split(":").map(Number);
                       const endH = Math.min(h + 1, 23);
                       const autoEnd = `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-                      const currentEnd = form.end_time;
-                      setForm({
-                        ...form,
+                      setForm((prev) => ({
+                        ...prev,
                         start_time: t,
-                        end_time: currentEnd <= t ? autoEnd : currentEnd,
-                      });
+                        end_time: prev.end_time <= t ? autoEnd : prev.end_time,
+                      }));
                     }}
                   />
                 </div>
@@ -432,12 +409,10 @@ export default function VehicleReserveModal({
                   label={reserveType === "recurring" ? "반복 종료일" : "종료일"}
                 />
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    종료 시간
-                  </label>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">종료 시간</label>
                   <TimeSelect
                     value={form.end_time}
-                    onChange={(t) => setForm({ ...form, end_time: t })}
+                    onChange={(t) => setForm((prev) => ({ ...prev, end_time: t }))}
                   />
                 </div>
               </div>
@@ -462,17 +437,11 @@ export default function VehicleReserveModal({
           if (dayLogs.length === 0) return null;
           return (
             <div className="bg-red-50 border border-red-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-red-600 mb-2">
-                해당 날짜 이미 예약된 시간대
-              </p>
+              <p className="text-xs font-bold text-red-600 mb-2">해당 날짜 이미 예약된 시간대</p>
               <div className="flex flex-wrap gap-1">
                 {dayLogs.map((l) => (
-                  <span
-                    key={l.id}
-                    className="text-xs bg-red-100 text-red-600 px-2.5 py-1 rounded-full font-bold"
-                  >
-                    {format(new Date(l.start_at), "HH:mm")}~
-                    {format(new Date(l.end_at), "HH:mm")}
+                  <span key={l.id} className="text-xs bg-red-100 text-red-600 px-2.5 py-1 rounded-full font-bold">
+                    {format(new Date(l.start_at), "HH:mm")}~{format(new Date(l.end_at), "HH:mm")}
                   </span>
                 ))}
               </div>
@@ -483,9 +452,7 @@ export default function VehicleReserveModal({
         {/* 정기 예약 — 요일 선택 */}
         {reserveType === "recurring" && (
           <div className="space-y-3 bg-purple-50 border border-purple-100 rounded-xl p-4">
-            <label className="block text-xs font-bold text-gray-500">
-              반복 요일 선택
-            </label>
+            <label className="block text-xs font-bold text-gray-500">반복 요일 선택</label>
             <div className="flex gap-2 flex-wrap">
               {DAY_LABELS.map((label, idx) => (
                 <button
@@ -493,9 +460,7 @@ export default function VehicleReserveModal({
                   type="button"
                   onClick={() =>
                     setRecurringDays((prev) =>
-                      prev.includes(idx)
-                        ? prev.filter((d) => d !== idx)
-                        : [...prev, idx],
+                      prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx],
                     )
                   }
                   className={`w-10 h-10 rounded-full text-sm font-bold border transition ${
@@ -516,11 +481,7 @@ export default function VehicleReserveModal({
               <p className="text-xs text-purple-700 bg-purple-100 rounded-lg px-3 py-2 font-medium">
                 {form.start_date} ~ {form.end_date} 기간 중{" "}
                 <span className="font-bold">
-                  {[...recurringDays]
-                    .sort()
-                    .map((d) => DAY_LABELS[d])
-                    .join(", ")}
-                  요일
+                  {[...recurringDays].sort().map((d) => DAY_LABELS[d]).join(", ")}요일
                 </span>
                 에 매주 {form.start_time} ~ {form.end_time} 예약이 생성됩니다.
               </p>
@@ -531,47 +492,29 @@ export default function VehicleReserveModal({
         {/* 부서 / 운전자 / 목적지 / 운행목적 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">
-              사용 부서
-            </label>
+            <label className="block text-xs font-bold text-gray-500 mb-1">사용 부서</label>
             <input
               type="text"
               placeholder="예: 행정실"
               className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white text-sm"
               value={form.department}
-              onChange={(e) => setForm({ ...form, department: e.target.value })}
+              onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value }))}
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">
-              운전자
-            </label>
-            {/* 운전자 하이브리드 입력 영역 */}
+            <label className="block text-xs font-bold text-gray-500 mb-1">운전자</label>
             {form.driver_user_id ? (
-              /* 시스템 유저가 선택된 상태 (버블 UI) */
               <div className="flex items-center gap-2 p-2.5 border border-blue-400 rounded-lg bg-blue-50">
                 <div className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
                   {form.driver_name.slice(0, 1)}
                 </div>
-                <span className="text-sm font-bold text-gray-800 flex-1">
-                  {form.driver_name}
-                </span>
+                <span className="text-sm font-bold text-gray-800 flex-1">{form.driver_name}</span>
                 <button
-                  onClick={() => {
-                    setForm((prev) => ({
-                      ...prev,
-                      driver_user_id: "",
-                      driver_name: "",
-                    }));
-                  }}
+                  onClick={() => setForm((prev) => ({ ...prev, driver_user_id: "", driver_name: "" }))}
                   className="text-gray-400 hover:text-red-500 transition"
                   type="button"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                     <path
                       fillRule="evenodd"
                       d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -581,36 +524,21 @@ export default function VehicleReserveModal({
                 </button>
               </div>
             ) : (
-              /* 미선택 상태 — 검색 input (동시에 외부인 텍스트 입력 가능) */
               <div className="relative">
                 <input
                   type="text"
                   placeholder="이름 검색 또는 외부 운전자 직접 입력..."
                   value={form.driver_name}
                   onChange={(e) => {
-                    setForm({
-                      ...form,
-                      driver_name: e.target.value,
-                      driver_user_id: "",
-                    });
+                    setForm((prev) => ({ ...prev, driver_name: e.target.value, driver_user_id: "" }));
                     setShowDriverList(true);
                   }}
                   onFocus={() => setShowDriverList(true)}
                   onBlur={() => setTimeout(() => setShowDriverList(false), 150)}
                   className="w-full p-2.5 pl-9 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition bg-white"
                 />
-                <svg
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 {showDriverList && filteredDrivers.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-44 overflow-y-auto">
@@ -619,11 +547,7 @@ export default function VehicleReserveModal({
                         key={s.id}
                         type="button"
                         onMouseDown={() => {
-                          setForm((prev) => ({
-                            ...prev,
-                            driver_user_id: s.id,
-                            driver_name: s.full_name,
-                          }));
+                          setForm((prev) => ({ ...prev, driver_user_id: s.id, driver_name: s.full_name }));
                           setShowDriverList(false);
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 text-left transition border-b border-gray-50 last:border-b-0"
@@ -632,12 +556,8 @@ export default function VehicleReserveModal({
                           {s.full_name.slice(0, 1)}
                         </div>
                         <div>
-                          <div className="text-sm font-bold text-gray-800">
-                            {s.full_name}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {s.position}
-                          </div>
+                          <div className="text-sm font-bold text-gray-800">{s.full_name}</div>
+                          <div className="text-xs text-gray-400">{s.position}</div>
                         </div>
                       </button>
                     ))}
@@ -648,26 +568,22 @@ export default function VehicleReserveModal({
           </div>
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">
-            목적지
-          </label>
+          <label className="block text-xs font-bold text-gray-500 mb-1">목적지</label>
           <input
             type="text"
             placeholder="예: 영통 홈플러스"
             className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white text-sm"
             value={form.destination}
-            onChange={(e) => setForm({ ...form, destination: e.target.value })}
+            onChange={(e) => setForm((prev) => ({ ...prev, destination: e.target.value }))}
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">
-            운행 목적
-          </label>
+          <label className="block text-xs font-bold text-gray-500 mb-1">운행 목적</label>
           <textarea
             placeholder="구체적인 목적 입력"
             className="w-full h-24 border p-3 rounded-lg resize-none border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white text-sm"
             value={form.purpose}
-            onChange={(e) => setForm({ ...form, purpose: e.target.value })}
+            onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))}
           />
         </div>
       </div>
