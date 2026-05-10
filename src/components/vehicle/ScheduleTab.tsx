@@ -41,6 +41,8 @@ type Props = {
   logs: VehicleLog[];
   onSelectLog: (log: VehicleLog) => void;
   defaultView?: ViewMode;
+  /** 주간 뷰 레이아웃: "date-rows"(기본, 행=날짜) | "vehicle-rows"(행=차량, 열=날짜) */
+  weekLayout?: "date-rows" | "vehicle-rows";
 };
 
 type ViewMode = "week" | "month";
@@ -148,7 +150,7 @@ function Legend() {
   );
 }
 
-export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView }: Props) {
+export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, weekLayout = "date-rows" }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView ?? "week");
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -158,6 +160,118 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView }
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const weekLabel = `${format(weekStart, "yyyy년 M월 d일")} ~ ${format(weekDays[6], "M월 d일")}`;
 
+    // ── vehicle-rows: 행=차량, 열=날짜(7일) ─────────────────────────────────
+    if (weekLayout === "vehicle-rows") {
+      return (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <NavHeader
+            label={weekLabel}
+            onPrev={() => setCurrentDate(subWeeks(currentDate, 1))}
+            onNext={() => setCurrentDate(addWeeks(currentDate, 1))}
+            onToday={() => setCurrentDate(new Date())}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+          />
+
+          {/* 행=차량, 열=날짜 */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  {/* 차량 헤더 */}
+                  <th className="w-[72px] min-w-[72px] px-2 py-2.5 text-left text-xs font-bold text-gray-500 sticky left-0 z-10 bg-gray-50 border-r border-gray-200">
+                    차량
+                  </th>
+                  {weekDays.map((day, i) => {
+                    const isSat = i === 5;
+                    const isSun = i === 6;
+                    const today = isToday(day);
+                    return (
+                      <th
+                        key={i}
+                        className={`px-1 py-2 text-center min-w-[52px] border-l border-gray-100 ${
+                          today ? "bg-blue-50" : isSat || isSun ? "bg-slate-50" : "bg-gray-50"
+                        }`}
+                      >
+                        <div className={`text-[10px] font-bold ${
+                          isSat ? "text-blue-400" : isSun ? "text-red-400" : "text-gray-400"
+                        }`}>
+                          {DAY_KO[i]}
+                        </div>
+                        <div className={`text-sm font-bold leading-none mt-0.5 mx-auto ${
+                          today
+                            ? "w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"
+                            : isSat ? "text-blue-500" : isSun ? "text-red-500" : "text-gray-800"
+                        }`}>
+                          {format(day, "d")}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {vehicles.map((vehicle) => (
+                  <tr key={vehicle.id} className="hover:bg-gray-50/30 transition">
+                    {/* 차량명 — sticky */}
+                    <td className="px-2 py-2 sticky left-0 z-10 bg-white border-r border-gray-200 align-middle">
+                      <span className="text-xs font-bold text-gray-700 leading-tight block whitespace-nowrap">
+                        {vehicle.name}
+                      </span>
+                    </td>
+                    {/* 날짜별 셀 */}
+                    {weekDays.map((day, i) => {
+                      const isSat = i === 5;
+                      const isSun = i === 6;
+                      const today = isToday(day);
+                      const dayLogs = logs.filter(
+                        (l) => l.resource_id === vehicle.id && overlapsDay(l, day),
+                      );
+                      return (
+                        <td
+                          key={i}
+                          className={`px-1 py-1.5 align-top border-l border-gray-100 ${
+                            today ? "bg-blue-50/30" : isSat || isSun ? "bg-slate-50/40" : ""
+                          }`}
+                          style={{ minWidth: 52 }}
+                        >
+                          <div className="flex flex-col gap-0.5 min-h-[44px]">
+                            {dayLogs.map((log) => (
+                              <button
+                                key={log.id}
+                                onClick={() => onSelectLog(log)}
+                                title={`${log.driver_name} · ${format(new Date(log.start_at), "HH:mm")}~${format(new Date(log.end_at), "HH:mm")} · ${log.destination}`}
+                                className={`w-full text-left px-1 py-1 rounded text-[9px] font-bold leading-tight cursor-pointer hover:opacity-80 active:opacity-60 transition text-white ${STATUS_BG[log.vehicle_status]}`}
+                              >
+                                <div className="truncate">{log.driver_name}</div>
+                                <div className="opacity-80 font-normal text-[8px] mt-0.5">
+                                  {format(new Date(log.start_at), "HH:mm")}~
+                                  {format(new Date(log.end_at), "HH:mm")}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                {vehicles.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-10 text-center text-sm text-gray-400">
+                      등록된 차량이 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Legend />
+        </div>
+      );
+    }
+
+    // ── date-rows(기본): 행=날짜, 열=차량 ────────────────────────────────────
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <NavHeader
