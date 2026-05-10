@@ -50,7 +50,7 @@ interface DetailModalProps {
   selectedLog: VehicleLog | null;
   currentUser: string | null;
   currentUserName?: string | null;
-  currentProfile?: { is_approver: boolean; role: string } | null;
+  currentProfile?: { is_approver: boolean; role: string; is_vehicle_notify?: boolean } | null;
   onRefresh: () => void;
   onCancel?: (id: number) => void;
   onEdit?: (log: VehicleLog) => void; // [신규] 수정 버튼 클릭 시 실행할 함수
@@ -615,7 +615,9 @@ export default function DetailModal({
   };
 
   const isAdmin =
-    currentProfile?.is_approver === true || currentProfile?.role === "admin";
+    currentProfile?.is_approver === true ||
+    currentProfile?.role === "admin" ||
+    currentProfile?.is_vehicle_notify === true;
 
   // 노쇼 복구 후에는 로컬에서 "reserved"로 취급
   const effectiveStatus = restoredAsReserved
