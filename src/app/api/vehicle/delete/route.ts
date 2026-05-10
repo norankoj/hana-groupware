@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 3. 삭제 대상 예약 조회 (사진 URL 포함) ──────────────────
-    const { data: reservation } = await serverSupabase
+    const { data: reservation, error: fetchError } = await serverSupabase
       .from("reservations")
       .select(
         "id, resource_id, vehicle_status, end_mileage, start_mileage, " +
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       .eq("id", reservationId)
       .single();
 
-    if (!reservation) {
+    if (fetchError || !reservation) {
       return NextResponse.json({ error: "예약을 찾을 수 없습니다." }, { status: 404 });
     }
 
