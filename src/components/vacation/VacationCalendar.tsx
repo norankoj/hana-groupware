@@ -238,11 +238,13 @@ export default function VacationCalendar({
     if (!(await showConfirm("휴가를 기안하시겠습니까?", confirmMessage)))
       return;
 
-    // 결재권한자(admin/director/is_approver)는 본인 신청 시 자동 승인
+    // admin은 항상 pending 상신 (결재권이 있어도 다른 결재권자에게 상신)
+    // director / is_approver는 자동 승인 유지
     const isSelfApprover =
-      user?.is_approver ||
-      user?.role === "admin" ||
-      user?.role === "director";
+      user?.role !== "admin" &&
+      (user?.is_approver || user?.role === "director");
+
+    const autoApprove = isSelfApprover;
 
     const now = new Date().toISOString();
 
@@ -253,7 +255,7 @@ export default function VacationCalendar({
       end_date: formData.end_date,
       days_count: daysCount,
       reason: formData.reason,
-      ...(isSelfApprover && {
+      ...(autoApprove && {
         status: "approved",
         approver_id: user?.id,
         approved_at: now,
@@ -266,7 +268,7 @@ export default function VacationCalendar({
     }
 
     // 자동 승인 + 연차 차감 대상이면 used_leave_days 즉시 증가
-    if (isSelfApprover && isDeductible && user?.id) {
+    if (autoApprove && isDeductible && user?.id) {
       await supabase.rpc("increment_used_leave_days", {
         target_user_id: user.id,
         days: daysCount,
