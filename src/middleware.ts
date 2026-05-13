@@ -42,9 +42,21 @@ export async function middleware(request: NextRequest) {
   );
 
   // 3. 현재 로그인된 유저 정보 가져오기
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error) user = data.user;
+  } catch {
+    // Supabase 일시 장애 시 — 세션 쿠키가 있으면 통과, 없으면 로그인 페이지로
+    const hasSession = request.cookies.has("sb-access-token") ||
+      [...request.cookies.getAll().map((c) => c.name)].some((n) => n.startsWith("sb-"));
+    if (!hasSession) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+    return response;
+  }
 
   const path = request.nextUrl.pathname;
 
@@ -70,14 +82,15 @@ export async function middleware(request: NextRequest) {
     const isAdminPath = path.startsWith("/admin");
 
     // menu 규칙과 내 role을 동시에 조회
+    // menus: maybeSingle() — 해당 path 메뉴가 없으면 null (single()은 없을 때 406 반환)
     const [{ data: menuRule }, { data: profile }] = await Promise.all([
       supabase
         .from("menus")
         .select("roles")
         .eq("path", path)
         .eq("is_active", true)
-        .single(),
-      supabase.from("profiles").select("role").eq("id", user.id).single(),
+        .maybeSingle(),
+      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
     ]);
 
     const myRole = profile?.role || "member";
