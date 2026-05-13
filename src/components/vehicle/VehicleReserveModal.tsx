@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Modal from "@/components/Modal";
 import Calendar from "react-calendar";
 import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import { HOLIDAYS } from "@/constants/holidays";
 
 type Vehicle = {
@@ -379,12 +380,37 @@ export default function VehicleReserveModal({
             </>
           ) : (
             <>
+              {/* 기간 선택 — 시작일 ~ 종료일을 한 버튼에서 선택 */}
+              <div className="relative">
+                <div
+                  onClick={() => setActiveInput(activeInput === "start" ? null : "start")}
+                  className="cursor-pointer"
+                >
+                  <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
+                    {reserveType === "recurring" ? "반복 기간 선택" : "기간 선택"}
+                    <span className="font-normal text-gray-400 ml-1">
+                      (시작일·종료일을 눌러 선택해 주세요)
+                    </span>
+                  </label>
+                  <div className="w-full border border-gray-300 rounded-lg p-3 bg-white select-none flex items-center justify-center gap-2 text-sm font-bold">
+                    <span className={form.start_date ? "text-gray-900" : "text-gray-400"}>
+                      {form.start_date
+                        ? format(new Date(form.start_date), "MM.dd(EEE)", { locale: ko })
+                        : "시작일"}
+                    </span>
+                    <span className="text-gray-400 font-normal">~</span>
+                    <span className={form.end_date ? "text-gray-900" : "text-gray-400"}>
+                      {form.end_date
+                        ? format(new Date(form.end_date), "MM.dd(EEE)", { locale: ko })
+                        : "종료일"}
+                    </span>
+                  </div>
+                </div>
+                {activeInput === "start" && calendarPopup}
+              </div>
+
+              {/* 시작 시간 / 종료 시간 */}
               <div className="grid grid-cols-2 gap-3">
-                <DateButton
-                  dateStr={form.start_date}
-                  which="start"
-                  label={reserveType === "recurring" ? "반복 시작일" : "시작일"}
-                />
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1">시작 시간</label>
                   <TimeSelect
@@ -401,13 +427,6 @@ export default function VehicleReserveModal({
                     }}
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <DateButton
-                  dateStr={form.end_date}
-                  which="end"
-                  label={reserveType === "recurring" ? "반복 종료일" : "종료일"}
-                />
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1">종료 시간</label>
                   <TimeSelect

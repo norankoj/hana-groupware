@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import Modal from "@/components/Modal";
@@ -1474,9 +1475,19 @@ export default function DetailModal({
           </InfoRow>
         )}
         <InfoRow label="운행 시간">
-          {selectedLog &&
-            format(new Date(selectedLog.start_at), "yyyy-MM-dd HH:mm")}{" "}
-          ~ {selectedLog && format(new Date(selectedLog.end_at), "HH:mm")}
+          {selectedLog && (() => {
+            const start = new Date(selectedLog.start_at);
+            const end = new Date(selectedLog.end_at);
+            const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
+            return (
+              <>
+                {format(start, "MM.dd(EEE)", { locale: ko })} {format(start, "HH:mm")} ~{" "}
+                {sameDay
+                  ? format(end, "HH:mm")
+                  : `${format(end, "MM.dd(EEE)", { locale: ko })} ${format(end, "HH:mm")}`}
+              </>
+            );
+          })()}
         </InfoRow>
         <InfoRow label="목적지">{selectedLog?.destination}</InfoRow>
         <InfoRow label="운행 목적" isLast>

@@ -136,9 +136,10 @@ export default function HistoryModal({
         {/* 본문 */}
         <div className="px-5 py-4 space-y-2.5">
           <InfoLine label="운행 시간">
-            {format(start, "MM.dd(EEE)", { locale: ko })}{" "}
-            {format(start, "HH:mm")} ~{" "}
-            {sameDay ? format(end, "HH:mm") : format(end, "MM.dd HH:mm")}
+            {format(start, "MM.dd(EEE)", { locale: ko })} {format(start, "HH:mm")} ~{" "}
+            {sameDay
+              ? format(end, "HH:mm")
+              : `${format(end, "MM.dd(EEE)", { locale: ko })} ${format(end, "HH:mm")}`}
           </InfoLine>
           <InfoLine label="운전자">
             {log.driver_name}
