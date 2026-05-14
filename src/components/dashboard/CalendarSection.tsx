@@ -185,9 +185,13 @@ export default function CalendarSection({
 
   const updateSelectedEvents = (targetDate: Date, events: CalendarEvent[]) => {
     const dateStr = format(targetDate, "yyyy-MM-dd");
-    if (HOLIDAYS[dateStr]) return setSelectedEvents([]);
+    const holiday = HOLIDAYS[dateStr];
     const filtered = events.filter(
-      (e) => dateStr >= e.start_date && dateStr <= e.end_date,
+      (e) =>
+        dateStr >= e.start_date &&
+        dateStr <= e.end_date &&
+        // 비전트립은 공휴일이어도 표시
+        (!holiday || e.title === "비전트립"),
     );
     filtered.sort((a, b) => {
       if (a.type === "vacation" && b.type === "schedule") return -1;
@@ -409,12 +413,13 @@ export default function CalendarSection({
                     const dateStr = format(d, "yyyy-MM-dd");
                     const holiday = HOLIDAYS[dateStr];
                     const birthdays = getBirthdaysOnDate(dateStr);
-                    const eventsOnDay = holiday
-                      ? []
-                      : allEvents.filter(
-                          (e) =>
-                            dateStr >= e.start_date && dateStr <= e.end_date,
-                        );
+                    const eventsOnDay = allEvents.filter(
+                      (e) =>
+                        dateStr >= e.start_date &&
+                        dateStr <= e.end_date &&
+                        // 비전트립은 공휴일이어도 표시, 그 외 vacation은 공휴일 제외
+                        (!holiday || e.title === "비전트립"),
+                    );
                     const allItems = [
                       ...birthdays.map((name) => ({
                         type: "birthday" as const,
