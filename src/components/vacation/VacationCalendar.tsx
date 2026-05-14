@@ -540,6 +540,9 @@ export default function VacationCalendar({
                     );
                     const isExcluded =
                       holiday || dayOfWeek === 1 || dayOfWeek === 6;
+                    // 비전트립 등 특수 유형은 공휴일/휴무일이어도 달력에 표시
+                    const showReq =
+                      req && (!isExcluded || req.type === "비전트립");
                     return (
                       <div className="flex flex-col items-center w-full h-full pt-1">
                         {holiday && (
@@ -547,8 +550,7 @@ export default function VacationCalendar({
                             {holiday}
                           </div>
                         )}
-                        {req &&
-                          !isExcluded &&
+                        {showReq &&
                           (req.status === "approved" ? (
                             <div className="w-full px-0.5 mt-0.5">
                               <div className="text-[9px] bg-green-100 text-green-700 border border-green-200 rounded px-1 py-0.5 truncate text-center font-medium">
