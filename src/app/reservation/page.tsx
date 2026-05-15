@@ -139,6 +139,7 @@ export default function FacilityReservationPage() {
   // core
   const [resources, setResources] = useState<Resource[]>([]);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // views
@@ -190,7 +191,15 @@ export default function FacilityReservationPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) setCurrentUser(user.id);
+    if (user) {
+      setCurrentUser(user.id);
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      setIsAdmin(profile?.role === "admin");
+    }
 
     const { data: resData } = await supabase
       .from("resources")
@@ -317,10 +326,6 @@ export default function FacilityReservationPage() {
       setSelStart(hour);
       setSelEnd(null);
     } else if (selEnd === null) {
-      if (hour === selStart) {
-        setSelStart(null);
-        return;
-      }
       setSelEnd(hour);
     } else {
       setSelStart(hour);
@@ -466,6 +471,7 @@ export default function FacilityReservationPage() {
       setSelEnd(null);
       setPurpose("");
       fetchDateRsv(selectedDate);
+      fetchMonthRsv(calMonth);
       fetchInitial();
     }
   };
@@ -474,31 +480,64 @@ export default function FacilityReservationPage() {
   const handleCancelOne = async () => {
     if (!detailRsv) return;
     if (!(await showConfirm("이 예약을 취소하시겠습니까?"))) return;
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: "cancelled" })
-      .eq("id", detailRsv.id);
-    if (error) toast.error("취소 실패");
+
+    const isOtherUser = detailRsv.user_id !== currentUser;
+    let failed = false;
+
+    if (isAdmin && isOtherUser) {
+      const res = await fetch("/api/reservation/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId: detailRsv.id }),
+      });
+      if (!res.ok) failed = true;
+    } else {
+      const { error } = await supabase
+        .from("reservations")
+        .update({ status: "cancelled" })
+        .eq("id", detailRsv.id);
+      if (error) failed = true;
+    }
+
+    if (failed) toast.error("취소 실패");
     else {
       toast.success("취소되었습니다.");
       setDetailRsv(null);
       fetchDateRsv(selectedDate);
+      fetchMonthRsv(calMonth);
       if (view === "weekly") fetchWeeklyRsv();
       fetchInitial();
     }
   };
+
   const handleCancelAll = async () => {
     if (!detailRsv?.group_id) return;
     if (!(await showConfirm("정기 예약 전체를 취소하시겠습니까?"))) return;
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: "cancelled" })
-      .eq("group_id", detailRsv.group_id);
-    if (error) toast.error("전체 취소 실패");
+
+    const isOtherUser = detailRsv.user_id !== currentUser;
+    let failed = false;
+
+    if (isAdmin && isOtherUser) {
+      const res = await fetch("/api/reservation/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelAll: true, groupId: detailRsv.group_id }),
+      });
+      if (!res.ok) failed = true;
+    } else {
+      const { error } = await supabase
+        .from("reservations")
+        .update({ status: "cancelled" })
+        .eq("group_id", detailRsv.group_id);
+      if (error) failed = true;
+    }
+
+    if (failed) toast.error("전체 취소 실패");
     else {
       toast.success("전체 일정이 취소되었습니다.");
       setDetailRsv(null);
       fetchDateRsv(selectedDate);
+      fetchMonthRsv(calMonth);
       if (view === "weekly") fetchWeeklyRsv();
       fetchInitial();
     }
@@ -1206,7 +1245,7 @@ export default function FacilityReservationPage() {
                 {selStart === null
                   ? "💡 시작 시간을 먼저 클릭하세요"
                   : selEnd === null
-                    ? "⏱️ 종료 시간을 클릭하세요 (선택한 시간 +1시간까지 예약됩니다)"
+                    ? "⏱️ 종료 시간을 클릭하세요 · 시작 시간을 다시 클릭하면 1시간 예약 (종료 시간은 해당 시간까지 사용)"
                     : "✅ 범위가 선택되었습니다. 아래에서 예약을 완료하세요."}
               </p>
               <div>
@@ -1346,9 +1385,9 @@ export default function FacilityReservationPage() {
                     <div
                       key={r.id}
                       onClick={() =>
-                        r.user_id === currentUser && setDetailRsv(r)
+                        (r.user_id === currentUser || isAdmin) && setDetailRsv(r)
                       }
-                      className={`flex items-center justify-between p-3 rounded-xl border transition ${r.user_id === currentUser ? "border-blue-100 bg-blue-50 cursor-pointer hover:bg-blue-100" : "border-gray-100 bg-gray-50"}`}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition ${r.user_id === currentUser || isAdmin ? "border-blue-100 bg-blue-50 cursor-pointer hover:bg-blue-100" : "border-gray-100 bg-gray-50"}`}
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-bold text-gray-500 tabular-nums">
@@ -1510,7 +1549,7 @@ export default function FacilityReservationPage() {
               </div>
             </div>
             <div className="border-t border-gray-100 pt-4 space-y-2">
-              {detailRsv.user_id === currentUser &&
+              {(detailRsv.user_id === currentUser || isAdmin) &&
                 (detailRsv.group_id ? (
                   <div className="flex gap-2">
                     <button
@@ -1684,6 +1723,30 @@ export default function FacilityReservationPage() {
                   </svg>
                   카카오톡 공유용 복사
                 </button>
+                {(slotPopover.rsv.user_id === currentUser || isAdmin) && (
+                  <button
+                    onClick={() => {
+                      setDetailRsv(slotPopover.rsv);
+                      setSlotPopover(null);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition border border-red-200"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                    예약 취소
+                  </button>
+                )}
               </div>
             </div>
           </>,
