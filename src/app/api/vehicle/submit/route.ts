@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     // ── 2. 예약 소유자 또는 관리자인지 확인 ─────────────────────────
     const { data: reservation } = await serverSupabase
       .from("reservations")
-      .select("id, user_id, vehicle_status")
+      .select("id, user_id, vehicle_status, driver_name")
       .eq("id", reservationId)
       .single();
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await serverSupabase
       .from("profiles")
-      .select("role, is_approver, is_vehicle_notify")
+      .select("full_name, role, is_approver, is_vehicle_notify")
       .eq("id", user.id)
       .single();
 
@@ -47,8 +47,14 @@ export async function POST(req: NextRequest) {
       profile?.is_approver === true ||
       profile?.is_vehicle_notify === true;
     const isOwner = reservation.user_id === user.id;
+    // 체크인/체크아웃(vehicle_status 변경)은 운전자도 허용
+    const isCheckinOrCheckout = "vehicle_status" in updates;
+    const isDriver =
+      isCheckinOrCheckout &&
+      !!profile?.full_name &&
+      reservation.driver_name === profile.full_name;
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isDriver && !isAdmin) {
       return NextResponse.json({ error: "본인 예약 또는 관리자만 처리할 수 있습니다." }, { status: 403 });
     }
 
