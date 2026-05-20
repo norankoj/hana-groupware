@@ -3,7 +3,8 @@ import { format, eachDayOfInterval, getDay } from "date-fns";
 import { HOLIDAYS } from "@/constants/holidays";
 
 // --- 공통 상수 ---
-export const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차", "비전트립"];
+// 비전트립 A: 차감 없음 / 비전트립 B: 0.5일/일 차감
+export const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차", "비전트립", "비전트립 B"];
 
 export const STATUS_OPTIONS = [
   { value: "all", label: "전체 상태" },
@@ -22,6 +23,8 @@ export const TYPE_OPTIONS = [
   { value: "예비군", label: "예비군" },
   { value: "특별휴가", label: "특별휴가" },
   { value: "비전트립", label: "비전트립" },
+  { value: "비전트립 A", label: "비전트립 A (차감없음)" },
+  { value: "비전트립 B", label: "비전트립 B (0.5일/일)" },
 ];
 
 // --- 공통 스타일 ---
@@ -90,5 +93,8 @@ export const calculateChurchVacationDays = (
     if (HOLIDAYS[dayStr]) return; // 공휴일 제외
     count++;
   });
+
+  // 비전트립 B: 0.5일/일 차감
+  if (type === "비전트립 B") return count * 0.5;
   return count;
 };

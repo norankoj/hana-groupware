@@ -225,8 +225,33 @@ const ProxyModal = memo(function ProxyModal({
               const isHalf = ["오전반차", "오후반차"].includes(v);
               setProxyForm((f) => ({ ...f, type: v, endDate: isHalf ? f.startDate : f.endDate }));
             }}
-            options={["연차", "오전반차", "오후반차", "경조사", "병가", "예비군", "특별휴가", "비전트립"]}
+            options={["연차", "오전반차", "오후반차", "경조사", "병가", "예비군", "특별휴가", "비전트립 A", "비전트립 B"]}
           />
+
+          {/* 종류별 차감 안내 */}
+          {(() => {
+            const deductionInfo: Record<string, { color: string; text: string }> = {
+              연차:     { color: "bg-red-50 text-red-600 border-red-100",     text: "연차 1일/일 차감" },
+              오전반차: { color: "bg-red-50 text-red-600 border-red-100",     text: "연차 0.5일 차감" },
+              오후반차: { color: "bg-red-50 text-red-600 border-red-100",     text: "연차 0.5일 차감" },
+              "비전트립 A":{ color: "bg-green-50 text-green-700 border-green-100", text: "연차 차감 없음" },
+              "비전트립 B":{ color: "bg-orange-50 text-orange-600 border-orange-100", text: "연차 0.5일/일 차감" },
+              경조사:   { color: "bg-green-50 text-green-700 border-green-100", text: "연차 차감 없음" },
+              병가:     { color: "bg-green-50 text-green-700 border-green-100", text: "연차 차감 없음" },
+              예비군:   { color: "bg-green-50 text-green-700 border-green-100", text: "연차 차감 없음" },
+              특별휴가: { color: "bg-green-50 text-green-700 border-green-100", text: "연차 차감 없음" },
+            };
+            const info = deductionInfo[proxyForm.type];
+            if (!info) return null;
+            return (
+              <div className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium ${info.color}`}>
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {info.text}
+              </div>
+            );
+          })()}
 
           {/* 날짜 선택 버튼 */}
           <div className="relative">
@@ -254,9 +279,11 @@ const ProxyModal = memo(function ProxyModal({
           {/* 자동계산 일수 표시 */}
           {proxyForm.daysCount > 0 && (
             <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold text-right">
-              {DEDUCTIBLE_TYPES.includes(proxyForm.type)
-                ? `총 ${proxyForm.daysCount}일 사용 (토/월요일 제외됨)`
-                : `총 ${proxyForm.daysCount}일 (연차 차감 없음)`}
+              {proxyForm.type === "비전트립 B"
+                ? `총 ${proxyForm.daysCount}일 차감 (0.5일/일 × 근무일수)`
+                : DEDUCTIBLE_TYPES.includes(proxyForm.type)
+                  ? `총 ${proxyForm.daysCount}일 사용 (토/월요일 제외됨)`
+                  : `총 ${proxyForm.daysCount}일 (연차 차감 없음)`}
             </div>
           )}
 

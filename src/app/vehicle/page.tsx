@@ -46,6 +46,7 @@ type Vehicle = {
   renter_name?: string;
   inspection_due_date?: string | null;
   inspection_cycle_month?: number | null;
+  notify_user_id?: string | null;
 };
 
 type Consumable = {
@@ -135,6 +136,7 @@ export default function VehicleReservationPage() {
   );
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [allViewMode, setAllViewMode] = useState<"log" | "schedule">("log");
+  const [isVehicleManageModalOpen, setIsVehicleManageModalOpen] = useState(false);
   const [scheduleVehicle, setScheduleVehicle] = useState<Vehicle | null>(null);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
 
@@ -260,6 +262,20 @@ export default function VehicleReservationPage() {
   const handleOpenHistory = (vehicle: Vehicle) => {
     setSelectedVehicleHistory(vehicle);
     setIsHistoryModalOpen(true);
+  };
+
+  const handleOilChanged = async (vehicle: Vehicle) => {
+    const km = vehicle.current_mileage;
+    const today = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase
+      .from("resources")
+      .update({ oil_changed_km: km, oil_changed_date: today })
+      .eq("id", vehicle.id);
+    if (error) toast.error("저장 실패: " + error.message);
+    else {
+      toast.success(`엔진오일 교체 완료로 기록했습니다. (${km.toLocaleString()} km)`);
+      fetchData();
+    }
   };
 
   const handleOpenRentalModal = (vehicle: Vehicle) => {
@@ -495,14 +511,19 @@ export default function VehicleReservationPage() {
 
       // 신규 등록일 때만 알림 발송 (수정 시 알림 발송 원하면 조건 제거)
       if (!editingLogId) {
+        const vehicleNotifyUserId = vehicles.find((v) => v.id === form.resource_id)?.notify_user_id ?? null;
         supabase
           .from("profiles")
           .select("id")
           .eq("is_vehicle_notify", true)
           .then(({ data: managers }) => {
-            const ids = (managers ?? [])
+            const baseIds = (managers ?? [])
               .map((m: any) => m.id as string)
               .filter((id) => id !== currentUser);
+            // 차량별 담당자 추가 (전체 알림 대상에 없으면 추가, 본인 제외)
+            const ids = vehicleNotifyUserId && vehicleNotifyUserId !== currentUser && !baseIds.includes(vehicleNotifyUserId)
+              ? [...baseIds, vehicleNotifyUserId]
+              : baseIds;
             if (ids.length > 0) {
               fetch("/api/push/send", {
                 method: "POST",
@@ -650,14 +671,18 @@ export default function VehicleReservationPage() {
     toast.success(`${recurCount}건 정기 예약이 완료되었습니다!`);
     setIsReserveModalOpen(false);
     fetchData();
+    const recurVehicleNotifyUserId = vehicles.find((v) => v.id === form.resource_id)?.notify_user_id ?? null;
     supabase
       .from("profiles")
       .select("id")
       .eq("is_vehicle_notify", true)
       .then(({ data: managers }) => {
-        const ids = (managers ?? [])
+        const baseIds = (managers ?? [])
           .map((m: any) => m.id as string)
           .filter((id) => id !== currentUser);
+        const ids = recurVehicleNotifyUserId && recurVehicleNotifyUserId !== currentUser && !baseIds.includes(recurVehicleNotifyUserId)
+          ? [...baseIds, recurVehicleNotifyUserId]
+          : baseIds;
         if (ids.length > 0) {
           fetch("/api/push/send", {
             method: "POST",
@@ -726,8 +751,8 @@ export default function VehicleReservationPage() {
     const isActive = activeCardId === v.id;
 
     const oilRemaining =
-      v.oil_changed_km && v.current_mileage
-        ? v.oil_changed_km + 7000 - v.current_mileage
+      v.current_mileage != null
+        ? (v.oil_changed_km ?? 0) + 7000 - v.current_mileage
         : null;
     const oilOverdue = oilRemaining !== null && oilRemaining <= 0;
     const oilSoon =
@@ -848,6 +873,21 @@ export default function VehicleReservationPage() {
               <span className="text-[10px] font-bold leading-none">정비</span>
             </button>
 
+            {currentProfile?.is_vehicle_notify && (oilOverdue || oilSoon) && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOilChanged(v);
+                  setActiveCardId(null);
+                }}
+                className="flex-1 flex flex-col items-center gap-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-white rounded-xl transition-all cursor-pointer shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-[10px] font-bold leading-none">오일교체</span>
+              </button>
+            )}
             {currentProfile?.is_vehicle_notify && (
               <button
                 onClick={(e) => {
@@ -1297,8 +1337,8 @@ export default function VehicleReservationPage() {
           : [];
 
         const getOilRemaining = (v: Vehicle) =>
-          v.oil_changed_km != null && v.current_mileage != null
-            ? v.oil_changed_km + 7000 - v.current_mileage
+          v.current_mileage != null
+            ? (v.oil_changed_km ?? 0) + 7000 - v.current_mileage
             : null;
 
         const getLastFuel = (vehicleId: number) => {
@@ -1627,6 +1667,14 @@ export default function VehicleReservationPage() {
                         >
                           정비
                         </button>
+                        {/* {currentProfile?.is_vehicle_notify && (
+                          <button
+                            onClick={() => setIsVehicleManageModalOpen(true)}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
+                          >
+                            관리
+                          </button>
+                        )} */}
                         <button
                           onClick={() => handleOpenHistory(pcVehicle)}
                           className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
@@ -2116,6 +2164,22 @@ export default function VehicleReservationPage() {
         onClose={() => setIsMaintenanceModalOpen(false)}
         vehicle={selectedVehicleMaintenance}
       />
+
+      {/* 차량 관리 모달 (담당자 지정 / 정기검사 / 소모품) */}
+      <Modal
+        isOpen={isVehicleManageModalOpen}
+        onClose={() => setIsVehicleManageModalOpen(false)}
+        title="차량 관리"
+        className="!max-w-4xl"
+      >
+        <VehicleManageTab
+          vehicles={vehicles}
+          consumables={consumables}
+          isAdmin={!!currentProfile?.is_vehicle_notify}
+          staffList={staffList}
+          onRefresh={() => { fetchData(); }}
+        />
+      </Modal>
       <HistoryModal
         isHistoryModalOpen={isHistoryModalOpen}
         setIsHistoryModalOpen={setIsHistoryModalOpen}

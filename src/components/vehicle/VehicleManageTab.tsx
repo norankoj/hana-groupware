@@ -35,6 +35,7 @@ export type VehicleForManage = {
   current_mileage: number;
   inspection_due_date?: string | null;
   inspection_cycle_month?: number | null;
+  notify_user_id?: string | null;
 };
 
 export type Consumable = {
@@ -45,10 +46,13 @@ export type Consumable = {
   last_replaced_km: number;
 };
 
+type StaffMember = { id: string; full_name: string; position: string };
+
 interface Props {
   vehicles: VehicleForManage[];
   consumables: Consumable[];
   isAdmin: boolean;
+  staffList: StaffMember[];
   onRefresh: () => void;
 }
 
@@ -56,6 +60,7 @@ export default function VehicleManageTab({
   vehicles,
   consumables,
   isAdmin,
+  staffList,
   onRefresh,
 }: Props) {
   const supabase = createClient();
@@ -66,6 +71,10 @@ export default function VehicleManageTab({
   const [newName, setNewName] = useState("");
   const [newCycle, setNewCycle] = useState(10000);
   const [saving, setSaving] = useState(false);
+
+  // 예약 알림 담당자
+  const [editingNotify, setEditingNotify] = useState(false);
+  const [notifyUserId, setNotifyUserId] = useState<string>("");
 
   const vehicle = vehicles.find((v) => v.id === selectedId);
   const vConsumables = consumables.filter((c) => c.resource_id === selectedId);
@@ -98,6 +107,22 @@ export default function VehicleManageTab({
   };
 
   // ── 핸들러 ───────────────────────────────────────────────────────────────
+  const saveNotifyUser = async () => {
+    if (!vehicle) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("resources")
+      .update({ notify_user_id: notifyUserId || null })
+      .eq("id", vehicle.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("예약 알림 담당자가 저장되었습니다.");
+      setEditingNotify(false);
+      onRefresh();
+    }
+    setSaving(false);
+  };
+
   const saveInspection = async () => {
     if (!vehicle || !inspectionDate) return;
     setSaving(true);
@@ -205,6 +230,76 @@ export default function VehicleManageTab({
       {/* ── 우측: 관리 패널 ── */}
       {vehicle ? (
         <div className="flex-1 space-y-4 overflow-y-auto">
+          {/* 예약 알림 담당자 카드 */}
+          {isAdmin && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-700">예약 알림 담당자</h3>
+                {!editingNotify && (
+                  <button
+                    onClick={() => {
+                      setNotifyUserId(vehicle?.notify_user_id ?? "");
+                      setEditingNotify(true);
+                    }}
+                    className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 transition"
+                  >
+                    ✎ 수정
+                  </button>
+                )}
+              </div>
+              {editingNotify ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={notifyUserId}
+                    onChange={(e) => setNotifyUserId(e.target.value)}
+                    className="flex-1 min-w-[160px] px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-400 transition bg-white"
+                  >
+                    <option value="">없음 (알림 안 받음)</option>
+                    {staffList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name} ({s.position})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveNotifyUser}
+                      disabled={saving}
+                      className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition disabled:opacity-50"
+                    >
+                      저장
+                    </button>
+                    <button
+                      onClick={() => setEditingNotify(false)}
+                      className="px-4 py-2 bg-gray-100 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-200 transition"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {vehicle?.notify_user_id ? (
+                    <>
+                      <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+                        {(staffList.find((s) => s.id === vehicle.notify_user_id)?.full_name ?? "?").slice(0, 1)}
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">
+                        {staffList.find((s) => s.id === vehicle.notify_user_id)?.full_name ?? "알 수 없음"}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        ({staffList.find((s) => s.id === vehicle.notify_user_id)?.position ?? ""})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-400">담당자 없음</span>
+                  )}
+                </div>
+              )}
+              <p className="mt-2 text-xs text-gray-400">이 차량 예약 시 전체 알림 수신자 외에 추가로 알림을 받을 담당자입니다.</p>
+            </div>
+          )}
+
           {/* 정기검사 카드 */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center justify-between mb-4">

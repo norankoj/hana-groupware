@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
 
-const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차", "비전트립"];
+// 비전트립 A: 차감 없음 / 비전트립 B: 0.5일/일 차감 (days_count에 이미 반영됨)
+const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차", "비전트립", "비전트립 B"];
 
 export async function POST(request: Request) {
   try {

@@ -540,9 +540,9 @@ export default function VacationCalendar({
                     );
                     const isExcluded =
                       holiday || dayOfWeek === 1 || dayOfWeek === 6;
-                    // 비전트립 등 특수 유형은 공휴일/휴무일이어도 달력에 표시
-                    const showReq =
-                      req && (!isExcluded || req.type === "비전트립");
+                    // 비전트립 계열은 공휴일/휴무일이어도 달력에 표시
+                    const isVisionTrip = req?.type === "비전트립" || req?.type === "비전트립 A" || req?.type === "비전트립 B";
+                    const showReq = req && (!isExcluded || isVisionTrip);
                     return (
                       <div className="flex flex-col items-center w-full h-full pt-1">
                         {holiday && (
@@ -551,19 +551,22 @@ export default function VacationCalendar({
                           </div>
                         )}
                         {showReq &&
-                          (req.status === "approved" ? (
-                            <div className="w-full px-0.5 mt-0.5">
-                              <div className="text-[9px] bg-green-100 text-green-700 border border-green-200 rounded px-1 py-0.5 truncate text-center font-medium">
-                                {req.type}
+                          (() => {
+                            const displayType = (req.type === "비전트립 A" || req.type === "비전트립 B") ? "비전트립" : req.type;
+                            return req.status === "approved" ? (
+                              <div className="w-full px-0.5 mt-0.5">
+                                <div className="text-[9px] bg-green-100 text-green-700 border border-green-200 rounded px-1 py-0.5 truncate text-center font-medium">
+                                  {displayType}
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <div className="w-full px-0.5 mt-0.5">
-                              <div className="text-[9px] bg-yellow-50 text-yellow-700 border border-yellow-200 rounded px-1 py-0.5 truncate text-center font-medium">
-                                {req.type}[대기]
+                            ) : (
+                              <div className="w-full px-0.5 mt-0.5">
+                                <div className="text-[9px] bg-yellow-50 text-yellow-700 border border-yellow-200 rounded px-1 py-0.5 truncate text-center font-medium">
+                                  {displayType}[대기]
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })()}
                       </div>
                     );
                   }
@@ -864,8 +867,11 @@ export default function VacationCalendar({
               "병가",
               "예비군",
               "특별휴가",
+              "비전트립 A",
+              "비전트립 B",
             ]}
           />
+
           <div className="relative" ref={rangePickerRef}>
             <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
               {["오전반차", "오후반차"].includes(formData.type)
@@ -907,10 +913,15 @@ export default function VacationCalendar({
             </button>
           </div>
           {calculatedDays > 0 && (
-            <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold text-right">
-              {DEDUCTIBLE_TYPES.includes(formData.type)
-                ? `총 ${calculatedDays}일 사용 (토/월요일 제외됨)`
-                : `총 ${calculatedDays}일 (연차 차감 없음)`}
+            <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold flex justify-between items-center">
+              <span>총 {calculatedDays}일</span>
+              <span className="text-xs font-medium opacity-75">
+                {formData.type === "연차" && "연차 1일/일 차감"}
+                {(formData.type === "오전반차" || formData.type === "오후반차") && "연차 0.5일 차감"}
+                {formData.type === "비전트립 B" && "연차 0.5일/일 차감"}
+                {formData.type === "비전트립 A" && "차감 없음"}
+                {["경조사", "병가", "예비군", "특별휴가"].includes(formData.type) && "차감 없음"}
+              </span>
             </div>
           )}
           <div>
