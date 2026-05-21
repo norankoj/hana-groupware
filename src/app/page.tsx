@@ -163,7 +163,7 @@ export default function Home() {
       supabase
         .from("vacation_requests")
         .select(
-          `id, start_date, end_date, type, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
+          `id, start_date, end_date, type, reason, profiles:user_id ( full_name, position, team_id, teams:team_id(name) )`,
         )
         .eq("status", "approved"),
       supabase
@@ -199,6 +199,7 @@ export default function Home() {
           title: v.type,
           time_label: v.type?.includes("오전") ? "오전 반차" : v.type?.includes("오후") ? "오후 반차" : "하루 종일",
           display_name: v.profiles.full_name,
+          reason: v.reason,
           profiles: v.profiles,
         });
       });

@@ -53,6 +53,7 @@ export type CalendarEvent = {
   time_label: string;
   location?: string;
   display_name: string;
+  reason?: string;
   attendees?: Attendee[];
   profiles: {
     full_name: string;

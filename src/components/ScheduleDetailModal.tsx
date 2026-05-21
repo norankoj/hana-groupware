@@ -8,6 +8,7 @@ type Profile = {
   id: string;
   role: string;
   position: string;
+  is_approver?: boolean;
 };
 
 type ScheduleDetailModalProps = {
@@ -33,6 +34,7 @@ export default function ScheduleDetailModal({
   if (!event) return null;
 
   const isAdmin = profile?.role === "admin" || profile?.role === "director";
+  const isApprover = profile?.is_approver === true || isAdmin;
   const isOwner = profile?.id === event.user_id;
   const canManage = event.type === "schedule" && (isOwner || isAdmin);
 
@@ -130,6 +132,16 @@ export default function ScheduleDetailModal({
               <span className="text-sm font-bold text-gray-900">{event.profiles.full_name}</span>
             </div>
           </div>
+
+          {/* 휴가 사유 — 결재권한자만 표시 */}
+          {event.type === "vacation" && isApprover && event.reason && (
+            <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
+              <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">사유</span>
+              <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                {event.reason}
+              </p>
+            </div>
+          )}
 
           {event.type === "schedule" &&
             event.attendees &&

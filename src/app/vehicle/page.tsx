@@ -266,6 +266,11 @@ export default function VehicleReservationPage() {
 
   const handleOilChanged = async (vehicle: Vehicle) => {
     const km = vehicle.current_mileage;
+    const confirmed = await showConfirm(
+      "엔진오일 교체 완료 처리",
+      `${vehicle.name}(${vehicle.description})의 엔진오일 교체를 현재 주행거리 ${km.toLocaleString()} km 기준으로 기록할까요?`,
+    );
+    if (!confirmed) return;
     const today = new Date().toISOString().slice(0, 10);
     const { error } = await supabase
       .from("resources")
@@ -1741,19 +1746,26 @@ export default function VehicleReservationPage() {
                         </div>
                         {(() => {
                           const rem = getOilRemaining(pcVehicle);
-                          const color =
-                            rem != null && rem <= 0
-                              ? "text-red-500"
-                              : rem != null && rem <= 1000
-                                ? "text-amber-500"
-                                : "text-gray-900";
+                          const overdue = rem != null && rem <= 0;
+                          const soon = rem != null && rem > 0 && rem <= 1000;
+                          const color = overdue ? "text-red-500" : soon ? "text-amber-500" : "text-gray-900";
                           return (
-                            <div className={`text-base font-bold ${color}`}>
-                              {rem != null
-                                ? rem <= 0
-                                  ? `${Math.abs(rem).toLocaleString()} km 초과`
-                                  : `${rem.toLocaleString()} km`
-                                : "-"}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className={`text-base font-bold ${color}`}>
+                                {rem != null
+                                  ? rem <= 0
+                                    ? `${Math.abs(rem).toLocaleString()} km 초과`
+                                    : `${rem.toLocaleString()} km`
+                                  : "-"}
+                              </div>
+                              {currentProfile?.is_vehicle_notify && (overdue || soon) && (
+                                <button
+                                  onClick={() => handleOilChanged(pcVehicle)}
+                                  className="text-[11px] px-2 py-1 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-lg transition shrink-0"
+                                >
+                                  교체완료
+                                </button>
+                              )}
                             </div>
                           );
                         })()}
