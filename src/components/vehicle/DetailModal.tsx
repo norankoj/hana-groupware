@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -150,9 +151,12 @@ export default function DetailModal({
   const [editCheckinMileage, setEditCheckinMileage] = useState<number | "">("");
   const [editCheckinFuel, setEditCheckinFuel] = useState<number | null>(null);
   const [editCheckinPhoto, setEditCheckinPhoto] = useState<File | null>(null);
-  const [editCheckinPhotoPreview, setEditCheckinPhotoPreview] = useState<
-    string | null
-  >(null);
+  const [editCheckinPhotoPreview, setEditCheckinPhotoPreview] = useState<string | null>(null);
+  // 외관 사진 수정용
+  const [editExtKeepUrls, setEditExtKeepUrls] = useState<string[]>([]); // 유지할 기존 URL
+  const [editExtNewFiles, setEditExtNewFiles] = useState<File[]>([]);     // 새로 추가할 파일
+  const [editExtNewPreviews, setEditExtNewPreviews] = useState<string[]>([]); // 새 파일 미리보기
+  const [editExtChanged, setEditExtChanged] = useState(false);
 
   const [showExtendForm, setShowExtendForm] = useState(false);
   const [extendDate, setExtendDate] = useState("");
@@ -167,6 +171,13 @@ export default function DetailModal({
 
   const [zoomImages, setZoomImages] = useState<string[]>([]);
   const [zoomIndex, setZoomIndex] = useState<number>(0);
+  // 줌 뷰어 내 확대/이동 상태
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomPan, setZoomPan] = useState({ x: 0, y: 0 });
+  const isDraggingZoom = useRef(false);
+  const dragStartZoom = useRef({ x: 0, y: 0 });
+  const lastTouchDistZoom = useRef(0);
+  const lastTouchCenterZoom = useRef({ x: 0, y: 0 });
 
   // 노쇼 복구 후 로컬에서만 status를 "reserved"로 표시 (autoExpireReservations 재실행 방지)
   const [restoredAsReserved, setRestoredAsReserved] = useState(false);
@@ -329,10 +340,10 @@ export default function DetailModal({
     let compressed: File = file;
     try {
       compressed = await imageCompression(file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1024,
         useWebWorker: true,
-        initialQuality: 0.8,
+        initialQuality: 0.7,
       });
     } catch {
       // 압축 실패 시 원본 파일로 업로드 진행
@@ -490,10 +501,15 @@ export default function DetailModal({
         if (editCheckinFuel !== null) {
           updates.fuel_level_start = editCheckinFuel;
         }
-        // 운행시작 사진 수정 반영
+        // 운행시작 계기판 사진 수정 반영
         if (editCheckinPhoto) {
           const editPhotoUrl = await compressAndUpload(editCheckinPhoto);
           updates.checkin_photo_url = editPhotoUrl;
+        }
+        // 운행시작 외관 사진 수정 반영
+        if (editExtChanged) {
+          const uploadedNewUrls = await Promise.all(editExtNewFiles.map(compressAndUpload));
+          updates.checkin_exterior_urls = [...editExtKeepUrls, ...uploadedNewUrls];
         }
       }
 
@@ -564,6 +580,20 @@ export default function DetailModal({
     setZoomImages(allImages);
     setZoomIndex(allImages.indexOf(url));
   };
+
+  // 이미지 변경 시 스케일/팬 초기화
+  useEffect(() => {
+    setZoomScale(1);
+    setZoomPan({ x: 0, y: 0 });
+  }, [zoomIndex]);
+
+  // 뷰어 닫힐 때도 초기화
+  useEffect(() => {
+    if (zoomImages.length === 0) {
+      setZoomScale(1);
+      setZoomPan({ x: 0, y: 0 });
+    }
+  }, [zoomImages]);
 
   const handlePrevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1218,7 +1248,16 @@ export default function DetailModal({
         {/* 헤더 — 탭하면 펼침 */}
         <button
           type="button"
-          onClick={() => setShowCheckinEdit((v) => !v)}
+          onClick={() => {
+            if (!showCheckinEdit) {
+              // 열릴 때 기존 외관사진 URL 초기화
+              setEditExtKeepUrls(selectedLog?.checkin_exterior_urls ?? []);
+              setEditExtNewFiles([]);
+              setEditExtNewPreviews([]);
+              setEditExtChanged(false);
+            }
+            setShowCheckinEdit((v) => !v);
+          }}
           className="w-full flex items-center justify-between px-4 py-2.5 bg-green-50 hover:bg-green-100 transition text-left"
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -1241,7 +1280,8 @@ export default function DetailModal({
             </span>
             {(editCheckinMileage !== "" ||
               editCheckinFuel !== null ||
-              editCheckinPhoto) && (
+              editCheckinPhoto ||
+              editExtChanged) && (
               <span className="text-[10px] text-orange-500 font-bold shrink-0">
                 (수정됨)
               </span>
@@ -1409,6 +1449,124 @@ export default function DetailModal({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* 출발 외관 사진 수정 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-gray-700">
+                  출발 외관 사진
+                  {editExtChanged && (
+                    <span className="ml-1.5 text-[10px] text-orange-500 font-bold">(수정됨)</span>
+                  )}
+                </p>
+                <label className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer transition">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  사진 추가
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      if (!e.target.files) return;
+                      const newFiles = Array.from(e.target.files);
+                      const total = editExtKeepUrls.length + editExtNewFiles.length + newFiles.length;
+                      if (total > 10) { toast.error("외관 사진은 최대 10장까지만 등록 가능합니다."); return; }
+                      setUploadingMessage("사진 처리 중...");
+                      setUploading(true);
+                      try {
+                        const previews = await Promise.all(
+                          newFiles.map(
+                            (f) =>
+                              new Promise<string>((resolve) => {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => resolve(ev.target?.result as string);
+                                reader.readAsDataURL(f);
+                              })
+                          )
+                        );
+                        setEditExtNewFiles((prev) => [...prev, ...newFiles]);
+                        setEditExtNewPreviews((prev) => [...prev, ...previews]);
+                        setEditExtChanged(true);
+                      } finally {
+                        setUploading(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {/* 기존 유지 중인 사진 */}
+                {editExtKeepUrls.map((url, i) => (
+                  <div key={`keep_${i}`} className="relative rounded-lg overflow-hidden border border-gray-200 aspect-square">
+                    <img
+                      src={toProxyUrl(url)}
+                      className="w-full h-full object-cover cursor-zoom-in"
+                      alt={`외관${i + 1}`}
+                      onClick={() => {
+                        const allImgs = [
+                          ...editExtKeepUrls.map(toProxyUrl),
+                          ...editExtNewPreviews,
+                        ];
+                        setZoomImages(allImgs);
+                        setZoomIndex(i);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditExtKeepUrls((prev) => prev.filter((_, idx) => idx !== i));
+                        setEditExtChanged(true);
+                      }}
+                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
+                    >
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                {/* 새로 추가한 사진 */}
+                {editExtNewPreviews.map((preview, i) => (
+                  <div key={`new_${i}`} className="relative rounded-lg overflow-hidden border border-blue-300 aspect-square">
+                    <img
+                      src={preview}
+                      className="w-full h-full object-cover cursor-zoom-in"
+                      alt={`새사진${i + 1}`}
+                      onClick={() => {
+                        const allImgs = [
+                          ...editExtKeepUrls.map(toProxyUrl),
+                          ...editExtNewPreviews,
+                        ];
+                        setZoomImages(allImgs);
+                        setZoomIndex(editExtKeepUrls.length + i);
+                      }}
+                    />
+                    <span className="absolute top-1 left-1 bg-blue-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">NEW</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditExtNewFiles((prev) => prev.filter((_, idx) => idx !== i));
+                        setEditExtNewPreviews((prev) => prev.filter((_, idx) => idx !== i));
+                        if (editExtNewFiles.length <= 1 && editExtKeepUrls.length === (selectedLog?.checkin_exterior_urls?.length ?? 0)) {
+                          setEditExtChanged(false);
+                        }
+                      }}
+                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
+                    >
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                {editExtKeepUrls.length === 0 && editExtNewPreviews.length === 0 && (
+                  <p className="col-span-3 text-xs text-gray-400 text-center py-4">등록된 외관 사진이 없습니다</p>
+                )}
               </div>
             </div>
           </div>
@@ -1687,13 +1845,14 @@ export default function DetailModal({
                           url && (
                             <div
                               key={`checkin-${i}`}
-                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition bg-gray-200 animate-pulse"
                               onClick={() => openZoom(toProxyUrl(url))}
                             >
                               <img
                                 src={toProxyUrl(url)}
                                 className="w-full h-full object-cover"
                                 alt="운행 전 사진"
+                                onLoad={(e) => { (e.currentTarget.parentElement as HTMLElement).classList.remove("animate-pulse", "bg-gray-200"); }}
                                 onError={(e) => {
                                   const t = e.currentTarget;
                                   t.style.display = "none";
@@ -1733,13 +1892,14 @@ export default function DetailModal({
                           url && (
                             <div
                               key={`checkout-${i}`}
-                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition bg-gray-200 animate-pulse"
                               onClick={() => openZoom(toProxyUrl(url))}
                             >
                               <img
                                 src={toProxyUrl(url)}
                                 className="w-full h-full object-cover"
                                 alt="운행 후 사진"
+                                onLoad={(e) => { (e.currentTarget.parentElement as HTMLElement).classList.remove("animate-pulse", "bg-gray-200"); }}
                                 onError={(e) => {
                                   const t = e.currentTarget;
                                   t.style.display = "none";
@@ -2099,7 +2259,7 @@ export default function DetailModal({
   return (
     <>
       {/* 업로드 로딩 오버레이 */}
-      {uploading && (
+      {uploading && createPortal(
         <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
           <div className="bg-white rounded-sm px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -2108,7 +2268,8 @@ export default function DetailModal({
             </p>
             <p className="text-gray-400 text-sm">잠시만 기다려 주세요</p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 슬라이드 애니메이션 스타일 */}
@@ -2170,83 +2331,146 @@ export default function DetailModal({
         </div>
       )}
 
-      {/* --- 이미지 확대 갤러리 (가장 최상위 Z-index) --- */}
-      {zoomImages.length > 0 && (
+      {/* --- 이미지 확대 갤러리 (가장 최상위 Z-index, body portal) --- */}
+      {zoomImages.length > 0 && createPortal(
         <div
-          className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
-          onClick={() => setZoomImages([])}
+          className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center animate-fadeIn select-none"
+          style={{ cursor: zoomScale > 1 ? "grab" : "zoom-out" }}
+          onClick={(e) => {
+            // 배경 클릭 시 닫기 (스케일 1일 때만)
+            if (zoomScale === 1 && e.target === e.currentTarget) setZoomImages([]);
+          }}
+          onWheel={(e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.25 : -0.25;
+            setZoomScale((prev) => Math.max(1, Math.min(5, prev + delta)));
+          }}
+          onMouseDown={(e) => {
+            if (zoomScale > 1) {
+              isDraggingZoom.current = true;
+              dragStartZoom.current = { x: e.clientX, y: e.clientY };
+            }
+          }}
+          onMouseMove={(e) => {
+            if (!isDraggingZoom.current || zoomScale <= 1) return;
+            const dx = (e.clientX - dragStartZoom.current.x) / zoomScale;
+            const dy = (e.clientY - dragStartZoom.current.y) / zoomScale;
+            setZoomPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+            dragStartZoom.current = { x: e.clientX, y: e.clientY };
+          }}
+          onMouseUp={() => { isDraggingZoom.current = false; }}
+          onMouseLeave={() => { isDraggingZoom.current = false; }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              lastTouchDistZoom.current = Math.sqrt(dx * dx + dy * dy);
+              lastTouchCenterZoom.current = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+              };
+            } else if (e.touches.length === 1 && zoomScale > 1) {
+              isDraggingZoom.current = true;
+              dragStartZoom.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2) {
+              e.preventDefault();
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const ratio = dist / lastTouchDistZoom.current;
+              lastTouchDistZoom.current = dist;
+              setZoomScale((prev) => Math.max(1, Math.min(5, prev * ratio)));
+            } else if (e.touches.length === 1 && isDraggingZoom.current && zoomScale > 1) {
+              const touchDx = (e.touches[0].clientX - dragStartZoom.current.x) / zoomScale;
+              const touchDy = (e.touches[0].clientY - dragStartZoom.current.y) / zoomScale;
+              setZoomPan((prev) => ({ x: prev.x + touchDx, y: prev.y + touchDy }));
+              dragStartZoom.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+          }}
+          onTouchEnd={() => { isDraggingZoom.current = false; }}
         >
-          {zoomImages.length > 1 && (
+          {/* 좌우 이동 버튼 */}
+          {zoomImages.length > 1 && zoomScale === 1 && (
             <button
               onClick={handlePrevImage}
               className="absolute left-2 md:left-5 text-white bg-black/50 rounded-full p-3 md:p-4 hover:bg-black/80 z-10 transition cursor-pointer"
             >
-              <svg
-                className="w-8 h-8 md:w-10 md:h-10"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
+              <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
           )}
 
+          {/* 이미지 (스케일/팬 적용) */}
           <img
             src={zoomImages[zoomIndex]}
-            className="max-w-full max-h-[90vh] rounded shadow-2xl object-contain cursor-default"
+            className="max-w-full max-h-[90vh] rounded shadow-2xl object-contain"
+            style={{
+              transform: `scale(${zoomScale}) translate(${zoomPan.x}px, ${zoomPan.y}px)`,
+              transformOrigin: "center center",
+              transition: isDraggingZoom.current ? "none" : "transform 0.15s ease-out",
+              cursor: zoomScale > 1 ? "grabbing" : "default",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+            }}
             alt="zoom"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); }}
+            onDoubleClick={() => { setZoomScale(1); setZoomPan({ x: 0, y: 0 }); }}
+            draggable={false}
           />
 
-          {zoomImages.length > 1 && (
+          {zoomImages.length > 1 && zoomScale === 1 && (
             <button
               onClick={handleNextImage}
               className="absolute right-2 md:right-5 text-white bg-black/50 rounded-full p-3 md:p-4 hover:bg-black/80 z-10 transition cursor-pointer"
             >
-              <svg
-                className="w-8 h-8 md:w-10 md:h-10"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
+              <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           )}
 
-          <button className="absolute top-6 right-6 text-white bg-black/50 rounded-full p-2.5 hover:bg-black/80 z-10 cursor-pointer">
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-
-          {zoomImages.length > 1 && (
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white bg-black/60 px-5 py-2 rounded-full text-base font-bold tracking-widest z-10">
-              {zoomIndex + 1} / {zoomImages.length}
+          {/* 우측 상단 버튼 그룹 */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+            {/* 줌 인/아웃/리셋 */}
+            <div className="flex items-center gap-1 bg-black/50 rounded-full px-2 py-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); setZoomScale((p) => Math.min(5, p + 0.5)); }}
+                className="text-white w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-full transition text-lg font-bold"
+              >+</button>
+              <span className="text-white text-xs font-mono w-8 text-center">{Math.round(zoomScale * 100)}%</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setZoomScale((p) => Math.max(1, p - 0.5)); if (zoomScale <= 1.5) setZoomPan({ x: 0, y: 0 }); }}
+                className="text-white w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-full transition text-lg font-bold"
+              >−</button>
             </div>
-          )}
-        </div>
+            {/* 닫기 */}
+            <button
+              onClick={() => setZoomImages([])}
+              className="text-white bg-black/50 rounded-full p-2 hover:bg-black/80 transition cursor-pointer"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 하단 힌트 + 카운터 */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-10">
+            {zoomImages.length > 1 && zoomScale === 1 && (
+              <div className="text-white bg-black/60 px-4 py-1.5 rounded-full text-sm font-bold">
+                {zoomIndex + 1} / {zoomImages.length}
+              </div>
+            )}
+            {zoomScale === 1 && (
+              <div className="text-white/50 text-xs">스크롤·핀치로 확대 | 더블클릭으로 초기화</div>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );

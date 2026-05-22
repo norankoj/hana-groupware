@@ -175,7 +175,7 @@ export default function Home() {
       supabase
         .from("reservations")
         .select(
-          `id, start_at, end_at, purpose, resources(name, category), profiles:user_id(full_name)`,
+          `id, start_at, end_at, purpose, vehicle_status, resources(name, category), profiles:user_id(full_name)`,
         )
         .neq("status", "cancelled")
         .gte("start_at", todayStart.toISOString())
@@ -249,7 +249,10 @@ export default function Home() {
       );
       setTodayVehicles(
         reservationData.filter(
-          (r: any) => r.resources?.category === "vehicle" && r.resources,
+          (r: any) =>
+            r.resources?.category === "vehicle" &&
+            r.resources &&
+            r.vehicle_status !== "cancelled",
         ) as any,
       );
     }

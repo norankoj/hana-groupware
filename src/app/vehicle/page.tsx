@@ -42,6 +42,7 @@ type Vehicle = {
   insurance_info?: string;
   oil_changed_km?: number;
   oil_changed_date?: string;
+  oil_change_interval_km?: number;
   is_rented?: boolean;
   renter_name?: string;
   inspection_due_date?: string | null;
@@ -106,6 +107,8 @@ export default function VehicleReservationPage() {
   const supabase = createClient();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [logs, setLogs] = useState<VehicleLog[]>([]);
+  // 차량별 최신 엔진오일 정비 날짜 (교체완료 버튼 빨간색 판단용)
+  const [lastEngineOilDates, setLastEngineOilDates] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
@@ -146,6 +149,14 @@ export default function VehicleReservationPage() {
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null);
+
+  // logs 갱신 시 열려있는 상세 모달의 selectedLog도 자동 동기화
+  useEffect(() => {
+    if (selectedLog && isDetailModalOpen) {
+      const updated = logs.find((l) => l.id === selectedLog.id);
+      if (updated) setSelectedLog(updated as any);
+    }
+  }, [logs]);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedVehicleHistory, setSelectedVehicleHistory] =
     useState<Vehicle | null>(null);
@@ -246,7 +257,7 @@ export default function VehicleReservationPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         reservationId: id,
-        updates: { vehicle_status: "cancelled" }, // 상태 업데이트
+        updates: { vehicle_status: "cancelled" },
       }),
     });
     const result = await res.json();
@@ -256,6 +267,36 @@ export default function VehicleReservationPage() {
       toast.success("예약이 취소되었습니다.");
       setIsDetailModalOpen(false);
       fetchData();
+
+      // 차량 관리자에게 취소 알림 발송
+      const cancelledLog = logs.find((l) => l.id === id);
+      const cancelVehicleName = vehicles.find((v) => v.id === cancelledLog?.resource_id)?.name ?? "차량";
+      const cancelDriverName = cancelledLog?.driver_name ?? "예약자";
+      const cancelVehicleNotifyUserId = vehicles.find((v) => v.id === cancelledLog?.resource_id)?.notify_user_id ?? null;
+      supabase
+        .from("profiles")
+        .select("id")
+        .eq("is_vehicle_notify", true)
+        .then(({ data: managers }) => {
+          const baseIds = (managers ?? [])
+            .map((m: any) => m.id as string)
+            .filter((uid) => uid !== currentUser);
+          const ids = cancelVehicleNotifyUserId && cancelVehicleNotifyUserId !== currentUser && !baseIds.includes(cancelVehicleNotifyUserId)
+            ? [...baseIds, cancelVehicleNotifyUserId]
+            : baseIds;
+          if (ids.length > 0) {
+            fetch("/api/push/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userIds: ids,
+                title: "🚗 차량 예약 취소 알림",
+                body: `${cancelDriverName}님이 ${cancelVehicleName} 예약을 취소했습니다.`,
+                url: "/vehicle",
+              }),
+            }).catch(() => {});
+          }
+        });
     }
   };
 
@@ -403,6 +444,22 @@ export default function VehicleReservationPage() {
       .in("resource_id", vData?.map((v) => v.id) ?? []);
     if (cData) setConsumables(cData as Consumable[]);
 
+    // 차량별 최신 엔진오일 정비 날짜 조회
+    const { data: oilMaintData } = await supabase
+      .from("maintenance_records")
+      .select("resource_id, maintenance_date")
+      .in("resource_id", vData?.map((v) => v.id) ?? [])
+      .or("type.eq.engine_oil,type.eq.엔진오일 및 오일필터")
+      .order("maintenance_date", { ascending: false });
+
+    if (oilMaintData) {
+      const oilMap: Record<number, string> = {};
+      (oilMaintData as { resource_id: number; maintenance_date: string }[]).forEach((r) => {
+        if (!oilMap[r.resource_id]) oilMap[r.resource_id] = r.maintenance_date;
+      });
+      setLastEngineOilDates(oilMap);
+    }
+
     setLoading(false);
   };
 
@@ -514,8 +571,8 @@ export default function VehicleReservationPage() {
       handleCloseReserveModal();
       fetchData();
 
-      // 신규 등록일 때만 알림 발송 (수정 시 알림 발송 원하면 조건 제거)
-      if (!editingLogId) {
+      // 예약 신규/수정 모두 알림 발송
+      {
         const vehicleNotifyUserId = vehicles.find((v) => v.id === form.resource_id)?.notify_user_id ?? null;
         supabase
           .from("profiles")
@@ -525,18 +582,20 @@ export default function VehicleReservationPage() {
             const baseIds = (managers ?? [])
               .map((m: any) => m.id as string)
               .filter((id) => id !== currentUser);
-            // 차량별 담당자 추가 (전체 알림 대상에 없으면 추가, 본인 제외)
             const ids = vehicleNotifyUserId && vehicleNotifyUserId !== currentUser && !baseIds.includes(vehicleNotifyUserId)
               ? [...baseIds, vehicleNotifyUserId]
               : baseIds;
             if (ids.length > 0) {
+              const isEdit = !!editingLogId;
               fetch("/api/push/send", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   userIds: ids,
-                  title: "🚗 차량 예약 알림",
-                  body: `${reserverName}(${reserverDept})님이 ${vehicleName}을(를) 예약했습니다.`,
+                  title: isEdit ? "🚗 차량 예약 수정 알림" : "🚗 차량 예약 알림",
+                  body: isEdit
+                    ? `${reserverName}(${reserverDept})님이 ${vehicleName} 예약을 수정했습니다.`
+                    : `${reserverName}(${reserverDept})님이 ${vehicleName}을(를) 예약했습니다.`,
                   url: "/vehicle",
                 }),
               }).catch(() => {});
@@ -755,13 +814,19 @@ export default function VehicleReservationPage() {
     const carImage = VEHICLE_IMAGES[v.name];
     const isActive = activeCardId === v.id;
 
+    const oilInterval = v.oil_change_interval_km ?? 7000;
     const oilRemaining =
       v.current_mileage != null
-        ? (v.oil_changed_km ?? 0) + 7000 - v.current_mileage
+        ? (v.oil_changed_km ?? 0) + oilInterval - v.current_mileage
         : null;
     const oilOverdue = oilRemaining !== null && oilRemaining <= 0;
     const oilSoon =
       oilRemaining !== null && oilRemaining > 0 && oilRemaining <= 1000;
+    // 정비이력에 엔진오일 추가 후 교체완료 미처리 상태
+    const latestOilMaint = lastEngineOilDates[v.id];
+    const oilConfirmPending =
+      !!latestOilMaint &&
+      (!v.oil_changed_date || latestOilMaint > v.oil_changed_date);
 
     const lastReturnedLog = logs
       .filter(
@@ -792,7 +857,7 @@ export default function VehicleReservationPage() {
         className={`bg-white p-5 rounded-xl shadow-sm flex flex-col justify-between h-44 relative overflow-hidden group transition outline-none border ${
           v.is_rented
             ? "border-indigo-300"
-            : oilOverdue
+            : oilConfirmPending || oilOverdue
               ? "border-red-300"
               : oilSoon
                 ? "border-amber-300"
@@ -878,19 +943,29 @@ export default function VehicleReservationPage() {
               <span className="text-[10px] font-bold leading-none">정비</span>
             </button>
 
-            {currentProfile?.is_vehicle_notify && (oilOverdue || oilSoon) && (
+            {currentProfile?.is_vehicle_notify && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleOilChanged(v);
                   setActiveCardId(null);
                 }}
-                className="flex-1 flex flex-col items-center gap-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-white rounded-xl transition-all cursor-pointer shadow-sm"
+                className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm ${
+                  oilConfirmPending
+                    ? "bg-red-500 hover:bg-red-400 text-white animate-pulse"
+                    : oilOverdue
+                      ? "bg-red-500 hover:bg-red-400 text-white"
+                      : oilSoon
+                        ? "bg-amber-500 hover:bg-amber-400 text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-[10px] font-bold leading-none">오일교체</span>
+                <span className="text-[10px] font-bold leading-none">
+                  {oilConfirmPending ? "교체확인!" : "오일교체"}
+                </span>
               </button>
             )}
             {currentProfile?.is_vehicle_notify && (
@@ -957,22 +1032,24 @@ export default function VehicleReservationPage() {
             <h3 className="text-[17px] font-semibold text-gray-900 tracking-tight leading-tight">
               {v.name}
             </h3>
-            {(oilOverdue || oilSoon) && (
+            {(oilConfirmPending || oilOverdue || oilSoon) && (
               <div className="flex items-center gap-1 mt-0.5">
                 <span className="relative flex h-2 w-2 shrink-0">
                   <span
-                    className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${oilOverdue ? "bg-red-400" : "bg-amber-400"}`}
+                    className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${oilConfirmPending || oilOverdue ? "bg-red-400" : "bg-amber-400"}`}
                   />
                   <span
-                    className={`relative inline-flex h-2 w-2 rounded-full ${oilOverdue ? "bg-red-500" : "bg-amber-500"}`}
+                    className={`relative inline-flex h-2 w-2 rounded-full ${oilConfirmPending || oilOverdue ? "bg-red-500" : "bg-amber-500"}`}
                   />
                 </span>
                 <span
-                  className={`text-[10px] font-bold ${oilOverdue ? "text-red-500" : "text-amber-500"}`}
+                  className={`text-[10px] font-bold ${oilConfirmPending || oilOverdue ? "text-red-500" : "text-amber-500"}`}
                 >
-                  {oilOverdue
-                    ? "오일 교환 필요"
-                    : `오일 교환 ${oilRemaining!.toLocaleString()}km 전`}
+                  {oilConfirmPending
+                    ? "교체완료 확인 필요"
+                    : oilOverdue
+                      ? "오일 교환 필요"
+                      : `오일 교환 ${oilRemaining!.toLocaleString()}km 전`}
                 </span>
               </div>
             )}
@@ -1343,7 +1420,7 @@ export default function VehicleReservationPage() {
 
         const getOilRemaining = (v: Vehicle) =>
           v.current_mileage != null
-            ? (v.oil_changed_km ?? 0) + 7000 - v.current_mileage
+            ? (v.oil_changed_km ?? 0) + (v.oil_change_interval_km ?? 7000) - v.current_mileage
             : null;
 
         const getLastFuel = (vehicleId: number) => {
@@ -1741,29 +1818,44 @@ export default function VehicleReservationPage() {
                         </div>
                       </div>
                       <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="text-xs text-gray-400 mb-1">
-                          엔진오일 교체
+                        <div className="text-xs text-gray-400 mb-1 flex items-center justify-between">
+                          <span>엔진오일 교체</span>
+                          <span className="text-gray-600 font-medium">{((pcVehicle.oil_change_interval_km ?? 7000) / 1000).toLocaleString()}천km 주기</span>
                         </div>
                         {(() => {
                           const rem = getOilRemaining(pcVehicle);
                           const overdue = rem != null && rem <= 0;
                           const soon = rem != null && rem > 0 && rem <= 1000;
-                          const color = overdue ? "text-red-500" : soon ? "text-amber-500" : "text-gray-900";
+                          const latestOilMaintPc = lastEngineOilDates[pcVehicle.id];
+                          const pendingPc =
+                            !!latestOilMaintPc &&
+                            (!pcVehicle.oil_changed_date || latestOilMaintPc > pcVehicle.oil_changed_date);
+                          const color = pendingPc || overdue ? "text-red-500" : soon ? "text-amber-500" : "text-gray-900";
                           return (
                             <div className="flex items-center justify-between gap-2">
                               <div className={`text-base font-bold ${color}`}>
-                                {rem != null
-                                  ? rem <= 0
-                                    ? `${Math.abs(rem).toLocaleString()} km 초과`
-                                    : `${rem.toLocaleString()} km`
-                                  : "-"}
+                                {pendingPc
+                                  ? "교체확인 필요"
+                                  : rem != null
+                                    ? rem <= 0
+                                      ? `${Math.abs(rem).toLocaleString()} km 초과`
+                                      : `${rem.toLocaleString()} km`
+                                    : "-"}
                               </div>
-                              {currentProfile?.is_vehicle_notify && (overdue || soon) && (
+                              {currentProfile?.is_vehicle_notify && (
                                 <button
                                   onClick={() => handleOilChanged(pcVehicle)}
-                                  className="text-[11px] px-2 py-1 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-lg transition shrink-0"
+                                  className={`text-[11px] px-2 py-1 font-bold rounded-lg transition shrink-0 ${
+                                    pendingPc
+                                      ? "bg-red-500 hover:bg-red-400 text-white animate-pulse"
+                                      : overdue
+                                        ? "bg-red-500 hover:bg-red-400 text-white"
+                                        : soon
+                                          ? "bg-amber-500 hover:bg-amber-400 text-white"
+                                          : "bg-gray-200 hover:bg-gray-300 text-gray-600"
+                                  }`}
                                 >
-                                  교체완료
+                                  {pendingPc ? "교체확인!" : "교체완료"}
                                 </button>
                               )}
                             </div>
@@ -2175,6 +2267,38 @@ export default function VehicleReservationPage() {
         isOpen={isMaintenanceModalOpen}
         onClose={() => setIsMaintenanceModalOpen(false)}
         vehicle={selectedVehicleMaintenance}
+        onAdded={(vehicleName, type) => {
+          // 정비 추가 후 차량 데이터 갱신 (엔진오일 날짜 포함)
+          fetchData();
+          // 차량 관리자에게 정비 이력 알림 발송
+          const isOilChange =
+            type === "engine_oil" || type === "엔진오일 및 오일필터";
+          supabase
+            .from("profiles")
+            .select("id")
+            .eq("is_vehicle_notify", true)
+            .then(({ data: managers }) => {
+              const ids = (managers ?? [])
+                .map((m: any) => m.id as string)
+                .filter((uid) => uid !== currentUser);
+              if (ids.length > 0) {
+                fetch("/api/push/send", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    userIds: ids,
+                    title: isOilChange
+                      ? "🛢️ 엔진오일 교체 확인 필요"
+                      : "🔧 차량 정비 이력 등록",
+                    body: isOilChange
+                      ? `${vehicleName} 엔진오일이 교체됐습니다. 차량 관리에서 교체완료 버튼을 눌러주세요.`
+                      : `${vehicleName}에 정비 이력이 등록되었습니다. (${type})`,
+                    url: "/vehicle",
+                  }),
+                }).catch(() => {});
+              }
+            });
+        }}
       />
 
       {/* 차량 관리 모달 (담당자 지정 / 정기검사 / 소모품) */}

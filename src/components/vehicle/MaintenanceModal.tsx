@@ -70,12 +70,14 @@ interface MaintenanceModalProps {
   isOpen: boolean;
   onClose: () => void;
   vehicle: Vehicle | null;
+  onAdded?: (vehicleName: string, type: string) => void;
 }
 
 export default function MaintenanceModal({
   isOpen,
   onClose,
   vehicle,
+  onAdded,
 }: MaintenanceModalProps) {
   const supabase = createClient();
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
@@ -143,9 +145,11 @@ export default function MaintenanceModal({
     });
     if (error) return toast.error(error.message);
     toast.success("정비 이력이 등록되었습니다.");
+    const addedType = form.type;
     resetForm();
     setShowForm(false);
     fetchRecords();
+    onAdded?.(vehicle.name, addedType);
   };
 
   const handleUpdate = async () => {
