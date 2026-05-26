@@ -8,11 +8,12 @@
       "Bash(grep -r \"onAuthStateChange\\\\|on.*subscribe\\\\|realtime\" --include=*.tsx --include=*.ts .)",
       "Bash(grep -r \"storage\\\\|bucket\\\\|file\" --include=*.tsx --include=*.ts .)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Bash(npx tsc *)"
     ],
-	 "deny": [
-            "Read(.env*)",
-            "Edit(.env*)"
-        ]
+    "deny": [
+      "Read(.env*)",
+      "Edit(.env*)"
+    ]
   }
 }

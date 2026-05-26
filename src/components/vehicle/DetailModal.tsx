@@ -95,6 +95,8 @@ export default function DetailModal({
   const [uploading, setUploading] = useState(false);
   const [uploadingMessage, setUploadingMessage] = useState("처리 중...");
   const [isMobile, setIsMobile] = useState(false);
+  // Samsung Galaxy 등 일부 Android 브라우저에서 onChange가 발화하지 않는 버그 대응용
+  const exteriorInputHandling = useRef(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -318,17 +320,33 @@ export default function DetailModal({
     }
   };
 
-  const handleExteriorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      if (exteriorFiles.length + newFiles.length > 10) {
+  const handleExteriorFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    // Samsung Galaxy 등에서 onChange/onInput 이벤트가 중복 발화하는 경우 방지
+    if (exteriorInputHandling.current) return;
+    exteriorInputHandling.current = true;
+    setTimeout(() => { exteriorInputHandling.current = false; }, 200);
+
+    const newFiles = Array.from(files);
+    setExteriorFiles((prev) => {
+      if (prev.length + newFiles.length > 10) {
         toast.error("외관 사진은 최대 10장까지만 등록 가능합니다.");
-        return;
+        return prev;
       }
-      setExteriorFiles((prev) => [...prev, ...newFiles]);
-      const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
-      setExteriorPreviews((prev) => [...prev, ...newPreviews]);
-    }
+      return [...prev, ...newFiles];
+    });
+    setExteriorPreviews((prev) => {
+      if (prev.length + newFiles.length > 10) return prev;
+      return [...prev, ...newFiles.map((f) => URL.createObjectURL(f))];
+    });
+  };
+
+  // onChange: 일반 브라우저용 / onInput: Samsung Galaxy 등 일부 Android 브라우저 대응
+  const handleExteriorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleExteriorFiles(e.target.files);
+  };
+  const handleExteriorInput = (e: React.FormEvent<HTMLInputElement>) => {
+    handleExteriorFiles((e.target as HTMLInputElement).files);
   };
 
   const removeExterior = (index: number) => {
@@ -1120,6 +1138,7 @@ export default function DetailModal({
                   multiple
                   className="hidden"
                   onChange={handleExteriorChange}
+                  onInput={handleExteriorInput}
                 />
               </label>
             )}

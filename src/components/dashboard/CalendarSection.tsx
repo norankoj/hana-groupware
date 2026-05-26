@@ -147,6 +147,14 @@ const getBirthdaysOnDate = (dateStr: string): string[] => {
   return BIRTHDAYS[mmdd] || [];
 };
 
+// 비전트립 A/B → 달력에는 "비전트립"으로 통일 표시
+const normalizeVacationTitle = (title: string) =>
+  title === "비전트립 A" || title === "비전트립 B" ? "비전트립" : title;
+
+// 비전트립 계열 여부 판별 (공휴일에도 표시 대상)
+const isVisionTrip = (title: string) =>
+  title === "비전트립" || title === "비전트립 A" || title === "비전트립 B";
+
 interface Props {
   allEvents: CalendarEvent[];
   teams: TeamInfo[];
@@ -191,8 +199,8 @@ export default function CalendarSection({
       (e) =>
         dateStr >= e.start_date &&
         dateStr <= e.end_date &&
-        // 비전트립은 공휴일이어도 표시
-        (!holiday || e.title === "비전트립"),
+        // 비전트립 계열은 공휴일이어도 표시
+        (!holiday || isVisionTrip(e.title)),
     );
     filtered.sort((a, b) => {
       if (a.type === "vacation" && b.type === "schedule") return -1;
@@ -418,8 +426,8 @@ export default function CalendarSection({
                       (e) =>
                         dateStr >= e.start_date &&
                         dateStr <= e.end_date &&
-                        // 비전트립은 공휴일이어도 표시, 그 외 vacation은 공휴일 제외
-                        (!holiday || e.title === "비전트립"),
+                        // 비전트립 계열은 공휴일이어도 표시, 그 외 vacation은 공휴일 제외
+                        (!holiday || isVisionTrip(e.title)),
                     );
                     const allItems = [
                       ...birthdays.map((name) => ({
@@ -431,7 +439,7 @@ export default function CalendarSection({
                         text:
                           e.type === "schedule"
                             ? e.title
-                            : `${e.display_name} ${e.title}`,
+                            : `${e.display_name} ${normalizeVacationTitle(e.title)}`,
                         style:
                           e.type === "schedule"
                             ? SCHEDULE_STYLE
@@ -532,7 +540,7 @@ export default function CalendarSection({
                             const displayText =
                               e.type === "schedule"
                                 ? e.title
-                                : `${e.display_name} ${e.title}`;
+                                : `${e.display_name} ${normalizeVacationTitle(e.title)}`;
                             return (
                               <div
                                 key={e.id}
@@ -616,7 +624,7 @@ export default function CalendarSection({
                             <span
                               className={`text-xs text-gray-500 truncate ${e.type === "schedule" && "font-semibold text-indigo-600"}`}
                             >
-                              {e.title}
+                              {e.type === "vacation" ? normalizeVacationTitle(e.title) : e.title}
                               {e.type === "vacation" &&
                                 e.start_date !== e.end_date && (
                                   <span className="text-gray-400 font-normal">

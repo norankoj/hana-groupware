@@ -78,7 +78,7 @@ export default function ScheduleAddModal({
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0, width: 0 });
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0, width: 0, maxH: 400 });
   const datePickerRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -109,10 +109,25 @@ export default function ScheduleAddModal({
       const rect = datePickerRef.current.getBoundingClientRect();
       const calendarWidth = 350;
       const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
       let leftPos = rect.left;
       if (rect.left + calendarWidth > windowWidth) leftPos = windowWidth - calendarWidth - 20;
       if (leftPos < 10) leftPos = 10;
-      setPickerPos({ top: rect.bottom + 5, left: leftPos, width: rect.width });
+
+      // 아래 공간이 부족하면 버튼 위에 달력 표시 (모바일 대응)
+      const CALENDAR_H = 340;
+      const spaceBelow = windowHeight - rect.bottom - 10;
+      let topPos: number;
+      let maxH: number;
+      if (spaceBelow >= CALENDAR_H || rect.top < CALENDAR_H + 10) {
+        topPos = rect.bottom + 5;
+        maxH = Math.max(200, spaceBelow);
+      } else {
+        topPos = Math.max(10, rect.top - CALENDAR_H - 5);
+        maxH = CALENDAR_H;
+      }
+
+      setPickerPos({ top: topPos, left: leftPos, width: rect.width, maxH });
       setShowDatePicker(true);
     }
   };
@@ -212,7 +227,7 @@ export default function ScheduleAddModal({
           <div className="fixed inset-0 z-[9998]" onClick={() => setShowDatePicker(false)} />
           <div
             className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
-            style={{ top: pickerPos.top, left: pickerPos.left, width: pickerPos.width, maxWidth: "90vw" }}
+            style={{ top: pickerPos.top, left: pickerPos.left, width: pickerPos.width, maxWidth: "90vw", maxHeight: pickerPos.maxH, overflowY: "auto" }}
           >
             <style>{`
               .range-calendar-wrapper .react-calendar__month-view__days {
