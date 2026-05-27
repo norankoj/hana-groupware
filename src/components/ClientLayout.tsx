@@ -187,25 +187,31 @@ export default function ClientLayout({
         ) {
           fetchData(session.user.id);
         }
+        // 외부 공유 페이지에서는 로그인 페이지로 보내지 않는다
+        const onShare = window.location.pathname.startsWith("/share");
         if (event === "SIGNED_OUT") {
           setProfile(null);
           setMenus([]);
-          router.replace("/login");
+          if (!onShare) router.replace("/login");
         }
         // 세션 만료 (토큰 갱신 실패)
         if (event === "TOKEN_REFRESHED" && !session) {
-          toast.error("세션이 만료되었습니다. 다시 로그인해 주세요.", {
-            duration: 4000,
-          });
+          if (!onShare) {
+            toast.error("세션이 만료되었습니다. 다시 로그인해 주세요.", {
+              duration: 4000,
+            });
+          }
           setProfile(null);
           setMenus([]);
-          router.replace("/login");
+          if (!onShare) router.replace("/login");
         }
       },
     );
 
     // 모바일 PWA: 앱이 백그라운드 → 포그라운드로 돌아올 때 세션 갱신
     const handleVisibilityChange = async () => {
+      // 외부 공유 페이지(/share/*)는 로그인 없이 접근 가능하므로 세션 체크 스킵
+      if (window.location.pathname.startsWith("/share")) return;
       if (document.visibilityState === "visible") {
         const { data, error } = await supabase.auth.getSession();
         if (error || !data.session) {
@@ -249,6 +255,15 @@ export default function ClientLayout({
   };
 
   if (pathname === "/login")
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
+    );
+
+  // 외부 공유 페이지(/share/*) — 로그인 없이 접근, 사이드바·헤더 없이 렌더
+  if (pathname.startsWith("/share"))
     return (
       <>
         {children}

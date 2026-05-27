@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, Fragment } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
+import CopyMessageModal, { type CopyTemplate } from "@/components/projects/CopyMessageModal";
+import AuditLogModal from "@/components/projects/AuditLogModal";
 import { uploadFile, deleteFile } from "@/utils/upload";
+import { logAudit, summarizeAssignmentDiff } from "@/utils/auditLog";
+import {
+  buildVehicleGuestKO,
+  buildVehicleGuestEN,
+  buildVehicleHostKO,
+} from "@/utils/messageTemplates";
 import {
   checkMultiPeriodCoverage,
   getFamilyVehiclePeriods,
@@ -69,6 +77,17 @@ type Missionary = {
 
 type Family = { key: string; label: string; repId: string; memberCount: number };
 
+type FlatRow = {
+  key: string;
+  family: Family;
+  periods: DatePeriod[];
+  coverage: Coverage;
+  vehicle: MvVehicle | null;
+  memberIds: Set<string>;
+  assignedFrom: string;
+  assignedTo: string;
+};
+
 /** "2026-07-15" → "07/15" */
 const fmtD = (d: string | null | undefined) =>
   d ? d.slice(5).replace("-", "/") : "?";
@@ -107,9 +126,15 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
   const [pickTo,        setPickTo]        = useState("");
   const [savingPick,    setSavingPick]    = useState(false);
 
+  // ── 안내문 복사 / 변경 이력 모달 ─────────────────────────────────────────
+  const [copyMsg, setCopyMsg] = useState<{ title: string; templates: CopyTemplate[] } | null>(null);
+  const [showAuditLog, setShowAuditLog] = useState(false);
+
   const fetchData = useCallback(async () => {
     const [{ data: v }, { data: m }] = await Promise.all([
-      supabase.from("marf_vehicles").select("*").eq("project_id", projectId).order("created_at"),
+      supabase.from("marf_vehicles").select("*").eq("project_id", projectId)
+        .order("available_from", { ascending: true, nullsFirst: false })
+        .order("created_at"),
       supabase
         .from("marf_missionaries")
         .select("id, name, family_group, vehicle_periods, vehicle_from, vehicle_to, arrival_date, departure_date")
@@ -140,6 +165,21 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
     soloMissionaries.forEach((m) =>
       families.push({ key: m.id, label: m.name, repId: m.id, memberCount: 1 }),
     );
+    // ── 차량 요청 시작일 기준 날짜 정렬 ──
+    const getSortDate = (repId: string): string => {
+      const m = missionaries.find((x) => x.id === repId);
+      if (!m) return "";
+      const periods = (m.vehicle_periods ?? []).filter((p) => p.from);
+      if (periods.length > 0) return [...periods.map((p) => p.from)].sort()[0];
+      return m.vehicle_from ?? m.arrival_date ?? "";
+    };
+    families.sort((a, b) => {
+      const da = getSortDate(a.repId), db = getSortDate(b.repId);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.localeCompare(db);
+    });
     return { groupMap, soloMissionaries, families };
   }, [missionaries]);
 
@@ -163,9 +203,18 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
     const map = new Map<string, { vehicles: MvVehicle[]; coverage: Coverage }>();
     families.forEach((family) => {
       const memberIds = getMemberIds(family.repId);
-      const vehicles = items.filter((item) =>
-        normalizeAssignments(item).some((a) => memberIds.has(a.missionary_id)),
-      );
+      const vehicles = items
+        .filter((item) => normalizeAssignments(item).some((a) => memberIds.has(a.missionary_id)))
+        .sort((a, b) => {
+          // 이 가족의 배정 시작일로 정렬
+          const getFrom = (item: MvVehicle) => {
+            const d = normalizeAssignments(item).filter((a) => memberIds.has(a.missionary_id)).map((a) => a.from).filter(Boolean).sort();
+            return d[0] ?? item.available_from ?? "";
+          };
+          const da = getFrom(a), db = getFrom(b);
+          if (!da && !db) return 0; if (!da) return 1; if (!db) return -1;
+          return da.localeCompare(db);
+        });
       const requested = getFamilyVehiclePeriods(family.repId, missionaries);
       const assignedPeriods = items.flatMap((item) =>
         normalizeAssignments(item)
@@ -177,6 +226,43 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
     });
     return map;
   }, [families, getMemberIds, missionaries, items]);
+
+  // 요약표용 플랫 행 목록 (날짜순 정렬, 기간별 분리) (memoized)
+  const flatSummaryRows = useMemo((): FlatRow[] => {
+    const rows: FlatRow[] = [];
+    families.forEach((family) => {
+      const { vehicles = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
+      const periods = getFamilyVehiclePeriods(family.repId, missionaries);
+      const memberIds = getMemberIds(family.repId);
+      if (vehicles.length === 0) {
+        rows.push({ key: `${family.key}-unassigned`, family, periods, coverage, vehicle: null, memberIds, assignedFrom: "", assignedTo: "" });
+      } else {
+        vehicles.forEach((v) => {
+          const myA = normalizeAssignments(v).filter(as => memberIds.has(as.missionary_id));
+          if (myA.length === 0) {
+            rows.push({ key: `${family.key}-${v.id}`, family, periods, coverage, vehicle: v, memberIds, assignedFrom: "", assignedTo: "" });
+          } else {
+            myA.forEach((as, i) => {
+              rows.push({
+                key: `${family.key}-${v.id}-${i}`,
+                family, periods,
+                coverage: checkMultiPeriodCoverage([{ from: as.from, to: as.to }], periods),
+                vehicle: v, memberIds,
+                assignedFrom: as.from, assignedTo: as.to,
+              });
+            });
+          }
+        });
+      }
+    });
+    rows.sort((a, b) => {
+      if (!a.assignedFrom && !b.assignedFrom) return 0;
+      if (!a.assignedFrom) return 1;
+      if (!b.assignedFrom) return -1;
+      return a.assignedFrom.localeCompare(b.assignedFrom);
+    });
+    return rows;
+  }, [families, familyDataMap, missionaries, getMemberIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 교회 차량: available_from/to 우선, 없으면 프로젝트 기간 폴백
   const churchVehicleBound = (item: MvVehicle) => ({
@@ -268,8 +354,9 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
     setSavingPick(true);
     const vehicle = items.find((x) => x.id === pickVehicleId);
     if (!vehicle) { setSavingPick(false); return; }
+    const before = normalizeAssignments(vehicle);
     const newAssignments: AssignmentEntry[] = [
-      ...normalizeAssignments(vehicle),
+      ...before,
       { missionary_id: pickFamily.repId, from: pickFrom, to: pickTo },
     ];
     const { error } = await supabase.from("marf_vehicles").update({
@@ -278,6 +365,12 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
     }).eq("id", pickVehicleId);
     if (error) { toast.error("배정 실패"); setSavingPick(false); return; }
     toast.success("배정되었습니다.");
+    const nameMap = new Map(missionaries.map((m) => [m.id, m.family_group || m.name]));
+    logAudit(supabase, {
+      projectId, entityType: "vehicle", entityId: pickVehicleId, action: "assign",
+      summary: `[${vehicle.provider_name}] ${summarizeAssignmentDiff(before, newAssignments, nameMap)}`,
+      beforeData: before, afterData: newAssignments,
+    });
     setShowPickModal(false); fetchData(); setSavingPick(false);
   };
 
@@ -340,21 +433,134 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
       guide_content: form.guide_content || null, notes: form.notes || null,
     };
     if (selected) {
+      const before = selected;
       const { error } = await supabase.from("marf_vehicles").update(payload).eq("id", selected.id);
       if (error) { toast.error("수정 실패"); setSaving(false); return; }
       toast.success("수정되었습니다.");
+      logAudit(supabase, {
+        projectId, entityType: "vehicle", entityId: selected.id,
+        action: "update", summary: `차량 수정: ${payload.provider_name}`,
+        beforeData: before, afterData: payload,
+      });
     } else {
-      const { error } = await supabase.from("marf_vehicles").insert({ ...payload, project_id: projectId });
+      const { data: inserted, error } = await supabase
+        .from("marf_vehicles")
+        .insert({ ...payload, project_id: projectId })
+        .select("id")
+        .single();
       if (error) { toast.error("저장 실패"); setSaving(false); return; }
       toast.success("등록되었습니다.");
+      logAudit(supabase, {
+        projectId, entityType: "vehicle", entityId: inserted?.id,
+        action: "create", summary: `차량 추가: ${payload.provider_name}`,
+        afterData: payload,
+      });
     }
     setShowModal(false); fetchData(); setSaving(false);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
+    const target = items.find((x) => x.id === id);
     await supabase.from("marf_vehicles").delete().eq("id", id);
-    toast.success("삭제되었습니다."); fetchData();
+    toast.success("삭제되었습니다.");
+    if (target) {
+      logAudit(supabase, {
+        projectId, entityType: "vehicle", entityId: id,
+        action: "delete", summary: `차량 삭제: ${target.provider_name}`,
+        beforeData: target,
+      });
+    }
+    fetchData();
+  };
+
+  // ── 안내문 복사 모달 열기 ──────────────────────────────────────────────
+  const openCopyForAssignment = (item: MvVehicle, assign: AssignmentEntry) => {
+    const m = missionaries.find((x) => x.id === assign.missionary_id);
+    const familyName = m?.family_group || m?.name || "(가정)";
+    const opts = {
+      familyName,
+      providerName: item.provider_name,
+      providerContact: item.provider_contact,
+      carModel: item.car_model,
+      carNumber: item.car_number,
+      from: assign.from,
+      to: assign.to,
+      insuranceAdded: item.insurance_added,
+      notes: item.notes,
+    };
+    const templates: CopyTemplate[] = [
+      { key: "guest_ko", label: "🇰🇷 선교사용 (한국어)", body: buildVehicleGuestKO(opts) },
+      { key: "guest_en", label: "🇺🇸 선교사용 (English)", body: buildVehicleGuestEN(opts) },
+      { key: "host_ko",  label: "🙏 봉사자 확정 알림",   body: buildVehicleHostKO({
+        providerName: item.provider_name, familyName,
+        from: assign.from, to: assign.to,
+        insuranceAdded: item.insurance_added, notes: item.notes,
+      }) },
+    ];
+    setCopyMsg({ title: `${item.provider_name} → ${familyName} 안내문`, templates });
+  };
+
+  /** 배정별 사진 업로드 (이용 전/후) */
+  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null); // "vehicleId-aIdx-type"
+
+  const handlePhotoUpload = async (
+    vehicle: MvVehicle,
+    assignmentIdx: number,
+    photoType: "start" | "end",
+    files: FileList,
+  ) => {
+    if (!files.length) return;
+    const key = `${vehicle.id}-${assignmentIdx}-${photoType}`;
+    setUploadingPhoto(key);
+    try {
+      const urls: string[] = [];
+      for (const file of Array.from(files)) {
+        const { url } = await uploadFile(file, "vehicle", `marf/${vehicle.id}`);
+        if (url) urls.push(url);
+      }
+      const asns = normalizeAssignments(vehicle).map((a, i) => {
+        if (i !== assignmentIdx) return a;
+        const prev = (photoType === "start" ? a.start_photos : a.end_photos) ?? [];
+        return photoType === "start"
+          ? { ...a, start_photos: [...prev, ...urls] }
+          : { ...a, end_photos:   [...prev, ...urls] };
+      });
+      const { error } = await supabase.from("marf_vehicles")
+        .update({ assignments: asns, assigned_missionary_id: asns[0]?.missionary_id || null })
+        .eq("id", vehicle.id);
+      if (error) { toast.error("사진 저장 실패"); return; }
+      toast.success("사진 저장됨");
+      fetchData();
+    } finally {
+      setUploadingPhoto(null);
+    }
+  };
+
+  /** 배정 사진 삭제 */
+  const handlePhotoDelete = async (
+    vehicle: MvVehicle,
+    assignmentIdx: number,
+    photoType: "start" | "end",
+    photoUrl: string,
+  ) => {
+    if (!confirm("사진을 삭제할까요?")) return;
+    const asns = normalizeAssignments(vehicle).map((a, i) => {
+      if (i !== assignmentIdx) return a;
+      return photoType === "start"
+        ? { ...a, start_photos: (a.start_photos ?? []).filter(u => u !== photoUrl) }
+        : { ...a, end_photos:   (a.end_photos   ?? []).filter(u => u !== photoUrl) };
+    });
+    await supabase.from("marf_vehicles")
+      .update({ assignments: asns })
+      .eq("id", vehicle.id);
+    // MinIO 파일 삭제 시도 (실패해도 무시)
+    try {
+      const obj = new URL(photoUrl).pathname.replace(/^\/vehicle\//, "");
+      await deleteFile(obj, "vehicle");
+    } catch {}
+    toast.success("삭제됨");
+    fetchData();
   };
 
   const matchedFamilies = useMemo(() =>
@@ -390,6 +596,16 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
             <button onClick={() => setViewMode("summary")} className={`px-3 py-1.5 font-medium transition border-l border-gray-200 ${viewMode === "summary" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>요약표</button>
             <button onClick={() => setViewMode("all")} className={`px-3 py-1.5 font-medium transition border-l border-gray-200 ${viewMode === "all" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>차량목록</button>
           </div>
+          <button
+            onClick={() => setShowAuditLog(true)}
+            title="차량 변경 이력"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="hidden sm:inline">이력</span>
+          </button>
           {isAdmin && (
             <button onClick={() => openCreate()} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -400,79 +616,92 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
       </div>
 
       {viewMode === "summary" ? (
-        /* ── 요약표 뷰 ── */
-        families.length === 0 ? (
+        /* ── 요약표 뷰 (날짜순 플랫 리스트) ── */
+        flatSummaryRows.length === 0 ? (
           <div className="text-center py-12 text-gray-400"><p>차량이 필요한 선교사가 없습니다.</p></div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500 text-xs">가정</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500 text-xs hidden sm:table-cell">요청 기간</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500 text-xs">배정 차량</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs w-14">보험</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs w-14">충족</th>
-                  {isAdmin && <th className="px-3 py-2.5 w-16" />}
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">가정</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">차량 / 제공자</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">배정 기간</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">차종 / 번호</th>
+                  <th className="text-center px-3 py-3 font-semibold text-gray-600 w-16 hidden sm:table-cell">보험</th>
+                  {isMember && <th className="px-4 py-3 w-20" />}
                 </tr>
               </thead>
               <tbody>
-                {families.map((family) => {
-                  const { vehicles = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
-                  const periods = getFamilyVehiclePeriods(family.repId, missionaries);
-                  const memberIds = getMemberIds(family.repId);
-                  const insuranceOk = vehicles.length > 0 && vehicles.every(v => v.insurance_added);
-                  const insuranceWarn = vehicles.some(v => !v.insurance_added);
-                  return (
-                    <tr key={family.key} className="border-t border-gray-100 hover:bg-gray-50 transition">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-semibold text-gray-900">
-                            {family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {family.label}
-                          </span>
-                          {family.memberCount > 1 && <span className="text-xs text-gray-400">{family.memberCount}명</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-600 hidden sm:table-cell">
-                        {periods.length > 0 ? formatPeriods(periods) : <span className="text-gray-400">미입력</span>}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {vehicles.length === 0 ? (
-                          <span className="text-xs text-orange-500 font-medium">미배정</span>
-                        ) : (
-                          <div className="space-y-0.5">
-                            {vehicles.map((v) => {
-                              const myA = normalizeAssignments(v).filter(as => memberIds.has(as.missionary_id));
-                              return (
-                                <div key={v.id} className="flex items-center gap-1.5">
-                                  <span className="text-sm text-gray-800 font-medium cursor-pointer hover:text-blue-600" onClick={() => openDetail(v)}>{v.provider_name}</span>
-                                  {v.car_number && <span className="text-xs text-gray-400">{v.car_number}</span>}
-                                  {myA.map((as, i) => as.from && (
-                                    <span key={i} className="text-xs text-gray-400 bg-gray-100 px-1 py-0.5 rounded">{fmtD(as.from)}~{fmtD(as.to)}</span>
-                                  ))}
-                                </div>
-                              );
-                            })}
+                {flatSummaryRows.map((row) => {
+                  if (!row.vehicle) {
+                    return (
+                      <tr key={row.key} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900">
+                            {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
                           </div>
+                          {row.family.memberCount > 1 && <div className="text-xs text-gray-400">{row.family.memberCount}명</div>}
+                          {row.periods.length > 0 && (
+                            <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods)}</div>
+                          )}
+                        </td>
+                        <td colSpan={isMember ? 4 : 3} className="px-4 py-3">
+                          <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  const v = row.vehicle;
+                  return (
+                    <tr key={row.key} className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition" onClick={() => openDetail(v)}>
+                      <td className="px-4 py-3 align-top">
+                        <div className="font-medium text-gray-900">
+                          {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
+                        </div>
+                        {row.family.memberCount > 1 && <div className="text-xs text-gray-400">{row.family.memberCount}명</div>}
+                        {row.periods.length > 0 && (
+                          <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods)}</div>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {vehicles.length === 0 ? (
-                          <span className="text-gray-300 text-base">—</span>
-                        ) : insuranceOk ? (
-                          <span className="text-green-500 text-base font-bold">✓</span>
-                        ) : insuranceWarn ? (
-                          <span className="text-orange-400 text-sm font-semibold">!</span>
-                        ) : null}
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-gray-900">{v.provider_name}</span>
+                          {v.is_church_owned && <span className="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">교회</span>}
+                        </div>
+                        {v.provider_contact && <p className="text-xs text-gray-400 mt-0.5">{v.provider_contact}</p>}
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`text-base font-bold ${coverage === "full" ? "text-green-500" : coverage === "partial" ? "text-orange-400" : vehicles.length > 0 ? "text-orange-400" : "text-gray-300"}`}>
-                          {vehicles.length === 0 ? "—" : COVER_ICON[coverage]}
-                        </span>
+                      <td className="px-4 py-3 align-top hidden sm:table-cell">
+                        {row.assignedFrom ? (
+                          <span className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
+                            {fmtD(row.assignedFrom)}~{fmtD(row.assignedTo)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">미입력</span>
+                        )}
                       </td>
-                      {isAdmin && (
-                        <td className="px-3 py-2.5 text-right">
-                          <button onClick={() => openPickModal(family)} className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition font-semibold">배정</button>
+                      <td className="px-4 py-3 align-top text-xs text-gray-500 hidden md:table-cell">
+                        {v.car_model && <span className="mr-1">{v.car_model}</span>}
+                        {v.car_number && <span className="text-gray-400">{v.car_number}</span>}
+                        {!v.car_model && !v.car_number && <span className="text-gray-300">미입력</span>}
+                      </td>
+                      <td className="px-3 py-3 align-top text-center hidden sm:table-cell">
+                        {v.insurance_added
+                          ? <span className="text-xs text-green-600 font-semibold">✓ 완료</span>
+                          : <span className="text-xs text-orange-500 font-semibold">미완료</span>}
+                      </td>
+                      {isMember && (
+                        <td className="px-4 py-3 text-right align-top" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => openEdit(v)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                            {isAdmin && (
+                              <button onClick={() => handleDelete(v.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition" title="삭제">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -489,130 +718,144 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
             <p className="text-sm mt-1">명단 탭에서 &quot;차량 필요&quot;를 체크하세요.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {families.map((family) => {
-              const { vehicles = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
-              const periods = getFamilyVehiclePeriods(family.repId, missionaries);
-              const hasVehicles = vehicles.length > 0;
-              const memberIds = getMemberIds(family.repId);
-              return (
-                <div key={family.key} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  {/* 가정 헤더 */}
-                  <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 ${hasVehicles ? "bg-gray-50" : "bg-orange-50"}`}>
-                    <div className="flex items-center gap-2 flex-wrap min-w-0">
-                      {family.memberCount > 1 ? (
-                        <>
-                          <span className="text-sm font-bold text-gray-900">👨‍👩‍👧 {family.label}</span>
-                          <span className="text-xs text-gray-400">{family.memberCount}명</span>
-                        </>
-                      ) : (
-                        <span className="text-sm font-bold text-gray-900">👤 {family.label}</span>
-                      )}
-                      {/* 요청 기간 배지 */}
-                      {periods.map((p, i) => (
-                        <span key={i} className="text-xs text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded">
-                          📅 {fmtD(p.from)}~{fmtD(p.to)}
-                        </span>
-                      ))}
-                      {/* 커버리지 배지 */}
-                      {hasVehicles ? (
-                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                          coverage === "full"    ? "bg-green-100 text-green-700" :
-                          coverage === "partial" ? "bg-orange-100 text-orange-600" :
-                                                   "bg-red-100 text-red-600"
-                        }`}>
-                          {COVER_ICON[coverage]}{" "}
-                          {coverage === "full" ? "완전 충족" : coverage === "partial" ? "부분 충족" : "기간 불일치"}
-                          {vehicles.length > 1 && ` · 분산 ${vehicles.length}대`}
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
-                      )}
-                    </div>
-                    {isAdmin && (
-                      <button
-                        onClick={() => openPickModal(family)}
-                        className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition ml-2"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                        차량 배정
-                      </button>
-                    )}
-                  </div>
-
-                  {/* 배정된 차량 목록 */}
-                  {vehicles.length === 0 ? (
-                    <div className="px-4 py-3 text-xs text-gray-400 text-center">배정된 차량이 없습니다.</div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {vehicles.map((v) => {
-                        const myAssignments = normalizeAssignments(v).filter((as) => memberIds.has(as.missionary_id));
-                        const missingLicense = v.drivers?.some((d) => d.name && !d.license_url);
-                        return (
-                          <div
-                            key={v.id}
-                            className="flex items-start gap-3 px-4 py-4 hover:bg-gray-50/60 cursor-pointer transition-colors"
-                            onClick={() => openDetail(v)}
-                          >
-                            <div className="flex-1 min-w-0">
-                              {/* 1행: 제공자명 + 배지들 */}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-gray-900 text-[15px]">{v.provider_name}</span>
-                                {myAssignments.map((a, i) => a.from && (
-                                  <span key={i} className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium">
-                                    {fmtD(a.from)}~{fmtD(a.to)}
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">차량 / 제공자</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">배정 기간</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">차종 / 번호</th>
+                    <th className="text-center px-3 py-3 font-semibold text-gray-600 w-16 hidden sm:table-cell">보험</th>
+                    {isMember && <th className="px-4 py-3 w-20" />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {families.map((family) => {
+                    const { vehicles = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
+                    const periods = getFamilyVehiclePeriods(family.repId, missionaries);
+                    const memberIds = getMemberIds(family.repId);
+                    const colSpanCount = isMember ? 5 : 4;
+                    const insuranceWarn = vehicles.length > 0 && vehicles.some(v => !v.insurance_added);
+                    return (
+                      <Fragment key={family.key}>
+                        {/* 가정 그룹 헤더 행 — 그레이 톤 */}
+                        <tr className="bg-gray-50 border-t border-b border-gray-200">
+                          <td colSpan={colSpanCount} className="px-4 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="text-xs font-bold text-gray-700">
+                                  {family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {family.label}
+                                </span>
+                                {family.memberCount > 1 && <span className="text-xs text-gray-400">{family.memberCount}명</span>}
+                                {periods.length > 0 && (
+                                  <span className="text-xs text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded hidden sm:inline">
+                                    {formatPeriods(periods)}
                                   </span>
-                                ))}
-                                {!v.is_church_owned && v.available_from && !(myAssignments.length === 1 && myAssignments[0].from === v.available_from) && (
-                                  <span className="text-xs text-gray-400">
-                                    (제공: {fmtD(v.available_from)}~{fmtD(v.available_to)})
-                                  </span>
-                                )}
-                                {!v.insurance_added && (
-                                  <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-1.5 py-0.5 rounded-full">보험미완</span>
-                                )}
-                                {missingLicense && (
-                                  <span className="text-xs bg-yellow-100 text-yellow-600 font-semibold px-1.5 py-0.5 rounded-full">면허미첨부</span>
                                 )}
                               </div>
-                              {/* 2행: 차량 번호 */}
-                              {v.car_number && (
-                                <div className="mt-1">
-                                  <span className="text-xs text-gray-400">{v.car_number}</span>
-                                </div>
-                              )}
-                              {/* 3행: 운전자 */}
-                              {v.drivers?.length > 0 && (
-                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                                  {v.drivers.map((d, i) => (
-                                    <span key={i} className="text-xs text-gray-400">
-                                      {d.name || "이름 미입력"}
-                                      {!d.license_url && <span className="text-yellow-500 ml-1">면허미첨부</span>}
+                              <div className="flex items-center gap-2 shrink-0">
+                                {vehicles.length === 0 ? (
+                                  <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
+                                ) : (
+                                  <>
+                                    {insuranceWarn && (
+                                      <span className="text-xs bg-orange-50 text-orange-500 border border-orange-200 px-1.5 py-0.5 rounded font-medium">보험 미완료</span>
+                                    )}
+                                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                                      coverage === "full"    ? "bg-green-100 text-green-700" :
+                                      coverage === "partial" ? "bg-orange-100 text-orange-600" :
+                                                               "bg-red-100 text-red-600"
+                                    }`}>
+                                      {COVER_ICON[coverage]}{" "}
+                                      {coverage === "full" ? "충족" : coverage === "partial" ? "부분 충족" : "기간 불일치"}
+                                      {vehicles.length > 1 && ` · ${vehicles.length}대`}
                                     </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {isMember && (
-                              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => openEdit(v)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
+                                  </>
+                                )}
                                 {isAdmin && (
-                                  <button onClick={() => handleDelete(v.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition" title="삭제">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  <button onClick={() => openPickModal(family)} className="text-xs text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded font-semibold transition">
+                                    배정
                                   </button>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                            </div>
+                          </td>
+                        </tr>
+                        {/* 차량 서브 행 */}
+                        {vehicles.length === 0 ? (
+                          <tr className="border-t border-gray-100">
+                            <td colSpan={colSpanCount} className="px-8 py-3 text-xs text-gray-400 italic">
+                              배정된 차량이 없습니다.
+                            </td>
+                          </tr>
+                        ) : (
+                          vehicles.map((v) => {
+                            const myA = normalizeAssignments(v).filter(as => memberIds.has(as.missionary_id));
+                            const missingLicense = v.drivers?.some((d) => d.name && !d.license_url);
+                            return (
+                              <tr key={v.id} className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition" onClick={() => openDetail(v)}>
+                                <td className="px-6 py-3">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-gray-900">{v.provider_name}</span>
+                                    {v.is_church_owned && <span className="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">교회</span>}
+                                    {!v.insurance_added && <span className="text-xs bg-orange-100 text-orange-500 px-1.5 py-0.5 rounded font-medium">보험미완</span>}
+                                    {missingLicense && <span className="text-xs bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded font-medium">면허미첨부</span>}
+                                  </div>
+                                  {v.provider_contact && <p className="text-xs text-gray-400 mt-0.5">{v.provider_contact}</p>}
+                                </td>
+                                <td className="px-4 py-3 hidden sm:table-cell">
+                                  {myA.map((as, i) => as.from ? (
+                                    <span key={i} className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded font-medium mr-1">
+                                      {fmtD(as.from)}~{fmtD(as.to)}
+                                    </span>
+                                  ) : null)}
+                                </td>
+                                <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
+                                  {v.car_model && <span className="mr-1">{v.car_model}</span>}
+                                  {v.car_number && <span className="text-gray-400">{v.car_number}</span>}
+                                  {!v.car_model && !v.car_number && <span className="text-gray-300">미입력</span>}
+                                </td>
+                                <td className="px-3 py-3 text-center hidden sm:table-cell">
+                                  {v.insurance_added
+                                    ? <span className="text-xs text-green-600 font-semibold">✓ 완료</span>
+                                    : <span className="text-xs text-orange-500 font-semibold">미완료</span>}
+                                </td>
+                                {isMember && (
+                                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-end gap-1">
+                                      {myA[0]?.from && (
+                                        <button
+                                          onClick={() => openCopyForAssignment(v, myA[0])}
+                                          className="text-gray-400 hover:text-emerald-600 p-1 rounded hover:bg-emerald-50 transition"
+                                          title="안내문 복사"
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                      <button onClick={() => openEdit(v)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                      </button>
+                                      {isAdmin && (
+                                        <button onClick={() => handleDelete(v.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition" title="삭제">
+                                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             {/* 배정 가능 차량 풀 */}
             {unassignedPool.length > 0 && (
@@ -623,17 +866,11 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                 </div>
                 <div className="divide-y divide-gray-100">
                   {unassignedPool.map(({ item: v, remainingPeriods }) => (
-                    <div
-                      key={`${v.id}-pool`}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => openDetail(v)}
-                    >
+                    <div key={`${v.id}-pool`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(v)}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-gray-900 text-[15px]">{v.provider_name}</span>
-                          {v.is_church_owned && (
-                            <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">교회</span>
-                          )}
+                          {v.is_church_owned && <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">교회</span>}
                           {v.car_model && <span className="text-xs text-gray-400">{v.car_model}</span>}
                           {v.car_number && <span className="text-xs text-gray-400">{v.car_number}</span>}
                           {remainingPeriods.length > 0 ? (
@@ -647,9 +884,7 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                               </span>
                             )
                           )}
-                          {!v.insurance_added && (
-                            <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-1.5 py-0.5 rounded-full">보험미완</span>
-                          )}
+                          {!v.insurance_added && <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-1.5 py-0.5 rounded-full">보험미완</span>}
                         </div>
                       </div>
                       {isMember && (
@@ -891,6 +1126,70 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                                   {requested.length > 0 && (
                                     <p className="text-xs text-gray-500 mt-1">요청 기간: {formatPeriods(requested, false)}</p>
                                   )}
+                                  {/* ── 이용 전/후 사진 ── */}
+                                  {isMember && (
+                                    <div className="mt-3 grid grid-cols-2 gap-3">
+                                      {(["start", "end"] as const).map((pt) => {
+                                        const photos = pt === "start" ? (assignment.start_photos ?? []) : (assignment.end_photos ?? []);
+                                        const label  = pt === "start" ? "이용 전" : "이용 후";
+                                        const uploading = uploadingPhoto === `${v.id}-${i}-${pt}`;
+                                        return (
+                                          <div key={pt}>
+                                            <p className="text-xs font-semibold text-gray-500 mb-1.5">{label} 사진</p>
+                                            {/* 썸네일 */}
+                                            {photos.length > 0 && (
+                                              <div className="flex flex-wrap gap-1.5 mb-2">
+                                                {photos.map((url, pi) => (
+                                                  <div key={pi} className="relative group w-16 h-16">
+                                                    <a href={url} target="_blank" rel="noopener noreferrer">
+                                                      <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                                                    </a>
+                                                    <button
+                                                      onClick={() => handlePhotoDelete(v, i, pt, url)}
+                                                      className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                                                    >✕</button>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                            {/* 업로드 버튼 */}
+                                            <label className={`flex items-center gap-1 cursor-pointer text-xs px-2 py-1 rounded border border-dashed transition
+                                              ${uploading ? "border-gray-200 text-gray-300" : "border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500"}`}>
+                                              {uploading
+                                                ? <span>업로드 중...</span>
+                                                : <><span className="text-sm">📷</span><span>사진 추가</span></>
+                                              }
+                                              <input
+                                                type="file" accept="image/*" multiple className="hidden" disabled={uploading}
+                                                onChange={(e) => e.target.files && handlePhotoUpload(v, i, pt, e.target.files)}
+                                              />
+                                            </label>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  {/* 멤버가 아닐 때도 사진은 볼 수 있도록 */}
+                                  {!isMember && (assignment.start_photos?.length || assignment.end_photos?.length) ? (
+                                    <div className="mt-3 grid grid-cols-2 gap-3">
+                                      {(["start", "end"] as const).map((pt) => {
+                                        const photos = pt === "start" ? (assignment.start_photos ?? []) : (assignment.end_photos ?? []);
+                                        if (!photos.length) return null;
+                                        return (
+                                          <div key={pt}>
+                                            <p className="text-xs font-semibold text-gray-500 mb-1.5">{pt === "start" ? "이용 전" : "이용 후"} 사진</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {photos.map((url, pi) => (
+                                                <a key={pi} href={url} target="_blank" rel="noopener noreferrer">
+                                                  <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                                                </a>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : null}
                                 </div>
                               );
                             })}
@@ -1200,6 +1499,28 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
           )}
         </div>
       </Modal>
+
+      {/* 안내문 복사 모달 */}
+      {copyMsg && (
+        <CopyMessageModal
+          isOpen={!!copyMsg}
+          onClose={() => setCopyMsg(null)}
+          title={copyMsg.title}
+          templates={copyMsg.templates}
+          hint="복사 후 카카오톡/이메일에 붙여넣으세요. 보내기 전에 내용을 자유롭게 수정할 수 있어요."
+        />
+      )}
+
+      {/* 변경 이력 모달 */}
+      {showAuditLog && (
+        <AuditLogModal
+          isOpen={showAuditLog}
+          onClose={() => setShowAuditLog(false)}
+          projectId={projectId}
+          title="차량 변경 이력"
+          entityType="vehicle"
+        />
+      )}
     </div>
   );
 }

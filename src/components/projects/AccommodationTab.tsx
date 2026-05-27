@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, Fragment } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
+import CopyMessageModal, { type CopyTemplate } from "@/components/projects/CopyMessageModal";
+import AuditLogModal from "@/components/projects/AuditLogModal";
+import { logAudit, summarizeAssignmentDiff } from "@/utils/auditLog";
+import {
+  buildAccomGuestKO,
+  buildAccomGuestEN,
+  buildAccomHostKO,
+} from "@/utils/messageTemplates";
 import {
   checkMultiPeriodCoverage,
   getFamilyAccomPeriods,
@@ -17,8 +25,14 @@ import {
 
 type Props = { projectId: string; myUserId: string; isMember: boolean; isAdmin: boolean };
 
-// 가정별 배정 항목 (기간 포함)
-export type AssignmentEntry = { missionary_id: string; from: string; to: string };
+// 가정별 배정 항목 (기간 + 차량 사진 포함)
+export type AssignmentEntry = {
+  missionary_id: string;
+  from: string;
+  to: string;
+  start_photos?: string[];   // 이용 전 사진 URL 목록
+  end_photos?: string[];     // 이용 후 사진 URL 목록
+};
 
 type Accommodation = {
   id: string;
@@ -48,6 +62,17 @@ type Missionary = {
 };
 
 type Family = { key: string; label: string; repId: string; memberCount: number };
+
+type FlatRow = {
+  key: string;
+  family: Family;
+  periods: DatePeriod[];
+  coverage: Coverage;
+  accom: Accommodation | null;
+  memberIds: Set<string>;
+  assignedFrom: string;
+  assignedTo: string;
+};
 
 
 /** assignments JSONB 우선, 없으면 legacy assigned_missionary_id → 마이그레이션 */
@@ -97,9 +122,15 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
   const [pickTo,        setPickTo]        = useState("");
   const [savingPick,    setSavingPick]    = useState(false);
 
+  // ── 안내문 복사 모달 / 변경 이력 모달 ─────────────────────────────────────
+  const [copyMsg, setCopyMsg] = useState<{ title: string; templates: CopyTemplate[] } | null>(null);
+  const [showAuditLog, setShowAuditLog] = useState(false);
+
   const fetchData = useCallback(async () => {
     const [{ data: a }, { data: m }] = await Promise.all([
-      supabase.from("marf_accommodations").select("*").eq("project_id", projectId).order("created_at"),
+      supabase.from("marf_accommodations").select("*").eq("project_id", projectId)
+        .order("available_from", { ascending: true, nullsFirst: false })
+        .order("created_at"),
       supabase
         .from("marf_missionaries")
         .select("id, name, family_group, accommodation_periods, accommodation_from, accommodation_to, arrival_date, departure_date")
@@ -130,6 +161,21 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
     soloMissionaries.forEach((m) =>
       families.push({ key: m.id, label: m.name, repId: m.id, memberCount: 1 }),
     );
+    // ── 숙소 요청 시작일 기준 날짜 정렬 ──
+    const getSortDate = (repId: string): string => {
+      const m = missionaries.find((x) => x.id === repId);
+      if (!m) return "";
+      const periods = (m.accommodation_periods ?? []).filter((p) => p.from);
+      if (periods.length > 0) return [...periods.map((p) => p.from)].sort()[0];
+      return m.accommodation_from ?? m.arrival_date ?? "";
+    };
+    families.sort((a, b) => {
+      const da = getSortDate(a.repId), db = getSortDate(b.repId);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.localeCompare(db);
+    });
     return { groupMap, soloMissionaries, families };
   }, [missionaries]);
 
@@ -156,9 +202,18 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
     const map = new Map<string, { accoms: Accommodation[]; coverage: Coverage }>();
     families.forEach((family) => {
       const memberIds = getMemberIds(family.repId);
-      const accoms = items.filter((item) =>
-        normalizeAssignments(item).some((a) => memberIds.has(a.missionary_id)),
-      );
+      const accoms = items
+        .filter((item) => normalizeAssignments(item).some((a) => memberIds.has(a.missionary_id)))
+        .sort((a, b) => {
+          // 이 가족의 배정 시작일로 정렬
+          const getFrom = (item: Accommodation) => {
+            const d = normalizeAssignments(item).filter((a) => memberIds.has(a.missionary_id)).map((a) => a.from).filter(Boolean).sort();
+            return d[0] ?? item.available_from ?? "";
+          };
+          const da = getFrom(a), db = getFrom(b);
+          if (!da && !db) return 0; if (!da) return 1; if (!db) return -1;
+          return da.localeCompare(db);
+        });
       const requested = getFamilyAccomPeriods(family.repId, missionaries);
       const assignedPeriods = items.flatMap((item) =>
         normalizeAssignments(item)
@@ -170,6 +225,43 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
     });
     return map;
   }, [families, getMemberIds, missionaries, items]);
+
+  // 요약표용 플랫 행 목록 (날짜순 정렬, 기간별 분리) (memoized)
+  const flatSummaryRows = useMemo((): FlatRow[] => {
+    const rows: FlatRow[] = [];
+    families.forEach((family) => {
+      const { accoms = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
+      const periods = getFamilyAccomPeriods(family.repId, missionaries);
+      const memberIds = getMemberIds(family.repId);
+      if (accoms.length === 0) {
+        rows.push({ key: `${family.key}-unassigned`, family, periods, coverage, accom: null, memberIds, assignedFrom: "", assignedTo: "" });
+      } else {
+        accoms.forEach((a) => {
+          const myA = normalizeAssignments(a).filter(as => memberIds.has(as.missionary_id));
+          if (myA.length === 0) {
+            rows.push({ key: `${family.key}-${a.id}`, family, periods, coverage, accom: a, memberIds, assignedFrom: "", assignedTo: "" });
+          } else {
+            myA.forEach((as, i) => {
+              rows.push({
+                key: `${family.key}-${a.id}-${i}`,
+                family, periods,
+                coverage: checkMultiPeriodCoverage([{ from: as.from, to: as.to }], periods),
+                accom: a, memberIds,
+                assignedFrom: as.from, assignedTo: as.to,
+              });
+            });
+          }
+        });
+      }
+    });
+    rows.sort((a, b) => {
+      if (!a.assignedFrom && !b.assignedFrom) return 0;
+      if (!a.assignedFrom) return 1;
+      if (!b.assignedFrom) return -1;
+      return a.assignedFrom.localeCompare(b.assignedFrom);
+    });
+    return rows;
+  }, [families, familyDataMap, missionaries, getMemberIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 교회 숙소: available_from/to 우선, 없으면 프로젝트 기간 폴백
   const churchAccomBound = (item: Accommodation) => ({
@@ -255,8 +347,9 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
     setSavingPick(true);
     const accom = items.find((x) => x.id === pickAccomId);
     if (!accom) { setSavingPick(false); return; }
+    const before = normalizeAssignments(accom);
     const newAssignments: AssignmentEntry[] = [
-      ...normalizeAssignments(accom),
+      ...before,
       { missionary_id: pickFamily.repId, from: pickFrom, to: pickTo },
     ];
     const { error } = await supabase.from("marf_accommodations").update({
@@ -266,6 +359,13 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
     if (error) { toast.error("배정 실패"); setSavingPick(false); return; }
     await syncCleaningChecklists(pickAccomId, accom.provider_name, newAssignments);
     toast.success("배정되었습니다.");
+    // 변경 이력
+    const nameMap = new Map(missionaries.map((m) => [m.id, m.family_group || m.name]));
+    logAudit(supabase, {
+      projectId, entityType: "accommodation", entityId: pickAccomId, action: "assign",
+      summary: `[${accom.provider_name}] ${summarizeAssignmentDiff(before, newAssignments, nameMap)}`,
+      beforeData: before, afterData: newAssignments,
+    });
     setShowPickModal(false); fetchData(); setSavingPick(false);
   };
 
@@ -288,10 +388,16 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
       notes: form.notes || null,
     };
     if (selected) {
+      const before = selected;
       const { error } = await supabase.from("marf_accommodations").update(payload).eq("id", selected.id);
       if (error) { toast.error("수정 실패"); setSaving(false); return; }
       await syncCleaningChecklists(selected.id, form.provider_name, validAssignments);
       toast.success("수정되었습니다.");
+      logAudit(supabase, {
+        projectId, entityType: "accommodation", entityId: selected.id,
+        action: "update", summary: `숙소 수정: ${payload.provider_name}`,
+        beforeData: before, afterData: payload,
+      });
     } else {
       const { data: inserted, error } = await supabase
         .from("marf_accommodations")
@@ -301,12 +407,18 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
       if (error) { toast.error("저장 실패"); setSaving(false); return; }
       await syncCleaningChecklists(inserted.id, form.provider_name, validAssignments);
       toast.success("등록되었습니다.");
+      logAudit(supabase, {
+        projectId, entityType: "accommodation", entityId: inserted.id,
+        action: "create", summary: `숙소 추가: ${payload.provider_name}`,
+        afterData: payload,
+      });
     }
     setShowModal(false); fetchData(); setSaving(false);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
+    const target = items.find((x) => x.id === id);
     await supabase.from("marf_accommodations").delete().eq("id", id);
     // 자동 생성된 청소 체크리스트 함께 삭제
     await supabase.from("project_checklists")
@@ -314,7 +426,40 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
       .eq("project_id", projectId)
       .eq("source_id", id)
       .eq("source_type", "accommodation_cleaning");
-    toast.success("삭제되었습니다."); fetchData();
+    toast.success("삭제되었습니다.");
+    if (target) {
+      logAudit(supabase, {
+        projectId, entityType: "accommodation", entityId: id,
+        action: "delete", summary: `숙소 삭제: ${target.provider_name}`,
+        beforeData: target,
+      });
+    }
+    fetchData();
+  };
+
+  // ── 안내문 복사 모달 열기 (배정된 가정용 안내) ─────────────────────────
+  const openCopyForAssignment = (item: Accommodation, assign: AssignmentEntry) => {
+    const m = missionaries.find((x) => x.id === assign.missionary_id);
+    const familyName = m?.family_group || m?.name || "(가정)";
+    const opts = {
+      familyName,
+      providerName: item.provider_name,
+      providerContact: item.provider_contact,
+      address: item.address,
+      from: assign.from,
+      to: assign.to,
+      amenities: item.amenities,
+      notes: item.notes,
+    };
+    const templates: CopyTemplate[] = [
+      { key: "guest_ko", label: "🇰🇷 선교사용 (한국어)", body: buildAccomGuestKO(opts) },
+      { key: "guest_en", label: "🇺🇸 선교사용 (English)", body: buildAccomGuestEN(opts) },
+      { key: "host_ko",  label: "🙏 봉사자 확정 알림",   body: buildAccomHostKO({
+        providerName: item.provider_name, familyName,
+        from: assign.from, to: assign.to, notes: item.notes,
+      }) },
+    ];
+    setCopyMsg({ title: `${item.provider_name} → ${familyName} 안내문`, templates });
   };
 
   /**
@@ -386,6 +531,16 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
             <button onClick={() => setViewMode("summary")} className={`px-3 py-1.5 font-medium transition border-l border-gray-200 ${viewMode === "summary" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>요약표</button>
             <button onClick={() => setViewMode("all")} className={`px-3 py-1.5 font-medium transition border-l border-gray-200 ${viewMode === "all" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>숙소목록</button>
           </div>
+          <button
+            onClick={() => setShowAuditLog(true)}
+            title="숙소 변경 이력"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="hidden sm:inline">이력</span>
+          </button>
           {isAdmin && (
             <button onClick={() => openCreate()} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -396,66 +551,83 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
       </div>
 
       {viewMode === "summary" ? (
-        /* ── 요약표 뷰 ── */
-        families.length === 0 ? (
+        /* ── 요약표 뷰 (날짜순 플랫 리스트) ── */
+        flatSummaryRows.length === 0 ? (
           <div className="text-center py-12 text-gray-400"><p>숙소가 필요한 선교사가 없습니다.</p></div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500 text-xs">가정</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500 text-xs hidden sm:table-cell">요청 기간</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500 text-xs">배정 숙소</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs w-14">충족</th>
-                  {isAdmin && <th className="px-3 py-2.5 w-16" />}
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">가정</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">숙소 / 제공자</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">배정 기간</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">주소</th>
+                  {isMember && <th className="px-4 py-3 w-20" />}
                 </tr>
               </thead>
               <tbody>
-                {families.map((family) => {
-                  const { accoms = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
-                  const periods = getFamilyAccomPeriods(family.repId, missionaries);
-                  const memberIds = getMemberIds(family.repId);
-                  return (
-                    <tr key={family.key} className="border-t border-gray-100 hover:bg-gray-50 transition">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-semibold text-gray-900">
-                            {family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {family.label}
-                          </span>
-                          {family.memberCount > 1 && <span className="text-xs text-gray-400">{family.memberCount}명</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-600 hidden sm:table-cell">
-                        {periods.length > 0 ? formatPeriods(periods) : <span className="text-gray-400">미입력</span>}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {accoms.length === 0 ? (
-                          <span className="text-xs text-orange-500 font-medium">미배정</span>
-                        ) : (
-                          <div className="space-y-0.5">
-                            {accoms.map((a) => {
-                              const myA = normalizeAssignments(a).filter(as => memberIds.has(as.missionary_id));
-                              return (
-                                <div key={a.id} className="flex items-center gap-1.5">
-                                  <span className="text-sm text-gray-800 font-medium cursor-pointer hover:text-blue-600" onClick={() => openDetail(a)}>{a.provider_name}</span>
-                                  {myA.map((as, i) => as.from && (
-                                    <span key={i} className="text-xs text-gray-400 bg-gray-100 px-1 py-0.5 rounded">{fmtD(as.from)}~{fmtD(as.to)}</span>
-                                  ))}
-                                </div>
-                              );
-                            })}
+                {flatSummaryRows.map((row) => {
+                  if (!row.accom) {
+                    return (
+                      <tr key={row.key} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900">
+                            {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
                           </div>
+                          {row.family.memberCount > 1 && <div className="text-xs text-gray-400">{row.family.memberCount}명</div>}
+                          {row.periods.length > 0 && (
+                            <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods)}</div>
+                          )}
+                        </td>
+                        <td colSpan={isMember ? 3 : 2} className="px-4 py-3">
+                          <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  return (
+                    <tr key={row.key} className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition" onClick={() => openDetail(row.accom!)}>
+                      <td className="px-4 py-3 align-top">
+                        <div className="font-medium text-gray-900">
+                          {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
+                        </div>
+                        {row.family.memberCount > 1 && <div className="text-xs text-gray-400">{row.family.memberCount}명</div>}
+                        {row.periods.length > 0 && (
+                          <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods)}</div>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`text-base font-bold ${coverage === "full" ? "text-green-500" : coverage === "partial" ? "text-orange-400" : accoms.length > 0 ? "text-orange-400" : "text-gray-300"}`}>
-                          {accoms.length === 0 ? "—" : COVER_ICON[coverage]}
-                        </span>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-gray-900">{row.accom.provider_name}</span>
+                          {row.accom.is_church_owned && <span className="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">교회</span>}
+                        </div>
+                        {row.accom.provider_contact && <p className="text-xs text-gray-400 mt-0.5">{row.accom.provider_contact}</p>}
                       </td>
-                      {isAdmin && (
-                        <td className="px-3 py-2.5 text-right">
-                          <button onClick={() => openPickModal(family)} className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition font-semibold">배정</button>
+                      <td className="px-4 py-3 align-top hidden sm:table-cell">
+                        {row.assignedFrom ? (
+                          <span className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
+                            {fmtD(row.assignedFrom)}~{fmtD(row.assignedTo)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">미입력</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top text-xs text-gray-400 hidden md:table-cell truncate max-w-[200px]">
+                        {row.accom.address || <span className="text-gray-300">미입력</span>}
+                      </td>
+                      {isMember && (
+                        <td className="px-4 py-3 text-right align-top" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => openEdit(row.accom!)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                            {isAdmin && (
+                              <button onClick={() => handleDelete(row.accom!.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition" title="삭제">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -472,111 +644,132 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
             <p className="text-sm mt-1">명단 탭에서 &quot;숙소 필요&quot;를 체크하세요.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {families.map((family) => {
-              const { accoms = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
-              const periods = getFamilyAccomPeriods(family.repId, missionaries);
-              const hasAccoms = accoms.length > 0;
-              const memberIds = getMemberIds(family.repId);
-              return (
-                <div key={family.key} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  {/* 가정 헤더 */}
-                  <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 ${hasAccoms ? "bg-gray-50" : "bg-orange-50"}`}>
-                    <div className="flex items-center gap-2 flex-wrap min-w-0">
-                      {family.memberCount > 1 ? (
-                        <>
-                          <span className="text-sm font-bold text-gray-900">👨‍👩‍👧 {family.label}</span>
-                          <span className="text-xs text-gray-400">{family.memberCount}명</span>
-                        </>
-                      ) : (
-                        <span className="text-sm font-bold text-gray-900">👤 {family.label}</span>
-                      )}
-                      {periods.map((p, i) => (
-                        <span key={i} className="text-xs text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded">
-                          📅 {fmtD(p.from)}~{fmtD(p.to)}
-                        </span>
-                      ))}
-                      {hasAccoms ? (
-                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                          coverage === "full"    ? "bg-green-100 text-green-700" :
-                          coverage === "partial" ? "bg-orange-100 text-orange-600" :
-                                                   "bg-red-100 text-red-600"
-                        }`}>
-                          {COVER_ICON[coverage]}{" "}
-                          {coverage === "full" ? "완전 충족" : coverage === "partial" ? "부분 충족" : "기간 불일치"}
-                          {accoms.length > 1 && ` · 분산 ${accoms.length}개`}
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
-                      )}
-                    </div>
-                    {isAdmin && (
-                      <button onClick={() => openPickModal(family)} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition ml-2">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                        숙소 배정
-                      </button>
-                    )}
-                  </div>
-
-                  {/* 배정된 숙소 목록 */}
-                  {accoms.length === 0 ? (
-                    <div className="px-4 py-3 text-xs text-gray-400 text-center">배정된 숙소가 없습니다.</div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {accoms.map((a) => {
-                        const myAssignments = normalizeAssignments(a).filter((as) => memberIds.has(as.missionary_id));
-                        return (
-                          <div key={a.id} className="flex items-start gap-3 px-4 py-4 hover:bg-gray-50/60 cursor-pointer transition-colors" onClick={() => openDetail(a)}>
-                            <div className="flex-1 min-w-0">
-                              {/* 1행: 숙소명 + 배지들 */}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-gray-900 text-[15px]">
-                                  {a.provider_name}
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">숙소 / 제공자</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">배정 기간</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">주소</th>
+                    {isMember && <th className="px-4 py-3 w-20" />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {families.map((family) => {
+                    const { accoms = [], coverage = "none" as Coverage } = familyDataMap.get(family.repId) ?? {};
+                    const periods = getFamilyAccomPeriods(family.repId, missionaries);
+                    const memberIds = getMemberIds(family.repId);
+                    const colSpanCount = isMember ? 4 : 3;
+                    return (
+                      <Fragment key={family.key}>
+                        {/* 가정 그룹 헤더 행 — 그레이 톤 */}
+                        <tr className="bg-gray-50 border-t border-b border-gray-200">
+                          <td colSpan={colSpanCount} className="px-4 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="text-xs font-bold text-gray-700">
+                                  {family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {family.label}
                                 </span>
-                                {myAssignments.map((as, i) => as.from && (
-                                  <span key={i} className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium">
-                                    {fmtD(as.from)}~{fmtD(as.to)}
+                                {family.memberCount > 1 && <span className="text-xs text-gray-400">{family.memberCount}명</span>}
+                                {periods.length > 0 && (
+                                  <span className="text-xs text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded hidden sm:inline">
+                                    {formatPeriods(periods)}
                                   </span>
-                                ))}
-                                {!a.is_church_owned && a.available_from &&
-                                  !(myAssignments.length === 1 && myAssignments[0].from === a.available_from) && (
-                                    <span className="text-xs text-gray-400">
-                                      (제공: {fmtD(a.available_from)}~{fmtD(a.available_to)})
-                                    </span>
-                                  )}
-                              </div>
-                              {/* 2행: 주소 + 연락처 */}
-                              <div className="flex items-center gap-3 mt-1">
-                                {a.address && (
-                                  <p className="text-xs text-gray-400 truncate">{a.address}</p>
-                                )}
-                                {a.provider_contact && (
-                                  <span className="text-xs text-gray-400 shrink-0">{a.provider_contact}</span>
                                 )}
                               </div>
-                            </div>
-                            {isMember && (
-                              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => openEdit(a)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {accoms.length === 0 ? (
+                                  <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
+                                ) : (
+                                  <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                                    coverage === "full"    ? "bg-green-100 text-green-700" :
+                                    coverage === "partial" ? "bg-orange-100 text-orange-600" :
+                                                             "bg-red-100 text-red-600"
+                                  }`}>
+                                    {COVER_ICON[coverage]}{" "}
+                                    {coverage === "full" ? "충족" : coverage === "partial" ? "부분 충족" : "기간 불일치"}
+                                    {accoms.length > 1 && ` · ${accoms.length}개`}
+                                  </span>
+                                )}
                                 {isAdmin && (
-                                  <button onClick={() => handleDelete(a.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition" title="삭제">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  <button onClick={() => openPickModal(family)} className="text-xs text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded font-semibold transition">
+                                    배정
                                   </button>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                            </div>
+                          </td>
+                        </tr>
+                        {/* 숙소 서브 행 */}
+                        {accoms.length === 0 ? (
+                          <tr className="border-t border-gray-100">
+                            <td colSpan={colSpanCount} className="px-8 py-3 text-xs text-gray-400 italic">
+                              배정된 숙소가 없습니다.
+                            </td>
+                          </tr>
+                        ) : (
+                          accoms.map((a) => {
+                            const myA = normalizeAssignments(a).filter(as => memberIds.has(as.missionary_id));
+                            return (
+                              <tr key={a.id} className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition" onClick={() => openDetail(a)}>
+                                <td className="px-6 py-3">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-gray-900">{a.provider_name}</span>
+                                    {a.is_church_owned && <span className="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">교회</span>}
+                                  </div>
+                                  {a.provider_contact && <p className="text-xs text-gray-400 mt-0.5">{a.provider_contact}</p>}
+                                </td>
+                                <td className="px-4 py-3 hidden sm:table-cell">
+                                  {myA.map((as, i) => as.from ? (
+                                    <span key={i} className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded font-medium mr-1">
+                                      {fmtD(as.from)}~{fmtD(as.to)}
+                                    </span>
+                                  ) : null)}
+                                  {!a.is_church_owned && a.available_from && myA.every(as => !as.from) && (
+                                    <span className="text-xs text-gray-400">{fmtD(a.available_from)}~{fmtD(a.available_to)}</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-xs text-gray-400 hidden md:table-cell truncate max-w-[200px]">
+                                  {a.address || <span className="text-gray-300">미입력</span>}
+                                </td>
+                                {isMember && (
+                                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-end gap-1">
+                                      {myA[0]?.from && (
+                                        <button
+                                          onClick={() => openCopyForAssignment(a, myA[0])}
+                                          className="text-gray-400 hover:text-emerald-600 p-1 rounded hover:bg-emerald-50 transition"
+                                          title="안내문 복사"
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                      <button onClick={() => openEdit(a)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                      </button>
+                                      {isAdmin && (
+                                        <button onClick={() => handleDelete(a.id)} className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition" title="삭제">
+                                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-            {/* 미배정 숙소 풀 (완전 미배정 + 교회 소속 남은 기간) */}
+            {/* 배정 가능 숙소 풀 (완전 미배정 + 교회 소속 남은 기간) */}
             {unassignedPool.length > 0 && (
               <div className="bg-white rounded-xl border border-dashed border-gray-300 overflow-hidden">
                 <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -588,9 +781,7 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
                     <div key={`${a.id}-pool`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(a)}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-gray-900 text-sm">
-                            {a.provider_name}
-                          </span>
+                          <span className="font-medium text-gray-900 text-sm">{a.provider_name}</span>
                           <span className="text-xs text-gray-400">{a.capacity}인</span>
                           {remainingPeriods.length > 0 ? (
                             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-medium">
@@ -1049,6 +1240,28 @@ export default function AccommodationTab({ projectId, isMember, isAdmin }: Props
           )}
         </div>
       </Modal>
+
+      {/* 안내문 복사 모달 */}
+      {copyMsg && (
+        <CopyMessageModal
+          isOpen={!!copyMsg}
+          onClose={() => setCopyMsg(null)}
+          title={copyMsg.title}
+          templates={copyMsg.templates}
+          hint="복사 후 카카오톡/이메일에 붙여넣으세요. 보내기 전에 내용을 자유롭게 수정할 수 있어요."
+        />
+      )}
+
+      {/* 변경 이력 모달 */}
+      {showAuditLog && (
+        <AuditLogModal
+          isOpen={showAuditLog}
+          onClose={() => setShowAuditLog(false)}
+          projectId={projectId}
+          title="숙소 변경 이력"
+          entityType="accommodation"
+        />
+      )}
     </div>
   );
 }

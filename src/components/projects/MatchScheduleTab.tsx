@@ -165,7 +165,9 @@ export default function MatchScheduleTab({ projectId }: Props) {
   const [loading,       setLoading]       = useState(true);
   const [popup,         setPopup]         = useState<PopupInfo | null>(null);
   const [calMonth,      setCalMonth]      = useState("");
-  const popupRef = useRef<HTMLDivElement>(null);
+  const [calOverflowPopup, setCalOverflowPopup] = useState<{ date: string; evs: CalEvent[]; x: number; y: number } | null>(null);
+  const popupRef    = useRef<HTMLDivElement>(null);
+  const calPopupRef = useRef<HTMLDivElement>(null);
 
   // ── 데이터 로드 ─────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -204,18 +206,29 @@ export default function MatchScheduleTab({ projectId }: Props) {
     if (projectFrom && !calMonth) setCalMonth(projectFrom.slice(0, 7));
   }, [projectFrom, calMonth]);
 
-  // ── 가정별 색상 맵 ───────────────────────────────────────────────────────
+  // ── 가정별 색상 맵 (배정된 가정만) ─────────────────────────────────────
   const familyColorMap = useMemo(() => {
     const map    = new Map<string, string>();
     const labels = new Set<string>();
-    missionaries.forEach((m) => labels.add(m.family_group?.trim() || m.name));
+    // 숙소 + 차량 양쪽에서 실제 배정된 가정만 수집
+    [...accommodations, ...vehicles].forEach((r) => {
+      const asns = r.assignments?.length
+        ? r.assignments
+        : r.assigned_missionary_id
+          ? [{ missionary_id: r.assigned_missionary_id }]
+          : [];
+      asns.forEach((a: { missionary_id: string }) => {
+        const m = missionaries.find((x) => x.id === a.missionary_id);
+        if (m) labels.add(m.family_group?.trim() || m.name);
+      });
+    });
     let i = 0;
     for (const label of labels) {
       map.set(label, PALETTE[i % PALETTE.length]);
       i++;
     }
     return map;
-  }, [missionaries]);
+  }, [missionaries, accommodations, vehicles]);
 
   // ── 선교사 라벨 ─────────────────────────────────────────────────────────
   const getMLabel = useCallback(
@@ -268,16 +281,85 @@ export default function MatchScheduleTab({ projectId }: Props) {
     return groups;
   }, [dates]);
 
-  // ── 달력용 전체 블록 ─────────────────────────────────────────────────────
-  const allBlocks = useMemo(
-    () => resources.flatMap((r) => getBlocks(r)),
-    [resources, getBlocks],
-  );
+  // ── 달력용: 섹션 무관 전체 이벤트 수집 ──────────────────────────────────
+  type CalEvent = {
+    type: "arrival" | "departure" | "accom_start" | "accom_end" | "veh_start" | "veh_end";
+    label: string;
+    sub?: string;   // 숙소명 / 차량명
+    color?: string;
+  };
+  const TYPE_CFG: Record<CalEvent["type"], { chip: string; dot: string }> = {
+    arrival:     { chip: "bg-blue-100 text-blue-700",    dot: "#3b82f6" },
+    departure:   { chip: "bg-purple-100 text-purple-700", dot: "#8b5cf6" },
+    accom_start: { chip: "bg-emerald-100 text-emerald-700", dot: "#10b981" },
+    accom_end:   { chip: "bg-gray-100 text-gray-500",    dot: "#9ca3af" },
+    veh_start:   { chip: "bg-sky-100 text-sky-700",      dot: "#0ea5e9" },
+    veh_end:     { chip: "bg-gray-100 text-gray-500",    dot: "#9ca3af" },
+  };
+  const TYPE_LABEL: Record<CalEvent["type"], string> = {
+    arrival:     "입국",
+    departure:   "출국",
+    accom_start: "숙소 시작",
+    accom_end:   "숙소 종료",
+    veh_start:   "차량 픽업",
+    veh_end:     "차량 반납",
+  };
+
+  const calEventMap = useMemo(() => {
+    const map = new Map<string, CalEvent[]>();
+    const add = (date: string | null | undefined, ev: CalEvent) => {
+      if (!date) return;
+      if (!map.has(date)) map.set(date, []);
+      map.get(date)!.push(ev);
+    };
+    // 선교사 입국/출국
+    missionaries.forEach((m) => {
+      const label = m.family_group?.trim() || m.name;
+      add(m.arrival_date,   { type: "arrival",    label: m.name, sub: label !== m.name ? label : undefined });
+      add(m.departure_date, { type: "departure",  label: m.name, sub: label !== m.name ? label : undefined });
+    });
+    // 숙소 배정 시작/종료
+    accommodations.forEach((r) => {
+      const asns = r.assignments?.length
+        ? r.assignments
+        : r.assigned_missionary_id
+          ? [{ missionary_id: r.assigned_missionary_id, from: r.available_from ?? "", to: r.available_to ?? "" }]
+          : [];
+      asns.forEach((a: { missionary_id: string; from: string; to: string }) => {
+        const m = missionaries.find((x) => x.id === a.missionary_id);
+        const label = m ? (m.family_group?.trim() || m.name) : "?";
+        add(a.from, { type: "accom_start", label, sub: r.provider_name });
+        add(a.to,   { type: "accom_end",   label, sub: r.provider_name });
+      });
+    });
+    // 차량 배정 픽업/반납
+    vehicles.forEach((r) => {
+      const asns = r.assignments?.length
+        ? r.assignments
+        : r.assigned_missionary_id
+          ? [{ missionary_id: r.assigned_missionary_id, from: r.available_from ?? "", to: r.available_to ?? "" }]
+          : [];
+      asns.forEach((a: { missionary_id: string; from: string; to: string }) => {
+        const m = missionaries.find((x) => x.id === a.missionary_id);
+        const label = m ? (m.family_group?.trim() || m.name) : "?";
+        add(a.from, { type: "veh_start", label, sub: r.provider_name });
+        add(a.to,   { type: "veh_end",   label, sub: r.provider_name });
+      });
+    });
+    // 타입별 정렬 순서
+    const TYPE_ORDER: Record<CalEvent["type"], number> = {
+      arrival: 0, accom_start: 1, veh_start: 2, veh_end: 3, accom_end: 4, departure: 5,
+    };
+    map.forEach((evs, date) => {
+      map.set(date, evs.sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]));
+    });
+    return map;
+  }, [missionaries, accommodations, vehicles]);
 
   // ── 달력 주 계산 ─────────────────────────────────────────────────────────
   const calWeeks = useMemo(
-    () => (calMonth ? getCalendarWeeks(calMonth, allBlocks) : []),
-    [calMonth, allBlocks],
+    () => (calMonth ? getCalendarWeeks(calMonth, []) : []),
+    [calMonth],
   );
 
   // ── 팝업 외부 클릭 닫기 ──────────────────────────────────────────────────
@@ -285,6 +367,9 @@ export default function MatchScheduleTab({ projectId }: Props) {
     const handler = (e: MouseEvent) => {
       if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
         setPopup(null);
+      }
+      if (calPopupRef.current && !calPopupRef.current.contains(e.target as Node)) {
+        setCalOverflowPopup(null);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -420,6 +505,53 @@ export default function MatchScheduleTab({ projectId }: Props) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── 달력 overflow 팝업 ─────────────────────────────────────────────── */}
+      {calOverflowPopup && (
+        <div
+          ref={calPopupRef}
+          className="fixed z-50 bg-white rounded-xl shadow-2xl border border-gray-200 p-3"
+          style={{
+            minWidth: 200,
+            maxWidth: 280,
+            top:  Math.min(
+              calOverflowPopup.y + 6,
+              (typeof window !== "undefined" ? window.innerHeight : 700) - 220,
+            ),
+            left: (typeof window !== "undefined" && calOverflowPopup.x > window.innerWidth * 0.6)
+              ? calOverflowPopup.x - 210
+              : calOverflowPopup.x,
+          }}
+        >
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <span className="text-xs font-semibold text-gray-600">
+              {calOverflowPopup.date.slice(5).replace("-", "/")} 나머지 일정
+            </span>
+            <button
+              onClick={() => setCalOverflowPopup(null)}
+              className="shrink-0 text-gray-400 hover:text-gray-600 text-sm leading-none"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-1">
+            {calOverflowPopup.evs.map((ev, i) => (
+              <div
+                key={i}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium ${TYPE_CFG[ev.type].chip}`}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: TYPE_CFG[ev.type].dot }}
+                />
+                <span className="font-semibold">{TYPE_LABEL[ev.type]}</span>
+                <span className="truncate">{ev.label}</span>
+                {ev.sub && <span className="opacity-60 shrink-0">· {ev.sub}</span>}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -706,7 +838,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
 
       ) : (
 
-        /* ── 달력 뷰 ────────────────────────────────────────────────────────── */
+        /* ── 달력 뷰 (일자별 이벤트) ────────────────────────────────────────── */
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {/* 달력 헤더 */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -716,15 +848,28 @@ export default function MatchScheduleTab({ projectId }: Props) {
             >
               ‹
             </button>
-            <span className="font-bold text-gray-800 text-sm">
-              {calMonth ? monthLabel(calMonth + "-01") : ""}
-            </span>
+            <div className="text-center">
+              <span className="font-bold text-gray-800 text-sm">
+                {calMonth ? monthLabel(calMonth + "-01") : ""}
+              </span>
+              <p className="text-xs text-gray-400 mt-0.5">입국·출국·숙소·차량 일정</p>
+            </div>
             <button
               onClick={() => setCalMonth((m) => addMonth(m, 1))}
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl transition"
             >
               ›
             </button>
+          </div>
+
+          {/* 이벤트 타입 범례 */}
+          <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 flex-wrap">
+            {(Object.entries(TYPE_LABEL) as [CalEvent["type"], string][]).map(([type, label]) => (
+              <span key={type} className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: TYPE_CFG[type].dot }} />
+                <span className="text-xs text-gray-500">{label}</span>
+              </span>
+            ))}
           </div>
 
           {/* 요일 헤더 */}
@@ -745,17 +890,21 @@ export default function MatchScheduleTab({ projectId }: Props) {
           <div className="divide-y divide-gray-100">
             {calWeeks.map((week, wi) => (
               <div key={wi} className="grid grid-cols-7 divide-x divide-gray-100">
-                {week.map(({ date, isCurrentMonth, dayBlocks }) => {
+                {week.map(({ date, isCurrentMonth }) => {
                   const dayNum  = parseInt(date.slice(8));
                   const dow     = new Date(date + "T12:00:00Z").getUTCDay();
                   const isSun   = dow === 0;
                   const isSat   = dow === 6;
                   const isToday = date === new Date().toISOString().slice(0, 10);
+                  const evs     = calEventMap.get(date) ?? [];
+                  const MAX_SHOW = 3;
+                  const shown  = evs.slice(0, MAX_SHOW);
+                  const rest   = evs.length - MAX_SHOW;
 
                   return (
                     <div
                       key={date}
-                      className={`min-h-[76px] p-1.5 ${!isCurrentMonth ? "bg-gray-50/60" : ""}`}
+                      className={`min-h-[84px] p-1.5 ${!isCurrentMonth ? "bg-gray-50/60" : ""}`}
                     >
                       {/* 날짜 숫자 */}
                       <div
@@ -774,25 +923,34 @@ export default function MatchScheduleTab({ projectId }: Props) {
                         {dayNum}
                       </div>
 
-                      {/* 배정 점 표시 — 전체 표시, 범례와 동일한 점 스타일 */}
-                      {dayBlocks.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {dayBlocks.map((b, i) => (
+                      {/* 이벤트 칩 */}
+                      <div className="space-y-0.5">
+                        {shown.map((ev, i) => (
+                          <div
+                            key={i}
+                            className={`flex items-center gap-1 px-1 py-0.5 rounded text-[10px] leading-tight font-medium truncate ${TYPE_CFG[ev.type].chip}`}
+                            title={`${TYPE_LABEL[ev.type]}: ${ev.label}${ev.sub ? ` · ${ev.sub}` : ""}`}
+                          >
                             <span
-                              key={i}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPopup({ block: b, x: e.clientX, y: e.clientY });
-                              }}
-                              title={`${b.label} · ${b.resourceName}`}
-                              className={`w-2.5 h-2.5 rounded-full shrink-0 inline-block cursor-pointer hover:scale-125 transition-transform ${
-                                b.coverage !== "full" ? "ring-1 ring-orange-400" : ""
-                              }`}
-                              style={{ backgroundColor: b.color }}
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: TYPE_CFG[ev.type].dot }}
                             />
-                          ))}
-                        </div>
-                      )}
+                            <span className="truncate">{ev.label}</span>
+                          </div>
+                        ))}
+                        {rest > 0 && (
+                          <div
+                            className="text-[10px] text-blue-500 hover:text-blue-700 font-semibold px-1 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setCalOverflowPopup({ date, evs: evs.slice(MAX_SHOW), x: rect.left, y: rect.bottom });
+                            }}
+                          >
+                            +{rest}개 더보기
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -800,19 +958,39 @@ export default function MatchScheduleTab({ projectId }: Props) {
             ))}
           </div>
 
-          {/* 달력 푸터 — 범례 */}
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 border-t border-gray-100 flex-wrap">
-            <span className="text-xs font-semibold text-gray-500 shrink-0">가정별 색상</span>
-            {[...familyColorMap.entries()].slice(0, 9).map(([label, color]) => (
-              <span key={label} className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                <span className="text-xs text-gray-600">{label}</span>
-              </span>
-            ))}
-            {familyColorMap.size > 9 && (
-              <span className="text-xs text-gray-400">외 {familyColorMap.size - 9}가정</span>
-            )}
-          </div>
+          {/* 달력 푸터 — 이번 달 이벤트 요약 */}
+          {(() => {
+            const monthEvs: { date: string; evs: CalEvent[] }[] = [];
+            calWeeks.flat().forEach(({ date, isCurrentMonth }) => {
+              if (!isCurrentMonth) return;
+              const evs = calEventMap.get(date);
+              if (evs?.length) monthEvs.push({ date, evs });
+            });
+            if (monthEvs.length === 0) return (
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 text-center">
+                이 달에 예정된 일정이 없습니다.
+              </div>
+            );
+            return (
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 mb-2">이번 달 주요 일정</p>
+                <div className="space-y-1">
+                  {monthEvs.map(({ date, evs }) => (
+                    <div key={date} className="flex items-start gap-2 text-xs">
+                      <span className="shrink-0 font-semibold text-gray-600 w-12">{date.slice(5)}</span>
+                      <div className="flex flex-wrap gap-1 min-w-0">
+                        {evs.map((ev, i) => (
+                          <span key={i} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${TYPE_CFG[ev.type].chip}`}>
+                            {TYPE_LABEL[ev.type]} · {ev.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

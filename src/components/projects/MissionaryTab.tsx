@@ -5,7 +5,10 @@ import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
+import WelcomePackModal from "@/components/projects/WelcomePackModal";
+import AuditLogModal from "@/components/projects/AuditLogModal";
 import * as XLSX from "xlsx";
+import { logAudit } from "@/utils/auditLog";
 import {
   type DatePeriod,
   checkMultiPeriodCoverage,
@@ -44,6 +47,7 @@ type Missionary = {
   ride_needed: boolean;
   dietary_notes: string | null;
   notes: string | null;
+  share_token: string | null;
 };
 
 const EMPTY: Omit<Missionary, "id"> = {
@@ -55,6 +59,7 @@ const EMPTY: Omit<Missionary, "id"> = {
   vehicle_needed: false, vehicle_periods: [], vehicle_from: "", vehicle_to: "",
   ride_needed: false,
   dietary_notes: "", notes: "",
+  share_token: null,
 };
 
 const EXCEL_COLUMNS = [
@@ -134,6 +139,11 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
   });
   const [savingFamily, setSavingFamily] = useState(false);
 
+  // 환영팩 / 공유 / 이력 모달
+  const [welcomePack, setWelcomePack] = useState<{ familyGroup: string | null; repId: string } | null>(null);
+  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [projectName, setProjectName] = useState<string>("MARF");
+
   const handleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
@@ -143,16 +153,33 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
   const [matchedVehicle, setMatchedVehicle] = useState<Set<string>>(new Set());
 
   const fetch = useCallback(async () => {
-    const [{ data: m }, { data: a }, { data: v }] = await Promise.all([
+    const [{ data: m }, { data: a }, { data: v }, { data: proj }] = await Promise.all([
       supabase.from("marf_missionaries").select("*").eq("project_id", projectId).order("family_group").order("arrival_date"),
       supabase.from("marf_accommodations").select("assigned_missionary_id").eq("project_id", projectId).not("assigned_missionary_id", "is", null),
       supabase.from("marf_vehicles").select("assigned_missionary_id").eq("project_id", projectId).not("assigned_missionary_id", "is", null),
+      supabase.from("projects").select("name").eq("id", projectId).maybeSingle(),
     ]);
     setMissionaries((m || []) as Missionary[]);
     setMatchedAccom(new Set((a || []).map((x: any) => x.assigned_missionary_id)));
     setMatchedVehicle(new Set((v || []).map((x: any) => x.assigned_missionary_id)));
+    if (proj?.name) setProjectName(proj.name);
     setLoading(false);
   }, [projectId]);
+
+  // 공유 링크 복사 (절대 URL)
+  const copyShareLink = async (m: Missionary) => {
+    if (!m.share_token) {
+      toast.error("이 선교사는 공유 토큰이 없습니다. (SQL 마이그레이션 실행 필요)");
+      return;
+    }
+    const url = `${window.location.origin}/share/m/${m.share_token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("공유 링크가 복사되었습니다");
+    } catch {
+      toast.error("복사 실패");
+    }
+  };
 
   useEffect(() => { fetch(); }, [fetch]);
 
@@ -270,10 +297,20 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
       const { error } = await supabase.from("marf_missionaries").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", selected.id);
       if (error) { toast.error("수정 실패"); setSaving(false); return; }
       toast.success("수정되었습니다.");
+      logAudit(supabase, {
+        projectId, entityType: "missionary", entityId: selected.id,
+        action: "update", summary: `선교사 정보 수정: ${payload.name}`,
+        beforeData: selected, afterData: payload,
+      });
     } else {
-      const { error } = await supabase.from("marf_missionaries").insert({ ...payload, project_id: projectId });
+      const { data: inserted, error } = await supabase.from("marf_missionaries").insert({ ...payload, project_id: projectId }).select().single();
       if (error) { toast.error("저장 실패"); setSaving(false); return; }
       toast.success("등록되었습니다.");
+      logAudit(supabase, {
+        projectId, entityType: "missionary", entityId: inserted?.id,
+        action: "create", summary: `선교사 추가: ${payload.name}`,
+        afterData: payload,
+      });
     }
     setShowModal(false);
     fetch();
@@ -282,8 +319,16 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
 
   const handleDelete = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
+    const target = missionaries.find((m) => m.id === id);
     await supabase.from("marf_missionaries").delete().eq("id", id);
     toast.success("삭제되었습니다.");
+    if (target) {
+      logAudit(supabase, {
+        projectId, entityType: "missionary", entityId: id,
+        action: "delete", summary: `선교사 삭제: ${target.name}`,
+        beforeData: target,
+      });
+    }
     fetch();
   };
 
@@ -603,6 +648,16 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
               <span className="hidden sm:inline">{uploading ? "업로드 중..." : "엑셀 업로드"}</span>
             </button>
             <button
+              onClick={() => setShowAuditLog(true)}
+              title="변경 이력"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="hidden sm:inline">이력</span>
+            </button>
+            <button
               onClick={openCreate}
               title="명단 추가"
               className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
@@ -816,13 +871,29 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                             ? <span className="text-green-500 font-bold" title="차량 배정완료">✓</span>
                             : <span className="text-orange-400 font-bold" title="차량 미배정">!</span>
                         ) : null}
-                        {m.ride_needed && <span className="text-purple-400 text-sm" title="공항 라이드 필요">🚗</span>}
+                        {m.ride_needed && <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-semibold">라이드</span>}
                         {!m.vehicle_needed && !m.ride_needed && <span className="text-gray-300">-</span>}
                       </div>
                     </td>
                     {isMember && (
                       <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setWelcomePack({ familyGroup: m.family_group, repId: m.id })}
+                            className="text-gray-400 hover:text-emerald-600 p-1 rounded hover:bg-emerald-50 transition" title="환영팩 인쇄"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => copyShareLink(m)}
+                            className="text-gray-400 hover:text-indigo-600 p-1 rounded hover:bg-indigo-50 transition" title="공유 링크 복사"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          </button>
                           <button onClick={() => openEdit(m)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                           </button>
@@ -1238,6 +1309,29 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
           </section>
         </div>
       </Modal>
+
+      {/* 환영팩 인쇄 모달 */}
+      {welcomePack && (
+        <WelcomePackModal
+          isOpen={!!welcomePack}
+          onClose={() => setWelcomePack(null)}
+          projectId={projectId}
+          projectName={projectName}
+          familyGroup={welcomePack.familyGroup}
+          representativeMissionaryId={welcomePack.repId}
+        />
+      )}
+
+      {/* 변경 이력 모달 */}
+      {showAuditLog && (
+        <AuditLogModal
+          isOpen={showAuditLog}
+          onClose={() => setShowAuditLog(false)}
+          projectId={projectId}
+          title="명단 변경 이력"
+          entityType="missionary"
+        />
+      )}
     </div>
   );
 }

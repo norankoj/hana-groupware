@@ -386,6 +386,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs w-40">가정</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">배치된 선물</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs hidden md:table-cell">메모</th>
+                  <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs hidden sm:table-cell">상태</th>
                   {isMember && giftItems.length > 0 && <th className="px-4 py-2.5 w-20" />}
                 </tr>
               </thead>
@@ -405,7 +406,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                         )}
                       </td>
 
-                      {/* 배치된 선물 (상태 배지 + 선물명 인라인) */}
+                      {/* 배치된 선물 (선물명만) */}
                       <td className="px-4 py-3 align-top">
                         {familyAssigns.length === 0 ? (
                           <span className="text-gray-400">배치 없음</span>
@@ -413,13 +414,8 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                           <div className="space-y-1.5">
                             {familyAssigns.map((assign) => {
                               const gi = giftItems.find((x) => x.id === assign.gift_item_id);
-                              const st = STATUS[assign.status as keyof typeof STATUS]
-                                ?? { label: assign.status, color: "bg-gray-100 text-gray-500", icon: "" };
                               return (
-                                <div key={assign.id} className="flex items-center gap-2 flex-wrap">
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.color}`}>
-                                    {st.label}
-                                  </span>
+                                <div key={assign.id}>
                                   <button
                                     onClick={() => isMember && openEditAssign(family, assign)}
                                     className={`leading-tight text-left ${
@@ -445,6 +441,25 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                               {assign.notes || <span className="text-gray-300">—</span>}
                             </span>
                           ))}
+                        </div>
+                      </td>
+
+                      {/* 상태 (메모 다음 컬럼) */}
+                      <td className="px-4 py-3 align-top hidden sm:table-cell">
+                        <div className="space-y-1.5">
+                          {familyAssigns.length === 0 ? (
+                            <span className="text-gray-300">—</span>
+                          ) : (
+                            familyAssigns.map((assign) => {
+                              const st = STATUS[assign.status as keyof typeof STATUS]
+                                ?? { label: assign.status, color: "bg-gray-100 text-gray-500", icon: "" };
+                              return (
+                                <span key={assign.id} className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.color}`}>
+                                  {st.label}
+                                </span>
+                              );
+                            })
+                          )}
                         </div>
                       </td>
 

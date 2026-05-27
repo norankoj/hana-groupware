@@ -28,15 +28,15 @@ type Project = {
 type TabDef = { key: string; label: string; marf_only?: boolean };
 
 const TABS: TabDef[] = [
-  { key: "overview",        label: "📊 개요" },
-  { key: "missionaries",    label: "✈️ 명단",    marf_only: true },
-  { key: "accommodations",  label: "🏠 숙소매칭", marf_only: true },
-  { key: "vehicles",        label: "🚗 차량매칭", marf_only: true },
-  { key: "match_schedule",  label: "📋 배정현황", marf_only: true },
-  { key: "gifts",           label: "🎁 선물",     marf_only: true },
-  { key: "schedule",        label: "📅 행사일정" },
-  { key: "documents",       label: "📄 문서" },
-  { key: "checklist",       label: "✅ 체크리스트" },
+  { key: "overview",        label: "개요" },
+  { key: "missionaries",    label: "명단",    marf_only: true },
+  { key: "accommodations",  label: "숙소매칭", marf_only: true },
+  { key: "vehicles",        label: "차량매칭", marf_only: true },
+  { key: "match_schedule",  label: "배정현황", marf_only: true },
+  { key: "gifts",           label: "선물",     marf_only: true },
+  { key: "schedule",        label: "행사일정" },
+  { key: "documents",       label: "문서" },
+  { key: "checklist",       label: "체크리스트" },
 ];
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
