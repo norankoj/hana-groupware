@@ -113,6 +113,14 @@ const ICON_MAP: Record<string, any> = {
       d="M3 10l2-3h10l2 3h4v6h-2v-1a2 2 0 1 0-4 0v1H9v-1a2 2 0 1 0-4 0v1H3v-6zm4 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm10 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"
     />
   ),
+  folder: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+    />
+  ),
 };
 
 type Profile = {
