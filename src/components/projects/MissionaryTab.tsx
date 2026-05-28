@@ -155,13 +155,24 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
   const fetch = useCallback(async () => {
     const [{ data: m }, { data: a }, { data: v }, { data: proj }] = await Promise.all([
       supabase.from("marf_missionaries").select("*").eq("project_id", projectId).order("family_group").order("arrival_date"),
-      supabase.from("marf_accommodations").select("assigned_missionary_id").eq("project_id", projectId).not("assigned_missionary_id", "is", null),
-      supabase.from("marf_vehicles").select("assigned_missionary_id").eq("project_id", projectId).not("assigned_missionary_id", "is", null),
+      supabase.from("marf_accommodations").select("assigned_missionary_id, assignments").eq("project_id", projectId),
+      supabase.from("marf_vehicles").select("assigned_missionary_id, assignments").eq("project_id", projectId),
       supabase.from("projects").select("name").eq("id", projectId).maybeSingle(),
     ]);
     setMissionaries((m || []) as Missionary[]);
-    setMatchedAccom(new Set((a || []).map((x: any) => x.assigned_missionary_id)));
-    setMatchedVehicle(new Set((v || []).map((x: any) => x.assigned_missionary_id)));
+    // assignments JSONB 배열 + 레거시 assigned_missionary_id 모두 수집
+    const buildMatchedSet = (rows: any[]): Set<string> => {
+      const s = new Set<string>();
+      (rows || []).forEach((row) => {
+        if (row.assigned_missionary_id) s.add(row.assigned_missionary_id);
+        if (Array.isArray(row.assignments)) {
+          row.assignments.forEach((a: any) => { if (a?.missionary_id) s.add(a.missionary_id); });
+        }
+      });
+      return s;
+    };
+    setMatchedAccom(buildMatchedSet(a || []));
+    setMatchedVehicle(buildMatchedSet(v || []));
     if (proj?.name) setProjectName(proj.name);
     setLoading(false);
   }, [projectId]);
