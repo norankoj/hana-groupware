@@ -51,17 +51,27 @@ export default function ProjectsPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchProjects = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from("project_members")
-      .select(`role, projects(id, name, description, project_type, recurrence_years, year, status, created_at)`)
-      .eq("user_id", userId);
+    // 전체 프로젝트 + 내 멤버십 정보를 병렬 조회
+    const [{ data: allProjects, error }, { data: myMemberships }] = await Promise.all([
+      supabase
+        .from("projects")
+        .select("id, name, description, project_type, recurrence_years, year, status, created_at")
+        .order("year", { ascending: false }),
+      supabase
+        .from("project_members")
+        .select("project_id, role")
+        .eq("user_id", userId),
+    ]);
 
     if (error) { toast.error("프로젝트 목록을 불러오지 못했습니다."); return; }
 
-    const list: Project[] = (data || [])
-      .filter((r) => r.projects)
-      .map((r) => ({ ...(r.projects as any), my_role: r.role }))
-      .sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+    // 내 멤버십을 Map으로 변환
+    const memberMap = new Map((myMemberships ?? []).map((m) => [m.project_id, m.role]));
+
+    const list: Project[] = (allProjects || []).map((p) => ({
+      ...p,
+      my_role: memberMap.get(p.id),   // 멤버가 아니면 undefined
+    }));
 
     setProjects(list);
   }, [supabase]);
@@ -128,7 +138,7 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">프로젝트</h1>
-          <p className="text-sm text-gray-500 mt-1">담당자로 지정된 프로젝트만 표시됩니다.</p>
+          <p className="text-sm text-gray-500 mt-1">전체 프로젝트를 볼 수 있습니다. 수정·삭제는 담당자만 가능합니다.</p>
         </div>
         {canCreate && (
           <button
@@ -149,7 +159,7 @@ export default function ProjectsPage() {
           <svg className="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
           </svg>
-          <p className="font-medium">참여 중인 프로젝트가 없습니다.</p>
+          <p className="font-medium">등록된 프로젝트가 없습니다.</p>
           {canCreate && (
             <p className="text-sm mt-1">위의 버튼으로 첫 프로젝트를 만들어보세요.</p>
           )}
@@ -170,9 +180,12 @@ export default function ProjectsPage() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${type.color}`}>{type.label}</span>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
                   </div>
-                  {p.my_role === "admin" && (
-                    <span className="text-xs text-gray-400 font-medium">관리자</span>
-                  )}
+                  {p.my_role === "admin"
+                    ? <span className="text-xs bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">관리자</span>
+                    : p.my_role === "member"
+                    ? <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">담당자</span>
+                    : <span className="text-xs text-gray-300 font-medium">보기</span>
+                  }
                 </div>
 
                 <h2 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors">
