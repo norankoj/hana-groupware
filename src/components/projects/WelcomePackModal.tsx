@@ -105,12 +105,12 @@ function NotesList({ text }: { text: string }) {
   const lines = text.split("\n").filter((l) => l.trim());
   if (!lines.length) return null;
   return (
-    <div className="wp-notes-box mt-2 bg-gray-50 border border-gray-200 rounded p-3">
-      <p className="wp-notes-title text-xs font-bold text-gray-600 mb-1.5">💡 [특이사항]</p>
-      <ul className="space-y-1">
+    <div className="wp-notes-box mt-2.5 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
+      <p className="wp-notes-title text-[11px] font-bold text-amber-600 mb-2 tracking-wide">💡 특이사항</p>
+      <ul className="space-y-1.5">
         {lines.map((line, i) => (
-          <li key={i} className="text-sm flex items-start gap-1.5 text-gray-700">
-            <span className="shrink-0 mt-px">•</span>
+          <li key={i} className="text-[13px] flex items-start gap-2 text-gray-700 leading-relaxed">
+            <span className="shrink-0 text-amber-400 mt-px">•</span>
             <span className="flex-1 break-all"><LineWithLinks text={line} /></span>
           </li>
         ))}
@@ -136,13 +136,14 @@ export default function WelcomePackModal({
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [lang, setLang] = useState<"ko" | "en">("ko");
 
-  // 특이사항 상태
+  // 특이사항 / 표시이름 상태
   const [accomNotes, setAccomNotes] = useState<Record<string, string>>({});
   const [vehicleIntro, setVehicleIntro] = useState(DEFAULT_VEHICLE_INTRO);
   const [vehicleNote, setVehicleNote] = useState("");
+  const [displayName, setDisplayName] = useState(""); // 비어있으면 자동 생성 이름 사용
 
   // 팝업 편집 상태
-  const [editPopup, setEditPopup] = useState<"accom" | "vehicle" | null>(null);
+  const [editPopup, setEditPopup] = useState<"accom" | "vehicle" | "header" | null>(null);
 
   // 가족 키 (welcome_pack_meta 내 per-family 저장용)
   const familyKey = familyGroup?.trim() || representativeMissionaryId;
@@ -176,11 +177,12 @@ export default function WelcomePackModal({
       return v.assigned_missionary_id ? memberIds.has(v.assigned_missionary_id) : false;
     });
 
-    // welcome_pack_meta에서 저장된 특이사항 복원
+    // welcome_pack_meta에서 저장된 값 복원
     const meta = (proj?.welcome_pack_meta ?? {}) as Record<string, unknown>;
     setAccomNotes((meta.accomNotes as Record<string, string>) ?? {});
     setVehicleIntro((meta.vehicleIntro as string) ?? DEFAULT_VEHICLE_INTRO);
     setVehicleNote(((meta.vehicleNotes as Record<string, string>)?.[fKey]) ?? "");
+    setDisplayName(((meta.displayNames as Record<string, string>)?.[fKey]) ?? "");
 
     setMembers(memberArr);
     setAccoms(myAccoms);
@@ -201,8 +203,9 @@ export default function WelcomePackModal({
     const newMeta = {
       ...meta,
       vehicleIntro,
-      accomNotes: { ...(meta.accomNotes as object ?? {}), ...accomNotes },
+      accomNotes:   { ...(meta.accomNotes   as object ?? {}), ...accomNotes },
       vehicleNotes: { ...(meta.vehicleNotes as object ?? {}), [familyKey]: vehicleNote },
+      displayNames: { ...(meta.displayNames as object ?? {}), [familyKey]: displayName },
     };
     await supabase.from("projects").update({ welcome_pack_meta: newMeta }).eq("id", projectId);
     setSaving(false);
@@ -217,12 +220,11 @@ export default function WelcomePackModal({
 
   const rep = members.find((m) => m.id === representativeMissionaryId) ?? members[0];
 
-  // 부부(성인) 이름만 표시: arrival_date 있는 멤버 최대 2명, 없으면 전체 첫 2명
+  // 헤더 표시 이름: 수동 설정 우선, 없으면 자동(첫 2명)
   const adultMembers = members.filter((m) => m.arrival_date);
   const coupleMembers = (adultMembers.length >= 2 ? adultMembers : members).slice(0, 2);
-  const familyLabel = coupleMembers.length > 0
-    ? coupleMembers.map((m) => m.name).join("·")
-    : "—";
+  const autoFamilyLabel = coupleMembers.length > 0 ? coupleMembers.map((m) => m.name).join("·") : "—";
+  const familyLabel = displayName.trim() || autoFamilyLabel;
 
   const memberIds = new Set(members.map((m) => m.id));
   const myAssigns = <T extends {
@@ -273,72 +275,95 @@ export default function WelcomePackModal({
         </div>
 
         {/* ── 인쇄 본문 ── */}
-        <div className="p-8 print:p-6 text-gray-800">
+        <div className="wp-body p-10 print:p-8 text-gray-800">
           {loading ? (
             <p className="text-center text-gray-400 py-10">불러오는 중...</p>
           ) : !rep ? (
             <p className="text-center text-gray-400 py-10">선교사 정보를 찾을 수 없습니다.</p>
           ) : (
             <>
-              {/* 헤더 */}
-              <div className="text-center pb-5 mb-1 border-b-2 border-blue-600">
-                <p className="text-xs font-semibold text-blue-600 mb-1 tracking-widest uppercase">{projectName}</p>
-                <h1 className="text-2xl font-bold text-gray-900">{t("welcome")}, {familyLabel}</h1>
-                <p className="text-sm text-gray-500 mt-1.5">{t("welcomeSub")}</p>
+              {/* ── 헤더 ── */}
+              <div className="mb-8">
+                <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-blue-500 mb-3">{projectName}</p>
+                <div className="flex items-center gap-2 group">
+                  <h1 className="text-[28px] font-bold text-gray-900 leading-tight mb-1">
+                    {t("welcome")}, {familyLabel} {lang === "ko" ? "선생님" : ""}
+                  </h1>
+                  <button
+                    onClick={() => setEditPopup("header")}
+                    className="print:hidden mb-1 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-blue-500 transition p-1 rounded"
+                    title="이름 수정"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="mt-3 space-y-0.5 text-[14px] text-gray-500 leading-relaxed">
+                  <p>{t("welcomeSub")}</p>
+                  <p>{t("welcomeSub2")}</p>
+                </div>
+                <div className="mt-5 border-t border-gray-200" />
               </div>
 
-              {/* 도착 / 출국 */}
+              {/* ── 도착 / 출국 ── */}
               <DocSection title={t("travel")}>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <InfoBox label={t("arrival")}>
                     {members.map((m) => (
-                      <div key={m.id} className="text-sm">
-                        <div className="font-semibold text-gray-900">{m.name}</div>
+                      <div key={m.id} className="text-[13px] leading-relaxed">
+                        <span className="font-semibold text-gray-800">{m.name}</span>
                         {m.arrival_date ? (
-                          <>
-                            <div className="text-gray-700">{fmt(m.arrival_date)}{m.arrival_time ? ` · ${m.arrival_time.slice(0, 5)}` : ""}</div>
-                            <div className="text-gray-500 text-xs">{m.arrival_flight ?? ""}{m.arrival_terminal ? ` · ${m.arrival_terminal}` : ""}</div>
-                          </>
-                        ) : <span className="text-gray-400 text-xs">{t("noData")}</span>}
+                          <div className="text-gray-600 mt-0.5">
+                            {fmt(m.arrival_date)}{m.arrival_time ? ` · ${m.arrival_time.slice(0, 5)}` : ""}
+                            {(m.arrival_flight || m.arrival_terminal) && (
+                              <span className="text-gray-400 ml-1 text-xs">{m.arrival_flight ?? ""}{m.arrival_terminal ? ` · ${m.arrival_terminal}` : ""}</span>
+                            )}
+                          </div>
+                        ) : <div className="text-gray-400 text-xs mt-0.5">{t("noData")}</div>}
                       </div>
                     ))}
                   </InfoBox>
                   <InfoBox label={t("departure")}>
                     {members.map((m) => (
-                      <div key={m.id} className="text-sm">
-                        <div className="font-semibold text-gray-900">{m.name}</div>
+                      <div key={m.id} className="text-[13px] leading-relaxed">
+                        <span className="font-semibold text-gray-800">{m.name}</span>
                         {m.departure_date ? (
-                          <>
-                            <div className="text-gray-700">{fmt(m.departure_date)}{m.departure_time ? ` · ${m.departure_time.slice(0, 5)}` : ""}</div>
-                            <div className="text-gray-500 text-xs">{m.departure_flight ?? ""}{m.departure_terminal ? ` · ${m.departure_terminal}` : ""}</div>
-                          </>
-                        ) : <span className="text-gray-400 text-xs">{t("noData")}</span>}
+                          <div className="text-gray-600 mt-0.5">
+                            {fmt(m.departure_date)}{m.departure_time ? ` · ${m.departure_time.slice(0, 5)}` : ""}
+                            {(m.departure_flight || m.departure_terminal) && (
+                              <span className="text-gray-400 ml-1 text-xs">{m.departure_flight ?? ""}{m.departure_terminal ? ` · ${m.departure_terminal}` : ""}</span>
+                            )}
+                          </div>
+                        ) : <div className="text-gray-400 text-xs mt-0.5">{t("noData")}</div>}
                       </div>
                     ))}
                   </InfoBox>
                 </div>
               </DocSection>
 
-              {/* 숙소관련 */}
+              {/* ── 숙소관련 ── */}
               <DocSection
                 title={t("accom")}
                 onEdit={accoms.length > 0 ? () => setEditPopup("accom") : undefined}
               >
                 {accoms.length === 0 ? (
-                  <p className="text-sm text-gray-400">{t("noAccom")}</p>
+                  <p className="text-[13px] text-gray-400">{t("noAccom")}</p>
                 ) : accoms.map((a, idx) => {
                   const periods = myAssigns(a);
                   return (
-                    <div key={a.id} className="mb-4 last:mb-0">
-                      <p className="font-bold text-gray-900 mb-1.5">{idx + 1}. {a.provider_name}</p>
-                      <ul className="ml-4 space-y-0.5 text-sm text-gray-700">
+                    <div key={a.id} className="mb-5 last:mb-0">
+                      <p className="text-[14px] font-bold text-gray-800 mb-2">
+                        <span className="text-blue-400 mr-1">{idx + 1}.</span> {a.provider_name}
+                      </p>
+                      <div className="ml-3 space-y-1 text-[13px] text-gray-600">
                         {periods.length > 0 && (
-                          <li>• 기간 : {periods.map((p) => `${fmtShort(p.from)} ~ ${fmtShort(p.to)}`).join(", ")}</li>
+                          <p><span className="text-gray-400 w-12 inline-block">기간</span>{periods.map((p) => `${fmtShort(p.from)} ~ ${fmtShort(p.to)}`).join(", ")}</p>
                         )}
-                        {a.address && <li>• 주소 : {a.address}</li>}
-                        {a.provider_contact && <li>• 연락처 : {a.provider_contact}</li>}
-                      </ul>
-                      <div className="ml-4">
+                        {a.address && <p><span className="text-gray-400 w-12 inline-block">주소</span>{a.address}</p>}
+                        {a.provider_contact && <p><span className="text-gray-400 w-12 inline-block">연락처</span>{a.provider_contact}</p>}
+                      </div>
+                      <div className="ml-3 mt-1">
                         <NotesList text={accomNotes[a.id] || ""} />
                       </div>
                     </div>
@@ -346,42 +371,42 @@ export default function WelcomePackModal({
                 })}
               </DocSection>
 
-              {/* 차량관련 */}
+              {/* ── 차량관련 ── */}
               <DocSection
                 title={t("vehicle")}
                 onEdit={vehicles.length > 0 ? () => setEditPopup("vehicle") : undefined}
               >
                 {vehicles.length === 0 ? (
-                  <p className="text-sm text-gray-400">{t("noVehicle")}</p>
+                  <p className="text-[13px] text-gray-400">{t("noVehicle")}</p>
                 ) : (
                   <>
                     {vehicleIntro.trim() && (
-                      <p className="text-sm text-gray-700 mb-3">{vehicleIntro}</p>
+                      <p className="text-[13px] text-gray-600 mb-4 leading-relaxed">{vehicleIntro}</p>
                     )}
-                    <p className="font-bold text-sm text-gray-800 mb-1.5">차량배치 일정</p>
-                    <ul className="ml-4 space-y-0.5 text-sm text-gray-700 mb-2">
+                    <p className="text-[13px] font-semibold text-gray-700 mb-2">차량배치 일정</p>
+                    <div className="ml-3 space-y-1.5 mb-3">
                       {vehicles
                         .flatMap((v) => myAssigns(v).map((p) => ({ p, v })))
                         .sort((a, b) => (a.p.from ?? "").localeCompare(b.p.from ?? ""))
                         .map(({ p, v }, i) => (
-                          <li key={i} className="flex items-start gap-1">
-                            <span className="shrink-0">•</span>
+                          <div key={i} className="text-[13px] text-gray-700 flex items-baseline gap-2">
+                            <span className="text-gray-300 shrink-0">—</span>
                             <span>
-                              {fmtShort(p.from)}~{fmtShort(p.to)}
-                              <span className="mx-1.5">:</span>
-                              <span className="font-medium">{v.provider_name}</span>
-                              {v.car_model && <span className="text-gray-500"> ({v.car_model}{v.car_number ? ` · ${v.car_number}` : ""})</span>}
+                              <span className="font-medium text-gray-800">{fmtShort(p.from)} ~ {fmtShort(p.to)}</span>
+                              <span className="mx-2 text-gray-300">|</span>
+                              <span className="font-semibold">{v.provider_name}</span>
+                              {v.car_model && <span className="text-gray-400 ml-1">({v.car_model}{v.car_number ? ` · ${v.car_number}` : ""})</span>}
                             </span>
-                          </li>
+                          </div>
                         ))
                       }
-                    </ul>
+                    </div>
                     <NotesList text={vehicleNote} />
                   </>
                 )}
               </DocSection>
 
-              {/* 주요 일정 */}
+              {/* ── 주요 일정 ── */}
               {schedules.length > 0 && (() => {
                 const stayFrom = members.map((m) => m.arrival_date).filter(Boolean).sort()[0];
                 const stayTo   = members.map((m) => m.departure_date).filter(Boolean).sort().at(-1);
@@ -392,18 +417,18 @@ export default function WelcomePackModal({
                 if (!inStay.length) return null;
                 return (
                   <DocSection title={t("schedule")}>
-                    <ul className="space-y-1.5">
+                    <div className="space-y-2">
                       {inStay.map((s) => (
-                        <li key={s.id} className="text-sm flex items-start gap-2">
-                          <span className="shrink-0 font-semibold text-gray-700 w-24">{fmt(s.event_date)}</span>
-                          <span className="text-gray-600">
-                            {s.start_time && <span className="mr-1 text-gray-500">{s.start_time.slice(0, 5)}</span>}
-                            <span className="font-medium text-gray-800">{s.title}</span>
-                            {s.location && <span className="text-gray-400 ml-1">@ {s.location}</span>}
+                        <div key={s.id} className="flex items-baseline gap-3 text-[13px]">
+                          <span className="shrink-0 text-gray-500 w-28">{fmt(s.event_date)}</span>
+                          <span>
+                            {s.start_time && <span className="text-gray-400 mr-1.5">{s.start_time.slice(0, 5)}</span>}
+                            <span className="font-semibold text-gray-800">{s.title}</span>
+                            {s.location && <span className="text-gray-400 ml-1.5">@ {s.location}</span>}
                           </span>
-                        </li>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </DocSection>
                 );
               })()}
@@ -411,6 +436,29 @@ export default function WelcomePackModal({
             </>
           )}
         </div>
+
+        {/* ── 헤더 이름 편집 팝업 (print:hidden) ── */}
+        {editPopup === "header" && (
+          <EditPopup
+            title="헤더 이름 수정"
+            hint="비워두면 자동으로 첫 2명 이름이 표시됩니다"
+            onClose={() => setEditPopup(null)}
+            onSave={handleSave}
+            saving={saving}
+          >
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">표시 이름</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={`자동: ${autoFamilyLabel}`}
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">예: 김영숙 · 김민준 &nbsp;/&nbsp; 홍길동 가정</p>
+            </div>
+          </EditPopup>
+        )}
 
         {/* ── 숙소 특이사항 편집 팝업 (print:hidden) ── */}
         {editPopup === "accom" && (
@@ -470,8 +518,14 @@ export default function WelcomePackModal({
         )}
       </div>
 
-      {/* 인쇄 CSS */}
+      {/* 프리텐다드 폰트 + 인쇄 CSS */}
       <style jsx global>{`
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+
+        .wp-body, .wp-body * {
+          font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        }
+
         @media print {
           body * { visibility: hidden !important; }
           .welcome-pack-overlay, .welcome-pack-overlay * { visibility: visible !important; }
@@ -493,30 +547,34 @@ export default function WelcomePackModal({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          /* 섹션 간격 */
+          .wp-section { margin-bottom: 20px !important; page-break-inside: avoid; }
           /* 특이사항 박스 */
           .wp-notes-box {
-            background-color: #f9fafb !important;
-            border: 1px solid #e5e7eb !important;
-            border-radius: 4px !important;
-            padding: 10px 12px !important;
+            background-color: #fffbeb !important;
+            border: 1px solid #fde68a !important;
+            border-radius: 8px !important;
+            padding: 10px 14px !important;
             margin-top: 8px !important;
             page-break-inside: avoid;
           }
           .wp-notes-box .wp-notes-title {
             font-size: 11px !important;
             font-weight: 700 !important;
-            color: #4b5563 !important;
+            color: #d97706 !important;
             margin-bottom: 6px !important;
+            letter-spacing: 0.05em !important;
           }
           .wp-notes-box li {
-            font-size: 13px !important;
+            font-size: 12px !important;
             color: #374151 !important;
             display: flex !important;
             align-items: flex-start !important;
             gap: 6px !important;
-            margin-bottom: 2px !important;
+            margin-bottom: 3px !important;
+            line-height: 1.6 !important;
           }
-          @page { margin: 1.5cm; }
+          @page { margin: 1.8cm 2cm; }
         }
       `}</style>
     </div>,
@@ -581,7 +639,7 @@ function EditPopup({
   );
 }
 
-// ─── DocSection (연필 아이콘 포함) ──────────────────────────────────────────
+// ─── DocSection ──────────────────────────────────────────────────────────────
 function DocSection({
   title, children, onEdit,
 }: {
@@ -590,9 +648,12 @@ function DocSection({
   onEdit?: () => void;
 }) {
   return (
-    <div className="mt-5">
-      <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b-2 border-gray-300">
-        <h3 className="text-sm font-extrabold text-gray-800">{title}</h3>
+    <div className="wp-section mb-7">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-[3px] h-4 bg-blue-500 rounded-full shrink-0" />
+          <h3 className="text-[13px] font-bold text-gray-700 tracking-wide">{title}</h3>
+        </div>
         {onEdit && (
           <button
             onClick={onEdit}
@@ -606,31 +667,34 @@ function DocSection({
           </button>
         )}
       </div>
-      {children}
+      <div className="ml-[11px] pl-4 border-l border-gray-100">
+        {children}
+      </div>
     </div>
   );
 }
 
 function InfoBox({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="border border-gray-200 rounded p-2.5 bg-gray-50/50">
-      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">{label}</div>
-      <div className="space-y-1.5">{children}</div>
+    <div className="bg-gray-50 rounded-lg p-3.5 border border-gray-100">
+      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-2.5">{label}</div>
+      <div className="space-y-2">{children}</div>
     </div>
   );
 }
 
 // ─── i18n ──────────────────────────────────────────────────────────────────
 const I18N: Record<string, Record<"ko" | "en", string>> = {
-  welcome:    { ko: "환영합니다",          en: "Welcome" },
-  welcomeSub: { ko: "샬롬! 한국에 방문하신 선생님들을 환영합니다.", en: "Shalom! We warmly welcome you to Korea." },
-  travel:     { ko: "[도착 / 출국 정보]",   en: "[Travel Info]" },
-  arrival:    { ko: "도착",               en: "Arrival" },
-  departure:  { ko: "출국",               en: "Departure" },
-  accom:      { ko: "[숙소관련]",          en: "[Accommodation]" },
-  vehicle:    { ko: "[차량관련]",          en: "[Vehicle]" },
-  schedule:   { ko: "[주요 일정]",         en: "[Schedule]" },
-  noAccom:    { ko: "배정된 숙소가 없습니다.",     en: "No accommodation assigned." },
-  noVehicle:  { ko: "배정된 차량이 없습니다.",     en: "No vehicle assigned." },
-  noData:     { ko: "정보 없음",           en: "No data" },
+  welcome:     { ko: "환영합니다",          en: "Welcome" },
+  welcomeSub:  { ko: "샬롬! 한국에 방문하신 선생님들을 환영합니다.", en: "Shalom! We warmly welcome you to Korea." },
+  welcomeSub2: { ko: "한국 일정과 관련하여 숙소 및 차량 안내를 아래와 같이 전달 드립니다.", en: "Please find below the accommodation and vehicle information for your stay." },
+  travel:      { ko: "도착 / 출국 정보",    en: "Travel Info" },
+  arrival:     { ko: "도착",               en: "Arrival" },
+  departure:   { ko: "출국",               en: "Departure" },
+  accom:       { ko: "숙소 안내",           en: "Accommodation" },
+  vehicle:     { ko: "차량 안내",           en: "Vehicle" },
+  schedule:    { ko: "주요 일정",           en: "Schedule" },
+  noAccom:     { ko: "배정된 숙소가 없습니다.",     en: "No accommodation assigned." },
+  noVehicle:   { ko: "배정된 차량이 없습니다.",     en: "No vehicle assigned." },
+  noData:      { ko: "정보 없음",           en: "No data" },
 };
