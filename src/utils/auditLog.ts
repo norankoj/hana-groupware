@@ -44,7 +44,13 @@ async function getActorName(supabase: SupabaseClient): Promise<string | null> {
       .select("name")
       .eq("id", data.user.id)
       .maybeSingle();
-    cachedActorName = p?.name ?? data.user.email ?? null;
+    // 이름 우선, 없으면 auth 메타데이터, 없으면 이메일 @ 앞부분만
+    cachedActorName =
+      p?.name ||
+      (data.user.user_metadata?.name as string | undefined) ||
+      (data.user.user_metadata?.full_name as string | undefined) ||
+      data.user.email?.split("@")[0] ||
+      null;
     return cachedActorName;
   } catch {
     return null;

@@ -166,20 +166,20 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
     setLoading(false);
   }, [projectId]);
 
-  // 공유 링크 복사 (절대 URL)
-  const copyShareLink = async (m: Missionary) => {
-    if (!m.share_token) {
-      toast.error("이 선교사는 공유 토큰이 없습니다. (SQL 마이그레이션 실행 필요)");
-      return;
-    }
-    const url = `${window.location.origin}/share/m/${m.share_token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("공유 링크가 복사되었습니다");
-    } catch {
-      toast.error("복사 실패");
-    }
-  };
+  // 공유 링크 복사 (절대 URL) — 현재 미사용, 필요시 주석 해제
+  // const copyShareLink = async (m: Missionary) => {
+  //   if (!m.share_token) {
+  //     toast.error("이 선교사는 공유 토큰이 없습니다. (SQL 마이그레이션 실행 필요)");
+  //     return;
+  //   }
+  //   const url = `${window.location.origin}/share/m/${m.share_token}`;
+  //   try {
+  //     await navigator.clipboard.writeText(url);
+  //     toast.success("공유 링크가 복사되었습니다");
+  //   } catch {
+  //     toast.error("복사 실패");
+  //   }
+  // };
 
   useEffect(() => { fetch(); }, [fetch]);
 
@@ -886,6 +886,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                             </svg>
                           </button>
+                          {/* 공유 링크 버튼 — 현재 미사용, 필요시 주석 해제
                           <button
                             onClick={() => copyShareLink(m)}
                             className="text-gray-400 hover:text-indigo-600 p-1 rounded hover:bg-indigo-50 transition" title="공유 링크 복사"
@@ -894,6 +895,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                             </svg>
                           </button>
+                          */}
                           <button onClick={() => openEdit(m)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                           </button>

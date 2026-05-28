@@ -112,7 +112,7 @@ const TYPE_SORT: Record<TLType, number> = {
 type TLMeta = { label: string; badgeCls: string };
 const TYPE_META: Record<TLType, TLMeta> = {
   arrival: { label: "입국", badgeCls: "bg-blue-100 text-blue-700" },
-  ride_in: { label: "라이드IN", badgeCls: "bg-amber-100 text-amber-700" },
+  ride_in: { label: "라이드", badgeCls: "bg-amber-100 text-amber-700" },
   accom_start: {
     label: "숙소시작",
     badgeCls: "bg-emerald-100 text-emerald-700",
@@ -149,6 +149,25 @@ function normalizeAsn(item: {
 const fmtMD = (d: string) => {
   const [, mm, dd] = d.split("-");
   return `${mm}/${dd}`;
+};
+
+const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+const getDayName = (dateStr: string) => {
+  const d = new Date(dateStr + "T00:00:00");
+  return DAY_KO[d.getDay()];
+};
+
+// 이벤트 타입별 색상 점
+const TYPE_DOT: Record<TLType, string> = {
+  arrival:       "bg-blue-400",
+  ride_in:       "bg-amber-400",
+  accom_start:   "bg-emerald-500",
+  accom_end:     "bg-gray-300",
+  cleaning:      "bg-orange-400",
+  vehicle_start: "bg-sky-500",
+  vehicle_end:   "bg-gray-300",
+  ride_out:      "bg-amber-400",
+  departure:     "bg-purple-400",
 };
 
 /**
@@ -623,7 +642,7 @@ export default function OverviewTab({ projectId, isMarf }: Props) {
             </div>
 
             {/* 이벤트 목록 (카드 안 스크롤) */}
-            <div className="overflow-y-auto" style={{ maxHeight: 420 }}>
+            <div className="overflow-y-auto" style={{ maxHeight: 680 }}>
               {winEvents.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-10">
                   이 기간에 일정이 없습니다.
@@ -693,7 +712,7 @@ export default function OverviewTab({ projectId, isMarf }: Props) {
                 <span className="text-gray-400 font-normal">— {win.label}</span>
               </h3>
             </div>
-            <div className="overflow-y-auto" style={{ maxHeight: 420 }}>
+            <div className="overflow-y-auto" style={{ maxHeight: 560 }}>
               {winChecklists.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-10">
                   이 기간에 항목이 없습니다.
@@ -703,40 +722,30 @@ export default function OverviewTab({ projectId, isMarf }: Props) {
                   {winChecklists.map((c) => (
                     <div
                       key={c.id}
-                      className={`flex items-start gap-3 px-4 py-3 ${c.is_completed ? "opacity-50" : ""}`}
+                      className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors ${c.is_completed ? "opacity-50" : ""}`}
                     >
+                      {/* 체크박스 */}
                       <span
                         className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${c.is_completed ? "bg-green-500 border-green-500" : "border-gray-300"}`}
                       >
                         {c.is_completed && (
-                          <svg
-                            className="w-2.5 h-2.5 text-white"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={3}
-                              d="M5 13l4 4L19 7"
-                            />
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
                       </span>
+                      {/* 내용 */}
                       <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm ${c.is_completed ? "line-through text-gray-400" : "text-gray-800"}`}
-                        >
+                        <p className={`text-sm font-medium ${c.is_completed ? "line-through text-gray-400" : "text-gray-800"}`}>
                           {c.title}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           {c.due_date && (
                             <span className="text-xs text-gray-400 tabular-nums">
                               {fmtMD(c.due_date)}
                             </span>
                           )}
-                          <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
                             {c.category}
                           </span>
                         </div>
@@ -800,11 +809,11 @@ function StatCard({
   const hasAlert = (tooltipItems?.length ?? 0) > 0;
 
   const colors: Record<string, string> = {
-    blue: "bg-blue-50 border-blue-100",
-    green: "bg-green-50 border-green-100",
-    yellow: "bg-yellow-50 border-yellow-100",
-    purple: "bg-purple-50 border-purple-100",
-    sky: "bg-sky-50 border-sky-100",
+    blue: "bg-white border-gray-200",
+    green: "bg-white border-gray-200",
+    yellow: "bg-white border-gray-200",
+    purple: "bg-white border-gray-200",
+    sky: "bg-white border-gray-200",
   };
 
   return (
