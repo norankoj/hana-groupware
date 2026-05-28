@@ -8,6 +8,7 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/auth") ||
     request.nextUrl.pathname.startsWith("/api/sms") ||
     request.nextUrl.pathname.startsWith("/api/cron") ||
+    request.nextUrl.pathname.startsWith("/share") ||   // 선교사 공유 페이지 — 로그인 불필요
     request.nextUrl.pathname === "/login"
   ) {
     return NextResponse.next();
