@@ -63,10 +63,13 @@ type ScheduleItem = {
   location: string | null;
 };
 
+const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
 function fmtShort(iso: string | null | undefined) {
   if (!iso) return "";
-  const [, m, d] = iso.split("-");
-  return `${parseInt(m)}/${parseInt(d)}`;
+  const [y, m, d] = iso.split("-").map(Number);
+  const day = DAY_KO[new Date(y, m - 1, d).getDay()];
+  return `${m}/${d}(${day})`;
 }
 
 /** 텍스트 줄 안의 URL을 <a> 태그로 변환 */
@@ -102,8 +105,8 @@ function NotesList({ text }: { text: string }) {
   const lines = text.split("\n").filter((l) => l.trim());
   if (!lines.length) return null;
   return (
-    <div className="mt-2 bg-gray-50 border border-gray-200 rounded p-3">
-      <p className="text-xs font-bold text-gray-600 mb-1.5">💡 [특이사항]</p>
+    <div className="wp-notes-box mt-2 bg-gray-50 border border-gray-200 rounded p-3">
+      <p className="wp-notes-title text-xs font-bold text-gray-600 mb-1.5">💡 [특이사항]</p>
       <ul className="space-y-1">
         {lines.map((line, i) => (
           <li key={i} className="text-sm flex items-start gap-1.5 text-gray-700">
@@ -116,6 +119,9 @@ function NotesList({ text }: { text: string }) {
   );
 }
 
+const DEFAULT_VEHICLE_INTRO =
+  "이번 선교대회 기간에는 많은 분들이 한국에 입국하시는 관계로 차량 운영에 변동이 있을 수 있는 점 양해 부탁드립니다. 가능한 원활하게 안내드릴 수 있도록 최선을 다하겠습니다.";
+
 export default function WelcomePackModal({
   isOpen, onClose, projectId, projectName,
   familyGroup, representativeMissionaryId,
@@ -123,6 +129,7 @@ export default function WelcomePackModal({
   const supabase = createClient();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [members, setMembers] = useState<Missionary[]>([]);
   const [accoms, setAccoms] = useState<Accom[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -131,13 +138,14 @@ export default function WelcomePackModal({
 
   // 특이사항 상태
   const [accomNotes, setAccomNotes] = useState<Record<string, string>>({});
-  const [vehicleIntro, setVehicleIntro] = useState(
-    "이번 선교대회 기간에는 많은 분들이 한국에 입국하시는 관계로 차량 운영에 변동이 있을 수 있는 점 양해 부탁드립니다. 가능한 원활하게 안내드릴 수 있도록 최선을 다하겠습니다."
-  );
+  const [vehicleIntro, setVehicleIntro] = useState(DEFAULT_VEHICLE_INTRO);
   const [vehicleNote, setVehicleNote] = useState("");
 
   // 팝업 편집 상태
   const [editPopup, setEditPopup] = useState<"accom" | "vehicle" | null>(null);
+
+  // 가족 키 (welcome_pack_meta 내 per-family 저장용)
+  const familyKey = familyGroup?.trim() || representativeMissionaryId;
 
   useEffect(() => setMounted(true), []);
 
@@ -147,11 +155,14 @@ export default function WelcomePackModal({
       ? supabase.from("marf_missionaries").select("*").eq("project_id", projectId).eq("family_group", familyGroup)
       : supabase.from("marf_missionaries").select("*").eq("project_id", projectId).eq("id", representativeMissionaryId);
 
-    const [{ data: mems }, { data: as }, { data: vs }, scsResult] = await Promise.all([
+    const fKey = familyGroup?.trim() || representativeMissionaryId;
+
+    const [{ data: mems }, { data: as }, { data: vs }, scsResult, { data: proj }] = await Promise.all([
       memberQuery,
       supabase.from("marf_accommodations").select("*").eq("project_id", projectId),
       supabase.from("marf_vehicles").select("*").eq("project_id", projectId),
       supabase.from("marf_schedules").select("*").eq("project_id", projectId).order("event_date"),
+      supabase.from("projects").select("welcome_pack_meta").eq("id", projectId).maybeSingle(),
     ]);
 
     const memberArr = (mems ?? []) as Missionary[];
@@ -165,12 +176,38 @@ export default function WelcomePackModal({
       return v.assigned_missionary_id ? memberIds.has(v.assigned_missionary_id) : false;
     });
 
+    // welcome_pack_meta에서 저장된 특이사항 복원
+    const meta = (proj?.welcome_pack_meta ?? {}) as Record<string, unknown>;
+    setAccomNotes((meta.accomNotes as Record<string, string>) ?? {});
+    setVehicleIntro((meta.vehicleIntro as string) ?? DEFAULT_VEHICLE_INTRO);
+    setVehicleNote(((meta.vehicleNotes as Record<string, string>)?.[fKey]) ?? "");
+
     setMembers(memberArr);
     setAccoms(myAccoms);
     setVehicles(myVehicles);
     setSchedules(scsResult.error ? [] : ((scsResult.data ?? []) as ScheduleItem[]));
     setLoading(false);
   }, [familyGroup, projectId, representativeMissionaryId, supabase]);
+
+  // 특이사항 저장
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    const { data: proj } = await supabase
+      .from("projects")
+      .select("welcome_pack_meta")
+      .eq("id", projectId)
+      .maybeSingle();
+    const meta = (proj?.welcome_pack_meta ?? {}) as Record<string, unknown>;
+    const newMeta = {
+      ...meta,
+      vehicleIntro,
+      accomNotes: { ...(meta.accomNotes as object ?? {}), ...accomNotes },
+      vehicleNotes: { ...(meta.vehicleNotes as object ?? {}), [familyKey]: vehicleNote },
+    };
+    await supabase.from("projects").update({ welcome_pack_meta: newMeta }).eq("id", projectId);
+    setSaving(false);
+    setEditPopup(null);
+  }, [supabase, projectId, vehicleIntro, accomNotes, vehicleNote, familyKey]);
 
   useEffect(() => {
     if (isOpen) fetchAll();
@@ -323,9 +360,11 @@ export default function WelcomePackModal({
                     )}
                     <p className="font-bold text-sm text-gray-800 mb-1.5">차량배치 일정</p>
                     <ul className="ml-4 space-y-0.5 text-sm text-gray-700 mb-2">
-                      {vehicles.flatMap((v) =>
-                        myAssigns(v).map((p, i) => (
-                          <li key={`${v.id}-${i}`} className="flex items-start gap-1">
+                      {vehicles
+                        .flatMap((v) => myAssigns(v).map((p) => ({ p, v })))
+                        .sort((a, b) => (a.p.from ?? "").localeCompare(b.p.from ?? ""))
+                        .map(({ p, v }, i) => (
+                          <li key={i} className="flex items-start gap-1">
                             <span className="shrink-0">•</span>
                             <span>
                               {fmtShort(p.from)}~{fmtShort(p.to)}
@@ -335,7 +374,7 @@ export default function WelcomePackModal({
                             </span>
                           </li>
                         ))
-                      )}
+                      }
                     </ul>
                     <NotesList text={vehicleNote} />
                   </>
@@ -379,6 +418,8 @@ export default function WelcomePackModal({
             title="숙소 특이사항 편집"
             hint="줄마다 항목 하나로 표시됩니다"
             onClose={() => setEditPopup(null)}
+            onSave={handleSave}
+            saving={saving}
           >
             {accoms.map((a) => (
               <div key={a.id} className="mb-4 last:mb-0">
@@ -403,6 +444,8 @@ export default function WelcomePackModal({
             title="차량 안내 편집"
             hint="줄마다 항목 하나로 표시됩니다"
             onClose={() => setEditPopup(null)}
+            onSave={handleSave}
+            saving={saving}
           >
             <div className="mb-4">
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">소개글</label>
@@ -445,6 +488,34 @@ export default function WelcomePackModal({
             max-width: 100% !important;
             border-radius: 0 !important;
           }
+          /* 배경색·테두리 강제 인쇄 */
+          .welcome-pack-card * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          /* 특이사항 박스 */
+          .wp-notes-box {
+            background-color: #f9fafb !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 4px !important;
+            padding: 10px 12px !important;
+            margin-top: 8px !important;
+            page-break-inside: avoid;
+          }
+          .wp-notes-box .wp-notes-title {
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            color: #4b5563 !important;
+            margin-bottom: 6px !important;
+          }
+          .wp-notes-box li {
+            font-size: 13px !important;
+            color: #374151 !important;
+            display: flex !important;
+            align-items: flex-start !important;
+            gap: 6px !important;
+            margin-bottom: 2px !important;
+          }
           @page { margin: 1.5cm; }
         }
       `}</style>
@@ -455,11 +526,13 @@ export default function WelcomePackModal({
 
 // ─── 편집 팝업 (모달 내 오버레이) ─────────────────────────────────────────
 function EditPopup({
-  title, hint, onClose, children,
+  title, hint, onClose, onSave, saving, children,
 }: {
   title: string;
   hint?: string;
   onClose: () => void;
+  onSave: () => void;
+  saving?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -488,12 +561,19 @@ function EditPopup({
           {children}
         </div>
         {/* 팝업 푸터 */}
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
+        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+            className="px-4 py-2 text-sm font-semibold text-gray-600 rounded-lg hover:bg-gray-100 transition"
           >
-            확인
+            취소
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
+          >
+            {saving ? "저장 중..." : "저장"}
           </button>
         </div>
       </div>

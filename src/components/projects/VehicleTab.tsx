@@ -641,10 +641,6 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                           <div className="font-medium text-gray-900">
                             {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
                           </div>
-                          {row.family.memberCount > 1 && <div className="text-xs text-gray-400">{row.family.memberCount}명</div>}
-                          {row.periods.length > 0 && (
-                            <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods)}</div>
-                          )}
                         </td>
                         <td colSpan={isMember ? 4 : 3} className="px-4 py-3">
                           <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
@@ -659,17 +655,12 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                         <div className="font-medium text-gray-900">
                           {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
                         </div>
-                        {row.family.memberCount > 1 && <div className="text-xs text-gray-400">{row.family.memberCount}명</div>}
-                        {row.periods.length > 0 && (
-                          <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods)}</div>
-                        )}
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-gray-900">{v.provider_name}</span>
                           {v.is_church_owned && <span className="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">교회</span>}
                         </div>
-                        {v.provider_contact && <p className="text-xs text-gray-400 mt-0.5">{v.provider_contact}</p>}
                       </td>
                       <td className="px-4 py-3 align-top hidden sm:table-cell">
                         {row.assignedFrom ? (
@@ -747,12 +738,6 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                                 <span className="text-xs font-bold text-gray-700">
                                   {family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {family.label}
                                 </span>
-                                {family.memberCount > 1 && <span className="text-xs text-gray-400">{family.memberCount}명</span>}
-                                {periods.length > 0 && (
-                                  <span className="text-xs text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded hidden sm:inline">
-                                    {formatPeriods(periods)}
-                                  </span>
-                                )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 {vehicles.length === 0 ? (

@@ -10,6 +10,7 @@ type AuditLog = {
   entity_id: string | null;
   action: string;
   summary: string | null;
+  actor_id: string | null;
   actor_name: string | null;
   created_at: string;
   before_data: Record<string, unknown> | null;
@@ -102,6 +103,7 @@ export default function AuditLogModal({
 }: Props) {
   const supabase = createClient();
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [expandId, setExpandId] = useState<string | null>(null);
 
@@ -116,7 +118,22 @@ export default function AuditLogModal({
     if (entityType) q = q.eq("entity_type", entityType);
     if (entityId)   q = q.eq("entity_id",   entityId);
     const { data } = await q;
-    setLogs((data ?? []) as AuditLog[]);
+    const rows = (data ?? []) as AuditLog[];
+    setLogs(rows);
+
+    // actor_id로 profiles에서 이름 일괄 조회 (기존 이메일 저장 데이터 보정)
+    const ids = [...new Set(rows.map((r) => r.actor_id).filter(Boolean))] as string[];
+    if (ids.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .in("id", ids);
+      const map = new Map<string, string>();
+      (profiles ?? []).forEach((p: { id: string; name: string | null }) => {
+        if (p.name) map.set(p.id, p.name);
+      });
+      setProfileNames(map);
+    }
     setLoading(false);
   }, [projectId, entityType, entityId, supabase]);
 
@@ -154,7 +171,7 @@ export default function AuditLogModal({
 
                 {/* 메타 줄 */}
                 <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-400">
-                  <span>{log.actor_name ?? "(알수없음)"} · {dateStr}</span>
+                  <span>{(log.actor_id && profileNames.get(log.actor_id)) ?? log.actor_name ?? "(알수없음)"} · {dateStr}</span>
                   {hasDiff && (
                     <button
                       onClick={() => setExpandId(isExpanded ? null : log.id)}
