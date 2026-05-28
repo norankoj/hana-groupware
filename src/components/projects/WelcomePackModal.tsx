@@ -349,7 +349,13 @@ export default function WelcomePackModal({
               >
                 {accoms.length === 0 ? (
                   <p className="text-[13px] text-gray-400">{t("noAccom")}</p>
-                ) : accoms.map((a, idx) => {
+                ) : [...accoms]
+                    .sort((a, b) => {
+                      const af = myAssigns(a).map(p => p.from).filter(Boolean).sort()[0] ?? "";
+                      const bf = myAssigns(b).map(p => p.from).filter(Boolean).sort()[0] ?? "";
+                      return af.localeCompare(bf);
+                    })
+                    .map((a, idx) => {
                   const periods = myAssigns(a);
                   return (
                     <div key={a.id} className="mb-5 last:mb-0">

@@ -1070,14 +1070,14 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                           <div className="flex gap-2 flex-wrap">
                             {detailM.accommodation_needed && (() => {
                               const periods = getFamilyAccomPeriods(detailM.id, missionaries);
-                              return <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">🏠 숙소{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
+                              return <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">🏠 숙소{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
                             })()}
                             {detailM.vehicle_needed && (() => {
                               const periods = getFamilyVehiclePeriods(detailM.id, missionaries);
-                              return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">🚗 차량{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
+                              return <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">🚗 차량{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
                             })()}
-                            {detailM.ride_needed && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">✈️ 공항 라이드</span>}
-                            {detailM.dietary_notes && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">🍽️ {detailM.dietary_notes}</span>}
+                            {detailM.ride_needed && <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">✈️ 공항 라이드</span>}
+                            {detailM.dietary_notes && <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">🍽️ {detailM.dietary_notes}</span>}
                           </div>
                         </td>
                       </tr>
@@ -1106,28 +1106,24 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                             const combinedCov = checkMultiPeriodCoverage(allPeriods, requestedPeriods);
                             return (
                               <div className="space-y-2">
-                                <div className={`flex items-center gap-2 flex-wrap text-sm font-semibold rounded-lg px-3 py-2 border ${combinedCov === "full" ? "bg-green-50 border-green-200 text-green-700" : "bg-orange-50 border-orange-200 text-orange-600"}`}>
-                                  <span>{COVER_ICON[combinedCov]}</span>
-                                  <span>{combinedCov === "full" ? "기간 완전 커버됨" : combinedCov === "partial" ? "기간 일부 미충족" : "기간 미겹침"}</span>
-                                  {detailAccoms.length > 1 && <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">분산 {detailAccoms.length}개</span>}
-                                  {requestedPeriods.length > 0 && <span className="text-xs text-gray-500 ml-auto">요청: {formatPeriods(requestedPeriods, false)}</span>}
-                                </div>
+                                {combinedCov !== "full" && (
+                                  <p className="text-xs text-orange-500">⚠️ 기간 미충족 · 요청: {formatPeriods(requestedPeriods, false)}</p>
+                                )}
                                 {detailAccoms.map((accom) => {
                                   const myA = (accom.assignments?.length ? accom.assignments : (accom.assigned_missionary_id ? [{ missionary_id: accom.assigned_missionary_id, from: accom.available_from || "", to: accom.available_to || "" }] : [])).filter(a => familyIdSet.has(a.missionary_id));
                                   return (
-                                    <div key={accom.id} className="rounded-lg p-3 border border-gray-200 bg-white">
-                                      <p className="text-sm font-semibold text-gray-800">{accom.provider_name}</p>
-                                      {accom.address && <p className="text-xs text-gray-600 mt-0.5">{accom.address}</p>}
-                                      {accom.provider_contact && <p className="text-xs text-gray-500">{accom.provider_contact}</p>}
+                                    <div key={accom.id} className="border-l-2 border-gray-200 pl-3 py-0.5">
+                                      <p className="font-semibold text-gray-800">{accom.provider_name}</p>
+                                      {accom.address && <p className="text-xs text-gray-400 mt-0.5">{accom.address}</p>}
                                       {myA.map((as, i) => as.from && (
-                                        <p key={i} className="text-xs text-blue-600 mt-1 font-medium">배정: {as.from} ~ {as.to || "미정"}</p>
+                                        <p key={i} className="text-xs text-gray-500 mt-0.5">{as.from} ~ {as.to || "미정"}</p>
                                       ))}
                                     </div>
                                   );
                                 })}
                               </div>
                             );
-                          })() : <span className="text-orange-500 font-medium">미배정</span>}
+                          })() : <span className="text-gray-400 text-sm">미배정</span>}
                         </td>
                       </tr>
                     </tbody>
@@ -1149,40 +1145,27 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                             const combinedCov = checkMultiPeriodCoverage(allPeriods, requestedPeriods);
                             return (
                               <div className="space-y-2">
-                                {detailVehicles.length > 1 && (
-                                  <div className={`flex items-center gap-2 flex-wrap text-sm font-semibold rounded-lg px-3 py-2 border ${combinedCov === "full" ? "bg-green-50 border-green-200 text-green-700" : "bg-orange-50 border-orange-200 text-orange-600"}`}>
-                                    <span>{COVER_ICON[combinedCov]}</span>
-                                    <span>{combinedCov === "full" ? "기간 완전 커버됨" : "기간 일부 미충족"}</span>
-                                    <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">분산 {detailVehicles.length}대</span>
-                                    {requestedPeriods.length > 0 && <span className="text-xs text-gray-500 ml-auto">요청: {formatPeriods(requestedPeriods, false)}</span>}
-                                  </div>
+                                {combinedCov !== "full" && requestedPeriods.length > 0 && (
+                                  <p className="text-xs text-orange-500">⚠️ 기간 미충족 · 요청: {formatPeriods(requestedPeriods, false)}</p>
                                 )}
                                 {detailVehicles.map((v) => {
                                   const myA = (v.assignments?.length ? v.assignments : (v.assigned_missionary_id ? [{ missionary_id: v.assigned_missionary_id, from: v.available_from || "", to: v.available_to || "" }] : [])).filter(a => familyIdSet.has(a.missionary_id));
-                                  const vCov = checkMultiPeriodCoverage(myA.map(a => ({ from: a.from, to: a.to })), requestedPeriods);
                                   return (
-                                    <div key={v.id} className={`rounded-lg p-3 border ${vCov === "full" ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"}`}>
-                                      <div className={`flex items-center gap-2 text-sm font-semibold ${vCov === "full" ? "text-green-700" : "text-orange-600"}`}>
-                                        <span>{COVER_ICON[vCov]}</span>
-                                        <span>{v.provider_name}</span>
+                                    <div key={v.id} className="border-l-2 border-gray-200 pl-3 py-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-semibold text-gray-800">{v.provider_name}</p>
+                                        {!v.insurance_added && <span className="text-[11px] text-orange-500">보험 미완료</span>}
                                       </div>
-                                      {v.car_model && <p className="text-xs text-gray-600 mt-1">{v.car_model}{v.car_number ? ` (${v.car_number})` : ""}</p>}
-                                      {v.provider_contact && <p className="text-xs text-gray-500 mt-0.5">{v.provider_contact}</p>}
+                                      {v.car_model && <p className="text-xs text-gray-400 mt-0.5">{v.car_model}{v.car_number ? ` · ${v.car_number}` : ""}</p>}
                                       {myA.map((as, i) => as.from && (
-                                        <p key={i} className="text-xs text-blue-600 mt-1 font-medium">배정: {as.from} ~ {as.to || "미정"}</p>
+                                        <p key={i} className="text-xs text-gray-500 mt-0.5">{as.from} ~ {as.to || "미정"}</p>
                                       ))}
-                                      {detailVehicles.length === 1 && requestedPeriods.length > 0 && (
-                                        <p className="text-xs text-gray-500 mt-0.5">요청: {formatPeriods(requestedPeriods, false)}</p>
-                                      )}
-                                      <p className={`text-xs mt-1 ${v.insurance_added ? "text-blue-600" : "text-orange-500"}`}>
-                                        {v.insurance_added ? "🛡️ 보험 추가 완료" : "⚠️ 보험 미완료"}
-                                      </p>
                                     </div>
                                   );
                                 })}
                               </div>
                             );
-                          })() : <span className="text-orange-500 font-medium">미배정</span>}
+                          })() : <span className="text-gray-400 text-sm">미배정</span>}
                         </td>
                       </tr>
                     </tbody>

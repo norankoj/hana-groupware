@@ -631,17 +631,64 @@ export default function MatchScheduleTab({ projectId }: Props) {
             </span>
           </div>
 
-          {/* 스크롤 영역 */}
-          <div className="overflow-x-auto">
-            <div style={{ minWidth: LABEL_W + totalW }}>
+          {/* 타임라인 본체: 고정 이름 열 + 스크롤 날짜 영역 */}
+          <div className="flex">
 
-              {/* 헤더 1: 월 */}
-              <div className="flex border-b border-gray-200" style={{ height: 26 }}>
-                <div
-                  className="shrink-0 bg-gray-50 border-r border-gray-200 sticky left-0 z-20"
-                  style={{ width: LABEL_W }}
-                />
-                <div className="flex" style={{ width: totalW, flexShrink: 0 }}>
+            {/* ── 고정 이름 열 (스크롤 밖) ── */}
+            <div className="shrink-0 border-r border-gray-200 z-10" style={{ width: LABEL_W }}>
+              {/* 헤더 1: 월 자리 (빈 칸) */}
+              <div className="bg-gray-50 border-b border-gray-200" style={{ height: 26 }} />
+              {/* 헤더 2: 섹션명 */}
+              <div
+                className="bg-gray-50 border-b border-gray-300 flex items-center px-3"
+                style={{ height: 26 }}
+              >
+                <span className="text-xs font-semibold text-gray-500">
+                  {section === "accommodation" ? "숙소" : "차량"}
+                </span>
+              </div>
+              {/* 자원 이름 행 */}
+              {resources.map((resource) => {
+                const blocks      = getBlocks(resource);
+                const hasAssigned = blocks.length > 0;
+                const hasWarning  = blocks.some((b) => b.coverage !== "full");
+                return (
+                  <div
+                    key={resource.id}
+                    className="flex items-center px-3 border-b border-gray-100 last:border-b-0 bg-white"
+                    style={{ height: ROW }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-800 truncate">
+                          {resource.provider_name}
+                        </p>
+                        {hasWarning && <span className="shrink-0 text-xs">⚠️</span>}
+                      </div>
+                      {resource.is_church_owned ? (
+                        <span className="text-xs text-indigo-500">🏛️ 교회</span>
+                      ) : resource.available_from ? (
+                        <p className="text-xs text-gray-400">
+                          {resource.available_from.slice(5)}~{resource.available_to?.slice(5) ?? "?"}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-300">기간 미입력</p>
+                      )}
+                    </div>
+                    {!hasAssigned && (
+                      <span className="shrink-0 text-xs text-orange-400 font-medium ml-1">미배정</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── 스크롤 날짜 + 셀 영역 ── */}
+            <div className="overflow-x-auto flex-1 min-w-0">
+              <div style={{ width: totalW }}>
+
+                {/* 헤더 1: 월 */}
+                <div className="flex border-b border-gray-200" style={{ height: 26 }}>
                   {monthGroups.map((mg, i) => (
                     <div
                       key={i}
@@ -652,19 +699,9 @@ export default function MatchScheduleTab({ projectId }: Props) {
                     </div>
                   ))}
                 </div>
-              </div>
 
-              {/* 헤더 2: 날짜 */}
-              <div className="flex border-b border-gray-300" style={{ height: 26 }}>
-                <div
-                  className="shrink-0 bg-gray-50 border-r border-gray-200 sticky left-0 z-20 flex items-center px-3"
-                  style={{ width: LABEL_W }}
-                >
-                  <span className="text-xs font-semibold text-gray-500">
-                    {section === "accommodation" ? "숙소" : "차량"}
-                  </span>
-                </div>
-                <div className="flex" style={{ width: totalW, flexShrink: 0 }}>
+                {/* 헤더 2: 날짜 */}
+                <div className="flex border-b border-gray-300" style={{ height: 26 }}>
                   {dates.map((date) => (
                     <div
                       key={date}
@@ -679,51 +716,15 @@ export default function MatchScheduleTab({ projectId }: Props) {
                     </div>
                   ))}
                 </div>
-              </div>
 
-              {/* 자원 행 */}
-              {resources.map((resource) => {
-                const blocks      = getBlocks(resource);
-                const hasAssigned = blocks.length > 0;
-                const hasWarning  = blocks.some((b) => b.coverage !== "full");
-
-                return (
-                  <div
-                    key={resource.id}
-                    className="flex border-b border-gray-100 last:border-b-0"
-                    style={{ height: ROW }}
-                  >
-                    {/* 이름 (sticky) */}
+                {/* 자원 셀 행 (이름 열 제외) */}
+                {resources.map((resource) => {
+                  const blocks = getBlocks(resource);
+                  return (
                     <div
-                      className="shrink-0 flex items-center px-3 border-r border-gray-200 bg-white sticky left-0 z-10"
-                      style={{ width: LABEL_W }}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-800 truncate">
-                            {resource.provider_name}
-                          </p>
-                          {hasWarning && <span className="shrink-0 text-xs">⚠️</span>}
-                        </div>
-                        {resource.is_church_owned ? (
-                          <span className="text-xs text-indigo-500">🏛️ 교회</span>
-                        ) : resource.available_from ? (
-                          <p className="text-xs text-gray-400">
-                            {resource.available_from.slice(5)}~{resource.available_to?.slice(5) ?? "?"}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-gray-300">기간 미입력</p>
-                        )}
-                      </div>
-                      {!hasAssigned && (
-                        <span className="shrink-0 text-xs text-orange-400 font-medium ml-1">미배정</span>
-                      )}
-                    </div>
-
-                    {/* 타임라인 셀 */}
-                    <div
-                      className="relative"
-                      style={{ width: totalW, flexShrink: 0, height: ROW }}
+                      key={resource.id}
+                      className="relative border-b border-gray-100 last:border-b-0"
+                      style={{ width: totalW, height: ROW }}
                     >
                       {/* 제공 가능 기간 배경 */}
                       {!resource.is_church_owned &&
@@ -815,9 +816,9 @@ export default function MatchScheduleTab({ projectId }: Props) {
                         );
                       })}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
