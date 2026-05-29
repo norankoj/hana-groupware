@@ -26,15 +26,16 @@ export function getMinioClient(): Minio.Client {
 
 /** 버킷 이름 상수 */
 export const BUCKETS = {
-  notice: process.env.MINIO_BUCKET_NOTICE ?? "notice-images",
-  vehicle: process.env.MINIO_BUCKET_VEHICLE ?? "vehicle-images",
-  private: process.env.MINIO_BUCKET_PRIVATE ?? "private-files",
+  notice:  process.env.MINIO_BUCKET_NOTICE   ?? "notice-images",
+  vehicle: process.env.MINIO_BUCKET_VEHICLE  ?? "vehicle-images",
+  private: process.env.MINIO_BUCKET_PRIVATE  ?? "private-files",
+  project: process.env.MINIO_BUCKET_PROJECT  ?? "project-files",
 } as const;
 
 export type BucketKey = keyof typeof BUCKETS;
 
 // Public 버킷 (notice, vehicle) — 이미지 URL 직접 접근 허용
-const PUBLIC_BUCKETS: BucketKey[] = ["notice", "vehicle"];
+const PUBLIC_BUCKETS: BucketKey[] = ["notice", "vehicle", "project"];
 
 /** 버킷에 공개 읽기 정책 설정 */
 async function ensurePublicReadPolicy(bucketName: string): Promise<void> {

@@ -1,7 +1,7 @@
 // src/utils/upload.ts
 // MinIO 파일 업로드 / 조회 헬퍼 (클라이언트 전용)
 
-export type UploadBucket = "notice" | "vehicle" | "private";
+export type UploadBucket = "notice" | "vehicle" | "private" | "project";
 
 export type UploadResult = {
   objectName: string;

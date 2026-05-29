@@ -3,9 +3,10 @@
 // (minio 패키지 미사용 — Node.js 전용 모듈 없음)
 
 const BUCKET_NAMES: Record<string, string> = {
-  notice: process.env.NEXT_PUBLIC_MINIO_BUCKET_NOTICE ?? "notice-images",
-  vehicle: process.env.NEXT_PUBLIC_MINIO_BUCKET_VEHICLE ?? "vehicle-images",
-  private: process.env.NEXT_PUBLIC_MINIO_BUCKET_PRIVATE ?? "private-files",
+  notice:  process.env.NEXT_PUBLIC_MINIO_BUCKET_NOTICE   ?? "notice-images",
+  vehicle: process.env.NEXT_PUBLIC_MINIO_BUCKET_VEHICLE  ?? "vehicle-images",
+  private: process.env.NEXT_PUBLIC_MINIO_BUCKET_PRIVATE  ?? "private-files",
+  project: process.env.NEXT_PUBLIC_MINIO_BUCKET_PROJECT  ?? "project-files",
 };
 
 /**

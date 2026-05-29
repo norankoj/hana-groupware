@@ -14,6 +14,7 @@ import ChecklistTab from "@/components/projects/ChecklistTab";
 import OverviewTab from "@/components/projects/OverviewTab";
 import MemberModal from "@/components/projects/MemberModal";
 import MatchScheduleTab from "@/components/projects/MatchScheduleTab";
+import BudgetTab from "@/components/projects/BudgetTab";
 
 type Project = {
   id: string;
@@ -37,6 +38,7 @@ const TABS: TabDef[] = [
   { key: "schedule",        label: "행사일정" },
   { key: "documents",       label: "문서" },
   { key: "checklist",       label: "체크리스트" },
+  { key: "budget",          label: "예산·지출" },
 ];
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -114,6 +116,7 @@ export default function ProjectDashboard() {
       case "schedule":       return <ScheduleTab {...props} />;
       case "documents":      return <DocumentTab {...props} />;
       case "checklist":      return <ChecklistTab {...props} isMarf={isMarf} />;
+      case "budget":         return <BudgetTab    {...props} isMarf={isMarf} />;
       default:               return null;
     }
   };
