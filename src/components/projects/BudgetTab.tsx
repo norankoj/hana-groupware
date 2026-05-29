@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { uploadFile, deleteFile } from "@/utils/upload";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
 
 /* ── Props & Types ─────────────────────────────────────────────────── */
 
@@ -308,6 +309,74 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
     setBudgets((prev) => prev.filter((b) => b.id !== id));
   };
 
+  /* ── 엑셀 다운로드 ──────────────────────────────────────────────── */
+  const handleExcelDownload = () => {
+    const wb = XLSX.utils.book_new();
+
+    /* Sheet 1: 지출 내역 */
+    const exp1Rows: (string | number)[][] = [
+      ["날짜", "항목명", "카테고리", "금액(원)", "지출자", "결제방법", "상태", "메모"],
+    ];
+    [...expenses]
+      .sort((a, b) => (a.paid_at ?? "").localeCompare(b.paid_at ?? ""))
+      .forEach((e) => {
+        exp1Rows.push([
+          e.paid_at ?? "",
+          e.title,
+          e.category,
+          e.amount,
+          e.paid_by ?? "",
+          e.payment_method,
+          STATUS_MAP[e.status]?.label ?? e.status,
+          e.notes ?? "",
+        ]);
+      });
+    // 합계 행
+    exp1Rows.push(["합계", "", "", expenses.reduce((s, e) => s + e.amount, 0), "", "", "", ""]);
+
+    const ws1 = XLSX.utils.aoa_to_sheet(exp1Rows);
+    ws1["!cols"] = [
+      { wch: 12 }, { wch: 24 }, { wch: 10 }, { wch: 14 },
+      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 24 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws1, "지출내역");
+
+    /* Sheet 2: 예산 현황 */
+    const bud2Rows: (string | number)[][] = [
+      ["카테고리", "예산항목", "예산액(원)", "지출액(원)", "잔액(원)", "메모"],
+    ];
+    budgets.forEach((b) => {
+      const spent   = expenses.filter((e) => e.budget_id === b.id).reduce((s, e) => s + e.amount, 0);
+      const balance = b.budgeted_amount - spent;
+      bud2Rows.push([
+        b.category,
+        b.label,
+        b.budgeted_amount,
+        spent,
+        balance,
+        b.notes ?? "",
+      ]);
+    });
+    // 카테고리 합계 행
+    bud2Rows.push([]);
+    CATS.forEach((cat) => {
+      const catBudget = budgets.filter((b) => b.category === cat).reduce((s, b) => s + b.budgeted_amount, 0);
+      const catSpent  = expenses.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
+      if (catBudget > 0 || catSpent > 0) {
+        bud2Rows.push([`[${cat}] 소계`, "", catBudget, catSpent, catBudget - catSpent, ""]);
+      }
+    });
+    bud2Rows.push(["전체 합계", "", totalBudget, totalSpent, totalBudget - totalSpent, ""]);
+
+    const ws2 = XLSX.utils.aoa_to_sheet(bud2Rows);
+    ws2["!cols"] = [
+      { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 20 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws2, "예산현황");
+
+    XLSX.writeFile(wb, "예산지출현황.xlsx");
+  };
+
   /* ── Loading ────────────────────────────────────────────────────── */
   if (loading) return <div className="text-center py-10 text-gray-400">로딩 중...</div>;
 
@@ -378,6 +447,17 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
           ))}
         </div>
         <div className="flex gap-2">
+          {(expenses.length > 0 || budgets.length > 0) && (
+            <button
+              onClick={handleExcelDownload}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-600 text-sm font-semibold rounded-lg hover:bg-emerald-100 transition border border-emerald-200"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              엑셀
+            </button>
+          )}
           {isAdmin && view === "summary" && (
             <button
               onClick={openAddBud}

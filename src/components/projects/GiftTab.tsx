@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
+import * as XLSX from "xlsx";
 
 type Props = { projectId: string; myUserId: string; isMember: boolean; isAdmin: boolean };
 
@@ -207,6 +208,72 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
     toast.success("삭제되었습니다."); fetchData();
   };
 
+  // ── 엑셀 다운로드 ────────────────────────────────────────────────────────
+  const handleExcelDownload = () => {
+    const wb = XLSX.utils.book_new();
+
+    /* ── Sheet 1: 가정별 배치 현황 ── */
+    const sheet1Rows: (string | number)[][] = [
+      ["가정명", "인원수", "선물명", "담당자", "개당예산(원)", "상태", "메모"],
+    ];
+    families.forEach((family) => {
+      const assigns = getAssignmentsForFamily(family.repId);
+      if (assigns.length === 0) {
+        sheet1Rows.push([family.label, family.memberCount, "배치 없음", "", "", "", ""]);
+      } else {
+        assigns.forEach((assign, idx) => {
+          const gi = giftItems.find((x) => x.id === assign.gift_item_id);
+          const st = STATUS[assign.status as keyof typeof STATUS]?.label ?? assign.status;
+          sheet1Rows.push([
+            idx === 0 ? family.label : "",
+            idx === 0 ? family.memberCount : "",
+            gi?.item_name ?? "(알 수 없음)",
+            gi?.responsible_name ?? "",
+            gi?.unit_budget ?? "",
+            st,
+            assign.notes ?? "",
+          ]);
+        });
+      }
+    });
+    const ws1 = XLSX.utils.aoa_to_sheet(sheet1Rows);
+    ws1["!cols"] = [
+      { wch: 20 }, { wch: 8 }, { wch: 20 }, { wch: 12 },
+      { wch: 14 }, { wch: 10 }, { wch: 24 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws1, "가정별 배치현황");
+
+    /* ── Sheet 2: 선물 종류별 수량 ── */
+    const sheet2Rows: (string | number)[][] = [
+      ["선물명", "설명", "담당자", "개당예산(원)", "필요수량", "구매완료", "준비완료", "전달완료"],
+    ];
+    giftItems.forEach((item) => {
+      const itemAssigns = assignments.filter((a) => a.gift_item_id === item.id);
+      const needed    = itemAssigns.length;
+      const purchased = itemAssigns.filter((a) => ["purchased", "prepared", "delivered"].includes(a.status)).length;
+      const prepared  = itemAssigns.filter((a) => ["prepared", "delivered"].includes(a.status)).length;
+      const delivered = itemAssigns.filter((a) => a.status === "delivered").length;
+      sheet2Rows.push([
+        item.item_name,
+        item.description ?? "",
+        item.responsible_name ?? "",
+        item.unit_budget ?? "",
+        needed,
+        purchased,
+        prepared,
+        delivered,
+      ]);
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet(sheet2Rows);
+    ws2["!cols"] = [
+      { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 14 },
+      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws2, "선물별 수량");
+
+    XLSX.writeFile(wb, `선물현황.xlsx`);
+  };
+
   // ── 통계 ─────────────────────────────────────────────────────────────────
   const totalNeeded    = assignments.length;
   const totalPurchased = assignments.filter((a) =>
@@ -234,17 +301,30 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               </>
             )}
           </div>
-          {isAdmin && (
-            <button
-              onClick={openCreateItem}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              선물 추가
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {(giftItems.length > 0 || families.length > 0) && (
+              <button
+                onClick={handleExcelDownload}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                엑셀 다운로드
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={openCreateItem}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                선물 추가
+              </button>
+            )}
+          </div>
         </div>
 
         {giftItems.length === 0 ? (
