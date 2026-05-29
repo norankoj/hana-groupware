@@ -113,7 +113,7 @@ export default function ProjectDashboard() {
       case "gifts":          return <GiftTab {...props} />;
       case "schedule":       return <ScheduleTab {...props} />;
       case "documents":      return <DocumentTab {...props} />;
-      case "checklist":      return <ChecklistTab {...props} />;
+      case "checklist":      return <ChecklistTab {...props} isMarf={isMarf} />;
       default:               return null;
     }
   };

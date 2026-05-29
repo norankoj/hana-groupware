@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 type Props = {
@@ -203,8 +203,8 @@ function getWindowDates(
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────
 
-export default function OverviewTab({ projectId, isMarf }: Props) {
-  const supabase = createClient();
+export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [tlEvents, setTlEvents] = useState<TLEvent[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -226,6 +226,15 @@ export default function OverviewTab({ projectId, isMarf }: Props) {
     unmetVehicle: [] as string[],
     noInsurance: [] as string[],
   });
+
+  const handleToggle = useCallback(async (item: ChecklistItem) => {
+    const now = new Date().toISOString();
+    const patch = item.is_completed
+      ? { is_completed: false, completed_by: null, completed_at: null }
+      : { is_completed: true, completed_by: myUserId, completed_at: now };
+    await supabase.from("project_checklists").update(patch).eq("id", item.id);
+    setChecklists((prev) => prev.map((c) => c.id === item.id ? { ...c, ...patch } : c));
+  }, [supabase, myUserId]);
 
   useEffect(() => {
     (async () => {
@@ -722,11 +731,12 @@ export default function OverviewTab({ projectId, isMarf }: Props) {
                   {winChecklists.map((c) => (
                     <div
                       key={c.id}
-                      className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors ${c.is_completed ? "opacity-50" : ""}`}
+                      onClick={() => handleToggle(c)}
+                      className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${c.is_completed ? "opacity-50" : ""}`}
                     >
                       {/* 체크박스 */}
                       <span
-                        className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${c.is_completed ? "bg-green-500 border-green-500" : "border-gray-300"}`}
+                        className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${c.is_completed ? "bg-green-500 border-green-500" : "border-gray-300 hover:border-green-400"}`}
                       >
                         {c.is_completed && (
                           <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
