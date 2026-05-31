@@ -467,7 +467,7 @@ export default function NoticeDetailPage() {
 
           {/* 펼쳐지는 내용 — grid-rows 트릭으로 smooth */}
           {(() => {
-            const sortKo = (arr: Viewer[]) => [...arr].sort((a, b) => a.full_name.localeCompare(b.full_name, "ko"));
+            const sortKo = (arr: Viewer[]) => [...arr].sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? "", "ko"));
             const viewerIds = new Set(viewers.map((v) => v.id));
             const readList = sortKo(viewers);
             const unreadList = sortKo(allUsers.filter((u) => !viewerIds.has(u.id)));

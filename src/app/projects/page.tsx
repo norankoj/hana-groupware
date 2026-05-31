@@ -89,6 +89,15 @@ export default function ProjectsPage() {
 
   const canCreate = ["admin", "director"].includes(myRole);
 
+  const handleDelete = async (p: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`"${p.name}" 프로젝트를 삭제할까요?\n관련된 모든 데이터(선교사, 숙소, 차량 등)가 함께 삭제됩니다.`)) return;
+    const { error } = await supabase.from("projects").delete().eq("id", p.id);
+    if (error) { toast.error("삭제에 실패했습니다."); return; }
+    toast.success("프로젝트가 삭제되었습니다.");
+    setProjects((prev) => prev.filter((x) => x.id !== p.id));
+  };
+
   const handleCreate = async () => {
     if (!form.name.trim()) { toast.error("프로젝트명을 입력하세요."); return; }
     setSaving(true);
@@ -169,43 +178,58 @@ export default function ProjectsPage() {
           {projects.map((p) => {
             const status = STATUS_LABEL[p.status] ?? { label: p.status, color: "bg-gray-100 text-gray-500" };
             const type = TYPE_LABEL[p.project_type] ?? { label: p.project_type, color: "bg-gray-100 text-gray-500" };
+            const canDelete = canCreate || p.my_role === "admin";
             return (
-              <button
-                key={p.id}
-                onClick={() => router.push(`/projects/${p.id}`)}
-                className="text-left bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-400 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex gap-2 flex-wrap">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${type.color}`}>{type.label}</span>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
+              <div key={p.id} className="relative group">
+                <button
+                  onClick={() => router.push(`/projects/${p.id}`)}
+                  className="w-full text-left bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-400 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex gap-2 flex-wrap">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${type.color}`}>{type.label}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
+                    </div>
+                    {p.my_role === "admin"
+                      ? <span className="text-xs bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">관리자</span>
+                      : p.my_role === "member"
+                      ? <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">담당자</span>
+                      : <span className="text-xs text-gray-300 font-medium">보기</span>
+                    }
                   </div>
-                  {p.my_role === "admin"
-                    ? <span className="text-xs bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">관리자</span>
-                    : p.my_role === "member"
-                    ? <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">담당자</span>
-                    : <span className="text-xs text-gray-300 font-medium">보기</span>
-                  }
-                </div>
 
-                <h2 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors">
-                  {p.name}
-                </h2>
-                {p.year && <p className="text-sm text-gray-400 mt-0.5">{p.year}년</p>}
-                {p.description && (
-                  <p className="text-sm text-gray-500 mt-2 line-clamp-2">{p.description}</p>
-                )}
-                {p.recurrence_years && (
-                  <p className="text-xs text-gray-400 mt-3">{p.recurrence_years}년 주기 반복</p>
-                )}
+                  <h2 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors pr-8">
+                    {p.name}
+                  </h2>
+                  {p.year && <p className="text-sm text-gray-400 mt-0.5">{p.year}년</p>}
+                  {p.description && (
+                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">{p.description}</p>
+                  )}
+                  {p.recurrence_years && (
+                    <p className="text-xs text-gray-400 mt-3">{p.recurrence_years}년 주기 반복</p>
+                  )}
 
-                <div className="mt-4 flex items-center justify-end text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium">
-                  열기
-                  <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </button>
+                  <div className="mt-4 flex items-center justify-end text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium">
+                    열기
+                    <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* 삭제 버튼 — 카드 우측 상단 (삭제 권한자만 표시) */}
+                {canDelete && (
+                  <button
+                    onClick={(e) => handleDelete(p, e)}
+                    className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                    title="프로젝트 삭제"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

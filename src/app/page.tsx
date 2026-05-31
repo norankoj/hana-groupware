@@ -36,7 +36,7 @@ type TodayReservation = {
   profiles: { full_name: string };
 };
 
-const ALLOWED_ROLES = ["admin", "director", "staff"];
+const ALLOWED_ROLES = ["admin", "pastor", "director", "staff"];
 
 export default function Home() {
   const router = useRouter();

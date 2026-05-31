@@ -33,7 +33,7 @@ export default function ScheduleDetailModal({
 
   if (!event) return null;
 
-  const isAdmin = profile?.role === "admin" || profile?.role === "director";
+  const isAdmin = profile?.role === "admin" || profile?.role === "director" || profile?.role === "pastor";
   const isApprover = profile?.is_approver === true || isAdmin;
   const isOwner = profile?.id === event.user_id;
   const canManage = event.type === "schedule" && (isOwner || isAdmin);

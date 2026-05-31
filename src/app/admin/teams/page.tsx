@@ -439,6 +439,7 @@ export default function AdminTeamsPage() {
                       <option value="member">일반</option>
                       <option value="staff">사역자</option>
                       <option value="director">디렉터</option>
+                      <option value="pastor">목사/사모</option>
                       <option value="admin">관리자</option>
                     </select>
                     <button
@@ -552,6 +553,7 @@ export default function AdminTeamsPage() {
                   >
                     <option value="member">일반</option>
                     <option value="staff">사역자</option>
+                    <option value="pastor">목사/사모</option>
                     <option value="admin">관리자</option>
                   </select>
                 </div>
@@ -706,7 +708,7 @@ export default function AdminTeamsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select
-                      className={`block w-full py-1.5 pl-2 pr-8 text-sm font-medium rounded-md cursor-pointer border-0 ring-1 ring-inset ${person.role === "admin" ? "bg-purple-50 text-purple-700 ring-purple-200" : person.role === "staff" || person.role === "director" ? "bg-green-50 text-green-700 ring-green-200" : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-50"}`}
+                      className={`block w-full py-1.5 pl-2 pr-8 text-sm font-medium rounded-md cursor-pointer border-0 ring-1 ring-inset ${person.role === "admin" ? "bg-purple-50 text-purple-700 ring-purple-200" : person.role === "pastor" ? "bg-amber-50 text-amber-700 ring-amber-200" : person.role === "staff" || person.role === "director" ? "bg-green-50 text-green-700 ring-green-200" : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-50"}`}
                       value={person.role}
                       onChange={(e) =>
                         updateMemberRole(person.id, e.target.value)
@@ -717,6 +719,7 @@ export default function AdminTeamsPage() {
                       <option value="campleader">진장/코치</option>
                       <option value="staff">사역자</option>
                       <option value="director">디렉터</option>
+                      <option value="pastor">목사/사모</option>
                       <option value="admin">관리자</option>
                     </select>
                   </td>

@@ -15,6 +15,7 @@ type Menu = {
 
 const ALL_ROLES = [
   { key: "admin", label: "관리자" },
+  { key: "pastor", label: "목사/사모" },
   { key: "director", label: "디렉터" },
   { key: "staff", label: "사역자" },
   { key: "campleader", label: "진장" },
