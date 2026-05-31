@@ -113,7 +113,7 @@ export default function ProjectDashboard() {
       case "vehicles":       return <VehicleTab {...props} />;
       case "match_schedule": return <MatchScheduleTab {...props} />;
       case "gifts":          return <GiftTab {...props} />;
-      case "schedule":       return <ScheduleTab {...props} />;
+      case "schedule":       return <ScheduleTab {...props} isMarf={isMarf} />;
       case "documents":      return <DocumentTab {...props} />;
       case "checklist":      return <ChecklistTab {...props} isMarf={isMarf} />;
       case "budget":         return <BudgetTab    {...props} isMarf={isMarf} />;

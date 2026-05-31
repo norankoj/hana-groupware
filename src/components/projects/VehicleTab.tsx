@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
@@ -503,6 +504,8 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
 
   /** 배정별 사진 업로드 (이용 전/후) */
   const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null); // "vehicleId-aIdx-type"
+  const [lightbox, setLightbox] = useState<{ photos: string[]; idx: number } | null>(null);
+  const touchStartX = useRef(0);
 
   const handlePhotoUpload = async (
     vehicle: MvVehicle,
@@ -531,7 +534,10 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
         .eq("id", vehicle.id);
       if (error) { toast.error("사진 저장 실패"); return; }
       toast.success("사진 저장됨");
-      fetchData();
+      // items + detailItem 즉시 동기화 (fetchData 기다릴 필요 없음)
+      const updatedVehicle = { ...vehicle, assignments: asns };
+      setItems((prev) => prev.map((v) => v.id === vehicle.id ? updatedVehicle : v));
+      setDetailItem((prev) => prev?.id === vehicle.id ? updatedVehicle : prev);
     } finally {
       setUploadingPhoto(null);
     }
@@ -560,7 +566,10 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
       await deleteFile(obj, "vehicle");
     } catch {}
     toast.success("삭제됨");
-    fetchData();
+    // items + detailItem 즉시 동기화
+    const updatedVehicle = { ...vehicle, assignments: asns };
+    setItems((prev) => prev.map((v) => v.id === vehicle.id ? updatedVehicle : v));
+    setDetailItem((prev) => prev?.id === vehicle.id ? updatedVehicle : prev);
   };
 
   const matchedFamilies = useMemo(() =>
@@ -1112,69 +1121,80 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                                     <p className="text-xs text-gray-500 mt-1">요청 기간: {formatPeriods(requested, false)}</p>
                                   )}
                                   {/* ── 이용 전/후 사진 ── */}
-                                  {isMember && (
-                                    <div className="mt-3 grid grid-cols-2 gap-3">
-                                      {(["start", "end"] as const).map((pt) => {
-                                        const photos = pt === "start" ? (assignment.start_photos ?? []) : (assignment.end_photos ?? []);
-                                        const label  = pt === "start" ? "이용 전" : "이용 후";
-                                        const uploading = uploadingPhoto === `${v.id}-${i}-${pt}`;
-                                        return (
-                                          <div key={pt}>
-                                            <p className="text-xs font-semibold text-gray-500 mb-1.5">{label} 사진</p>
-                                            {/* 썸네일 */}
-                                            {photos.length > 0 && (
-                                              <div className="flex flex-wrap gap-1.5 mb-2">
-                                                {photos.map((url, pi) => (
-                                                  <div key={pi} className="relative group w-16 h-16">
-                                                    <a href={url} target="_blank" rel="noopener noreferrer">
-                                                      <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
-                                                    </a>
-                                                    <button
-                                                      onClick={() => handlePhotoDelete(v, i, pt, url)}
-                                                      className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                                                    >✕</button>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                            {/* 업로드 버튼 */}
-                                            <label className={`flex items-center gap-1 cursor-pointer text-xs px-2 py-1 rounded border border-dashed transition
-                                              ${uploading ? "border-gray-200 text-gray-300" : "border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500"}`}>
-                                              {uploading
-                                                ? <span>업로드 중...</span>
-                                                : <><span className="text-sm">📷</span><span>사진 추가</span></>
-                                              }
-                                              <input
-                                                type="file" accept="image/*" multiple className="hidden" disabled={uploading}
-                                                onChange={(e) => e.target.files && handlePhotoUpload(v, i, pt, e.target.files)}
-                                              />
-                                            </label>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  {/* 멤버가 아닐 때도 사진은 볼 수 있도록 */}
-                                  {!isMember && (assignment.start_photos?.length || assignment.end_photos?.length) ? (
-                                    <div className="mt-3 grid grid-cols-2 gap-3">
-                                      {(["start", "end"] as const).map((pt) => {
-                                        const photos = pt === "start" ? (assignment.start_photos ?? []) : (assignment.end_photos ?? []);
-                                        if (!photos.length) return null;
-                                        return (
-                                          <div key={pt}>
-                                            <p className="text-xs font-semibold text-gray-500 mb-1.5">{pt === "start" ? "이용 전" : "이용 후"} 사진</p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                              {photos.map((url, pi) => (
-                                                <a key={pi} href={url} target="_blank" rel="noopener noreferrer">
-                                                  <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
-                                                </a>
-                                              ))}
+                                  {/* 사진 섹션 (담당자/비담당자 공통 렌더) */}
+                                  {(() => {
+                                    const startPhotos = assignment.start_photos ?? [];
+                                    const endPhotos   = assignment.end_photos   ?? [];
+                                    if (!isMember && !startPhotos.length && !endPhotos.length) return null;
+                                    return (
+                                      <div className="mt-3 grid grid-cols-2 gap-3">
+                                        {(["start", "end"] as const).map((pt) => {
+                                          const photos   = pt === "start" ? startPhotos : endPhotos;
+                                          const label    = pt === "start" ? "이용 전" : "이용 후";
+                                          const uploading = uploadingPhoto === `${v.id}-${i}-${pt}`;
+                                          return (
+                                            <div key={pt}>
+                                              <p className="text-xs font-semibold text-gray-500 mb-1.5">{label} 사진</p>
+                                              {/* 가로 스크롤 썸네일 스트립 */}
+                                              {(photos.length > 0 || uploading) && (
+                                                <div className="flex gap-1.5 overflow-x-auto pb-1 mb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
+                                                  {photos.map((url, pi) => (
+                                                    <div key={pi} className="relative group shrink-0 snap-start">
+                                                      <img
+                                                        src={url}
+                                                        alt=""
+                                                        className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-zoom-in"
+                                                        onClick={() => setLightbox({ photos, idx: pi })}
+                                                      />
+                                                      {isMember && (
+                                                        <button
+                                                          onClick={() => handlePhotoDelete(v, i, pt, url)}
+                                                          className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                                                        >✕</button>
+                                                      )}
+                                                    </div>
+                                                  ))}
+                                                  {/* 업로드 중 스피너 슬롯 */}
+                                                  {uploading && (
+                                                    <div className="shrink-0 snap-start w-16 h-16 rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 flex flex-col items-center justify-center gap-1">
+                                                      <svg className="w-5 h-5 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                                      </svg>
+                                                      <span className="text-[9px] text-blue-400 font-medium">저장 중</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
+                                              {/* 업로드 버튼 (담당자만) */}
+                                              {isMember && (
+                                                <label className={`flex items-center gap-1.5 cursor-pointer text-xs px-2.5 py-1.5 rounded-lg border transition
+                                                  ${uploading
+                                                    ? "border-blue-200 bg-blue-50 text-blue-400 cursor-not-allowed"
+                                                    : "border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50"}`}>
+                                                  {uploading ? (
+                                                    <>
+                                                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                                      </svg>
+                                                      <span>사진 업로드 중...</span>
+                                                    </>
+                                                  ) : (
+                                                    <><span className="text-sm">📷</span><span>사진 추가</span></>
+                                                  )}
+                                                  <input
+                                                    type="file" accept="image/*" multiple className="hidden" disabled={uploading}
+                                                    onChange={(e) => e.target.files && handlePhotoUpload(v, i, pt, e.target.files)}
+                                                  />
+                                                </label>
+                                              )}
                                             </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : null}
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })}
@@ -1199,6 +1219,7 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                     </tbody>
                   </table>
                 )}
+
 
               </div>
             );
@@ -1505,6 +1526,66 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
           title="차량 변경 이력"
           entityType="vehicle"
         />
+      )}
+
+      {/* ── 사진 라이트박스 (Portal → document.body 직접 렌더링) ── */}
+      {lightbox && createPortal(
+        <div
+          className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center select-none"
+          onClick={() => setLightbox(null)}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (dx < -50 && lightbox.idx < lightbox.photos.length - 1)
+              setLightbox({ ...lightbox, idx: lightbox.idx + 1 });
+            else if (dx > 50 && lightbox.idx > 0)
+              setLightbox({ ...lightbox, idx: lightbox.idx - 1 });
+          }}
+        >
+          {/* 닫기 */}
+          <button
+            className="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full text-xl transition"
+            onClick={() => setLightbox(null)}
+          >×</button>
+          {/* 카운터 */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-sm font-medium">
+            {lightbox.idx + 1} / {lightbox.photos.length}
+          </div>
+          {/* 이전 */}
+          {lightbox.idx > 0 && (
+            <button
+              className="absolute left-3 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/25 text-white rounded-full text-2xl transition"
+              onClick={(e) => { e.stopPropagation(); setLightbox({ ...lightbox, idx: lightbox.idx - 1 }); }}
+            >‹</button>
+          )}
+          {/* 이미지 */}
+          <img
+            src={lightbox.photos[lightbox.idx]}
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            alt="차량 사진"
+          />
+          {/* 다음 */}
+          {lightbox.idx < lightbox.photos.length - 1 && (
+            <button
+              className="absolute right-3 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/25 text-white rounded-full text-2xl transition"
+              onClick={(e) => { e.stopPropagation(); setLightbox({ ...lightbox, idx: lightbox.idx + 1 }); }}
+            >›</button>
+          )}
+          {/* 도트 인디케이터 */}
+          {lightbox.photos.length > 1 && (
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+              {lightbox.photos.map((_, di) => (
+                <button
+                  key={di}
+                  className={`w-2 h-2 rounded-full transition ${di === lightbox.idx ? "bg-white scale-125" : "bg-white/35 hover:bg-white/60"}`}
+                  onClick={(e) => { e.stopPropagation(); setLightbox({ ...lightbox, idx: di }); }}
+                />
+              ))}
+            </div>
+          )}
+        </div>,
+        document.body,
       )}
     </div>
   );

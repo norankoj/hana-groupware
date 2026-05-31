@@ -353,6 +353,58 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
     fetch();
   };
 
+  // ── 명단 데이터 엑셀 다운로드 ──────────────────────────────
+  const handleDownloadData = () => {
+    if (missionaries.length === 0) { toast.error("다운로드할 명단이 없습니다."); return; }
+
+    const headers = [
+      "이름", "소속", "국가", "출발지", "가족그룹", "연락처",
+      "한국IN날짜", "도착시간", "터미널(IN)", "항공편(IN)",
+      "한국OUT날짜", "출발시간", "터미널(OUT)", "항공편(OUT)",
+      "숙소필요", "숙소기간", "차량필요", "차량기간", "라이드필요",
+      "식이제한", "메모",
+      "숙소배정", "차량배정",
+    ];
+
+    const dataRows = missionaries.map((m) => {
+      const accomPeriods   = getFamilyAccomPeriods(m.id, missionaries);
+      const vehiclePeriods = getFamilyVehiclePeriods(m.id, missionaries);
+      return [
+        m.name,
+        m.affiliation ?? "",
+        m.country ?? "",
+        m.departure_location ?? "",
+        m.family_group ?? "",
+        m.phone ?? "",
+        m.arrival_date ?? "",
+        m.arrival_time ?? "",
+        m.arrival_terminal ?? "",
+        m.arrival_flight ?? "",
+        m.departure_date ?? "",
+        m.departure_time ?? "",
+        m.departure_terminal ?? "",
+        m.departure_flight ?? "",
+        m.accommodation_needed ? "Y" : "N",
+        formatPeriods(accomPeriods, false),
+        m.vehicle_needed ? "Y" : "N",
+        formatPeriods(vehiclePeriods, false),
+        m.ride_needed ? "Y" : "N",
+        m.dietary_notes ?? "",
+        m.notes ?? "",
+        isAccomMatched(m) ? "배정완료" : (m.accommodation_needed ? "미배정" : "-"),
+        isVehicleMatched(m) ? "배정완료" : (m.vehicle_needed ? "미배정" : "-"),
+      ];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 2, 12) }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "명단");
+    XLSX.writeFile(wb, "MARF_명단.xlsx");
+    toast.success(`명단 ${missionaries.length}명 다운로드 완료`);
+  };
+
   // ── 엑셀 템플릿 다운로드 ────────────────────────────────────
   const handleDownloadTemplate = () => {
     const headers = EXCEL_COLUMNS.map((c) => c.header);
@@ -647,6 +699,18 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
               </svg>
               <span className="hidden sm:inline">템플릿</span>
             </button>
+            {missionaries.length > 0 && (
+              <button
+                onClick={handleDownloadData}
+                title="명단 다운로드"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-600 text-sm font-medium rounded-lg hover:bg-emerald-100 transition"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden sm:inline">명단 다운로드</span>
+              </button>
+            )}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}

@@ -631,11 +631,15 @@ export default function MatchScheduleTab({ projectId }: Props) {
             </span>
           </div>
 
-          {/* 타임라인 본체: 고정 이름 열 + 스크롤 날짜 영역 */}
-          <div className="flex">
+          {/* 타임라인 본체: 단일 overflow-x-auto + sticky 이름 열 */}
+          <div className="overflow-x-auto">
+            <div className="flex" style={{ width: LABEL_W + totalW }}>
 
-            {/* ── 고정 이름 열 (스크롤 밖) ── */}
-            <div className="shrink-0 border-r border-gray-200 z-10" style={{ width: LABEL_W }}>
+            {/* ── sticky 이름 열 ── */}
+            <div
+              className="sticky left-0 z-10 bg-white border-r border-gray-200 shrink-0"
+              style={{ width: LABEL_W }}
+            >
               {/* 헤더 1: 월 자리 (빈 칸) */}
               <div className="bg-gray-50 border-b border-gray-200" style={{ height: 26 }} />
               {/* 헤더 2: 섹션명 */}
@@ -683,9 +687,8 @@ export default function MatchScheduleTab({ projectId }: Props) {
               })}
             </div>
 
-            {/* ── 스크롤 날짜 + 셀 영역 ── */}
-            <div className="overflow-x-auto flex-1 min-w-0">
-              <div style={{ width: totalW }}>
+            {/* ── 날짜 + 셀 영역 ── */}
+            <div className="shrink-0" style={{ width: totalW }}>
 
                 {/* 헤더 1: 월 */}
                 <div className="flex border-b border-gray-200" style={{ height: 26 }}>
