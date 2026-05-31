@@ -156,7 +156,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
 
   /* ── Fetch ──────────────────────────────────────────────────── */
   const fetchAll = useCallback(async () => {
-    const queries: Promise<any>[] = [
+    const queries: any[] = [
       supabase.from("project_schedules").select("*").eq("project_id", projectId)
         .order("event_date").order("start_time"),
     ];
