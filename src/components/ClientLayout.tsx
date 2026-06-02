@@ -173,6 +173,13 @@ export default function ClientLayout({
 
       if (profileData) setProfile(profileData as any);
       if (menuData) setMenus(menuData);
+
+      // 마지막 접속 시간 업데이트
+      const { error: lastSeenErr } = await supabase
+        .from("profiles")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", userId);
+      if (lastSeenErr) console.error("last_seen_at 업데이트 실패:", lastSeenErr);
     };
 
     // onAuthStateChange로 모든 세션 상태 관리
@@ -323,7 +330,7 @@ export default function ClientLayout({
 
   const visibleMenus = menus.filter((menu) => {
     if (!profile) return false;
-    if (menu.is_admin_only && profile.role !== "admin") return false;
+    if (menu.is_admin_only && !["admin", "director"].includes(profile.role)) return false;
     return menu.roles.includes(profile.role);
   });
 
@@ -360,6 +367,8 @@ export default function ClientLayout({
                   alt="수원하나교회"
                   width={180}
                   height={50}
+                  loading="eager"
+                  style={{ height: "auto" }}
                   className="object-contain"
                 />
               </Link>

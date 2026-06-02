@@ -17,7 +17,27 @@ type Profile = {
   is_approver: boolean;
   total_leave_days: number;
   used_leave_days: number;
+  last_seen_at: string | null;
 };
+
+function formatLastSeen(lastSeenAt: string | null): { text: string; color: string } {
+  if (!lastSeenAt) return { text: "기록 없음", color: "text-gray-300" };
+  const now = new Date();
+  const last = new Date(lastSeenAt);
+  const diffMs = now.getTime() - last.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHour = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 5)   return { text: "방금 전",          color: "text-green-600" };
+  if (diffMin < 60)  return { text: `${diffMin}분 전`,  color: "text-green-500" };
+  if (diffHour < 24) return { text: `${diffHour}시간 전`, color: "text-blue-500" };
+  if (diffDay < 7)   return { text: `${diffDay}일 전`,  color: "text-gray-500" };
+  return {
+    text: last.toLocaleDateString("ko-KR", { month: "short", day: "numeric" }),
+    color: "text-gray-400",
+  };
+}
 
 type Team = {
   id: number;
@@ -509,6 +529,10 @@ export default function AdminTeamsPage() {
                     <div className="text-xs text-gray-500 mt-0.5">
                       {person.position}
                     </div>
+                    {(() => {
+                      const { text, color } = formatLastSeen(person.last_seen_at ?? null);
+                      return <div className={`text-xs mt-0.5 ${color}`}>접속: {text}</div>;
+                    })()}
                   </div>
                 </div>
                 <button
@@ -653,6 +677,9 @@ export default function AdminTeamsPage() {
                   연차 (총/사용)
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  마지막 활동
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
                   관리
                 </th>
               </tr>
@@ -780,6 +807,12 @@ export default function AdminTeamsPage() {
                         }
                       />
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {(() => {
+                      const { text, color } = formatLastSeen(person.last_seen_at ?? null);
+                      return <span className={`text-xs font-medium ${color}`}>{text}</span>;
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <button

@@ -243,7 +243,7 @@ export default function AdminMenusPage() {
                               toggleRole(menu.id, role.key, menu.roles)
                             }
                             disabled={
-                              menu.is_admin_only && role.key !== "admin"
+                              menu.is_admin_only && !["admin", "director"].includes(role.key)
                             }
                           />
                           <span

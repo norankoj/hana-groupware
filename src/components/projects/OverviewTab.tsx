@@ -629,9 +629,10 @@ export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
   );
   const winDates = [...new Set(winEvents.map((e) => e.date))];
 
-  // 현재 윈도우 체크리스트
+  // 현재 윈도우 체크리스트 — offset=0일 때 해당 월 1일부터 표시 (날짜 지난 항목도 포함)
+  const checklistFrom = windowOffset === 0 ? `${today.slice(0, 7)}-01` : win.from;
   const winChecklists = checklists.filter(
-    (c) => c.due_date && c.due_date >= win.from && c.due_date <= win.to,
+    (c) => c.due_date && c.due_date >= checklistFrom && c.due_date <= win.to,
   );
 
   return (
