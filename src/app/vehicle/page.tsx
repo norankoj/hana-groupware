@@ -185,7 +185,7 @@ export default function VehicleReservationPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [myReservationsOnly, setMyReservationsOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const getNowTime = () => {
     const now = new Date();
@@ -1321,36 +1321,47 @@ export default function VehicleReservationPage() {
           )}
         </div>
         {mobileTotalPages > 1 && (
-          <div className="flex justify-center py-4 border-t border-gray-200 bg-white">
-            <div className="flex gap-1">
-              <button
-                onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
-                disabled={mobilePage === 1}
-                className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50 text-sm"
-              >
-                이전
-              </button>
-              {Array.from({ length: mobileTotalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    onClick={() => setMobilePage(page)}
-                    className={`px-3 py-1 rounded border text-sm ${mobilePage === page ? "bg-slate-800 text-white border-slate-800" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    {page}
-                  </button>
-                ),
-              )}
-              <button
-                onClick={() =>
-                  setMobilePage((p) => Math.min(mobileTotalPages, p + 1))
-                }
-                disabled={mobilePage === mobileTotalPages || mobileTotalPages === 0}
-                className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50 text-sm"
-              >
-                다음
-              </button>
+          <div className="flex items-center gap-2 py-3 px-3 border-t border-gray-200 bg-white">
+            {/* 이전 — shrink-0 으로 항상 고정 */}
+            <button
+              onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
+              disabled={mobilePage === 1}
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 disabled:opacity-30 text-lg leading-none"
+            >
+              ‹
+            </button>
+
+            {/* 숫자 영역 — 넘치면 내부만 가로 스크롤 */}
+            <div className="flex-1 overflow-x-auto">
+              <div className="flex gap-1 justify-center min-w-fit">
+                {buildPageWindow(mobilePage, mobileTotalPages, 1).map((item, i) =>
+                  item === "..." ? (
+                    <span key={`m-ellipsis-${i}`} className="w-7 h-9 flex items-center justify-center text-gray-400 text-sm shrink-0">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setMobilePage(item as number)}
+                      className={`shrink-0 w-9 h-9 rounded-lg border text-sm font-medium ${
+                        mobilePage === item
+                          ? "bg-slate-800 text-white border-slate-800"
+                          : "border-gray-300 text-gray-600 bg-white"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+              </div>
             </div>
+
+            {/* 다음 — shrink-0 으로 항상 고정 */}
+            <button
+              onClick={() => setMobilePage((p) => Math.min(mobileTotalPages, p + 1))}
+              disabled={mobilePage === mobileTotalPages || mobileTotalPages === 0}
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 disabled:opacity-30 text-lg leading-none"
+            >
+              ›
+            </button>
           </div>
         )}
       </div>
@@ -1556,15 +1567,19 @@ export default function VehicleReservationPage() {
                 >
                   이전
                 </button>
-                {Array.from({ length: safeTotal }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 rounded border text-sm ${currentPage === page ? "bg-slate-800 text-white border-slate-800" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    {page}
-                  </button>
-                ))}
+                {buildPageWindow(currentPage, safeTotal).map((item, i) =>
+                  item === "..." ? (
+                    <span key={`ellipsis-${i}`} className="px-2 py-1 text-gray-400 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setCurrentPage(item as number)}
+                      className={`px-3 py-1 rounded border text-sm ${currentPage === item ? "bg-slate-800 text-white border-slate-800" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(safeTotal, p + 1))}
                   disabled={currentPage >= safeTotal}
@@ -2531,4 +2546,28 @@ export default function VehicleReservationPage() {
         )}
     </div>
   );
+}
+
+/* ── 페이지네이션 윈도우 헬퍼 ────────────────────────────────────────
+ * 현재 페이지 기준 앞뒤 2개 + 첫/마지막 페이지를 보여주고,
+ * 사이에 빈 곳은 "..." 으로 채웁니다.
+ * 예) 총 20페이지, 현재 10: [1, "...", 8, 9, 10, 11, 12, "...", 20]
+ * ─────────────────────────────────────────────────────────────────── */
+// delta: 현재 페이지 기준 앞뒤 몇 개 표시할지 (PC=2, 모바일=1)
+function buildPageWindow(current: number, total: number, delta = 2): (number | "...")[] {
+  const threshold = delta * 2 + 3; // 전체 표시 가능한 최소 페이지 수
+  if (total <= threshold + 2) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const left  = Math.max(2, current - delta);
+  const right = Math.min(total - 1, current + delta);
+  const pages: (number | "...")[] = [1];
+
+  if (left > 2)          pages.push("...");
+  for (let i = left; i <= right; i++) pages.push(i);
+  if (right < total - 1) pages.push("...");
+  pages.push(total);
+
+  return pages;
 }
