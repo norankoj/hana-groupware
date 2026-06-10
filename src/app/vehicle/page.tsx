@@ -82,6 +82,8 @@ type VehicleLog = {
   fuel_level_start?: number;
   fuel_level_end?: number;
   incident_type?: string;
+  actual_start_time?: string | null;
+  actual_end_time?: string | null;
   profiles?: { full_name: string; position: string };
   resources?: {
     name: string;
@@ -1406,10 +1408,12 @@ export default function VehicleReservationPage() {
         const pcFilteredLogs = pcSelectedVehicleId
           ? sortedLogs.filter((l) => l.resource_id === pcSelectedVehicleId)
           : sortedLogs;
-        const pcTotalPages = Math.ceil(pcFilteredLogs.length / itemsPerPage);
+        // 전체 보기는 10개, 차량별 보기는 5개
+        const pcItemsPerPage = pcSelectedVehicleId ? 5 : 10;
+        const pcTotalPages = Math.ceil(pcFilteredLogs.length / pcItemsPerPage);
         const pcCurrentLogs = pcFilteredLogs.slice(
-          (currentPage - 1) * itemsPerPage,
-          currentPage * itemsPerPage,
+          (currentPage - 1) * pcItemsPerPage,
+          currentPage * pcItemsPerPage,
         );
 
         // 최근 특이사항 (이상 없음 제외, 최근 5건)
@@ -2463,13 +2467,40 @@ export default function VehicleReservationPage() {
                       </button>
                     </div>
                     <div className="px-5 py-4 space-y-2.5">
-                      <InfoLine label="운행 시간">
+                      <InfoLine label="예약시간">
                         {format(start, "MM.dd(EEE)", { locale: ko })}{" "}
                         {format(start, "HH:mm")} ~{" "}
                         {sameDay
                           ? format(end, "HH:mm")
                           : `${format(end, "MM.dd(EEE)", { locale: ko })} ${format(end, "HH:mm")}`}
                       </InfoLine>
+                      {(log.actual_start_time || log.actual_end_time) && (() => {
+                        const parseActual = (val: string | null | undefined, refDate: Date): Date | null => {
+                          if (!val) return null;
+                          if (val.includes("T")) return new Date(val);
+                          const [h, m] = val.split(":").map(Number);
+                          const dt = new Date(refDate);
+                          dt.setHours(h, m, 0, 0);
+                          return dt;
+                        };
+                        const actualStart = parseActual(log.actual_start_time, start);
+                        const actualEnd = parseActual(log.actual_end_time, end);
+                        const startLabel = actualStart
+                          ? `${format(actualStart, "MM.dd(EEE)", { locale: ko })} ${format(actualStart, "HH:mm")}`
+                          : `${format(start, "MM.dd(EEE)", { locale: ko })} --:--`;
+                        const endLabel = actualEnd
+                          ? actualStart && format(actualStart, "yyyy-MM-dd") === format(actualEnd, "yyyy-MM-dd")
+                            ? format(actualEnd, "HH:mm")
+                            : `${format(actualEnd, "MM.dd(EEE)", { locale: ko })} ${format(actualEnd, "HH:mm")}`
+                          : "--:--";
+                        return (
+                          <InfoLine label="운행시간">
+                            <span className="text-blue-700 font-semibold">
+                              {startLabel} ~ {endLabel}
+                            </span>
+                          </InfoLine>
+                        );
+                      })()}
                       <InfoLine label="운전자">
                         {log.driver_name}
                         {log.department && (

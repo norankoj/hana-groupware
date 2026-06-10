@@ -37,6 +37,8 @@ type VehicleLog = {
   fuel_level_start?: number;
   fuel_level_end?: number;
   incident_type?: string;
+  actual_start_time?: string | null;
+  actual_end_time?: string | null;
   profiles?: { full_name: string; position: string };
   resources?: {
     name: string;
@@ -105,6 +107,8 @@ export default function DetailModal({
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  const [actualStartTime, setActualStartTime] = useState("");
+  const [actualEndTime, setActualEndTime] = useState("");
   const [checkinMileage, setCheckinMileage] = useState<number | "">("");
   const [checkinFuel, setCheckinFuel] = useState<number>(100);
 
@@ -212,6 +216,17 @@ export default function DetailModal({
       setOcrLoading(false);
       setExteriorFiles([]);
       setExteriorPreviews([]);
+      const nowTime = format(new Date(), "HH:mm");
+      if (selectedLog) {
+        const startDay = format(new Date(selectedLog.start_at), "yyyy-MM-dd");
+        const endDay = format(new Date(selectedLog.end_at), "yyyy-MM-dd");
+        // 이미 기록된 actual_start_time 있으면 그 값 사용 (반납 시 수정 가능하도록)
+        setActualStartTime(selectedLog.actual_start_time ?? `${startDay}T${nowTime}`);
+        setActualEndTime(`${endDay}T${nowTime}`);
+      } else {
+        setActualStartTime(nowTime);
+        setActualEndTime(nowTime);
+      }
       setCheckinMileage("");
       setCheckinFuel(100);
       setCheckoutForm({
@@ -500,8 +515,11 @@ export default function DetailModal({
         updates.checkin_exterior_urls = extUrls;
         updates.start_mileage = Number(checkinMileage);
         updates.fuel_level_start = checkinFuel;
+        updates.actual_start_time = actualStartTime || null;
       } else {
         updates.vehicle_status = "returned";
+        updates.actual_start_time = actualStartTime || null; // 반납 시 시작시간 수정 반영
+        updates.actual_end_time = actualEndTime || null;
         updates.checkout_photo_url = dashUrl;
         updates.checkout_exterior_urls = extUrls;
         updates.end_mileage = Number(checkoutForm.mileage);
@@ -712,6 +730,50 @@ export default function DetailModal({
       </div>
 
       <div className="p-4 space-y-5">
+        {/* ─── 실제 이용 시간 ──────────────────────────────── */}
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+            <span className="text-blue-400 shrink-0 mt-0.5">ℹ️</span>
+            <p className="text-xs text-blue-600 leading-relaxed">
+              정확한 이용시간 기록을 위해 추가되었습니다.
+              예약 시간과 실제 이용 시간이 다를 때를 위한 항목입니다.
+            </p>
+          </div>
+
+          {/* 운행 시작 시간 — 이용시작 시 입력 / 반납 시 수정 가능 */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              운행 시작 시간
+              {actionType === "checkout" && selectedLog?.actual_start_time && (
+                <span className="text-xs font-normal text-gray-400 ml-2">
+                  이용시작 시 기록됨 · 수정 가능
+                </span>
+              )}
+            </label>
+            <input
+              type="datetime-local"
+              value={actualStartTime}
+              onChange={(e) => setActualStartTime(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-base bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
+            />
+          </div>
+
+          {/* 운행 반납 시간 — 반납 시에만 표시 */}
+          {actionType === "checkout" && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                운행 반납 시간
+              </label>
+              <input
+                type="datetime-local"
+                value={actualEndTime}
+                onChange={(e) => setActualEndTime(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-base bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
+              />
+            </div>
+          )}
+        </div>
+
         {/* ─── 계기판 사진 업로드 ──────────────────────────── */}
         <div>
           <p className="text-sm font-semibold text-gray-700 mb-3">
@@ -1651,7 +1713,7 @@ export default function DetailModal({
             <span>{selectedLog.department}</span>
           </InfoRow>
         )}
-        <InfoRow label="운행 시간">
+        <InfoRow label="예약시간">
           {selectedLog && (() => {
             const start = new Date(selectedLog.start_at);
             const end = new Date(selectedLog.end_at);
@@ -1666,6 +1728,38 @@ export default function DetailModal({
             );
           })()}
         </InfoRow>
+        {(selectedLog?.actual_start_time || selectedLog?.actual_end_time) && (
+          <InfoRow label="운행시간">
+            {selectedLog && (() => {
+              // "HH:mm" 또는 "yyyy-MM-ddTHH:mm" 두 포맷 모두 파싱
+              const parseActual = (val: string | null | undefined, refDate: Date): Date | null => {
+                if (!val) return null;
+                if (val.includes("T")) return new Date(val);
+                const [h, m] = val.split(":").map(Number);
+                const dt = new Date(refDate);
+                dt.setHours(h, m, 0, 0);
+                return dt;
+              };
+              const refStart = new Date(selectedLog.start_at);
+              const refEnd = new Date(selectedLog.end_at);
+              const actualStart = parseActual(selectedLog.actual_start_time, refStart);
+              const actualEnd = parseActual(selectedLog.actual_end_time, refEnd);
+              const startLabel = actualStart
+                ? `${format(actualStart, "MM.dd(EEE)", { locale: ko })} ${format(actualStart, "HH:mm")}`
+                : `${format(refStart, "MM.dd(EEE)", { locale: ko })} --:--`;
+              const endLabel = actualEnd
+                ? actualStart && format(actualStart, "yyyy-MM-dd") === format(actualEnd, "yyyy-MM-dd")
+                  ? format(actualEnd, "HH:mm")
+                  : `${format(actualEnd, "MM.dd(EEE)", { locale: ko })} ${format(actualEnd, "HH:mm")}`
+                : "--:--";
+              return (
+                <span className="text-blue-700 font-medium">
+                  {startLabel} ~ {endLabel}
+                </span>
+              );
+            })()}
+          </InfoRow>
+        )}
         <InfoRow label="목적지">{selectedLog?.destination}</InfoRow>
         <InfoRow label="운행 목적" isLast>
           {selectedLog?.purpose}
