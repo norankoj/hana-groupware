@@ -27,7 +27,8 @@ type Missionary = {
   country: string | null;              // 국가
   departure_location: string | null;   // 출발지
   family_group: string | null;         // 가족 그룹
-  phone: string | null;                // 연락처
+  phone: string | null;                // 해외 연락처
+  phone_kr: string | null;             // 한국 전화번호
   arrival_date: string | null;
   arrival_time: string | null;         // 도착 시간
   arrival_terminal: string | null;     // 도착 터미널
@@ -52,7 +53,7 @@ type Missionary = {
 
 const EMPTY: Omit<Missionary, "id"> = {
   name: "", affiliation: "", country: "", departure_location: "",
-  family_group: "", phone: "",
+  family_group: "", phone: "", phone_kr: "",
   arrival_date: "", arrival_time: "", arrival_terminal: "", arrival_flight: "",
   departure_date: "", departure_time: "", departure_terminal: "", departure_flight: "",
   accommodation_needed: false, accommodation_periods: [], accommodation_from: "", accommodation_to: "",
@@ -69,6 +70,7 @@ const EXCEL_COLUMNS = [
   { header: "출발지",             field: "departure_location" },
   { header: "가족그룹",           field: "family_group" },
   { header: "연락처",             field: "phone" },
+  { header: "한국전화번호",       field: "phone_kr" },
   { header: "한국IN날짜(YYYY-MM-DD)", field: "arrival_date" },
   { header: "도착시간(HH:MM)",    field: "arrival_time" },
   { header: "터미널(IN)",         field: "arrival_terminal" },
@@ -358,7 +360,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
     if (missionaries.length === 0) { toast.error("다운로드할 명단이 없습니다."); return; }
 
     const headers = [
-      "이름", "소속", "국가", "출발지", "가족그룹", "연락처",
+      "이름", "소속", "국가", "출발지", "가족그룹", "연락처", "한국전화번호",
       "한국IN날짜", "도착시간", "터미널(IN)", "항공편(IN)",
       "한국OUT날짜", "출발시간", "터미널(OUT)", "항공편(OUT)",
       "숙소필요", "숙소기간", "차량필요", "차량기간", "라이드필요",
@@ -376,6 +378,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
         m.departure_location ?? "",
         m.family_group ?? "",
         m.phone ?? "",
+        m.phone_kr ?? "",
         m.arrival_date ?? "",
         m.arrival_time ?? "",
         m.arrival_terminal ?? "",
@@ -497,6 +500,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
           departure_location:  toStr(row[colIdx["departure_location"]]),
           family_group:        toStr(row[colIdx["family_group"]]),
           phone:               toStr(row[colIdx["phone"]]),
+          phone_kr:            toStr(row[colIdx["phone_kr"]]),
           arrival_date:        formatDate(row[colIdx["arrival_date"]]),
           arrival_time:        toTime(row[colIdx["arrival_time"]]),
           arrival_terminal:    toStr(row[colIdx["arrival_terminal"]]),
@@ -1095,9 +1099,15 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                         <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.country}{detailM.departure_location ? ` / ${detailM.departure_location}` : ""}</td>
                       </tr>
                     )}
+                    {detailM.phone_kr && (
+                      <tr>
+                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">한국 전화</th>
+                        <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.phone_kr}</td>
+                      </tr>
+                    )}
                     {detailM.phone && (
                       <tr>
-                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left">연락처</th>
+                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left">해외 연락처</th>
                         <td className="px-4 py-3 text-gray-700 text-xs whitespace-pre-wrap">{detailM.phone}</td>
                       </tr>
                     )}
@@ -1345,9 +1355,17 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
           {/* 연락처 & 메모 */}
           <section>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">연락처 / 메모</p>
+            <div className="mb-3">
+              <Field
+                label="한국 전화번호"
+                value={form.phone_kr || ""}
+                onChange={(v) => setForm({ ...form, phone_kr: v })}
+                placeholder="010-1234-5678"
+              />
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">연락처</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">해외 연락처</label>
                 <textarea
                   value={form.phone || ""}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}

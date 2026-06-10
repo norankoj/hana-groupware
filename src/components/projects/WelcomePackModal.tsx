@@ -48,6 +48,8 @@ type Vehicle = {
   car_model: string | null;
   car_number: string | null;
   insurance_added: boolean;
+  insurance_company: string | null;
+  insurance_number: string | null;
   assignments: AssignmentEntry[] | null;
   assigned_missionary_id: string | null;
   available_from: string | null;
@@ -395,14 +397,22 @@ export default function WelcomePackModal({
                         .flatMap((v) => myAssigns(v).map((p) => ({ p, v })))
                         .sort((a, b) => (a.p.from ?? "").localeCompare(b.p.from ?? ""))
                         .map(({ p, v }, i) => (
-                          <div key={i} className="text-[13px] text-gray-700 flex items-baseline gap-2">
-                            <span className="text-gray-300 shrink-0">—</span>
-                            <span>
-                              <span className="font-medium text-gray-800">{fmtShort(p.from)} ~ {fmtShort(p.to)}</span>
-                              <span className="mx-2 text-gray-300">|</span>
-                              <span className="font-semibold">{v.provider_name}</span>
-                              {v.car_model && <span className="text-gray-400 ml-1">({v.car_model}{v.car_number ? ` · ${v.car_number}` : ""})</span>}
-                            </span>
+                          <div key={i} className="text-[13px] text-gray-700">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-gray-300 shrink-0">—</span>
+                              <span>
+                                <span className="font-medium text-gray-800">{fmtShort(p.from)} ~ {fmtShort(p.to)}</span>
+                                <span className="mx-2 text-gray-300">|</span>
+                                <span className="font-semibold">{v.provider_name}</span>
+                                {v.car_model && <span className="text-gray-400 ml-1">({v.car_model}{v.car_number ? ` · ${v.car_number}` : ""})</span>}
+                              </span>
+                            </div>
+                            {(v.insurance_company || v.insurance_number) && (
+                              <div className="ml-5 mt-0.5 text-[12px] text-gray-400">
+                                🛡️ {v.insurance_company && <span className="mr-1">{v.insurance_company}</span>}
+                                {v.insurance_number && <span>{v.insurance_number}</span>}
+                              </div>
+                            )}
                           </div>
                         ))
                       }

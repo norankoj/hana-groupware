@@ -39,6 +39,8 @@ type MvVehicle = {
   available_from: string | null;
   available_to: string | null;
   insurance_added: boolean;
+  insurance_company: string | null;        // 보험사
+  insurance_number: string | null;         // 보험사 연락처 번호
   is_church_owned: boolean;                // 교회 소속 (기간 제한 없음)
   drivers: Driver[];
   assignments: AssignmentEntry[] | null;   // 다중 가정 배정 (NEW)
@@ -97,6 +99,7 @@ const EMPTY_DRIVER: Driver = { name: "", license_url: "" };
 const EMPTY_FORM = {
   provider_name: "", provider_contact: "", car_model: "", car_number: "",
   available_from: "", available_to: "", insurance_added: false,
+  insurance_company: "", insurance_number: "",
   is_church_owned: false,
   drivers: [{ ...EMPTY_DRIVER }] as Driver[],
   assignments: [] as AssignmentEntry[],
@@ -329,6 +332,8 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
       car_model: v.car_model || "", car_number: v.car_number || "",
       available_from: v.available_from || "", available_to: v.available_to || "",
       insurance_added: v.insurance_added,
+      insurance_company: v.insurance_company || "",
+      insurance_number: v.insurance_number || "",
       is_church_owned: v.is_church_owned,
       drivers: v.drivers?.length ? v.drivers : [{ ...EMPTY_DRIVER }],
       assignments: normalizeAssignments(v),
@@ -427,6 +432,8 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
       car_model: form.car_model || null, car_number: form.car_number || null,
       available_from: form.available_from || null, available_to: form.available_to || null,
       insurance_added: form.insurance_added,
+      insurance_company: form.insurance_company || null,
+      insurance_number: form.insurance_number || null,
       is_church_owned: form.is_church_owned,
       drivers,
       assignments: validAssignments,
@@ -650,6 +657,9 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                           <div className="font-medium text-gray-900">
                             {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
                           </div>
+                          {row.periods.length > 0 && (
+                            <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods, false)}</div>
+                          )}
                         </td>
                         <td colSpan={isMember ? 4 : 3} className="px-4 py-3">
                           <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">미배정</span>
@@ -664,6 +674,9 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                         <div className="font-medium text-gray-900">
                           {row.family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {row.family.label}
                         </div>
+                        {row.periods.length > 0 && (
+                          <div className="text-xs text-gray-400 mt-0.5">{formatPeriods(row.periods, false)}</div>
+                        )}
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -747,6 +760,9 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                                 <span className="text-xs font-bold text-gray-700">
                                   {family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {family.label}
                                 </span>
+                                {periods.length > 0 && (
+                                  <span className="text-xs text-gray-400">{formatPeriods(periods, false)}</span>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 {vehicles.length === 0 ? (
@@ -1043,11 +1059,25 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
                       </td>
                     </tr>
                     <tr>
-                      <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left">보험</th>
+                      <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left align-top">보험</th>
                       <td className="px-4 py-3">
-                        {v.insurance_added
-                          ? <span className="text-green-600 font-semibold">✓ 추가 완료</span>
-                          : <span className="text-orange-500 font-semibold">⚠️ 미완료</span>}
+                        <div className="flex items-center gap-2 mb-1">
+                          {v.insurance_added
+                            ? <span className="text-green-600 font-semibold">✓ 추가 완료</span>
+                            : <span className="text-orange-500 font-semibold">⚠️ 미완료</span>}
+                        </div>
+                        {v.insurance_company && (
+                          <div className="text-sm text-gray-700 mt-1">
+                            <span className="text-gray-400 text-xs mr-1">보험사</span>
+                            <span className="font-semibold">{v.insurance_company}</span>
+                          </div>
+                        )}
+                        {v.insurance_number && (
+                          <div className="text-sm text-gray-700 mt-0.5">
+                            <span className="text-gray-400 text-xs mr-1">연락처</span>
+                            <span>{v.insurance_number}</span>
+                          </div>
+                        )}
                       </td>
                     </tr>
                     {v.notes && (
@@ -1251,11 +1281,15 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
 
           <section>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">보험</p>
-            <label className="flex items-center gap-3 bg-orange-50 border border-orange-100 rounded-lg px-4 py-3 cursor-pointer hover:bg-orange-100 transition">
+            <label className="flex items-center gap-3 bg-orange-50 border border-orange-100 rounded-lg px-4 py-3 cursor-pointer hover:bg-orange-100 transition mb-3">
               <input type="checkbox" checked={form.insurance_added} onChange={(e) => setForm({ ...form, insurance_added: e.target.checked })} className="w-4 h-4 accent-orange-500" />
               <span className="text-sm font-semibold text-gray-700">🛡️ 운전자 보험 추가 완료</span>
               {form.insurance_added && <span className="ml-auto text-xs text-green-600 font-semibold">✓ 완료</span>}
             </label>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="보험사" value={form.insurance_company} onChange={(v) => setForm({ ...form, insurance_company: v })} placeholder="예: 삼성화재" />
+              <Field label="보험사 연락처" value={form.insurance_number} onChange={(v) => setForm({ ...form, insurance_number: v })} placeholder="예: 1588-0000" />
+            </div>
           </section>
 
           <section>

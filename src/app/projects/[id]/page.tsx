@@ -15,6 +15,7 @@ import OverviewTab from "@/components/projects/OverviewTab";
 import MemberModal from "@/components/projects/MemberModal";
 import MatchScheduleTab from "@/components/projects/MatchScheduleTab";
 import BudgetTab from "@/components/projects/BudgetTab";
+import RideListTab from "@/components/projects/RideListTab";
 
 type Project = {
   id: string;
@@ -26,25 +27,43 @@ type Project = {
   recurrence_years: number | null;
 };
 
-type TabDef = { key: string; label: string; marf_only?: boolean };
+type TabDef = {
+  key: string;
+  label: string;
+  allowed_types: string[];   // ["*"] = 모든 프로젝트 타입, ["marf"] = MARF 전용
+  min_role?: "admin" | "member";  // undefined = 비담당자도 볼 수 있음 (로그인만 하면)
+};
 
+type TabSetting = {
+  is_visible: boolean;
+  min_role: string;
+};
+
+// "*" = 모든 프로젝트 타입에 표시
 const TABS: TabDef[] = [
-  { key: "overview",        label: "개요" },
-  { key: "missionaries",    label: "명단",    marf_only: true },
-  { key: "accommodations",  label: "숙소매칭", marf_only: true },
-  { key: "vehicles",        label: "차량매칭", marf_only: true },
-  { key: "match_schedule",  label: "배정현황", marf_only: true },
-  { key: "gifts",           label: "선물",     marf_only: true },
-  { key: "schedule",        label: "행사일정" },
-  { key: "documents",       label: "문서" },
-  { key: "checklist",       label: "체크리스트" },
-  { key: "budget",          label: "예산·지출" },
+  { key: "overview",       label: "개요",       allowed_types: ["*"] },
+  { key: "missionaries",   label: "명단",       allowed_types: ["marf"] },
+  { key: "accommodations", label: "숙소매칭",   allowed_types: ["marf"] },
+  { key: "vehicles",       label: "차량매칭",   allowed_types: ["marf"] },
+  { key: "match_schedule", label: "배정현황",   allowed_types: ["marf"] },
+  { key: "gifts",          label: "선물",       allowed_types: ["marf"] },
+  { key: "rides",          label: "라이드 목록", allowed_types: ["ride_schedule"] },
+  { key: "schedule",       label: "행사일정",   allowed_types: ["*"] },
+  { key: "documents",      label: "문서",       allowed_types: ["*"] },
+  { key: "checklist",      label: "체크리스트", allowed_types: ["*"] },
+  { key: "budget",         label: "예산·지출",  allowed_types: ["*"] },
 ];
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   planning: { label: "기획중", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   active:   { label: "진행중", color: "bg-green-100 text-green-700 border-green-200" },
   completed:{ label: "완료",   color: "bg-gray-100 text-gray-500 border-gray-200" },
+};
+
+const PROJECT_TYPE_LABEL: Record<string, { label: string; color: string }> = {
+  marf:          { label: "MARF",    color: "bg-blue-100 text-blue-700" },
+  ride_schedule: { label: "라이드",  color: "bg-purple-100 text-purple-700" },
+  general:       { label: "일반",    color: "bg-gray-100 text-gray-600" },
 };
 
 export default function ProjectDashboard() {
@@ -55,7 +74,8 @@ export default function ProjectDashboard() {
   const [project, setProject] = useState<Project | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [myUserId, setMyUserId] = useState<string | null>(null);
-  const [myMemberRole, setMyMemberRole] = useState<string | null>(null); // null = 비담당자
+  const [myMemberRole, setMyMemberRole] = useState<string | null>(null);
+  const [tabSettings, setTabSettings] = useState<Record<string, TabSetting>>({});
   const [loading, setLoading] = useState(true);
   const [showMemberModal, setShowMemberModal] = useState(false);
 
@@ -69,6 +89,18 @@ export default function ProjectDashboard() {
     setProject(data);
   }, [id]);
 
+  const fetchTabSettings = useCallback(async () => {
+    const { data } = await supabase
+      .from("project_tab_settings")
+      .select("tab_key, is_visible, min_role")
+      .eq("project_id", id);
+    if (data) {
+      const map: Record<string, TabSetting> = {};
+      data.forEach((s) => { map[s.tab_key] = { is_visible: s.is_visible, min_role: s.min_role }; });
+      setTabSettings(map);
+    }
+  }, [id]);
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return;
@@ -80,9 +112,9 @@ export default function ProjectDashboard() {
         .eq("project_id", id)
         .eq("user_id", data.user.id)
         .maybeSingle();
-      setMyMemberRole(mem?.role ?? null); // null이면 비담당자(조회만 가능)
+      setMyMemberRole(mem?.role ?? null);
 
-      await fetchProject();
+      await Promise.all([fetchProject(), fetchTabSettings()]);
       setLoading(false);
     });
   }, [id]);
@@ -100,19 +132,45 @@ export default function ProjectDashboard() {
   }
 
   const isMarf = project.project_type === "marf";
-  const visibleTabs = TABS.filter((t) => !t.marf_only || isMarf);
+  const isAdmin = myMemberRole === "admin";
+  const isMember = myMemberRole !== null;
+
+  const visibleTabs = TABS.filter((t) => {
+    // 프로젝트 타입 확인
+    const typeOk = t.allowed_types.includes("*") || t.allowed_types.includes(project.project_type);
+    if (!typeOk) return false;
+
+    // DB 오버라이드 확인
+    const dbSetting = tabSettings[t.key];
+    if (dbSetting && !dbSetting.is_visible) return false;
+
+    // 역할 확인 (DB 설정 우선, 없으면 코드 기본값)
+    const effectiveMinRole = dbSetting?.min_role ?? t.min_role;
+    if (effectiveMinRole === "admin" && !isAdmin) return false;
+    if (effectiveMinRole === "member" && !isMember) return false;
+
+    return true;
+  });
+
+  // 현재 activeTab이 visibleTabs에 없으면 첫 번째로
+  const activeTabKey = visibleTabs.find((t) => t.key === activeTab)
+    ? activeTab
+    : visibleTabs[0]?.key ?? "overview";
+
   const status = STATUS_LABEL[project.status] ?? { label: project.status, color: "bg-gray-100 text-gray-500 border-gray-200" };
+  const typeTag = PROJECT_TYPE_LABEL[project.project_type];
+
+  const props = { projectId: id, myUserId: myUserId!, isMember, isAdmin };
 
   const renderTab = () => {
-    const isMember = myMemberRole !== null;   // 담당자로 지정된 경우
-    const props = { projectId: id, myUserId: myUserId!, isMember, isAdmin: myMemberRole === "admin" };
-    switch (activeTab) {
+    switch (activeTabKey) {
       case "overview":       return <OverviewTab {...props} project={project} isMarf={isMarf} />;
       case "missionaries":   return <MissionaryTab {...props} />;
       case "accommodations": return <AccommodationTab {...props} />;
       case "vehicles":       return <VehicleTab {...props} />;
       case "match_schedule": return <MatchScheduleTab {...props} />;
       case "gifts":          return <GiftTab {...props} />;
+      case "rides":          return <RideListTab {...props} />;
       case "schedule":       return <ScheduleTab {...props} isMarf={isMarf} />;
       case "documents":      return <DocumentTab {...props} />;
       case "checklist":      return <ChecklistTab {...props} isMarf={isMarf} />;
@@ -142,24 +200,39 @@ export default function ProjectDashboard() {
                 <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${status.color}`}>
                   {status.label}
                 </span>
-                {isMarf && (
-                  <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">MARF</span>
+                {typeTag && project.project_type !== "general" && (
+                  <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${typeTag.color}`}>
+                    {typeTag.label}
+                  </span>
                 )}
               </div>
               {project.description && (
                 <p className="text-sm text-gray-500 mt-0.5">{project.description}</p>
               )}
             </div>
-            {myMemberRole === "admin" && (
-              <button
-                onClick={() => setShowMemberModal(true)}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span className="hidden sm:inline">담당자 관리</span>
-              </button>
+            {isAdmin && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => router.push(`/projects/${id}/settings`)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
+                  title="프로젝트 설정"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="hidden sm:inline">설정</span>
+                </button>
+                <button
+                  onClick={() => setShowMemberModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <span className="hidden sm:inline">담당자 관리</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -172,7 +245,7 @@ export default function ProjectDashboard() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`shrink-0 px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors whitespace-nowrap
-              ${activeTab === tab.key
+              ${activeTabKey === tab.key
                 ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
               }`}

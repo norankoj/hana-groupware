@@ -26,8 +26,9 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 const TYPE_LABEL: Record<string, { label: string; color: string }> = {
-  marf:    { label: "MARF", color: "bg-blue-100 text-blue-700" },
-  general: { label: "일반", color: "bg-purple-100 text-purple-700" },
+  marf:          { label: "MARF",   color: "bg-blue-100 text-blue-700" },
+  ride_schedule: { label: "라이드", color: "bg-purple-100 text-purple-700" },
+  general:       { label: "일반",   color: "bg-gray-100 text-gray-600" },
 };
 
 export default function ProjectsPage() {
@@ -202,9 +203,6 @@ export default function ProjectsPage() {
                     {p.name}
                   </h2>
                   {p.year && <p className="text-sm text-gray-400 mt-0.5">{p.year}년</p>}
-                  {p.description && (
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">{p.description}</p>
-                  )}
                   {p.recurrence_years && (
                     <p className="text-xs text-gray-400 mt-3">{p.recurrence_years}년 주기 반복</p>
                   )}
@@ -279,8 +277,9 @@ export default function ProjectsPage() {
                 value={form.project_type}
                 onChange={(v) => setForm({ ...form, project_type: v })}
                 options={[
-                  { value: "marf", label: "MARF" },
-                  { value: "general", label: "일반" },
+                  { value: "marf",          label: "MARF" },
+                  { value: "ride_schedule", label: "라이드 일정" },
+                  { value: "general",       label: "일반" },
                 ]}
                 className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
               />
