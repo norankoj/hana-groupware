@@ -391,31 +391,45 @@ export default function WelcomePackModal({
                     {vehicleIntro.trim() && (
                       <p className="text-[13px] text-gray-600 mb-4 leading-relaxed">{vehicleIntro}</p>
                     )}
-                    <p className="text-[13px] font-semibold text-gray-700 mb-2">차량배치 일정</p>
-                    <div className="ml-3 space-y-1.5 mb-3">
-                      {vehicles
-                        .flatMap((v) => myAssigns(v).map((p) => ({ p, v })))
-                        .sort((a, b) => (a.p.from ?? "").localeCompare(b.p.from ?? ""))
-                        .map(({ p, v }, i) => (
-                          <div key={i} className="text-[13px] text-gray-700">
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-gray-300 shrink-0">—</span>
-                              <span>
-                                <span className="font-medium text-gray-800">{fmtShort(p.from)} ~ {fmtShort(p.to)}</span>
-                                <span className="mx-2 text-gray-300">|</span>
-                                <span className="font-semibold">{v.provider_name}</span>
-                                {v.car_model && <span className="text-gray-400 ml-1">({v.car_model}{v.car_number ? ` · ${v.car_number}` : ""})</span>}
-                              </span>
-                            </div>
-                            {(v.insurance_company || v.insurance_number) && (
-                              <div className="ml-5 mt-0.5 text-[12px] text-gray-400">
-                                🛡️ {v.insurance_company && <span className="mr-1">{v.insurance_company}</span>}
-                                {v.insurance_number && <span>{v.insurance_number}</span>}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      }
+                    <p className="text-[14px] font-semibold text-gray-700 mb-2">차량배치 일정</p>
+                    <div className="mb-3 overflow-x-auto">
+                      <table className="w-full border-collapse text-[14px]">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">기간</th>
+                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">차량 / 제공자</th>
+                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">보험사</th>
+                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">보험사 연락처</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {vehicles
+                            .flatMap((v) => myAssigns(v).map((p) => ({ p, v })))
+                            .sort((a, b) => (a.p.from ?? "").localeCompare(b.p.from ?? ""))
+                            .map(({ p, v }, i) => (
+                              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                <td className="border border-gray-200 px-3 py-2 whitespace-nowrap font-medium text-gray-800">
+                                  {fmtShort(p.from)} ~ {fmtShort(p.to)}
+                                </td>
+                                <td className="border border-gray-200 px-3 py-2">
+                                  <span className="font-semibold text-gray-800">{v.provider_name}</span>
+                                  {v.car_model && (
+                                    <span className="text-gray-500 ml-1">
+                                      ({v.car_model}{v.car_number ? ` · ${v.car_number}` : ""})
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="border border-gray-200 px-3 py-2 text-gray-700">
+                                  {v.insurance_company || <span className="text-gray-300">—</span>}
+                                </td>
+                                <td className="border border-gray-200 px-3 py-2 text-gray-700">
+                                  {v.insurance_number || <span className="text-gray-300">—</span>}
+                                </td>
+                              </tr>
+                            ))
+                          }
+                        </tbody>
+                      </table>
                     </div>
                     <NotesList text={vehicleNote} />
                   </>
