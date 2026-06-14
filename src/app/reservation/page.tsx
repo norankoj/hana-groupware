@@ -1353,7 +1353,7 @@ export default function FacilityReservationPage() {
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">
                   예약자
                 </label>
                 <input
@@ -1364,7 +1364,7 @@ export default function FacilityReservationPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">
                   담당자 <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1377,7 +1377,7 @@ export default function FacilityReservationPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1.5">
+              <label className="block text-sm font-bold text-gray-700 mb-1.5">
                 담당자 번호 <span className="text-gray-400 font-normal">(선택)</span>
               </label>
               <input
@@ -1415,7 +1415,7 @@ export default function FacilityReservationPage() {
             </div>
             {isRecurring && (
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">
                   반복 종료일 (최대 6개월)
                 </label>
                 <input
@@ -1610,7 +1610,7 @@ export default function FacilityReservationPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1.5">예약자</label>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">예약자</label>
                     <input
                       type="text"
                       value={detailRsv.profiles?.full_name ?? ""}
@@ -1619,7 +1619,7 @@ export default function FacilityReservationPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">
                       담당자 <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1632,7 +1632,7 @@ export default function FacilityReservationPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">
                     담당자 번호 <span className="text-gray-400 font-normal">(선택)</span>
                   </label>
                   <input
@@ -1644,7 +1644,7 @@ export default function FacilityReservationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5">사용 목적</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">사용 목적</label>
                   <textarea
                     value={editPurpose}
                     onChange={(e) => setEditPurpose(e.target.value)}
