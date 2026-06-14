@@ -103,6 +103,9 @@ export async function GET() {
 
     const icon: string = wx.ic ?? "01d";
     const aqius: number | null = pollution?.aqius ?? null;
+    // IQAir PM2.5 농도 (μg/m³) — 에어코리아 실패 시 폴백용
+    const iqairPm25: number | null =
+      pollution?.p2?.conc != null ? Math.round(Number(pollution.p2.conc)) : null;
 
     // ── ② 에어코리아 미세먼지 파싱 ────────────────────────────────────
     let pm10: number | null = null;
@@ -116,7 +119,7 @@ export async function GET() {
           // 플래그(통신장애 등)가 있으면 해당 항목은 null 처리
           if (!item.pm10Flag) {
             const v = parseFloat(item.pm10Value);
-            if (!isNaN(v)) pm10 = Math.round(v);
+            if (!isNaN(v) && v >= 0) pm10 = Math.round(v);
           }
           if (!item.pm25Flag) {
             const v = parseFloat(item.pm25Value);
@@ -124,11 +127,13 @@ export async function GET() {
           }
         }
       } catch {
-        // 인증키 오류 또는 XML 응답 → 폴백(AQI)으로 표시
+        // 인증키 오류 또는 XML 응답 → IQAir 폴백으로 처리
       }
     }
 
-    // 에어코리아 없으면 AQI 기반 폴백
+    // 에어코리아 PM2.5 없으면 IQAir PM2.5로 폴백, 그것도 없으면 AQI 기반 등급
+    if (pm25 == null && iqairPm25 != null) pm25 = iqairPm25;
+
     const airGrade =
       pm25 != null
         ? pm25Grade(pm25)

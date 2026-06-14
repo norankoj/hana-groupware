@@ -47,6 +47,7 @@ type Reservation = {
   purpose: string;
   status: string;
   reservee_name?: string | null;
+  reservee_phone?: string | null;
   profiles?: { full_name: string; position: string };
   group_id?: string;
 };
@@ -139,6 +140,7 @@ export default function FacilityReservationPage() {
   // core
   const [resources, setResources] = useState<Resource[]>([]);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -171,6 +173,8 @@ export default function FacilityReservationPage() {
 
   // form
   const [purpose, setPurpose] = useState("");
+  const [reserveeName, setReserveeName] = useState(""); // 담당자 (사용하는 사람)
+  const [reserveePhone, setReserveePhone] = useState(""); // 담당자 연락처 (선택)
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurEnd, setRecurEnd] = useState(
     format(addWeeks(new Date(), 4), "yyyy-MM-dd"),
@@ -178,6 +182,10 @@ export default function FacilityReservationPage() {
 
   // modals
   const [detailRsv, setDetailRsv] = useState<Reservation | null>(null);
+  const [detailEditMode, setDetailEditMode] = useState(false);
+  const [editPurpose, setEditPurpose] = useState("");
+  const [editReserveeName, setEditReserveeName] = useState("");
+  const [editReserveePhone, setEditReserveePhone] = useState("");
   const [showExcel, setShowExcel] = useState(false);
   const [slotPopover, setSlotPopover] = useState<{
     rsv: Reservation;
@@ -195,10 +203,11 @@ export default function FacilityReservationPage() {
       setCurrentUser(user.id);
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, full_name")
         .eq("id", user.id)
         .single();
       setIsAdmin(profile?.role === "admin");
+      setCurrentUserName(profile?.full_name ?? "");
     }
 
     const { data: resData } = await supabase
@@ -373,6 +382,7 @@ export default function FacilityReservationPage() {
   const handleReserve = async () => {
     if (!selectedRes || selStart === null || selEnd === null)
       return toast.error("시간을 선택해주세요.");
+    if (!reserveeName.trim()) return toast.error("담당자를 입력해주세요.");
     if (!purpose.trim()) return toast.error("사용 목적을 입력해주세요.");
 
     const startH = Math.min(selStart, selEnd);
@@ -417,6 +427,8 @@ export default function FacilityReservationPage() {
           purpose,
           group_id: groupId,
           status: "confirmed",
+          reservee_name: reserveeName.trim(),
+          ...(reserveePhone.trim() ? { reservee_phone: reserveePhone.trim() } : {}),
         });
         iterS = addDays(iterS, 7);
         iterE = addDays(iterE, 7);
@@ -431,6 +443,8 @@ export default function FacilityReservationPage() {
         end_at: baseEnd.toISOString(),
         purpose,
         status: "confirmed",
+        reservee_name: reserveeName.trim(),
+        ...(reserveePhone.trim() ? { reservee_phone: reserveePhone.trim() } : {}),
       });
     }
 
@@ -470,6 +484,8 @@ export default function FacilityReservationPage() {
       setSelStart(null);
       setSelEnd(null);
       setPurpose("");
+      setReserveeName("");
+      setReserveePhone("");
       fetchDateRsv(selectedDate);
       fetchMonthRsv(calMonth);
       fetchInitial();
@@ -541,6 +557,29 @@ export default function FacilityReservationPage() {
       if (view === "weekly") fetchWeeklyRsv();
       fetchInitial();
     }
+  };
+
+  // ── edit ───────────────────────────────────────────────────────────────────
+  const handleEditSave = async () => {
+    if (!detailRsv) return;
+    if (!editReserveeName.trim()) return toast.error("담당자를 입력해주세요.");
+    if (!editPurpose.trim()) return toast.error("사용 목적을 입력해주세요.");
+    const { error } = await supabase
+      .from("reservations")
+      .update({
+        purpose: editPurpose.trim(),
+        reservee_name: editReserveeName.trim(),
+        reservee_phone: editReserveePhone.trim() || null,
+      })
+      .eq("id", detailRsv.id);
+    if (error) return toast.error("수정 실패: " + error.message);
+    toast.success("수정되었습니다.");
+    setDetailEditMode(false);
+    setDetailRsv(null);
+    fetchDateRsv(selectedDate);
+    fetchMonthRsv(calMonth);
+    if (view === "weekly") fetchWeeklyRsv();
+    fetchInitial();
   };
 
   // ── availability bar segments for list view ────────────────────────────────
@@ -1312,6 +1351,43 @@ export default function FacilityReservationPage() {
                 </div>
               </div>
             )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                  예약자
+                </label>
+                <input
+                  type="text"
+                  value={currentUserName}
+                  disabled
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                  담당자 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="사용하는 사람 이름"
+                  value={reserveeName}
+                  onChange={(e) => setReserveeName(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                담당자 번호 <span className="text-gray-400 font-normal">(선택)</span>
+              </label>
+              <input
+                type="tel"
+                placeholder="010-0000-0000"
+                value={reserveePhone}
+                onChange={(e) => setReserveePhone(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+              />
+            </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1.5">
                 사용 목적 <span className="text-red-500">*</span>
@@ -1501,85 +1577,173 @@ export default function FacilityReservationPage() {
       {/* Detail Modal */}
       <Modal
         isOpen={!!detailRsv}
-        onClose={() => setDetailRsv(null)}
-        title="예약 상세"
+        onClose={() => { setDetailRsv(null); setDetailEditMode(false); }}
+        title={detailEditMode ? "예약 수정" : "예약 상세"}
         footer={null}
       >
         {detailRsv && (
           <div className="space-y-6 pt-2">
+            {/* 헤더 — 이름 (직책 제거) */}
             <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl">
-                {(
-                  detailRsv.reservee_name || detailRsv.profiles?.full_name
-                )?.slice(0, 1)}
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl shrink-0">
+                {(detailRsv.reservee_name || detailRsv.profiles?.full_name)?.slice(0, 1)}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="font-bold text-gray-900 text-lg">
                   {detailRsv.reservee_name || detailRsv.profiles?.full_name}
                 </div>
-                <div className="text-sm text-gray-500">
-                  {detailRsv.profiles?.position}
-                </div>
+                {detailRsv.reservee_name && detailRsv.profiles?.full_name && (
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    예약자: {detailRsv.profiles.full_name}
+                  </div>
+                )}
               </div>
               {detailRsv.group_id && (
-                <span className="ml-auto bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                <span className="shrink-0 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
                   정기예약
                 </span>
               )}
             </div>
-            <div className="space-y-3">
-              <div className="flex">
-                <span className="w-16 text-gray-400 text-sm">장소</span>
-                <span className="font-bold text-gray-900">
-                  {resources.find((r) => r.id === detailRsv.resource_id)?.name}
-                </span>
-              </div>
-              <div className="flex">
-                <span className="w-16 text-gray-400 text-sm">시간</span>
-                <span className="font-bold text-blue-700">
-                  {format(new Date(detailRsv.start_at), "yyyy.MM.dd HH:mm")} ~{" "}
-                  {format(new Date(detailRsv.end_at), "HH:mm")}
-                </span>
-              </div>
-              <div className="flex">
-                <span className="w-16 text-gray-400 text-sm">목적</span>
-                <span className="text-gray-900 whitespace-pre-wrap">
-                  {detailRsv.purpose}
-                </span>
-              </div>
-            </div>
-            <div className="border-t border-gray-100 pt-4 space-y-2">
-              {(detailRsv.user_id === currentUser || isAdmin) &&
-                (detailRsv.group_id ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCancelOne}
-                      className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition text-sm"
-                    >
-                      이 예약만 취소
-                    </button>
-                    <button
-                      onClick={handleCancelAll}
-                      className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition text-sm"
-                    >
-                      전체 일정 취소
-                    </button>
+
+            {detailEditMode ? (
+              /* ── 수정 모드 ── */
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1.5">예약자</label>
+                    <input
+                      type="text"
+                      value={detailRsv.profiles?.full_name ?? ""}
+                      disabled
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+                    />
                   </div>
-                ) : (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                      담당자 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="사용하는 사람 이름"
+                      value={editReserveeName}
+                      onChange={(e) => setEditReserveeName(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                    담당자 번호 <span className="text-gray-400 font-normal">(선택)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="010-0000-0000"
+                    value={editReserveePhone}
+                    onChange={(e) => setEditReserveePhone(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5">사용 목적</label>
+                  <textarea
+                    value={editPurpose}
+                    onChange={(e) => setEditPurpose(e.target.value)}
+                    rows={3}
+                    className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 resize-none outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition bg-gray-50 focus:bg-white"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
                   <button
-                    onClick={handleCancelOne}
-                    className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition"
+                    onClick={() => setDetailEditMode(false)}
+                    className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition text-sm"
                   >
-                    예약 취소
+                    취소
                   </button>
-                ))}
-              <button
-                onClick={() => setDetailRsv(null)}
-                className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition"
-              >
-                닫기
-              </button>
-            </div>
+                  <button
+                    onClick={handleEditSave}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-500 transition text-sm"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── 상세 보기 모드 ── */
+              <>
+                <div className="space-y-3">
+                  <div className="flex">
+                    <span className="w-16 text-gray-400 text-sm shrink-0">장소</span>
+                    <span className="font-bold text-gray-900">
+                      {resources.find((r) => r.id === detailRsv.resource_id)?.name}
+                    </span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-16 text-gray-400 text-sm shrink-0">시간</span>
+                    <span className="font-bold text-blue-700">
+                      {format(new Date(detailRsv.start_at), "yyyy.MM.dd HH:mm")} ~{" "}
+                      {format(new Date(detailRsv.end_at), "HH:mm")}
+                    </span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-16 text-gray-400 text-sm shrink-0">목적</span>
+                    <span className="text-gray-900 whitespace-pre-wrap">
+                      {detailRsv.purpose}
+                    </span>
+                  </div>
+                  {detailRsv.reservee_phone && (
+                    <div className="flex">
+                      <span className="w-16 text-gray-400 text-sm shrink-0">연락처</span>
+                      <span className="text-gray-900">{detailRsv.reservee_phone}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="border-t border-gray-100 pt-4 space-y-2">
+                  {(detailRsv.user_id === currentUser || isAdmin) && (
+                    <button
+                      onClick={() => {
+                        setEditPurpose(detailRsv.purpose);
+                        setEditReserveeName(detailRsv.reservee_name ?? "");
+                        setEditReserveePhone(detailRsv.reservee_phone ?? "");
+                        setDetailEditMode(true);
+                      }}
+                      className="w-full bg-blue-50 text-blue-700 py-3 rounded-xl font-bold hover:bg-blue-100 transition text-sm"
+                    >
+                      예약 수정
+                    </button>
+                  )}
+                  {(detailRsv.user_id === currentUser || isAdmin) &&
+                    (detailRsv.group_id ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleCancelOne}
+                          className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition text-sm"
+                        >
+                          이 예약만 취소
+                        </button>
+                        <button
+                          onClick={handleCancelAll}
+                          className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition text-sm"
+                        >
+                          전체 일정 취소
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleCancelOne}
+                        className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition"
+                      >
+                        예약 취소
+                      </button>
+                    ))}
+                  <button
+                    onClick={() => { setDetailRsv(null); setDetailEditMode(false); }}
+                    className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>
@@ -1633,9 +1797,9 @@ export default function FacilityReservationPage() {
                       slotPopover.rsv.profiles?.full_name ||
                       "예약자"}
                   </p>
-                  {slotPopover.rsv.profiles?.position && (
+                  {slotPopover.rsv.reservee_name && slotPopover.rsv.profiles?.full_name && (
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {slotPopover.rsv.profiles.position}
+                      예약자: {slotPopover.rsv.profiles.full_name}
                     </p>
                   )}
                 </div>
@@ -1724,28 +1888,57 @@ export default function FacilityReservationPage() {
                   카카오톡 공유용 복사
                 </button>
                 {(slotPopover.rsv.user_id === currentUser || isAdmin) && (
-                  <button
-                    onClick={() => {
-                      setDetailRsv(slotPopover.rsv);
-                      setSlotPopover(null);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition border border-red-200"
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                  <>
+                    <button
+                      onClick={() => {
+                        const rsv = slotPopover.rsv;
+                        setEditPurpose(rsv.purpose);
+                        setEditReserveeName(rsv.reservee_name ?? "");
+                        setEditReserveePhone(rsv.reservee_phone ?? "");
+                        setDetailRsv(rsv);
+                        setDetailEditMode(true);
+                        setSlotPopover(null);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs transition border border-blue-200"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                    예약 취소
-                  </button>
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                      예약 수정
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDetailRsv(slotPopover.rsv);
+                        setSlotPopover(null);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition border border-red-200"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                      예약 취소
+                    </button>
+                  </>
                 )}
               </div>
             </div>
