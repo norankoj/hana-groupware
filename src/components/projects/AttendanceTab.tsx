@@ -376,6 +376,20 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
     }
   };
 
+  const toggleRetreat = async (row: Attendee) => {
+    const next = !row.attend_retreat;
+    // 수양회 OFF 시 숙박·이동방법 초기화
+    const patch = next
+      ? { attend_retreat: true }
+      : { attend_retreat: false, overnight_retreat: false, retreat_transport: null };
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...patch } : r)));
+    const { error } = await supabase
+      .from("marf_missionaries")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", row.id);
+    if (error) { toast.error("저장 실패"); fetchData(); }
+  };
+
   const cycleTransport = (row: Attendee) => {
     const idx = TRANSPORT_CYCLE.indexOf(
       row.retreat_transport as (typeof TRANSPORT_CYCLE)[number],
@@ -530,6 +544,8 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
   const total = rows.length;
   const adultCount = rows.filter((r) => r.family_role !== "child").length;
   const supasunCount = rows.filter((r) => r.attend_supasun).length;
+  const supasunAdultCount = rows.filter((r) => r.attend_supasun && r.family_role !== "child").length;
+  const supasunChildCount = rows.filter((r) => r.attend_supasun && r.family_role === "child").length;
   const retreatCount = rows.filter((r) => r.attend_retreat).length;
   const overnightCount = rows.filter((r) => r.overnight_retreat).length;
   const busCount = rows.filter(
@@ -609,7 +625,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
           value={`${total}명`}
           sub={`어른 ${adultCount}명 · MK ${mkCount + mkStaffCount}명 · 참석자녀 ${marfChildCount}명`}
         />
-        <StatCard label="수파선" value={`${supasunCount}명`} />
+        <StatCard label="수파선" value={`${supasunCount}명`} sub={`어른 ${supasunAdultCount}명 · 자녀 ${supasunChildCount}명`} />
         <StatCard
           label="수양회"
           value={`${retreatCount}명`}
@@ -1004,16 +1020,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   <td className="px-3 py-2 text-center">
                     <OXBadge
                       value={row.attend_retreat}
-                      onClick={
-                        canEdit
-                          ? () =>
-                              updateField(
-                                row.id,
-                                "attend_retreat",
-                                !row.attend_retreat,
-                              )
-                          : undefined
-                      }
+                      onClick={canEdit ? () => toggleRetreat(row) : undefined}
                     />
                   </td>
 
