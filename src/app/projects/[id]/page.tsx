@@ -16,6 +16,7 @@ import MemberModal from "@/components/projects/MemberModal";
 import MatchScheduleTab from "@/components/projects/MatchScheduleTab";
 import BudgetTab from "@/components/projects/BudgetTab";
 import RideListTab from "@/components/projects/RideListTab";
+import AttendanceTab from "@/components/projects/AttendanceTab";
 
 type Project = {
   id: string;
@@ -43,6 +44,7 @@ type TabSetting = {
 const TABS: TabDef[] = [
   { key: "overview",       label: "개요",       allowed_types: ["*"] },
   { key: "missionaries",   label: "명단",       allowed_types: ["marf"] },
+  { key: "attendance",     label: "참여현황",   allowed_types: ["marf"] },
   { key: "accommodations", label: "숙소매칭",   allowed_types: ["marf"] },
   { key: "vehicles",       label: "차량매칭",   allowed_types: ["marf"] },
   { key: "match_schedule", label: "배정현황",   allowed_types: ["marf"] },
@@ -166,6 +168,7 @@ export default function ProjectDashboard() {
     switch (activeTabKey) {
       case "overview":       return <OverviewTab {...props} project={project} isMarf={isMarf} />;
       case "missionaries":   return <MissionaryTab {...props} />;
+      case "attendance":     return <AttendanceTab {...props} />;
       case "accommodations": return <AccommodationTab {...props} />;
       case "vehicles":       return <VehicleTab {...props} />;
       case "match_schedule": return <MatchScheduleTab {...props} />;
