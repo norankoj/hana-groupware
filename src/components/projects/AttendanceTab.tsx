@@ -381,13 +381,67 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
     // 수양회 OFF 시 숙박·이동방법 초기화
     const patch = next
       ? { attend_retreat: true }
-      : { attend_retreat: false, overnight_retreat: false, retreat_transport: null };
-    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...patch } : r)));
+      : {
+          attend_retreat: false,
+          overnight_retreat: false,
+          retreat_transport: null,
+        };
+    setRows((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, ...patch } : r)),
+    );
     const { error } = await supabase
       .from("marf_missionaries")
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq("id", row.id);
-    if (error) { toast.error("저장 실패"); fetchData(); }
+    if (error) {
+      toast.error("저장 실패");
+      fetchData();
+    }
+  };
+
+  const copyFamilyMessage = async (fk: string) => {
+    const members = rows.filter(
+      (r) => (r.family_group ?? `__solo__${r.id}`) === fk,
+    );
+    members.sort(
+      (a, b) =>
+        (ROLE_ORDER[a.family_role ?? "head"] ?? 0) -
+        (ROLE_ORDER[b.family_role ?? "head"] ?? 0),
+    );
+    const head = members.find((m) => m.family_role === "head") ?? members[0];
+    const children = members.filter((m) => m.family_role === "child");
+
+    const yn = (v: boolean) => (v ? "O" : "X");
+
+    const childLine = (c: Attendee): string => {
+      const parts: string[] = [];
+      parts.push(`하나가족수양회: ${yn(c.attend_retreat)}`);
+      if (c.mk_program === "attend") parts.push("MK프로그램 참석");
+      else if (c.mk_program === "staff") parts.push("MK프로그램 스텝");
+      if (c.attend_marf) parts.push("마프 참석");
+      return parts.join(", ");
+    };
+
+    let msg = `안녕하세요!\n`;
+    msg += `이번 수파선, 하나가족 수양회 참여 현황을 조사하고 있습니다.\n`;
+    msg += `내용이 맞으면 "확인"으로 답장해 주시고, 수정이 필요한 부분이 있으면 알려주세요. 🙏\n\n`;
+    msg += `📋 참여 현황\n`;
+    msg += `• 수파선 참석: ${yn(head.attend_supasun)}\n`;
+    msg += `• 하나가족수양회 참석: ${yn(head.attend_retreat)}\n`;
+    if (head.attend_retreat) {
+      msg += `• 하나가족수양회 숙박: ${yn(head.overnight_retreat)}\n`;
+      msg += `• 하나가족수양회→문막 이동: ${head.retreat_transport ?? "미정"}\n`;
+    }
+    if (children.length > 0) {
+      msg += `\n👦 자녀\n`;
+      children.forEach((c) => {
+        msg += `• ${c.name} — ${childLine(c)}\n`;
+      });
+    }
+    msg += `\n감사합니다.`;
+
+    await navigator.clipboard.writeText(msg);
+    toast.success(`${head.name} 가정 메시지 복사됨`);
   };
 
   const cycleTransport = (row: Attendee) => {
@@ -544,8 +598,12 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
   const total = rows.length;
   const adultCount = rows.filter((r) => r.family_role !== "child").length;
   const supasunCount = rows.filter((r) => r.attend_supasun).length;
-  const supasunAdultCount = rows.filter((r) => r.attend_supasun && r.family_role !== "child").length;
-  const supasunChildCount = rows.filter((r) => r.attend_supasun && r.family_role === "child").length;
+  const supasunAdultCount = rows.filter(
+    (r) => r.attend_supasun && r.family_role !== "child",
+  ).length;
+  const supasunChildCount = rows.filter(
+    (r) => r.attend_supasun && r.family_role === "child",
+  ).length;
   const retreatCount = rows.filter((r) => r.attend_retreat).length;
   const overnightCount = rows.filter((r) => r.overnight_retreat).length;
   const busCount = rows.filter(
@@ -625,7 +683,11 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
           value={`${total}명`}
           sub={`어른 ${adultCount}명 · MK ${mkCount + mkStaffCount}명 · 참석자녀 ${marfChildCount}명`}
         />
-        <StatCard label="수파선" value={`${supasunCount}명`} sub={`어른 ${supasunAdultCount}명 · 자녀 ${supasunChildCount}명`} />
+        <StatCard
+          label="수파선"
+          value={`${supasunCount}명`}
+          sub={`어른 ${supasunAdultCount}명 · 자녀 ${supasunChildCount}명`}
+        />
         <StatCard
           label="수양회"
           value={`${retreatCount}명`}
@@ -922,13 +984,14 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                 onSort={handleSort}
                 center
               />
+              <th className="px-2 py-2.5 bg-gray-50 w-8" />
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={10}
                   className="px-4 py-12 text-center text-gray-400 text-sm"
                 >
                   {q
@@ -1095,6 +1158,25 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                           : undefined
                       }
                     />
+                  </td>
+
+                  {/* 카톡 복사 — 가정 첫 행에만 */}
+                  <td className="px-1 py-2 text-center w-8">
+                    {isFirstInFamily && (
+                      <button
+                        onClick={() => copyFamilyMessage(fk)}
+                        title="카톡 메시지 복사"
+                        className="p-1 rounded text-gray-300 hover:text-yellow-500 hover:bg-yellow-50 transition"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M12 2C6.477 2 2 5.925 2 10.773c0 2.98 1.636 5.625 4.154 7.3L5 21l3.87-1.87C10.006 19.694 11 19.895 12 19.895c5.523 0 10-3.924 10-8.772C22 5.925 17.523 2 12 2z" />
+                        </svg>
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
