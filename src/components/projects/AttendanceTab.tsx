@@ -557,7 +557,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
       수파선: r.attend_supasun ? "O" : "X",
       수양회: r.attend_retreat ? "O" : "X",
       "수양회 숙박": r.overnight_retreat ? "O" : "X",
-      이동방법: r.retreat_transport ?? "",
+      "수양회→문막(이동)": r.retreat_transport ?? "",
       MK프로그램:
         r.mk_program === "attend"
           ? "O"
@@ -710,7 +710,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
         </button>
         {canEdit && (
           <span className="hidden sm:inline text-xs text-amber-600 font-medium whitespace-nowrap">
-            숙박·이동방법은 <strong>수양회 O</strong> 후 활성화
+            숙박·수양회→문막 이동방법은 <strong>수양회 O</strong> 후 활성화
           </span>
         )}
       </div>
@@ -883,7 +883,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                 center
               />
               <SortTh
-                label="이동방법"
+                label="수양회→문막"
                 colKey="retreat_transport"
                 currentKey={sortKey}
                 currentDir={sortDir}
