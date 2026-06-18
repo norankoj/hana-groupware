@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     .lte("reminder_at", new Date().toISOString())
     .eq("reminder_sent", false)
     .not("reminder_at", "is", null)
-    .neq("status", "cancelled");
+    .neq("vehicle_status", "cancelled");
 
   if (!reservations || reservations.length === 0) {
     return NextResponse.json({ sent: 0, message: "대상 없음" });
