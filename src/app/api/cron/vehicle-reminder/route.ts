@@ -22,13 +22,14 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  // reminder_at이 지났고 아직 발송 안 된 차량 예약 조회
+  // reminder_at이 지났고 아직 발송 안 된 차량 예약 조회 (취소된 예약 제외)
   const { data: reservations } = await admin
     .from("reservations")
     .select("id, user_id, end_at, resources:resource_id(name, category)")
     .lte("reminder_at", new Date().toISOString())
     .eq("reminder_sent", false)
-    .not("reminder_at", "is", null);
+    .not("reminder_at", "is", null)
+    .neq("status", "cancelled");
 
   if (!reservations || reservations.length === 0) {
     return NextResponse.json({ sent: 0, message: "대상 없음" });

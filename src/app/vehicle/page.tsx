@@ -431,7 +431,7 @@ export default function VehicleReservationPage() {
       `,
       )
       .in("resource_id", vData?.map((v) => v.id) || [])
-      .neq("vehicle_status", "cancelled")
+      .neq("status", "cancelled")
       .order("start_at", { ascending: false });
 
     if (lError) {

@@ -108,7 +108,7 @@ export default function VehicleSchedulePage() {
           `*, profiles:user_id (full_name, position), resources:resource_id (name, description, insurance_info, fuel_segments)`,
         )
         .in("resource_id", vData?.map((v) => v.id) ?? [])
-        .neq("vehicle_status", "cancelled")
+        .neq("status", "cancelled")
         .order("start_at", { ascending: false });
 
       if (lError) toast.error("데이터를 불러오지 못했습니다.");
