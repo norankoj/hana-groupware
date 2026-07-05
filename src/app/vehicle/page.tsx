@@ -536,7 +536,10 @@ export default function VehicleReservationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reservationId: editingLogId,
-          updates: updatePayload,
+          updates: {
+            ...updatePayload,
+            driver_user_id: form.driver_user_id || null,
+          },
         }),
       });
       const _json = await _res.json();
