@@ -1099,12 +1099,10 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                         <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.country}{detailM.departure_location ? ` / ${detailM.departure_location}` : ""}</td>
                       </tr>
                     )}
-                    {detailM.phone_kr && (
-                      <tr>
-                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">한국 전화</th>
-                        <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.phone_kr}</td>
-                      </tr>
-                    )}
+                    <tr>
+                      <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">한국 전화</th>
+                      <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.phone_kr || <span className="text-gray-400 font-normal">없음</span>}</td>
+                    </tr>
                     {detailM.phone && (
                       <tr>
                         <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left">해외 연락처</th>
