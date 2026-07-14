@@ -6,6 +6,7 @@ import Calendar from "react-calendar";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { HOLIDAYS } from "@/constants/holidays";
+import { showAlert } from "@/utils/alert";
 
 type Vehicle = {
   id: number;
@@ -54,6 +55,10 @@ interface VehicleReserveModalProps {
   initialValues: FormState;
   staffList: { id: string; full_name: string; position: string }[];
   isReserving?: boolean;
+  isEditing?: boolean;
+  restrictedVehicleId?: number;
+  hasSpecialPermission?: boolean;
+  restrictedMessage?: string;
 }
 
 // "2026-04-24" → "2026년 4월 24일"
@@ -119,6 +124,10 @@ export default function VehicleReserveModal({
   initialValues,
   staffList,
   isReserving = false,
+  isEditing = false,
+  restrictedVehicleId,
+  hasSpecialPermission = false,
+  restrictedMessage,
 }: VehicleReserveModalProps) {
   // ── form 상태를 모달 내부에서 관리 (타이핑 시 page.tsx 리렌더 방지) ──────
   const [form, setForm] = useState<FormState>(initialValues);
@@ -303,30 +312,57 @@ export default function VehicleReserveModal({
         <div>
           <label className="block text-xs font-bold text-gray-500 mb-1">차량 선택</label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
-            {vehicles.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => !v.is_rented && setForm((prev) => ({ ...prev, resource_id: v.id }))}
-                disabled={!!v.is_rented}
-                title={v.is_rented ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}` : undefined}
-                className={`px-3 py-3 rounded-xl border transition flex flex-col items-center justify-center text-center relative overflow-hidden ${
-                  v.is_rented
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-400 cursor-not-allowed opacity-70"
-                    : form.resource_id === v.id
-                      ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 shadow-sm"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <div className="font-bold text-sm break-keep">{v.name}</div>
-                {v.is_rented ? (
-                  <div className="text-[10px] mt-1 font-semibold text-indigo-500">
-                    대여중{v.renter_name ? ` · ${v.renter_name}` : ""}
-                  </div>
-                ) : (
-                  <div className="text-[10px] opacity-70 mt-1">{v.description}</div>
-                )}
-              </button>
-            ))}
+            {vehicles.map((v) => {
+              const isVehicleRestricted =
+                restrictedVehicleId != null &&
+                v.id === restrictedVehicleId &&
+                !hasSpecialPermission;
+              // 수정 모드에서 현재 선택된 제한 차량: 선택됨 스타일 + 클릭 불가
+              const isSelectedRestricted =
+                isVehicleRestricted && isEditing && form.resource_id === v.id;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => {
+                    if (v.is_rented || isSelectedRestricted) return;
+                    if (isVehicleRestricted) {
+                      showAlert("예약 제한 차량", restrictedMessage || "이 차량은 특별 권한이 필요합니다.");
+                      return;
+                    }
+                    setForm((prev) => ({ ...prev, resource_id: v.id }));
+                  }}
+                  title={
+                    v.is_rented
+                      ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}`
+                      : isVehicleRestricted && !isSelectedRestricted
+                        ? "예약 권한 없음"
+                        : undefined
+                  }
+                  className={`px-3 py-3 rounded-xl border transition flex flex-col items-center justify-center text-center relative overflow-hidden ${
+                    v.is_rented
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-400 cursor-not-allowed opacity-70"
+                      : isSelectedRestricted
+                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 shadow-sm cursor-not-allowed opacity-70"
+                      : isVehicleRestricted
+                        ? "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-60"
+                        : form.resource_id === v.id
+                          ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 shadow-sm"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="font-bold text-sm break-keep">{v.name}</div>
+                  {v.is_rented ? (
+                    <div className="text-[10px] mt-1 font-semibold text-indigo-500">
+                      대여중{v.renter_name ? ` · ${v.renter_name}` : ""}
+                    </div>
+                  ) : isVehicleRestricted && !isSelectedRestricted ? (
+                    <div className="text-[10px] mt-1 font-semibold text-gray-400">담당자 확인 필요</div>
+                  ) : (
+                    <div className="text-[10px] opacity-70 mt-1">{v.description}</div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 

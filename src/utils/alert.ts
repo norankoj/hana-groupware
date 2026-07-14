@@ -53,6 +53,7 @@ export const showAlert = (title: string, text: string = "") => {
     buttonsStyling: false,
     customClass: {
       ...swalCustomClasses,
+      htmlContainer: "!text-base !text-gray-700 !mt-0 !pt-0 !mb-0 !leading-relaxed font-medium",
       confirmButton:
         "bg-[#5B5FED] hover:bg-[#4A4DDB] text-white font-semibold rounded-lg px-8 py-2.5 text-sm w-[140px] transition-colors shadow-sm",
       actions: "!mt-6 !mb-0 w-full flex justify-center",

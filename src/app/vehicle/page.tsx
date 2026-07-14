@@ -7,7 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import toast from "react-hot-toast";
-import { showConfirm } from "@/utils/alert";
+import { showConfirm, showAlert } from "@/utils/alert";
 import "react-calendar/dist/Calendar.css";
 import DetailModal from "@/components/vehicle/DetailModal";
 import VehicleReserveModal, { type FormState } from "@/components/vehicle/VehicleReserveModal";
@@ -210,6 +210,14 @@ export default function VehicleReservationPage() {
     driver_user_id: "",
     department: "",
   });
+
+  const RESTRICTED_VEHICLE_ID = 31;
+  const RESTRICTED_VEHICLE_MSG =
+    "※ 은색 스타리아 차량은 담당자(김건웅 간사) 확인 후 사용해 주세요.";
+
+  const canReserveRestricted =
+    currentProfile?.role === "director" ||
+    currentProfile?.is_vehicle_notify === true;
 
   const handleReserveWithCar = (carId: number) => {
     setForm((prev) => ({ ...prev, resource_id: carId }));
@@ -470,6 +478,11 @@ export default function VehicleReservationPage() {
   }, []);
 
   const handleReserve = async (form: FormState) => {
+    if (!editingLogId && form.resource_id === RESTRICTED_VEHICLE_ID && !canReserveRestricted) {
+      showAlert("예약 제한 차량", RESTRICTED_VEHICLE_MSG);
+      return;
+    }
+
     if (
       !form.purpose ||
       !form.destination ||
@@ -632,6 +645,10 @@ export default function VehicleReservationPage() {
   ): Promise<void> => {
     if (!form.resource_id) {
       toast.error("차량을 선택해주세요.");
+      return;
+    }
+    if (form.resource_id === RESTRICTED_VEHICLE_ID && !canReserveRestricted) {
+      showAlert("예약 제한 차량", RESTRICTED_VEHICLE_MSG);
       return;
     }
     const recurringTargetVehicle = vehicles.find(
@@ -881,21 +898,23 @@ export default function VehicleReservationPage() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (!v.is_rented) {
+              if (!v.is_rented && !(v.id === RESTRICTED_VEHICLE_ID && !canReserveRestricted)) {
                 handleReserveWithCar(v.id);
                 setActiveCardId(null);
               }
             }}
-            disabled={!!v.is_rented}
+            disabled={!!v.is_rented || (v.id === RESTRICTED_VEHICLE_ID && !canReserveRestricted)}
             className={`w-full py-3.5 text-sm font-bold rounded-xl transition-all active:scale-[0.98] ${
-              v.is_rented
+              v.is_rented || (v.id === RESTRICTED_VEHICLE_ID && !canReserveRestricted)
                 ? "bg-white/10 text-white/40 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-lg shadow-blue-900/40"
             }`}
           >
             {v.is_rented
               ? `대여중${v.renter_name ? ` · ${v.renter_name}` : ""}`
-              : "예약하기"}
+              : v.id === RESTRICTED_VEHICLE_ID && !canReserveRestricted
+                ? "예약 권한 없음"
+                : "예약하기"}
           </button>
 
           <div className="flex gap-1.5 w-full">
@@ -2270,6 +2289,10 @@ export default function VehicleReservationPage() {
         handleRecurringReserve={handleRecurringReserve}
         staffList={staffList}
         isReserving={isReserving}
+        isEditing={!!editingLogId}
+        restrictedVehicleId={RESTRICTED_VEHICLE_ID}
+        hasSpecialPermission={canReserveRestricted}
+        restrictedMessage={RESTRICTED_VEHICLE_MSG}
       />
 
       {/* DetailModal에 onEdit 속성을 넘겨줍니다 */}

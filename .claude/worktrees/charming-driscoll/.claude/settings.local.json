@@ -12,7 +12,11 @@
       "Bash(node patch_pc_ui.mjs)",
       "Bash(node \"C:/dev/hana-groupware/patch_notes_collapse.mjs\")",
       "Bash(node \"C:/dev/hana-groupware/patch_schedule.mjs\")",
-      "Bash(node -e \"const t = require\\('tesseract.js'\\); console.log\\('OK', Object.keys\\(t\\)\\)\")"
+      "Bash(node -e \"const t = require\\('tesseract.js'\\); console.log\\('OK', Object.keys\\(t\\)\\)\")",
+      "PowerShell(Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass)",
+      "PowerShell(node \"C:\\\\dev\\\\hana-groupware\\\\node_modules\\\\typescript\\\\bin\\\\tsc\" --noEmit --project \"C:\\\\dev\\\\hana-groupware\\\\tsconfig.json\" 2>&1)",
+      "Bash(node \"/c/dev/hana-groupware/node_modules/typescript/bin/tsc\" --noEmit --project \"/c/dev/hana-groupware/tsconfig.json\")",
+      "Bash(/c/dev/hana-groupware/node_modules/.bin/tsc --noEmit -p /c/dev/hana-groupware/tsconfig.json)"
     ]
   }
 }
