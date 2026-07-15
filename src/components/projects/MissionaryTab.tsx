@@ -608,6 +608,24 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
     | { type: "solo-header"; data: Missionary }
     | { type: "member"; data: Missionary; inGroup: boolean };
 
+  // 가족그룹 내 멤버 정렬
+  // 1순위: 그룹 이름과 동일한 사람 (대표)
+  // 2순위: 성이 다른 사람 (배우자)
+  // 3순위: 성이 같고 한국 전화번호 있는 사람
+  // 4순위: 나머지
+  const sortGroupMembers = (members: Missionary[], groupName: string): Missionary[] => {
+    const groupLastName = groupName.trim()[0] ?? "";
+    const rank = (m: Missionary): number => {
+      const name = m.name?.trim() ?? "";
+      if (name === groupName.trim()) return 0;
+      const sameLastName = name[0] === groupLastName;
+      if (!sameLastName) return 1;
+      if (m.phone_kr?.trim()) return 2;
+      return 3;
+    };
+    return [...members].sort((a, b) => rank(a) - rank(b));
+  };
+
   const rows: GroupedRow[] = [];
   const groupMap = new Map<string, Missionary[]>();
   const solo: Missionary[] = [];
@@ -650,8 +668,9 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
   });
   allEntries.forEach((entry) => {
     if (entry.ev === "group") {
-      rows.push({ type: "header", key: entry.key, count: entry.members.length, rep: entry.members[0] });
-      entry.members.forEach((m) => rows.push({ type: "member", data: m, inGroup: true }));
+      const sortedMembers = sortGroupMembers(entry.members, entry.key);
+      rows.push({ type: "header", key: entry.key, count: sortedMembers.length, rep: sortedMembers[0] });
+      sortedMembers.forEach((m) => rows.push({ type: "member", data: m, inGroup: true }));
     } else {
       rows.push({ type: "solo-header", data: entry.data });
       rows.push({ type: "member", data: entry.data, inGroup: false });
