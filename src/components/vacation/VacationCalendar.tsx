@@ -107,6 +107,26 @@ export default function VacationCalendar({
     });
   }, [myRequests]);
 
+  // 화요일 연차 분기 제한 체크 (기안 모달용)
+  const tuesdayWarning = useMemo(() => {
+    if (formData.type !== "연차" || !formData.start_date) return null;
+    const tuesday = findFirstTuesdayInRange(
+      formData.start_date,
+      formData.end_date || formData.start_date,
+    );
+    if (!tuesday) return null;
+    const year = tuesday.getFullYear();
+    const quarter = getQuarterFromDate(tuesday);
+    const usedReq = myRequests.find((req) => {
+      if (req.type !== "연차") return false;
+      if (req.status === "cancelled" || req.status === "rejected") return false;
+      const tue = findFirstTuesdayInRange(req.start_date, req.end_date);
+      if (!tue) return false;
+      return tue.getFullYear() === year && getQuarterFromDate(tue) === quarter;
+    });
+    return { tuesday, year, quarter, usedReq: usedReq ?? null };
+  }, [formData.type, formData.start_date, formData.end_date, myRequests]);
+
   // 1. 최근 신청 내역 정렬 (최신순: created_at 내림차순)
   const sortedMyRequests = useMemo(() => {
     return [...myRequests].sort((a, b) => {
@@ -239,6 +259,27 @@ export default function VacationCalendar({
 
     if (isOverlapping) {
       return toast.error("이미 휴가가 신청된 날짜가 포함되어 있습니다.");
+    }
+
+    // 화요일 연차 분기 제한 체크
+    if (formData.type === "연차") {
+      const tuesday = findFirstTuesdayInRange(formData.start_date, formData.end_date);
+      if (tuesday) {
+        const year = tuesday.getFullYear();
+        const quarter = getQuarterFromDate(tuesday);
+        const hasUsedTuesdayThisQuarter = myRequests.some((req) => {
+          if (req.type !== "연차") return false;
+          if (req.status === "cancelled" || req.status === "rejected") return false;
+          const tue = findFirstTuesdayInRange(req.start_date, req.end_date);
+          if (!tue) return false;
+          return tue.getFullYear() === year && getQuarterFromDate(tue) === quarter;
+        });
+        if (hasUsedTuesdayThisQuarter) {
+          return toast.error(
+            `${year}년 ${quarter}분기 화요일 연차는 이미 사용했습니다.\n분기당 1회만 사용 가능합니다.`,
+          );
+        }
+      }
     }
 
     const isDeductible = DEDUCTIBLE_TYPES.includes(formData.type);
@@ -796,7 +837,7 @@ export default function VacationCalendar({
                     >
                       <div className="text-[11px] font-medium opacity-80">{startMonth}~{endMonth}월</div>
                       <div className="text-sm font-bold mt-0.5">
-                        {usedReq ? "사용" : "—"}
+                        {usedReq ? "사용" : isCurrent ? "가능" : "—"}
                       </div>
                     </div>
                   );
@@ -999,6 +1040,30 @@ export default function VacationCalendar({
               </span>
             </div>
           )}
+
+          {/* 화요일 연차 분기 제한 경고 */}
+          {tuesdayWarning && (
+            tuesdayWarning.usedReq ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-3.5 py-3">
+                <p className="text-red-700 font-bold text-sm flex items-center gap-1.5">
+                  🚫 {tuesdayWarning.year}년 {tuesdayWarning.quarter}분기 화요일 연차 사용 불가
+                </p>
+                <p className="text-red-600 text-xs mt-1">
+                  이미 <strong>{tuesdayWarning.usedReq.start_date}</strong>에 화요일 연차를 사용했습니다. 분기당 1회만 사용할 수 있습니다.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-3.5 py-3">
+                <p className="text-amber-700 font-bold text-sm flex items-center gap-1.5">
+                  ⚠ {tuesdayWarning.year}년 {tuesdayWarning.quarter}분기 화요일 연차
+                </p>
+                <p className="text-amber-600 text-xs mt-1">
+                  이번 분기 화요일 연차를 아직 사용하지 않으셨습니다. 분기당 1회만 사용 가능합니다.
+                </p>
+              </div>
+            )
+          )}
+
           <div>
             <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
               사유
