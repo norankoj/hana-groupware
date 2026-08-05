@@ -3,8 +3,8 @@ import { format, eachDayOfInterval, getDay } from "date-fns";
 import { HOLIDAYS } from "@/constants/holidays";
 
 // --- 공통 상수 ---
-// 비전트립 A: 차감 없음 / 비전트립 B: 0.5일/일 차감
-export const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차", "비전트립", "비전트립 B"];
+// 비전트립 A: 차감 없음 / 비전트립 B: 0.5일/일 차감 / 사역섬김: 0.5일/일 차감
+export const DEDUCTIBLE_TYPES = ["연차", "오전반차", "오후반차", "비전트립", "비전트립 B", "사역섬김"];
 
 export const STATUS_OPTIONS = [
   { value: "all", label: "전체 상태" },
@@ -25,6 +25,7 @@ export const TYPE_OPTIONS = [
   { value: "비전트립", label: "비전트립" },
   { value: "비전트립 A", label: "비전트립 A (차감없음)" },
   { value: "비전트립 B", label: "비전트립 B (0.5일/일)" },
+  { value: "사역섬김", label: "사역섬김 (0.5일/일)" },
 ];
 
 // --- 공통 스타일 ---
@@ -94,7 +95,26 @@ export const calculateChurchVacationDays = (
     count++;
   });
 
-  // 비전트립 B: 0.5일/일 차감
-  if (type === "비전트립 B") return count * 0.5;
+  // 비전트립 B / 사역섬김: 0.5일/일 차감
+  if (type === "비전트립 B" || type === "사역섬김") return count * 0.5;
   return count;
+};
+
+// --- 화요일 연차 분기 제한 헬퍼 ---
+export const getQuarterFromDate = (d: Date): number =>
+  Math.ceil((d.getMonth() + 1) / 3);
+
+export const findFirstTuesdayInRange = (
+  startStr: string,
+  endStr: string,
+): Date | null => {
+  if (!startStr || !endStr) return null;
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  const cur = new Date(start);
+  while (cur <= end) {
+    if (cur.getDay() === 2) return new Date(cur);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return null;
 };

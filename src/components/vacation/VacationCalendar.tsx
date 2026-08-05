@@ -27,6 +27,8 @@ import {
   calculateChurchVacationDays,
   DEDUCTIBLE_TYPES,
   btnStyles,
+  getQuarterFromDate,
+  findFirstTuesdayInRange,
 } from "./shared";
 
 // 내부용 InfoRow 컴포넌트
@@ -85,6 +87,25 @@ export default function VacationCalendar({
   const [selectedRequest, setSelectedRequest] =
     useState<VacationRequest | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // 화요일 연차 분기별 사용 현황 (현재 연도 기준)
+  const tuesdayQuarterStatus = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return ([1, 2, 3, 4] as const).map((q) => {
+      const startMonth = (q - 1) * 3 + 1;
+      const endMonth = q * 3;
+      const usedReq = myRequests.find((req) => {
+        if (req.type !== "연차") return false;
+        if (req.status === "cancelled" || req.status === "rejected") return false;
+        if (!req.start_date.startsWith(String(currentYear))) return false;
+        const tue = findFirstTuesdayInRange(req.start_date, req.end_date);
+        if (!tue) return false;
+        const month = tue.getMonth() + 1;
+        return month >= startMonth && month <= endMonth;
+      });
+      return { q, startMonth, endMonth, usedReq: usedReq ?? null };
+    });
+  }, [myRequests]);
 
   // 1. 최근 신청 내역 정렬 (최신순: created_at 내림차순)
   const sortedMyRequests = useMemo(() => {
@@ -753,6 +774,35 @@ export default function VacationCalendar({
             <div className="mt-3 text-right text-xs text-gray-500 font-medium">
               {user?.used_leave_days}일 사용함
             </div>
+            {/* 화요일 연차 분기 현황 */}
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="mb-2.5">
+                <span className="text-xs font-bold text-gray-600">화요일 연차</span>
+                <span className="text-[11px] text-gray-500 ml-1 font-medium">(분기당 1회만 사용 가능합니다)</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {tuesdayQuarterStatus.map(({ q, startMonth, endMonth, usedReq }) => {
+                  const isCurrent = getQuarterFromDate(new Date()) === q;
+                  return (
+                    <div
+                      key={q}
+                      className={`rounded-lg py-2 text-center ${
+                        usedReq
+                          ? "bg-red-50 text-red-500"
+                          : isCurrent
+                            ? "bg-blue-50 text-blue-500"
+                            : "bg-gray-50 text-gray-400"
+                      }`}
+                    >
+                      <div className="text-[11px] font-medium opacity-80">{startMonth}~{endMonth}월</div>
+                      <div className="text-sm font-bold mt-0.5">
+                        {usedReq ? "사용" : "—"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* ★ 수정: 높이 설정 변경 (모바일: 자동 / PC: 자동 + 스크롤) */}
@@ -860,17 +910,42 @@ export default function VacationCalendar({
               });
             }}
             options={[
-              "연차",
-              "오전반차",
-              "오후반차",
-              "경조사",
-              "병가",
-              "예비군",
-              "특별휴가",
-              "비전트립 A",
-              "비전트립 B",
+              { value: "연차", label: "연차" },
+              { value: "오전반차", label: "오전반차" },
+              { value: "오후반차", label: "오후반차" },
+              { value: "경조사", label: "경조사" },
+              { value: "병가", label: "병가" },
+              { value: "예비군", label: "예비군" },
+              { value: "특별휴가", label: "특별휴가" },
+              { value: "비전트립 A", label: "비전트립 A : 부서 비전트립 섬김 · 차감 없음", notice: "사용시 박희주 목사님께 문의 부탁드립니다." },
+              { value: "비전트립 B", label: "비전트립 B : 부서 비전트립 참여 · 0.5일/일 차감", notice: "사용시 박희주 목사님께 문의 부탁드립니다." },
+              { value: "사역섬김", label: "사역섬김 : 타 부서 사역 섬김 · 0.5일/일 차감", notice: "사용시 박희주 목사님께 문의 부탁드립니다." },
             ]}
           />
+
+          {/* 비전트립 / 사역섬김 안내 */}
+          {["비전트립 A", "비전트립 B", "사역섬김"].includes(formData.type) && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3.5 py-3 text-sm space-y-1.5">
+              {formData.type === "비전트립 A" && (
+                <p className="text-amber-800 font-medium">
+                  비전트립 A · 부서 비전트립 섬김 <span className="text-amber-600 font-normal">(연차 차감 없음)</span>
+                </p>
+              )}
+              {formData.type === "비전트립 B" && (
+                <p className="text-amber-800 font-medium">
+                  비전트립 B · 부서 비전트립 참여 <span className="text-amber-600 font-normal">(0.5일/일 차감)</span>
+                </p>
+              )}
+              {formData.type === "사역섬김" && (
+                <p className="text-amber-800 font-medium">
+                  사역섬김 · 타 부서 사역 섬김 <span className="text-amber-600 font-normal">(0.5일/일 차감)</span>
+                </p>
+              )}
+              <p className="text-amber-700 text-xs leading-relaxed">
+                ⚠ 해당 휴가는 사용 전 <strong>박희주 목사님</strong>께 문의 후 사용해 주세요.
+              </p>
+            </div>
+          )}
 
           <div className="relative" ref={rangePickerRef}>
             <label className="block text-xs font-medium text-gray-500 uppercase mb-1">

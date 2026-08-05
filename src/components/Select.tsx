@@ -6,6 +6,8 @@ type Option = {
   value: string;
   label: string;
   group?: string;
+  description?: string;
+  notice?: string;
 };
 
 type SelectProps = {
@@ -157,7 +159,17 @@ export default function Select({
                         }
                       `}
                     >
-                      <span className="pl-2">{opt.label}</span>{" "}
+                      <span className="pl-2">{opt.label}</span>
+                      {opt.description && (
+                        <div className={`pl-2 text-xs mt-0.5 font-normal ${value === opt.value ? "text-blue-400" : "text-gray-400"}`}>
+                          {opt.description}
+                        </div>
+                      )}
+                      {opt.notice && (
+                        <div className="pl-2 text-xs mt-0.5 font-medium text-red-500">
+                          {opt.notice}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -178,6 +190,16 @@ export default function Select({
                   `}
                 >
                   {opt.label}
+                  {opt.description && (
+                    <div className={`text-xs mt-0.5 font-normal ${value === opt.value ? "text-blue-400" : "text-gray-400"}`}>
+                      {opt.description}
+                    </div>
+                  )}
+                  {opt.notice && (
+                    <div className="text-xs mt-0.5 font-medium text-red-500">
+                      {opt.notice}
+                    </div>
+                  )}
                 </div>
               ))}
         </div>
