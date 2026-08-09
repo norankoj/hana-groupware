@@ -487,9 +487,10 @@ export default function VehicleReservationPage() {
       !form.purpose ||
       !form.destination ||
       !form.driver_name ||
+      !form.driver_phone ||
       !form.department
     )
-      return toast.error("모든 정보를 입력해주세요.");
+      return toast.error("모든 정보를 입력해주세요. (운전자 연락처 포함)");
 
     const startAt = new Date(`${form.start_date}T${form.start_time}`);
     const endAt = new Date(`${form.end_date}T${form.end_time}`);
@@ -994,6 +995,26 @@ export default function VehicleReservationPage() {
                 </span>
               </button>
             )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const url = `${window.location.origin}/vehicle/contact/${v.id}`;
+                navigator.clipboard.writeText(url).then(() => {
+                  import("react-hot-toast").then(({ default: toast }) =>
+                    toast.success("QR 링크 복사됨")
+                  );
+                });
+                setActiveCardId(null);
+              }}
+              className="flex-1 flex flex-col items-center gap-1 py-2.5 bg-white hover:bg-gray-100 text-slate-700 rounded-xl transition-all cursor-pointer shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+              </svg>
+              <span className="text-[10px] font-bold leading-none">QR링크</span>
+            </button>
+
             {currentProfile?.is_vehicle_notify && (
               <button
                 onClick={(e) => {
