@@ -33,6 +33,7 @@ export type FormState = {
   purpose: string;
   destination: string;
   driver_name: string;
+  driver_phone: string;
   driver_user_id: string;
   department: string;
 };
@@ -53,13 +54,22 @@ interface VehicleReserveModalProps {
   vehicles: Vehicle[];
   logs: VehicleLog[];
   initialValues: FormState;
-  staffList: { id: string; full_name: string; position: string }[];
+  staffList: { id: string; full_name: string; position: string; phone?: string }[];
   isReserving?: boolean;
   isEditing?: boolean;
   restrictedVehicleId?: number;
   hasSpecialPermission?: boolean;
   restrictedMessage?: string;
 }
+
+// "01040988765" → "010-4098-8765"
+const formatPhone = (phone: string | null | undefined): string => {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return phone;
+};
 
 // "2026-04-24" → "2026년 4월 24일"
 const formatDateDisplay = (dateStr: string) => {
@@ -132,9 +142,15 @@ export default function VehicleReserveModal({
   // ── form 상태를 모달 내부에서 관리 (타이핑 시 page.tsx 리렌더 방지) ──────
   const [form, setForm] = useState<FormState>(initialValues);
 
-  // 모달 열릴 때마다 초기값 동기화
+  // 모달 열릴 때마다 초기값 동기화 + 운전자 전화번호 staffList에서 자동 연동
   useEffect(() => {
-    if (isOpen) setForm(initialValues);
+    if (!isOpen) return;
+    if (initialValues.driver_user_id && !initialValues.driver_phone) {
+      const staff = staffList.find((s) => s.id === initialValues.driver_user_id);
+      setForm({ ...initialValues, driver_phone: staff?.phone ? formatPhone(staff.phone) : "" });
+    } else {
+      setForm(initialValues);
+    }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [reserveType, setReserveType] = useState<"single" | "multi" | "recurring">("single");
@@ -158,6 +174,15 @@ export default function VehicleReserveModal({
       }
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // staffList가 모달 오픈 후 뒤늦게 로드될 때 전화번호 자동 연동
+  useEffect(() => {
+    if (!form.driver_user_id || form.driver_phone) return;
+    const staff = staffList.find((s) => s.id === form.driver_user_id);
+    if (staff?.phone) {
+      setForm((prev) => ({ ...prev, driver_phone: formatPhone(staff.phone!) }));
+    }
+  }, [form.driver_user_id, staffList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 당일 예약일 때 end_date = start_date 자동 동기화
   useEffect(() => {
@@ -565,7 +590,7 @@ export default function VehicleReserveModal({
                 </div>
                 <span className="text-sm font-bold text-gray-800 flex-1">{form.driver_name}</span>
                 <button
-                  onClick={() => setForm((prev) => ({ ...prev, driver_user_id: "", driver_name: "" }))}
+                  onClick={() => setForm((prev) => ({ ...prev, driver_user_id: "", driver_name: "", driver_phone: "" }))}
                   className="text-gray-400 hover:text-red-500 transition"
                   type="button"
                 >
@@ -602,7 +627,12 @@ export default function VehicleReserveModal({
                         key={s.id}
                         type="button"
                         onMouseDown={() => {
-                          setForm((prev) => ({ ...prev, driver_user_id: s.id, driver_name: s.full_name }));
+                          setForm((prev) => ({
+                            ...prev,
+                            driver_user_id: s.id,
+                            driver_name: s.full_name,
+                            driver_phone: formatPhone(s.phone) || prev.driver_phone,
+                          }));
                           setShowDriverList(false);
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 text-left transition border-b border-gray-50 last:border-b-0"
@@ -619,6 +649,30 @@ export default function VehicleReserveModal({
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-gray-500 mb-1">
+            운전자 연락처
+            <span className="ml-1 text-gray-400 font-normal">(QR 연락처 표시용)</span>
+          </label>
+          <div className="relative">
+            <input
+              type="tel"
+              placeholder={form.driver_user_id ? "연락처 미등록 — 직접 입력" : "예: 010-1234-5678"}
+              className={`w-full border p-3 rounded-lg text-gray-900 outline-none focus:border-blue-500 bg-white text-sm pr-10 ${
+                form.driver_user_id && form.driver_phone
+                  ? "border-blue-300 bg-blue-50"
+                  : "border-gray-300"
+              }`}
+              value={form.driver_phone}
+              onChange={(e) => setForm((prev) => ({ ...prev, driver_phone: e.target.value }))}
+            />
+            {form.driver_user_id && form.driver_phone && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-blue-500 font-medium pointer-events-none">
+                연동됨
+              </span>
             )}
           </div>
         </div>

@@ -261,25 +261,11 @@ export default function VacationCalendar({
       return toast.error("이미 휴가가 신청된 날짜가 포함되어 있습니다.");
     }
 
-    // 화요일 연차 분기 제한 체크
-    if (formData.type === "연차") {
-      const tuesday = findFirstTuesdayInRange(formData.start_date, formData.end_date);
-      if (tuesday) {
-        const year = tuesday.getFullYear();
-        const quarter = getQuarterFromDate(tuesday);
-        const hasUsedTuesdayThisQuarter = myRequests.some((req) => {
-          if (req.type !== "연차") return false;
-          if (req.status === "cancelled" || req.status === "rejected") return false;
-          const tue = findFirstTuesdayInRange(req.start_date, req.end_date);
-          if (!tue) return false;
-          return tue.getFullYear() === year && getQuarterFromDate(tue) === quarter;
-        });
-        if (hasUsedTuesdayThisQuarter) {
-          return toast.error(
-            `${year}년 ${quarter}분기 화요일 연차는 이미 사용했습니다.\n분기당 1회만 사용 가능합니다.`,
-          );
-        }
-      }
+    // 화요일 연차 분기 제한 체크 (tuesdayWarning useMemo 재사용)
+    if (tuesdayWarning?.usedReq) {
+      return toast.error(
+        `${tuesdayWarning.year}년 ${tuesdayWarning.quarter}분기 화요일 연차는 이미 사용했습니다.\n분기당 1회만 사용 가능합니다.`,
+      );
     }
 
     const isDeductible = DEDUCTIBLE_TYPES.includes(formData.type);

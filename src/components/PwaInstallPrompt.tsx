@@ -1,8 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 
 export default function PwaInstallPrompt() {
+  const pathname = usePathname();
+  if (pathname.startsWith("/vehicle/contact")) return null;
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);

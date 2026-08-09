@@ -54,6 +54,7 @@ export async function POST(request: Request) {
         .update({
           total_leave_days: allowedUser.total_leaves ?? 15,
           used_leave_days: allowedUser.used_leaves ?? 0,
+          phone: phone,
         })
         .eq("id", userId);
 

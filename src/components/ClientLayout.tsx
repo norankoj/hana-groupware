@@ -278,6 +278,10 @@ export default function ClientLayout({
       </>
     );
 
+  // 차량 QR 연락처(/vehicle/contact/*) — 로그인 없이 접근, 사이드바·헤더 없이 렌더
+  if (pathname.startsWith("/vehicle/contact"))
+    return <>{children}</>;
+
   // 가입 승인 대기 중인 사용자 전용 화면
   if (profile && profile.role === "pending") {
     return (

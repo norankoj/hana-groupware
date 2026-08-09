@@ -97,6 +97,7 @@ type StaffMember = {
   id: string;
   full_name: string;
   position: string;
+  phone?: string;
 };
 
 const toTimePercent = (dt: Date) =>
@@ -207,6 +208,7 @@ export default function VehicleReservationPage() {
     purpose: "",
     destination: "",
     driver_name: "",
+    driver_phone: "",
     driver_user_id: "",
     department: "",
   });
@@ -236,6 +238,7 @@ export default function VehicleReservationPage() {
       purpose: log.purpose,
       destination: log.destination,
       driver_name: log.driver_name,
+      driver_phone: (log as any).reservee_phone || "",
       driver_user_id: log.driver_user_id || "",
       department: log.department || "",
     });
@@ -405,13 +408,10 @@ export default function VehicleReservationPage() {
       }
     }
 
-    supabase
-      .from("profiles")
-      .select("id, full_name, position")
-      .neq("status", "inactive")
-      .order("full_name")
-      .then(({ data }) => {
-        if (data) setStaffList(data as StaffMember[]);
+    fetch("/api/vehicle/staff-list")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setStaffList(data as StaffMember[]);
       });
 
     const { data: vData } = await supabase
@@ -535,6 +535,7 @@ export default function VehicleReservationPage() {
       purpose: form.purpose,
       destination: form.destination,
       driver_name: form.driver_name,
+      reservee_phone: form.driver_phone || null,
       department: form.department,
       reminder_at: reminderAt.toISOString(),
     };
@@ -729,6 +730,7 @@ export default function VehicleReservationPage() {
       purpose: form.purpose,
       destination: form.destination,
       driver_name: form.driver_name,
+      reservee_phone: form.driver_phone || null,
       department: form.department,
       vehicle_status: "reserved",
       reminder_at: new Date(end.getTime() - 20 * 60 * 1000).toISOString(),

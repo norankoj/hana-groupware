@@ -230,6 +230,26 @@ export default function VehicleManageTab({
       {/* ── 우측: 관리 패널 ── */}
       {vehicle ? (
         <div className="flex-1 space-y-4 overflow-y-auto">
+          {/* QR 연락처 URL 카드 */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-xs font-bold text-gray-500 mb-1.5">QR 연락처 URL</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-blue-700 break-all select-all">
+                /vehicle/contact/{vehicle.id}
+              </code>
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/vehicle/contact/${vehicle.id}`;
+                  navigator.clipboard.writeText(url);
+                }}
+                className="shrink-0 text-xs px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-medium transition"
+              >
+                복사
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">이 URL을 QR 코드로 만들어 차량에 부착하세요.</p>
+          </div>
+
           {/* 예약 알림 담당자 카드 */}
           {isAdmin && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
