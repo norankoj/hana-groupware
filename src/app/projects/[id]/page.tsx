@@ -166,7 +166,7 @@ export default function ProjectDashboard() {
 
   const renderTab = () => {
     switch (activeTabKey) {
-      case "overview":       return <OverviewTab {...props} project={project} isMarf={isMarf} />;
+      case "overview":       return <OverviewTab {...props} project={project} isMarf={isMarf} isRide={project.project_type === "ride_schedule"} />;
       case "missionaries":   return <MissionaryTab {...props} />;
       case "attendance":     return <AttendanceTab {...props} />;
       case "accommodations": return <AccommodationTab {...props} />;

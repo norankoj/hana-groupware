@@ -10,7 +10,15 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Bash(npx tsc *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Read(//c/Users/suwonhanaweb/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/e020042b-2a33-48da-a01c-fe2c0ac4f23f/6adfd802-d9b4-4321-b9b9-fbfee4751402/skills/xlsx/**)",
+      "Bash(python -c ' *)",
+      "Bash(markitdown \"C:\\\\Users\\\\suwonhanaweb\\\\Downloads\\\\고목사님 라이드 \\(1\\).xlsx\")",
+      "Bash(/c/Users/suwonhanaweb/AppData/Local/Microsoft/WindowsApps/python3.exe -c ' *)",
+      "Bash(which python3 && python3 --version 2>&1 || echo \"not found\" *)",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "PowerShell(\\(Get-Content \"C:\\\\dev\\\\hana-groupware\\\\src\\\\components\\\\projects\\\\RideListTab.tsx\"\\)[\\(1368-1\\)..\\(1372-1\\)] | ForEach-Object -Begin { $i = 1368 } -Process { \"${i}: $_\"; $i++ })"
     ],
     "deny": [
       "Read(.env*)",

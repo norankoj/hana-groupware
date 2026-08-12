@@ -15,6 +15,22 @@ type Props = {
     recurrence_years: number | null;
   };
   isMarf: boolean;
+  isRide?: boolean;
+};
+
+type PastorRide = {
+  id: string;
+  ride_number: string | null;
+  status: string;
+  is_important: boolean;
+  event_date: string;
+  event_name: string | null;
+  rider_name: string | null;
+  direction: string;
+  departure_location: string | null;
+  departure_time: string | null;
+  arrival_location: string | null;
+  arrival_time: string | null;
 };
 
 // ── 로우 타입 ──────────────────────────────────────────────────────
@@ -237,7 +253,7 @@ const SCHED_CAT_CLS: Record<string, string> = {
   general:   "bg-gray-100 text-gray-600",
 };
 
-export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
+export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [tlEvents, setTlEvents] = useState<TLEvent[]>([]);
@@ -249,6 +265,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
   const [missionariesData, setMissionariesData] = useState<MissionaryRaw[]>([]);
   const [accomsData,       setAccomsData]       = useState<AccomRaw[]>([]);
   const [vehiclesData,     setVehiclesData]     = useState<VehicleRaw[]>([]);
+  const [upcomingRides,    setUpcomingRides]    = useState<PastorRide[]>([]);
 
   /* TL 이벤트 툴팁 팝업 */
   type TLPopup = { ev: TLEvent; x: number; y: number };
@@ -300,7 +317,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
       const today = new Date().toISOString().slice(0, 10);
       const empty = Promise.resolve([] as any[]);
 
-      const [rawM, rawA, rawV, rawS, rawC, rawG] = await Promise.all([
+      const [rawM, rawA, rawV, rawS, rawC, rawG, rawRides] = await Promise.all([
         isMarf
           ? supabase
               .from("marf_missionaries")
@@ -351,6 +368,16 @@ export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
               .not("gift_item_id", "is", null)
               .then((r) => r.data ?? [])
           : empty,
+        isRide
+          ? supabase
+              .from("pastor_rides")
+              .select("id, ride_number, status, is_important, event_date, event_name, rider_name, direction, departure_location, departure_time, arrival_location, arrival_time")
+              .eq("project_id", projectId)
+              .gte("event_date", today)
+              .order("event_date")
+              .limit(20)
+              .then((r) => r.data ?? [])
+          : empty,
       ]);
 
       const mArr = rawM as MissionaryRaw[];
@@ -361,6 +388,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
       setMissionariesData(mArr);
       setAccomsData(aArr);
       setVehiclesData(vArr);
+      if (isRide) setUpcomingRides(rawRides as PastorRide[]);
 
       // ── 통계 ─────────────────────────────────────────────────
 
@@ -847,6 +875,128 @@ export default function OverviewTab({ projectId, myUserId, isMarf }: Props) {
                           <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
                             {c.category}
                           </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 라이드 일정 + 체크리스트 (ride_schedule 프로젝트) ── */}
+      {isRide && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+          {/* 다가오는 라이드 일정 */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+            <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+              <h3 className="text-sm font-semibold text-gray-800">다가오는 라이드 일정</h3>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: 600 }}>
+              {upcomingRides.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-10">다가오는 일정이 없습니다.</p>
+              ) : (() => {
+                const rideDates = [...new Set(upcomingRides.map((r) => r.event_date))];
+                return rideDates.map((date) => {
+                  const dayRides = upcomingRides.filter((r) => r.event_date === date);
+                  const isToday = date === today;
+                  const [, mm, dd] = date.split("-");
+                  const dayName = DAY_KO[new Date(date + "T00:00:00").getDay()];
+                  return (
+                    <div key={date} className={`flex border-b border-gray-50 last:border-b-0 ${isToday ? "bg-blue-50/30" : ""}`}>
+                      {/* 날짜 컬럼 */}
+                      <div className={`w-[72px] shrink-0 flex flex-col items-center pt-3.5 pb-3 gap-0.5 ${isToday ? "border-l-[3px] border-blue-400" : "border-l-[3px] border-transparent"}`}>
+                        <span className={`text-xs font-bold tabular-nums leading-none ${isToday ? "text-blue-600" : "text-gray-500"}`}>
+                          {mm}/{dd}({dayName})
+                        </span>
+                        {isToday && <span className="text-[10px] text-blue-400 font-medium">오늘</span>}
+                      </div>
+                      {/* 라이드 목록 */}
+                      <div className="flex-1 py-2 pr-4 space-y-1.5">
+                        {dayRides.map((ride) => {
+                          const statusCls = ride.status === "completed"
+                            ? "bg-green-100 text-green-700"
+                            : ride.status === "confirmed"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-500";
+                          const statusLabel = ride.status === "completed" ? "완료" : ride.status === "confirmed" ? "확정" : "미정";
+                          return (
+                            <div key={ride.id} className={`rounded-lg px-3 py-2 text-sm ${ride.is_important ? "bg-blue-50 border border-blue-100" : "bg-gray-50"}`}>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusCls}`}>
+                                  {statusLabel}
+                                </span>
+                                <span className="font-medium text-gray-800 truncate flex-1">
+                                  {ride.event_name ?? <span className="text-gray-400">집회명 없음</span>}
+                                </span>
+                                {ride.departure_time && (
+                                  <span className="text-xs text-gray-400 shrink-0">
+                                    {ride.departure_time.slice(0, 5)} 출발
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500 flex-wrap">
+                                {ride.rider_name && <span>🚗 {ride.rider_name}</span>}
+                                {(ride.departure_location || ride.arrival_location) && (
+                                  <span>
+                                    {ride.departure_location ?? "-"} → {ride.arrival_location ?? "-"}
+                                  </span>
+                                )}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${{왕복:"bg-purple-100 text-purple-700",편도:"bg-green-100 text-green-700"}[ride.direction] ?? "bg-gray-100 text-gray-500"}`}>{ride.direction}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+
+          {/* 체크리스트 */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+            <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+              <h3 className="text-sm font-semibold text-gray-800">
+                체크리스트
+                {checklists.filter((c) => !c.is_completed).length > 0 && (
+                  <span className="ml-2 text-xs font-normal text-orange-500">
+                    {checklists.filter((c) => !c.is_completed).length}개 미완료
+                  </span>
+                )}
+              </h3>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: 600 }}>
+              {checklists.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-10">체크리스트가 없습니다.</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {checklists.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => handleToggle(c)}
+                      className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${c.is_completed ? "opacity-50" : ""}`}
+                    >
+                      <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${c.is_completed ? "bg-green-500 border-green-500" : "border-gray-300 hover:border-green-400"}`}>
+                        {c.is_completed && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${c.is_completed ? "line-through text-gray-400" : "text-gray-800"}`}>
+                          {c.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {c.due_date && (
+                            <span className="text-xs text-gray-400 tabular-nums">{fmtMD(c.due_date)}</span>
+                          )}
+                          <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{c.category}</span>
                         </div>
                       </div>
                     </div>
