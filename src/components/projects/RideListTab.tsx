@@ -111,6 +111,55 @@ const EXCEL_COLS = [
 
 /* ── Component ──────────────────────────────────────────────────────── */
 
+type TmapResult = { duration: string; mapUrl: string };
+
+async function calcTmapDuration(from: string, to: string): Promise<TmapResult | null> {
+  const appKey = process.env.NEXT_PUBLIC_TMAP_APP_KEY;
+  if (!appKey) return null;
+
+  const getPoi = async (keyword: string) => {
+    const res = await fetch(
+      `https://apis.openapi.sk.com/tmap/pois?version=1&searchKeyword=${encodeURIComponent(keyword)}&count=1`,
+      { headers: { appKey } }
+    );
+    const data = await res.json();
+    const poi = data?.searchPoiInfo?.pois?.poi?.[0];
+    return poi ? { x: String(poi.noorLon), y: String(poi.noorLat) } : null;
+  };
+
+  const [start, end] = await Promise.all([getPoi(from), getPoi(to)]);
+  if (!start || !end) return null;
+
+  const res = await fetch("https://apis.openapi.sk.com/tmap/routes?version=1", {
+    method: "POST",
+    headers: { appKey, "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      startX: start.x, startY: start.y,
+      endX: end.x, endY: end.y,
+      reqCoordType: "WGS84GEO",
+      resCoordType: "WGS84GEO",
+      startName: encodeURIComponent(from),
+      endName: encodeURIComponent(to),
+      searchOption: "0",
+    }),
+  });
+  const data = await res.json();
+  const seconds: number | undefined = data?.features?.[0]?.properties?.totalTime;
+  if (!seconds) return null;
+
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const duration = h > 0 ? `${h}시간 ${m}분` : `${m}분`;
+
+  // 카카오맵 경로 URL (웹/모바일 모두 동작, 좌표 기반 출발→도착 경로)
+  // noorLon = 경도(X), noorLat = 위도(Y)
+  const mapUrl =
+    `https://map.kakao.com/link/from/${encodeURIComponent(from)},${start.y},${start.x}` +
+    `/to/${encodeURIComponent(to)},${end.y},${end.x}`;
+
+  return { duration, mapUrl };
+}
+
 export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
   const supabase = createClient();
 
@@ -118,7 +167,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
 
   // 필터
-  const [filterStatus, setFilterStatus]   = useState<string>("all");
+  const [filterStatus, setFilterStatus]   = useState<string>("pending");
   const [filterMonths, setFilterMonths]   = useState<string[]>(() => {
     const now = new Date();
     return Array.from({ length: 4 }, (_, i) => {
@@ -142,6 +191,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
 
   // 상세 보기
   const [viewRide, setViewRide] = useState<Ride | null>(null);
+
 
   // 달력/목록 뷰
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -587,10 +637,10 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
       {/* 요약 통계 카드 */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "전체",   value: "all",       count: stats.total,     numCls: "text-gray-800" },
-          { label: "미정",   value: "pending",   count: stats.pending,   numCls: "text-gray-600" },
-          { label: "확정",   value: "confirmed", count: stats.confirmed, numCls: "text-blue-600" },
-          { label: "완료",   value: "completed", count: stats.completed, numCls: "text-green-600" },
+          { label: "전체",   value: "all",       count: stats.total,     numCls: "text-gray-800",  activeCardCls: "border-blue-400 bg-blue-50",   activeNumCls: "text-blue-600"  },
+          { label: "미정",   value: "pending",   count: stats.pending,   numCls: "text-red-600",   activeCardCls: "border-red-400 bg-red-50",     activeNumCls: "text-red-600"   },
+          { label: "확정",   value: "confirmed", count: stats.confirmed, numCls: "text-blue-600",  activeCardCls: "border-blue-400 bg-blue-50",   activeNumCls: "text-blue-600"  },
+          { label: "완료",   value: "completed", count: stats.completed, numCls: "text-green-600", activeCardCls: "border-green-400 bg-green-50", activeNumCls: "text-green-600" },
         ].map((s) => {
           const isActive = filterStatus === s.value;
           return (
@@ -600,11 +650,11 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
               onClick={() => setFilterStatus(isActive ? "all" : s.value)}
               className={`rounded-xl p-4 text-center border transition-all cursor-pointer ${
                 isActive
-                  ? "border-blue-400 bg-blue-50 shadow-sm"
+                  ? `${s.activeCardCls} shadow-sm`
                   : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
               }`}
             >
-              <div className={`text-2xl font-bold tabular-nums ${isActive ? "text-blue-600" : s.numCls}`}>
+              <div className={`text-2xl font-bold tabular-nums ${isActive ? s.activeNumCls : s.numCls}`}>
                 {s.count}
               </div>
               <div className="text-xs mt-0.5 text-gray-500">{s.label}</div>
@@ -834,25 +884,9 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
 
                   {/* 중앙 정보 */}
                   <div className="flex-1 min-w-0">
-                    {/* 상태 + 이름 + 번호 */}
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusInfo.cls}`}>
-                        {statusInfo.label}
-                      </span>
-                      {ride.is_important && (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">중요</span>
-                      )}
-                      <span className="font-semibold text-gray-900 text-sm">
-                        {ride.event_name ?? <span className="text-gray-400 font-normal">집회명 없음</span>}
-                      </span>
-                      {ride.ride_number && (
-                        <span className="text-[11px] text-gray-400 font-mono">{ride.ride_number}</span>
-                      )}
-                    </div>
-
                     {/* 경로 */}
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
-                      <span className="font-medium text-gray-800">{ride.departure_location ?? "-"}</span>
+                    <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap mb-1">
+                      <span className="font-semibold text-gray-800">{ride.departure_location ?? "-"}</span>
                       {ride.departure_time && (
                         <span className="text-gray-400 text-xs">{ride.departure_time.slice(0,5)}</span>
                       )}
@@ -865,7 +899,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-gray-800 hover:text-blue-600 hover:underline flex items-center gap-0.5 transition-colors"
+                          className="font-semibold text-gray-800 hover:text-blue-600 hover:underline flex items-center gap-0.5 transition-colors"
                         >
                           {ride.arrival_location}
                           <svg className="w-3 h-3 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -874,7 +908,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                           </svg>
                         </a>
                       ) : (
-                        <span className="font-medium text-gray-800">-</span>
+                        <span className="font-semibold text-gray-800">-</span>
                       )}
                       {ride.arrival_time && (
                         <span className="text-gray-400 text-xs">{ride.arrival_time.slice(0,5)}</span>
@@ -882,6 +916,22 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                       <span className={`ml-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-gray-500"}`}>{ride.direction}</span>
                       {ride.estimated_duration && (
                         <span className="text-[11px] text-gray-400">{ride.estimated_duration}</span>
+                      )}
+                    </div>
+
+                    {/* 상태 + 이름 + 번호 */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusInfo.cls}`}>
+                        {statusInfo.label}
+                      </span>
+                      {ride.is_important && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">중요</span>
+                      )}
+                      <span className="font-normal text-gray-700 text-sm">
+                        {ride.event_name ?? <span className="text-gray-400">집회명 없음</span>}
+                      </span>
+                      {ride.ride_number && (
+                        <span className="text-[11px] text-gray-400 font-mono">{ride.ride_number}</span>
                       )}
                     </div>
                   </div>
@@ -1305,6 +1355,7 @@ function RideFormModal({
   const set = (key: keyof RideForm, value: string | boolean) =>
     onChange({ ...form, [key]: value });
 
+  const [durationLoading, setDurationLoading] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const dateRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1462,7 +1513,38 @@ function RideFormModal({
 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="예상 소요시간">
-            <input className={inputCls} placeholder="예: 1시간 13분" value={form.estimated_duration ?? ""} onChange={(e) => set("estimated_duration", e.target.value)} />
+            <div className="flex gap-2">
+              <input className={`${inputCls} flex-1`} placeholder="예: 1시간 13분" value={form.estimated_duration ?? ""} onChange={(e) => set("estimated_duration", e.target.value)} />
+              <button
+                type="button"
+                disabled={durationLoading}
+                onClick={async () => {
+                  if (!form.departure_location || !form.arrival_location) {
+                    toast.error("출발/도착 장소를 먼저 입력하세요.");
+                    return;
+                  }
+                  // 팝업 차단 우회: 사용자 제스처 컨텍스트에서 미리 창 열기
+                  const mapWin = window.open("", "_blank");
+                  setDurationLoading(true);
+                  try {
+                    const result = await calcTmapDuration(form.departure_location, form.arrival_location);
+                    if (result) {
+                      set("estimated_duration", result.duration);
+                      toast.success(`소요시간: ${result.duration}`);
+                      if (mapWin) mapWin.location.href = result.mapUrl;
+                    } else {
+                      mapWin?.close();
+                      toast.error("소요시간 계산 실패 — 장소명을 더 정확히 입력해보세요.");
+                    }
+                  } finally {
+                    setDurationLoading(false);
+                  }
+                }}
+                className="px-3 py-2 bg-blue-50 border border-blue-200 text-blue-600 text-xs rounded-md hover:bg-blue-100 transition whitespace-nowrap disabled:opacity-50"
+              >
+                {durationLoading ? "계산중…" : "계산"}
+              </button>
+            </div>
           </FormField>
           <FormField label="도착지 연락처">
             <input className={inputCls} value={form.arrival_contact ?? ""} onChange={(e) => set("arrival_contact", e.target.value)} />
@@ -1712,7 +1794,7 @@ function RideCalendarView({
                         <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-gray-500"}`}>{ride.direction}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
-                        <span className="font-medium text-gray-800">{ride.departure_location ?? "-"}</span>
+                        <span className="font-semibold text-gray-800">{ride.departure_location ?? "-"}</span>
                         {ride.departure_time && <span className="text-gray-400 text-xs">{ride.departure_time.slice(0,5)}</span>}
                         <svg className="w-3 h-3 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />

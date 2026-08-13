@@ -374,6 +374,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
               .select("id, ride_number, status, is_important, event_date, event_name, rider_name, direction, departure_location, departure_time, arrival_location, arrival_time")
               .eq("project_id", projectId)
               .gte("event_date", today)
+              .lte("event_date", new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
               .order("event_date")
               .limit(20)
               .then((r) => r.data ?? [])
@@ -891,14 +892,13 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
           {/* 다가오는 라이드 일정 */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+          {upcomingRides.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col h-[460px]">
             <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
               <h3 className="text-sm font-semibold text-gray-800">다가오는 라이드 일정</h3>
             </div>
-            <div className="overflow-y-auto" style={{ maxHeight: 600 }}>
-              {upcomingRides.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-10">다가오는 일정이 없습니다.</p>
-              ) : (() => {
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {(() => {
                 const rideDates = [...new Set(upcomingRides.map((r) => r.event_date))];
                 return rideDates.map((date) => {
                   const dayRides = upcomingRides.filter((r) => r.event_date === date);
@@ -957,6 +957,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
               })()}
             </div>
           </div>
+          )}
 
           {/* 체크리스트 */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
