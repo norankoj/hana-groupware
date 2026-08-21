@@ -17,6 +17,7 @@ import {
   subMonths,
 } from "date-fns";
 import { ko } from "date-fns/locale";
+import Modal from "@/components/Modal";
 
 /** 캘린더 이름 → 뱃지/닷 색상 매핑 */
 type CalendarStyle = { badgeBg: string; badgeText: string; dot: string };
@@ -72,192 +73,19 @@ type CalendarEvent = {
   description?: string;
 };
 
-/** 이벤트 상세 팝업 */
-function EventDetailPopup({
-  event,
-  onClose,
-}: {
-  event: CalendarEvent;
-  onClose: () => void;
-}) {
-  const cs = getCalendarStyle(event.calendarName);
-
-  const dateLabel = (() => {
-    if (event.isAllDay) {
-      const s = event.start.slice(0, 10);
-      const rawEnd = event.end.slice(0, 10);
-      // Google Calendar all-day end is exclusive
-      const lastDay = format(addDays(parseISO(rawEnd), -1), "yyyy-MM-dd");
-      if (s === lastDay) return format(parseISO(s), "M월 d일 (EEE)", { locale: ko });
-      return `${format(parseISO(s), "M월 d일 (EEE)", { locale: ko })} – ${format(parseISO(lastDay), "M월 d일 (EEE)", { locale: ko })}`;
-    }
-    const s = parseISO(event.start);
-    const e = parseISO(event.end);
-    return `${format(s, "M월 d일 (EEE) HH:mm", { locale: ko })} – ${format(e, "HH:mm")}`;
-  })();
-
-  return (
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl border border-gray-200 w-full max-w-sm flex flex-col max-h-[80vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 상단 색상 바 */}
-        <div className="h-1.5 w-full shrink-0" style={{ backgroundColor: cs.dot }} />
-
-        {/* 고정 헤더 */}
-        <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3 shrink-0">
-          <div className="flex flex-col gap-2 flex-1 min-w-0">
-            <h3 className="text-base font-bold text-gray-900 leading-snug">
-              {event.title}
-            </h3>
-            {/* 캘린더 뱃지 */}
-            <span
-              className="text-xs px-2 py-0.5 rounded font-semibold w-fit"
-              style={{ backgroundColor: cs.badgeBg, color: cs.badgeText }}
-            >
-              {event.calendarName}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 mt-0.5"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* 스크롤 가능한 본문 */}
-        <div className="overflow-y-auto px-5 pb-5 space-y-2">
-          {/* 날짜/시간 */}
-          <div className="flex items-start gap-2 text-sm text-gray-600">
-            <span className="shrink-0">📅</span>
-            <span>{dateLabel}</span>
-          </div>
-
-          {/* 장소 */}
-          {event.location && (
-            <div className="flex items-start gap-2 text-sm text-gray-600">
-              <span className="shrink-0">📍</span>
-              <span>{event.location}</span>
-            </div>
-          )}
-
-          {/* 설명 */}
-          {event.description && (
-            <div className="mt-1 pt-3 border-t border-gray-100 text-sm text-gray-500 whitespace-pre-wrap leading-relaxed">
-              {event.description}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+function getDateLabel(event: CalendarEvent): string {
+  if (event.isAllDay) {
+    const s = event.start.slice(0, 10);
+    const rawEnd = event.end.slice(0, 10);
+    const lastDay = format(addDays(parseISO(rawEnd), -1), "yyyy-MM-dd");
+    if (s === lastDay) return format(parseISO(s), "M월 d일 (EEE)", { locale: ko });
+    return `${format(parseISO(s), "M월 d일 (EEE)", { locale: ko })} – ${format(parseISO(lastDay), "M월 d일 (EEE)", { locale: ko })}`;
+  }
+  const s = parseISO(event.start);
+  const e = parseISO(event.end);
+  return `${format(s, "M월 d일 (EEE) HH:mm", { locale: ko })} – ${format(e, "HH:mm")}`;
 }
 
-/** 날짜별 일정 상세 패널 */
-function DayDetailPanel({
-  date,
-  dayEvents,
-  onClose,
-}: {
-  date: Date;
-  dayEvents: CalendarEvent[];
-  onClose: () => void;
-}) {
-  const dateLabel = format(date, "M월 d일 (EEE)", { locale: ko });
-
-  return (
-    <div
-      className="fixed inset-0 z-[10000] bg-black/50 flex items-end sm:items-center justify-center sm:px-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md flex flex-col overflow-hidden"
-        style={{ maxHeight: "80vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 패널 헤더 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
-          <div className="flex items-center gap-2">
-            {isToday(date) && (
-              <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">TODAY</span>
-            )}
-            <h3 className="font-bold text-gray-800 text-base">{dateLabel}</h3>
-            <span className="text-xs text-gray-400 font-medium">({dayEvents.length}건)</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition"
-          >✕</button>
-        </div>
-
-        {/* 일정 목록 */}
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-          {dayEvents.length === 0 ? (
-            <div className="py-12 text-center text-sm text-gray-400">등록된 일정이 없습니다.</div>
-          ) : (
-            dayEvents.map((ev) => {
-              const cs = getCalendarStyle(ev.calendarName);
-
-              const timeLabel = (() => {
-                if (ev.isAllDay) return "하루 종일";
-                const s = parseISO(ev.start);
-                const e = parseISO(ev.end);
-                return `${format(s, "HH:mm")} – ${format(e, "HH:mm")}`;
-              })();
-
-              return (
-                <div key={ev.id} className="px-5 py-4">
-                  {/* 제목 + 캘린더 뱃지 */}
-                  <div className="flex items-start gap-2 mb-2">
-                    <span
-                      className="mt-1 w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: cs.dot }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 text-sm leading-snug">{ev.title}</p>
-                      <span
-                        className="inline-block text-[10px] px-1.5 py-0.5 rounded font-semibold mt-1"
-                        style={{ backgroundColor: cs.badgeBg, color: cs.badgeText }}
-                      >
-                        {ev.calendarName}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 시간 */}
-                  <div className="flex items-center gap-2 text-xs text-gray-500 ml-5 pl-0.5">
-                    <span>🕐</span>
-                    <span>{timeLabel}</span>
-                  </div>
-
-                  {/* 장소 */}
-                  {ev.location && (
-                    <div className="flex items-start gap-2 text-xs text-gray-500 mt-1.5 ml-5 pl-0.5">
-                      <span className="shrink-0">📍</span>
-                      <span className="leading-relaxed">{ev.location}</span>
-                    </div>
-                  )}
-
-                  {/* 설명 */}
-                  {ev.description && (
-                    <div className="mt-2 ml-5 pl-0.5 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-wrap leading-relaxed border border-gray-100">
-                      {ev.description}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /** 풀스크린 달력 모달 */
 function FullCalendarModal({
@@ -323,14 +151,80 @@ function FullCalendarModal({
 
   return (
     <>
-      {/* 날짜 상세 패널 */}
-      {selectedDate && (
-        <DayDetailPanel
-          date={selectedDate}
-          dayEvents={selectedDayEvents}
-          onClose={() => setSelectedDate(null)}
-        />
-      )}
+      {/* 날짜별 일정 모달 */}
+      <Modal
+        isOpen={!!selectedDate}
+        onClose={() => setSelectedDate(null)}
+        size="sm"
+        title={
+          selectedDate ? (
+            <div className="flex items-center gap-2">
+              {isToday(selectedDate) && (
+                <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">TODAY</span>
+              )}
+              <span>{format(selectedDate, "M월 d일 (EEE)", { locale: ko })}</span>
+              <span className="text-xs text-gray-400 font-normal">({selectedDayEvents.length}건)</span>
+            </div>
+          ) : ""
+        }
+        footer={
+          <button
+            onClick={() => setSelectedDate(null)}
+            className="py-2 px-5 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm text-sm"
+          >
+            닫기
+          </button>
+        }
+        bodyClassName="p-0"
+      >
+        <div className="divide-y divide-gray-50">
+          {selectedDayEvents.length === 0 ? (
+            <div className="py-12 text-center text-sm text-gray-400">등록된 일정이 없습니다.</div>
+          ) : (
+            selectedDayEvents.map((ev) => {
+              const cs = getCalendarStyle(ev.calendarName);
+              const timeLabel = ev.isAllDay
+                ? "하루 종일"
+                : `${format(parseISO(ev.start), "HH:mm")} – ${format(parseISO(ev.end), "HH:mm")}`;
+              return (
+                <div key={ev.id} className="px-5 py-4">
+                  <div className="flex items-start gap-2 mb-2">
+                    <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cs.dot }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 text-sm leading-snug">{ev.title}</p>
+                      <span
+                        className="inline-block text-[10px] px-1.5 py-0.5 rounded font-semibold mt-1"
+                        style={{ backgroundColor: cs.badgeBg, color: cs.badgeText }}
+                      >
+                        {ev.calendarName}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 ml-5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span>{timeLabel}</span>
+                  </div>
+                  {ev.location && (
+                    <div className="flex items-start gap-2 text-xs text-gray-500 mt-1.5 ml-5">
+                      <svg className="shrink-0 mt-px" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                      </svg>
+                      <span>{ev.location}</span>
+                    </div>
+                  )}
+                  {ev.description && (
+                    <div className="mt-2 ml-5 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-wrap leading-relaxed border border-gray-100">
+                      {ev.description}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Modal>
 
       {/* 배경 오버레이 — 모바일: 바텀시트, 데스크탑: 센터 */}
       <div
@@ -338,7 +232,7 @@ function FullCalendarModal({
         onClick={onClose}
       >
         <div
-          className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-5xl flex flex-col overflow-hidden h-[95vh] sm:h-auto"
+          className="bg-white rounded-t-2xl sm:rounded-sm shadow-2xl w-full sm:max-w-5xl flex flex-col overflow-hidden h-[95vh] sm:h-auto"
           style={{ maxHeight: "95vh" }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -663,13 +557,55 @@ export default function GoogleCalendarWidget({
 
   return (
     <>
-      {/* ── 팝업 ── */}
-      {selectedEvent && (
-        <EventDetailPopup
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-        />
-      )}
+      {/* ── 이벤트 상세 모달 ── */}
+      <Modal
+        isOpen={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        title="사역 일정"
+        size="sm"
+        footer={
+          <button
+            onClick={() => setSelectedEvent(null)}
+            className="py-2 px-5 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm text-sm"
+          >
+            닫기
+          </button>
+        }
+      >
+        {selectedEvent && (() => {
+          const cs = getCalendarStyle(selectedEvent.calendarName);
+          const dateLabel = getDateLabel(selectedEvent);
+          return (
+            <div className="space-y-5 pt-2">
+              <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cs.dot }} />
+                <div>
+                  <h3 className="text-xl font-extrabold text-gray-900">{selectedEvent.title}</h3>
+                  <p className="text-sm text-gray-500 font-medium mt-1">{selectedEvent.calendarName}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">날짜</span>
+                  <p className="text-sm text-gray-700">{dateLabel}</p>
+                </div>
+                {selectedEvent.location && (
+                  <div className="flex items-start gap-4">
+                    <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">장소</span>
+                    <p className="text-sm text-gray-700">{selectedEvent.location}</p>
+                  </div>
+                )}
+                {selectedEvent.description && (
+                  <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
+                    <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">메모</span>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedEvent.description}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* ── 풀스크린 달력 모달 ── */}
       {isFullCalendarOpen && (

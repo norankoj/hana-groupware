@@ -6,11 +6,12 @@ import { createPortal } from "react-dom";
 type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
   bodyClassName?: string;
+  size?: "sm" | "md";
 };
 
 export default function Modal({
@@ -21,6 +22,7 @@ export default function Modal({
   footer,
   className = "",
   bodyClassName = "",
+  size = "md",
 }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -44,22 +46,29 @@ export default function Modal({
 
   if (!isOpen || !mounted) return null;
 
+  const isSm = size === "sm";
+
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 sm:p-4">
-      <div className={`bg-white w-full sm:rounded-sm sm:max-w-[600px] overflow-hidden flex flex-col h-[92dvh] sm:h-auto sm:max-h-[90vh] border-0 sm:border border-gray-200 rounded-t-2xl sm:rounded-t-sm ${className}`}>
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
-          <h2 className="text-lg font-bold text-gray-900 tracking-tight">
+      <div className={`bg-white w-full overflow-hidden flex flex-col border-0 sm:border border-gray-200 rounded-t-2xl sm:rounded-t-sm ${
+        isSm
+          ? "sm:rounded-sm sm:max-w-[400px] h-auto sm:h-auto sm:max-h-[90vh]"
+          : "sm:rounded-sm sm:max-w-[600px] h-[92dvh] sm:h-auto sm:max-h-[90vh]"
+      } ${className}`}>
+        <div className={`border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0 ${isSm ? "px-4 py-3" : "px-6 py-4"}`}>
+          <h2 className={`font-bold text-gray-900 tracking-tight ${isSm ? "text-base" : "text-lg"}`}>
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-200 bg-transparent"
+            className="text-gray-400 hover:text-gray-600 transition-colors rounded hover:bg-gray-200 bg-transparent"
+            style={{ padding: isSm ? "2px" : "4px" }}
           >
             <svg
-              className="w-5 h-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              style={{ width: isSm ? "16px" : "20px", height: isSm ? "16px" : "20px" }}
             >
               <path
                 strokeLinecap="round"
@@ -72,11 +81,11 @@ export default function Modal({
         </div>
 
         {/* 본문 */}
-        <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName || "p-6"}`}>{children}</div>
+        <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName || (isSm ? "p-4" : "p-6")}`}>{children}</div>
 
         {/* 푸터 */}
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3 shrink-0">
+          <div className={`border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3 shrink-0 ${isSm ? "px-4 py-3" : "px-6 py-4"}`}>
             {footer}
           </div>
         )}

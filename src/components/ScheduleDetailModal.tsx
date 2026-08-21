@@ -53,45 +53,46 @@ export default function ScheduleDetailModal({
       <button
         onClick={() => setConfirming(false)}
         disabled={deleting}
-        className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
+        className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition"
       >
         취소
       </button>
       <button
         onClick={handleConfirmDelete}
         disabled={deleting}
-        className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition disabled:opacity-60 shadow-sm"
+        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-red-700 transition disabled:opacity-60 shadow-sm"
       >
         {deleting ? "삭제 중..." : "정말 삭제"}
       </button>
     </div>
-  ) : (
+  ) : canManage ? (
     <div className="flex gap-2 w-full">
-      {canManage && (
-        <>
-          {/* 수정 버튼 */}
-          <button
-            onClick={() => onEdit?.(event)}
-            className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-lg font-bold hover:bg-blue-100 transition border border-blue-100"
-          >
-            수정
-          </button>
-          {/* 삭제 버튼 */}
-          <button
-            onClick={handleDeleteClick}
-            className="flex-1 bg-gray-100 text-red-500 py-3 rounded-lg font-bold hover:bg-red-50 transition"
-          >
-            삭제
-          </button>
-        </>
-      )}
+      <button
+        onClick={() => onEdit?.(event)}
+        className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-lg font-bold text-sm hover:bg-blue-100 transition border border-blue-100"
+      >
+        수정
+      </button>
+      <button
+        onClick={handleDeleteClick}
+        className="flex-1 bg-gray-100 text-red-500 py-2 rounded-lg font-bold text-sm hover:bg-red-50 transition"
+      >
+        삭제
+      </button>
       <button
         onClick={onClose}
-        className={`py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white ${canManage ? "flex-1" : "flex-1"}`}
+        className="flex-1 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white"
       >
         닫기
       </button>
     </div>
+  ) : (
+    <button
+      onClick={onClose}
+      className="py-2 px-5 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white"
+    >
+      닫기
+    </button>
   );
 
   return (
@@ -99,13 +100,14 @@ export default function ScheduleDetailModal({
       isOpen={isOpen}
       onClose={onClose}
       title={event.type === "schedule" ? "사역 일정 상세" : "휴가 상세"}
+      size="sm"
       footer={footer}
     >
       <div className="space-y-5 pt-2">
         {confirming && (
-          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3.5">
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-3">
             <span className="text-red-500 mt-0.5 shrink-0">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
             </span>
@@ -116,11 +118,11 @@ export default function ScheduleDetailModal({
           </div>
         )}
 
-        <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+        <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
           <div>
             <h3 className="text-xl font-extrabold text-gray-900">{event.title}</h3>
             <p className="text-sm text-gray-500 font-medium mt-1">
-              {event.time_label} {event.location && `· ${event.location}`}
+              {event.time_label}{event.location && ` · ${event.location}`}
             </p>
           </div>
         </div>
@@ -128,38 +130,28 @@ export default function ScheduleDetailModal({
         <div className="space-y-4">
           <div className="flex items-start gap-4">
             <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">등록자</span>
-            <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-              <span className="text-sm font-bold text-gray-900">{event.profiles.full_name}</span>
-            </div>
+            <p className="text-sm text-gray-700">{event.profiles.full_name}</p>
           </div>
 
-          {/* 휴가 사유 — 결재권한자만 표시 */}
           {event.type === "vacation" && isApprover && event.reason && (
             <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
               <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">사유</span>
-              <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
-                {event.reason}
-              </p>
+              <p className="text-sm text-gray-700 leading-relaxed">{event.reason}</p>
             </div>
           )}
 
-          {event.type === "schedule" &&
-            event.attendees &&
-            event.attendees.length > 0 && (
-              <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
-                <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-2">동행자</span>
-                <div className="flex flex-wrap gap-2">
-                  {event.attendees.map((a) => (
-                    <div
-                      key={a.id}
-                      className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100"
-                    >
-                      <span className="text-sm font-bold text-gray-700 pr-1">{a.name}</span>
-                    </div>
-                  ))}
-                </div>
+          {event.type === "schedule" && event.attendees && event.attendees.length > 0 && (
+            <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
+              <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">동행자</span>
+              <div className="flex flex-wrap gap-1.5">
+                {event.attendees.map((a) => (
+                  <span key={a.id} className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded-md">
+                    {a.name}
+                  </span>
+                ))}
               </div>
-            )}
+            </div>
+          )}
         </div>
       </div>
     </Modal>
