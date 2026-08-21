@@ -655,9 +655,9 @@ export default function GoogleCalendarWidget({
     end: endOfMonth(currentMonth),
   });
 
-  // 올해 1월~12월 범위 제한
-  const yearStart = startOfMonth(new Date(today.getFullYear(), 0, 1));
-  const yearEnd = startOfMonth(new Date(today.getFullYear(), 11, 1));
+  // 현재월 기준 -3개월 ~ +6개월 탐색 허용 (동적)
+  const yearStart = startOfMonth(addMonths(today, -3));
+  const yearEnd = startOfMonth(addMonths(today, 6));
   const canGoPrev = !isSameMonth(currentMonth, yearStart);
   const canGoNext = !isSameMonth(currentMonth, yearEnd);
 

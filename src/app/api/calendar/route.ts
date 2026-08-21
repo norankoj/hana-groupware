@@ -65,15 +65,16 @@ export async function GET() {
     const calendars: { id: string; summary: string; backgroundColor: string; accessRole: string }[] =
       listData.items ?? [];
 
-    // ② KST 기준 올해 1월 1일 ~ 12월 31일 전체 범위
+    // ② KST 기준 현재월 -3개월 ~ +6개월 범위 (동적)
     // Vercel 서버는 UTC이므로 KST(+9) 오프셋 직접 계산
     const KST = 9 * 60 * 60 * 1000;
     const nowKST = new Date(Date.now() + KST);
     const y = nowKST.getUTCFullYear();
-    // 올해 1월 1일 00:00 KST → UTC
-    const timeMin = new Date(Date.UTC(y, 0, 1) - KST).toISOString();
-    // 내년 1월 1일 00:00 KST → UTC (= 올해 12월 31일 자정 이후)
-    const timeMax = new Date(Date.UTC(y + 1, 0, 1) - KST).toISOString();
+    const m = nowKST.getUTCMonth(); // 0-indexed
+    // 3달 전 1일 00:00 KST → UTC (월 언더플로우는 JS Date가 자동 처리)
+    const timeMin = new Date(Date.UTC(y, m - 3, 1) - KST).toISOString();
+    // 6달 후 말일까지 = 7달 후 1일 00:00 KST → UTC
+    const timeMax = new Date(Date.UTC(y, m + 7, 1) - KST).toISOString();
 
     // ③ 각 캘린더별 이벤트 병렬 조회 (읽기 권한 있는 것 + 필터 적용)
     const eventFetches = calendars
