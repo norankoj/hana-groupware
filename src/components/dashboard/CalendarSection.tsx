@@ -20,6 +20,7 @@ import ScheduleAddModal, {
   type EditableSchedule,
 } from "@/components/ScheduleAddModal";
 import ScheduleDetailModal from "@/components/ScheduleDetailModal";
+import Modal from "@/components/Modal";
 
 const calendarCustomStyles = `
   .react-calendar { width: 100%; height: 100%; border: none; font-family: inherit; display: flex; flex-direction: column; }
@@ -186,6 +187,7 @@ export default function CalendarSection({
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedDetailEvent, setSelectedDetailEvent] =
     useState<CalendarEvent | null>(null);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   useEffect(() => {
     updateSelectedEvents(date, allEvents);
@@ -213,6 +215,9 @@ export default function CalendarSection({
   const onDateChange = (newDate: any) => {
     setDate(newDate);
     updateSelectedEvents(newDate, allEvents);
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setMobileSheetOpen(true);
+    }
   };
 
   const openEventDetail = (event: CalendarEvent) => {
@@ -502,6 +507,9 @@ export default function CalendarSection({
                         onClick={() => {
                           setDate(day);
                           updateSelectedEvents(day, allEvents);
+                          if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                            setMobileSheetOpen(true);
+                          }
                         }}
                         className={`py-3 px-3 flex items-start justify-between transition-colors cursor-pointer ${format(date, "yyyy-MM-dd") === dateStr ? "bg-blue-50" : "hover:bg-gray-50"} ${holiday ? "bg-red-50/30" : ""}`}
                       >
@@ -559,8 +567,8 @@ export default function CalendarSection({
             </div>
           </div>
 
-          {/* 사이드 패널 (상세 목록) */}
-          <div className="w-full lg:w-80 bg-white flex flex-col h-auto lg:h-full lg:border-l border-t lg:border-t-0 border-gray-200">
+          {/* 사이드 패널 (상세 목록) — 데스크탑 전용 */}
+          <div className="hidden lg:flex lg:w-80 bg-white flex-col lg:h-full lg:border-l border-gray-200">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 h-[72px] shrink-0">
               <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
@@ -679,6 +687,76 @@ export default function CalendarSection({
           </div>
         </div>
       </section>
+
+      {/* 모바일 날짜 바텀시트 */}
+      <Modal
+        isOpen={mobileSheetOpen}
+        onClose={() => setMobileSheetOpen(false)}
+        size="sm"
+        title={
+          <div className="flex items-center gap-2">
+            <span>{format(date, "M월 d일 (EEE)", { locale: ko })}</span>
+            <span className="text-xs text-gray-400 font-normal">
+              ({selectedEvents.length + getBirthdaysOnDate(format(date, "yyyy-MM-dd")).length}건)
+            </span>
+          </div>
+        }
+        footer={
+          <button
+            onClick={() => setMobileSheetOpen(false)}
+            className="py-2 px-5 rounded-lg font-bold text-sm bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
+          >
+            닫기
+          </button>
+        }
+        bodyClassName="p-0"
+      >
+        <ul className="divide-y divide-gray-100">
+          {getBirthdaysOnDate(format(date, "yyyy-MM-dd")).map((name, bi) => (
+            <li key={`mbday_${bi}`} className="flex items-center justify-between px-5 py-3.5">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-lg bg-pink-50 border border-pink-200">
+                  🎂
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-gray-900">{name}</span>
+                  <span className="text-xs text-pink-500 font-medium">생일 축하합니다!</span>
+                </div>
+              </div>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border bg-pink-50 text-pink-600 border-pink-100">생일</span>
+            </li>
+          ))}
+          {selectedEvents.length === 0 && getBirthdaysOnDate(format(date, "yyyy-MM-dd")).length === 0 ? (
+            <li className="py-12 text-center text-sm text-gray-400">등록된 일정이 없습니다.</li>
+          ) : (
+            selectedEvents.map((e) => (
+              <li
+                key={e.id}
+                onClick={() => { setMobileSheetOpen(false); openEventDetail(e); }}
+                className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border ${e.type === "schedule" ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-gray-100 border-gray-200 text-gray-500"}`}>
+                    {e.profiles.full_name.slice(0, 1)}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-bold text-gray-900 truncate">{e.display_name}</span>
+                    <span className={`text-xs text-gray-500 truncate ${e.type === "schedule" && "font-semibold text-indigo-600"}`}>
+                      {e.type === "vacation" ? normalizeVacationTitle(e.title) : e.title}
+                      {e.type === "vacation" && e.start_date !== e.end_date && (
+                        <span className="text-gray-400 font-normal"> ({e.start_date.slice(5).replace("-", ".")} ~ {e.end_date.slice(5).replace("-", ".")})</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border flex-shrink-0 ${e.type === "schedule" ? "bg-indigo-50 text-indigo-600 border-indigo-100" : "bg-blue-50 text-blue-600 border-blue-100"}`}>
+                  {e.type === "schedule" ? "일정" : "휴가"}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+      </Modal>
 
       <ScheduleAddModal
         isOpen={isScheduleModalOpen}
