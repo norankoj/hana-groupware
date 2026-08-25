@@ -699,7 +699,7 @@ export default function DetailModal({
     effectiveStatus !== "noshow";
   const actionType = effectiveStatus === "reserved" ? "checkin" : "checkout";
 
-  const isApprover = currentProfile?.is_approver === true;
+  const isApprover = currentProfile?.is_approver === true || currentProfile?.is_vehicle_notify === true;
 
   // 공통 필수: 사진 + 주행거리 / 결재권자: 외관사진 선택, 일반: 외관 4장 + 주차위치 필수
   const isFormValid =
@@ -1774,7 +1774,7 @@ export default function DetailModal({
               <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
               <span className="text-sm font-bold text-gray-600">운행 결과</span>
             </div>
-            {isAdmin && !adminResultEdit && (
+            {(isAdmin || isDriver) && !adminResultEdit && (
               <button
                 onClick={() => {
                   setAdminFields({
@@ -1808,7 +1808,7 @@ export default function DetailModal({
                 수정
               </button>
             )}
-            {isAdmin && adminResultEdit && (
+            {(isAdmin || isDriver) && adminResultEdit && (
               <div className="flex gap-2">
                 <button
                   onClick={async () => {
