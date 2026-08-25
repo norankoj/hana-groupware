@@ -145,6 +145,8 @@ export default function VehicleReservationPage() {
   const [isVehicleManageModalOpen, setIsVehicleManageModalOpen] = useState(false);
   const [scheduleVehicle, setScheduleVehicle] = useState<Vehicle | null>(null);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
+  const [editingMileageVehicleId, setEditingMileageVehicleId] = useState<number | null>(null);
+  const [pcMileageValue, setPcMileageValue] = useState<number | "">("");
 
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   // [신규] 예약 수정을 위한 상태
@@ -378,6 +380,18 @@ export default function VehicleReservationPage() {
       .update({ vehicle_status: "noshow" })
       .eq("vehicle_status", "reserved")
       .lt("end_at", expireThreshold);
+  };
+
+  const savePcMileage = async (vehicleId: number) => {
+    if (pcMileageValue === "") return;
+    const { error } = await supabase
+      .from("resources")
+      .update({ current_mileage: Number(pcMileageValue) })
+      .eq("id", vehicleId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("누적 주행거리가 저장되었습니다.");
+    setEditingMileageVehicleId(null);
+    fetchData();
   };
 
   const fetchData = async () => {
@@ -1837,15 +1851,52 @@ export default function VehicleReservationPage() {
                     </div>
                     <div className="grid grid-cols-4 gap-3">
                       <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="text-xs text-gray-400 mb-1">
-                          누적 주행거리
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-xs text-gray-400">누적 주행거리</div>
+                          {currentProfile?.is_vehicle_notify && editingMileageVehicleId !== pcVehicle.id && (
+                            <button
+                              onClick={() => {
+                                setPcMileageValue(pcVehicle.current_mileage ?? "");
+                                setEditingMileageVehicleId(pcVehicle.id);
+                              }}
+                              className="text-[11px] text-blue-500 hover:text-blue-700 transition"
+                            >
+                              ✎ 수정
+                            </button>
+                          )}
                         </div>
-                        <div className="text-lg font-bold text-gray-900">
-                          {pcVehicle.current_mileage?.toLocaleString() ?? "-"}
-                          <span className="text-xs font-normal text-gray-500 ml-0.5">
-                            km
-                          </span>
-                        </div>
+                        {editingMileageVehicleId === pcVehicle.id ? (
+                          <div className="space-y-2">
+                            <input
+                              type="number"
+                              value={pcMileageValue}
+                              onChange={(e) => setPcMileageValue(e.target.value === "" ? "" : Number(e.target.value))}
+                              className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400 transition"
+                              placeholder="km 입력"
+                              autoFocus
+                            />
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => savePcMileage(pcVehicle.id)}
+                                disabled={pcMileageValue === ""}
+                                className="flex-1 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition disabled:opacity-50"
+                              >
+                                저장
+                              </button>
+                              <button
+                                onClick={() => setEditingMileageVehicleId(null)}
+                                className="flex-1 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-200 transition"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-lg font-bold text-gray-900">
+                            {pcVehicle.current_mileage?.toLocaleString() ?? "-"}
+                            <span className="text-xs font-normal text-gray-500 ml-0.5">km</span>
+                          </div>
+                        )}
                       </div>
                       <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                         <div className="text-xs text-gray-400 mb-1">주유량</div>
