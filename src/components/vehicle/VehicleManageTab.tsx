@@ -67,6 +67,8 @@ export default function VehicleManageTab({
   const [selectedId, setSelectedId] = useState<number>(vehicles[0]?.id ?? 0);
   const [editingInspection, setEditingInspection] = useState(false);
   const [inspectionDate, setInspectionDate] = useState("");
+  const [editingMileage, setEditingMileage] = useState(false);
+  const [mileageValue, setMileageValue] = useState<number | "">("");
   const [addingConsumable, setAddingConsumable] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCycle, setNewCycle] = useState(10000);
@@ -118,6 +120,22 @@ export default function VehicleManageTab({
     else {
       toast.success("예약 알림 담당자가 저장되었습니다.");
       setEditingNotify(false);
+      onRefresh();
+    }
+    setSaving(false);
+  };
+
+  const saveMileage = async () => {
+    if (!vehicle || mileageValue === "") return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("resources")
+      .update({ current_mileage: Number(mileageValue) })
+      .eq("id", vehicle.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("누적 주행거리가 저장되었습니다.");
+      setEditingMileage(false);
       onRefresh();
     }
     setSaving(false);
@@ -392,9 +410,50 @@ export default function VehicleManageTab({
                     <span className="text-xs text-gray-400 w-28 shrink-0">
                       누적 주행거리
                     </span>
-                    <span className="text-sm font-semibold text-gray-800">
-                      {vehicle.current_mileage.toLocaleString()} km
-                    </span>
+                    {editingMileage ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={mileageValue}
+                          onChange={(e) =>
+                            setMileageValue(e.target.value === "" ? "" : Number(e.target.value))
+                          }
+                          className="w-32 px-2 py-1 border border-gray-200 rounded-lg text-sm font-mono outline-none focus:border-blue-400 transition"
+                          placeholder="km 입력"
+                          autoFocus
+                        />
+                        <button
+                          onClick={saveMileage}
+                          disabled={saving || mileageValue === ""}
+                          className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition disabled:opacity-50"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={() => setEditingMileage(false)}
+                          className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-200 transition"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-800">
+                          {vehicle.current_mileage.toLocaleString()} km
+                        </span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setMileageValue(vehicle.current_mileage);
+                              setEditingMileage(true);
+                            }}
+                            className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5 transition"
+                          >
+                            ✎ 수정
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {/* 검사 상태 안내 */}
