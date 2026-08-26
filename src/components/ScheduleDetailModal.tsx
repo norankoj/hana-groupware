@@ -66,22 +66,22 @@ export default function ScheduleDetailModal({
       </button>
     </div>
   ) : canManage ? (
-    <div className="flex gap-2 w-full">
+    <div className="flex gap-2">
       <button
         onClick={() => onEdit?.(event)}
-        className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-lg font-bold text-sm hover:bg-blue-100 transition border border-blue-100"
+        className="py-2 px-5 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-100 transition border border-blue-100"
       >
         수정
       </button>
       <button
         onClick={handleDeleteClick}
-        className="flex-1 bg-gray-100 text-red-500 py-2 rounded-lg font-bold text-sm hover:bg-red-50 transition"
+        className="py-2 px-5 bg-gray-100 text-red-500 rounded-lg font-bold text-sm hover:bg-red-50 transition"
       >
         삭제
       </button>
       <button
         onClick={onClose}
-        className="flex-1 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white"
+        className="py-2 px-5 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white"
       >
         닫기
       </button>
