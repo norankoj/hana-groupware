@@ -23,6 +23,7 @@ type Profile = {
   role: string;
   status: string;
   is_approver?: boolean;
+  is_fund_manager?: boolean;
 };
 
 type TeamInfo = { id: number; name: string };
@@ -45,6 +46,9 @@ export default function Home() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [myPendingCount, setMyPendingCount] = useState(0);
+  // 선교펀드 — 담당자: 처리대기 건수 / 사역자: 확인 안 한 처리 결과 유무
+  const [fundPendingCount, setFundPendingCount] = useState(0);
+  const [hasFundResult, setHasFundResult] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
@@ -135,6 +139,26 @@ export default function Home() {
 
     setPendingCount(approvalCount || 0);
     setMyPendingCount(myCount || 0);
+
+    // 선교펀드 표시 (담당자는 처리대기 건수, 본인은 미확인 결과 유무)
+    const [{ count: fundCount }, { count: myFundResultCount }] =
+      await Promise.all([
+        profileData.is_fund_manager
+          ? supabase
+              .from("fund_requests")
+              .select("*", { count: "exact", head: true })
+              .eq("status", "pending")
+          : Promise.resolve({ count: 0 }),
+        supabase
+          .from("fund_requests")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("result_seen", false)
+          .in("status", ["completed", "rejected"]),
+      ]);
+
+    setFundPendingCount(fundCount || 0);
+    setHasFundResult((myFundResultCount || 0) > 0);
 
     if (!ALLOWED_ROLES.includes(myRole)) {
       setLoading(false);
@@ -434,11 +458,27 @@ export default function Home() {
               </Link>
             )}
 
-            {/* 오늘 뭐먹지? */}
+            {/* 선교펀드 — 담당자는 처리대기 건수, 사역자는 미확인 결과 점 */}
             <Link
-              href="/lunch"
-              className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+              href={
+                profile.is_fund_manager ? "/fund?tab=approve" : "/fund"
+              }
+              className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
             >
+              {profile.is_fund_manager ? (
+                fundPendingCount > 0 && (
+                  <span className="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {fundPendingCount > 99 ? "99+" : fundPendingCount}
+                  </span>
+                )
+              ) : (
+                hasFundResult && (
+                  <span
+                    className="absolute top-3.5 right-3.5 w-2.5 h-2.5 bg-red-500 rounded-full"
+                    aria-label="확인하지 않은 처리 결과가 있습니다"
+                  />
+                )
+              )}
               <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
                 <svg
                   className="w-6 h-6"
@@ -450,18 +490,18 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={1.8}
-                    d="M3 13h18M5 13c0 3.866 3.134 7 7 7s7-3.134 7-7"
+                    d="M12 3v18m0-18c-2.5 0-4.5 1.2-4.5 2.9S9.5 8.8 12 8.8s4.5 1.2 4.5 2.9-2 2.9-4.5 2.9-4.5-1.2-4.5-2.9"
                   />
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={1.5}
-                    d="M8.5 6c0 1.2.8 1.8.8 3M12 5c0 1.2.8 1.8.8 3M15.5 6c0 1.2.8 1.8.8 3"
+                    d="M4 20.5h16"
                   />
                 </svg>
               </div>
               <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
-                오늘 뭐먹지?
+                선교펀드
               </span>
             </Link>
 

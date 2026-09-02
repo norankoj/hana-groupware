@@ -4,8 +4,10 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import Script from "next/script";
+import { formatWon, type FundBalance } from "@/components/fund/shared";
 
 // Daum 우편번호 서비스 타입 선언
 declare global {
@@ -33,7 +35,7 @@ type Profile = {
   teams: { name: string } | null;
 };
 
-// 문서(급여/선교) 데이터 타입
+// 급여명세서 데이터 타입
 type DocStub = {
   id: number;
   month: string;
@@ -47,7 +49,7 @@ export default function MyPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [salaries, setSalaries] = useState<DocStub[]>([]);
-  const [missions, setMissions] = useState<DocStub[]>([]);
+  const [fund, setFund] = useState<FundBalance | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -109,13 +111,13 @@ export default function MyPage() {
         .order("month", { ascending: false });
       if (salaryData) setSalaries(salaryData);
 
-      // 3. 선교펀드 가져오기
-      const { data: missionData } = await supabase
-        .from("mission_funds")
+      // 3. 선교펀드 잔액 가져오기
+      const { data: fundData } = await supabase
+        .from("fund_balances")
         .select("*")
         .eq("user_id", user.id)
-        .order("month", { ascending: false });
-      if (missionData) setMissions(missionData);
+        .maybeSingle();
+      if (fundData) setFund(fundData as FundBalance);
     } catch (error) {
       console.error(error);
     } finally {
@@ -234,32 +236,12 @@ export default function MyPage() {
     }
   };
 
-  // 문서 카드 컴포넌트 (급여: 파랑 / 선교: 회색)
-  const DocCard = ({
-    doc,
-    type,
-  }: {
-    doc: DocStub;
-    type: "salary" | "mission";
-  }) => {
-    const iconBg = type === "salary" ? "bg-blue-50" : "bg-gray-100";
-    const iconColor = type === "salary" ? "text-blue-600" : "text-gray-600";
-    const btnText = type === "salary" ? "text-blue-600" : "text-gray-700";
-    const btnBg =
-      type === "salary"
-        ? "bg-blue-600 hover:bg-blue-700"
-        : "bg-gray-600 hover:bg-gray-700";
-    const previewBg =
-      type === "salary"
-        ? "bg-blue-50 hover:bg-blue-100 border-blue-100"
-        : "bg-gray-50 hover:bg-gray-100 border-gray-200";
-
+  // 급여명세서 카드
+  const DocCard = ({ doc }: { doc: DocStub }) => {
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition flex flex-col justify-between group">
         <div className="flex items-center gap-3 mb-4">
-          <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center ${iconBg} ${iconColor}`}
-          >
+          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -275,9 +257,7 @@ export default function MyPage() {
             </svg>
           </div>
           <div>
-            <h3 className="font-bold text-gray-800">
-              {doc.month} {type === "salary" ? "명세서" : "선교펀드"}
-            </h3>
+            <h3 className="font-bold text-gray-800">{doc.month} 명세서</h3>
             <p className="text-xs text-gray-500">
               {doc.created_at.substring(0, 10)}
             </p>
@@ -286,18 +266,15 @@ export default function MyPage() {
         <div className="flex gap-2 w-full">
           <button
             onClick={() => handlePreview(doc.file_url)}
-            className={`flex-1 py-2 text-sm font-bold ${btnText} ${previewBg} border rounded transition`}
+            className="flex-1 py-2 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded transition"
           >
             미리보기
           </button>
           <button
             onClick={() =>
-              handleDownload(
-                doc.file_url,
-                `${doc.month}_${type === "salary" ? "급여명세서" : "선교펀드"}.pdf`,
-              )
+              handleDownload(doc.file_url, `${doc.month}_급여명세서.pdf`)
             }
-            className={`flex-1 py-2 text-sm font-bold rounded transition text-white ${btnBg}`}
+            className="flex-1 py-2 text-sm font-bold rounded transition text-white bg-blue-600 hover:bg-blue-700"
           >
             다운로드
           </button>
@@ -516,33 +493,43 @@ export default function MyPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {salaries.map((doc) => (
-                <DocCard key={doc.id} doc={doc} type="salary" />
+                <DocCard key={doc.id} doc={doc} />
               ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* 3. 선교펀드 섹션 (회색) */}
+      {/* 3. 선교펀드 섹션 */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-gray-800">선교펀드 조회</h2>
+          <h2 className="text-lg font-bold text-gray-800">선교펀드</h2>
           <span className="text-xs text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded">
             본인만 확인 가능 🔒
           </span>
         </div>
-        <div className="p-6 bg-gray-50/30 max-h-96 overflow-y-auto custom-scrollbar">
-          {missions.length === 0 ? (
-            <div className="text-center py-10 text-gray-400 text-sm">
-              내역 없음
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {missions.map((doc) => (
-                <DocCard key={doc.id} doc={doc} type="mission" />
-              ))}
-            </div>
-          )}
+        <div className="p-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
+          <div>
+            <p className="text-sm font-medium text-gray-500">현재 잔액</p>
+            <p className="mt-1 text-3xl font-bold text-gray-900 tabular-nums tracking-tight">
+              {formatWon(fund?.balance ?? 0)}
+              <span className="ml-1 text-xl font-semibold text-gray-400">
+                원
+              </span>
+            </p>
+            {!!fund?.pending_total && fund.pending_total > 0 && (
+              <p className="mt-2 text-xs text-amber-700">
+                처리대기 {formatWon(fund.pending_total)}원이 이미 차감된
+                금액입니다
+              </p>
+            )}
+          </div>
+          <Link
+            href="/fund"
+            className="px-5 py-3 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md text-center whitespace-nowrap"
+          >
+            적립·사용 내역 보기
+          </Link>
         </div>
       </div>
     </div>

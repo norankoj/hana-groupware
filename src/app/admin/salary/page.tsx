@@ -10,8 +10,6 @@ export default function AdminUploadPage() {
   const [selectedUser, setSelectedUser] = useState("");
   const [month, setMonth] = useState("2026-02");
 
-  const [docType, setDocType] = useState<"salary" | "mission">("salary");
-
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,8 +62,7 @@ export default function AdminUploadPage() {
     setUploading(true);
 
     try {
-      const prefix = docType === "salary" ? "salary" : "mission";
-      const filePath = `${selectedUser}/${prefix}_${month}.pdf`;
+      const filePath = `${selectedUser}/salary_${month}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from("salary-docs")
@@ -76,8 +73,7 @@ export default function AdminUploadPage() {
 
       if (uploadError) throw uploadError;
 
-      const tableName = docType === "salary" ? "salary_stubs" : "mission_funds";
-      const { error: dbError } = await supabase.from(tableName).insert({
+      const { error: dbError } = await supabase.from("salary_stubs").insert({
         user_id: selectedUser,
         month: month,
         file_url: filePath,
@@ -85,9 +81,7 @@ export default function AdminUploadPage() {
 
       if (dbError) throw dbError;
 
-      toast.success(
-        `${docType === "salary" ? "급여명세서" : "선교펀드"} 등록 완료!`,
-      );
+      toast.success("급여명세서 등록 완료!");
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (e: any) {
@@ -97,14 +91,12 @@ export default function AdminUploadPage() {
     }
   };
 
-  const borderColor =
-    docType === "salary" ? "border-blue-400" : "border-gray-400";
-  const bgColor = docType === "salary" ? "bg-blue-50" : "bg-gray-50";
-  const textColor = docType === "salary" ? "text-blue-600" : "text-gray-600";
-  const btnHoverColor =
-    docType === "salary" ? "hover:bg-blue-700" : "hover:bg-gray-700";
-  const btnBgColor = docType === "salary" ? "bg-blue-600" : "bg-gray-600";
-  const dotColor = docType === "salary" ? "bg-blue-500" : "bg-gray-500";
+  const borderColor = "border-blue-400";
+  const bgColor = "bg-blue-50";
+  const textColor = "text-blue-600";
+  const btnHoverColor = "hover:bg-blue-700";
+  const btnBgColor = "bg-blue-600";
+  const dotColor = "bg-blue-500";
 
   const filteredUsers = users.filter(
     (u) => u.full_name.includes(searchTerm) || u.position.includes(searchTerm),
@@ -219,54 +211,7 @@ export default function AdminUploadPage() {
             </div>
           </div>
 
-          {/* 2. 문서 종류 선택 (모바일 수정됨: flex-col 추가) */}
-          <div className="relative z-10">
-            <label className="flex items-center gap-1 mb-3">
-              <span className="text-sm font-bold text-gray-700">문서 종류</span>
-              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mb-1"></span>
-            </label>
-            {/* ★ 여기가 수정된 부분: 모바일(기본)은 세로, sm(큰화면)은 가로 */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <label
-                className={`flex-1 border rounded-lg p-4 cursor-pointer transition flex items-center gap-3 ${docType === "salary" ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500" : "border-gray-200 hover:bg-gray-50"}`}
-              >
-                <input
-                  type="radio"
-                  name="docType"
-                  value="salary"
-                  checked={docType === "salary"}
-                  onChange={() => setDocType("salary")}
-                  className="w-5 h-5 text-blue-600"
-                />
-                <div>
-                  <div className="font-bold text-gray-800">급여명세서</div>
-                  <div className="text-xs text-gray-500">
-                    매월 지급되는 급여 내역
-                  </div>
-                </div>
-              </label>
-              <label
-                className={`flex-1 border rounded-lg p-4 cursor-pointer transition flex items-center gap-3 ${docType === "mission" ? "border-gray-500 bg-gray-50 ring-1 ring-gray-500" : "border-gray-200 hover:bg-gray-50"}`}
-              >
-                <input
-                  type="radio"
-                  name="docType"
-                  value="mission"
-                  checked={docType === "mission"}
-                  onChange={() => setDocType("mission")}
-                  className="w-5 h-5 text-gray-600"
-                />
-                <div>
-                  <div className="font-bold text-gray-800">선교펀드</div>
-                  <div className="text-xs text-gray-500">
-                    선교 후원금 내역 조회
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* 3. 파일 첨부 영역 */}
+          {/* 2. 파일 첨부 영역 */}
           <div className="relative z-0">
             <div className="flex items-center gap-1 mb-3">
               <span className="text-sm font-bold text-gray-700">PDF 파일</span>
@@ -331,8 +276,7 @@ export default function AdminUploadPage() {
                     </svg>
                   </div>
                   <p className="text-sm font-bold text-cyan-600 mb-1">
-                    {docType === "salary" ? "급여명세서" : "선교펀드"} 파일을
-                    첨부하면 자동으로 처리됩니다.
+                    급여명세서 파일을 첨부하면 자동으로 처리됩니다.
                   </p>
                   <p className="text-xs text-gray-400 mb-6">
                     가능한 PDF 파일(.pdf)로 첨부 바랍니다.
@@ -368,7 +312,7 @@ export default function AdminUploadPage() {
             </div>
           </div>
 
-          {/* 4. 최종 업로드 버튼 */}
+          {/* 3. 최종 업로드 버튼 */}
           <div className="pt-6 border-t border-gray-100 flex justify-end">
             <button
               onClick={handleUpload}

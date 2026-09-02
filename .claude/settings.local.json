@@ -20,7 +20,11 @@
       "Bash(npm install *)",
       "PowerShell(\\(Get-Content \"C:\\\\dev\\\\hana-groupware\\\\src\\\\components\\\\projects\\\\RideListTab.tsx\"\\)[\\(1368-1\\)..\\(1372-1\\)] | ForEach-Object -Begin { $i = 1368 } -Process { \"${i}: $_\"; $i++ })",
       "mcp__visualize__read_me",
-      "mcp__visualize__show_widget"
+      "mcp__visualize__show_widget",
+      "Bash(ls -la \"C:/Users/suwonhanaweb/Documents/카카오톡 받은 파일/\" | grep -i \"펀드\")",
+      "Bash(grep -n \"^      </div>$\\\\|^    </div>$\\\\|^  \\);$\\\\|^}$\" src/components/fund/FundLedgerList.tsx)",
+      "Bash(npx prettier *)",
+      "Bash(echo \"EXIT:$?\")"
     ],
     "deny": [
       "Read(.env*)",
