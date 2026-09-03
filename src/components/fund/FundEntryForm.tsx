@@ -32,7 +32,7 @@ type ParsedRow = {
   line: number; // 엑셀 기준 행 번호
   entry_type: FundEntryType | null;
   name: string;
-  user_id: string | null;
+  payee_id: string | null;
   amount: number | null;
   note: string;
   description: string;
@@ -43,7 +43,7 @@ type ParsedRow = {
 
 const TEMPLATE_HEADERS = [
   "구분",
-  "사역자명",
+  "대상자",
   "금액",
   "적요",
   "내용",
@@ -55,7 +55,7 @@ const TEMPLATE_HEADERS = [
 const EMPTY_SINGLE = {
   mode: "deposit" as FundEntryType,
   name: "",
-  user_id: "",
+  payee_id: "",
   amount: "",
   note: "",
   description: "",
@@ -72,7 +72,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
   const isDeposit = single.mode === "deposit";
 
   const handleSaveSingle = async () => {
-    if (!single.user_id) return toast.error("사역자를 목록에서 선택해주세요.");
+    if (!single.payee_id) return toast.error("대상자를 목록에서 선택해주세요.");
     if (!single.entry_date) return toast.error("일자를 입력해주세요.");
 
     const amount = parseAmount(single.amount) ?? 0;
@@ -80,7 +80,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
 
     setSavingSingle(true);
     const { error } = await supabase.from("fund_ledger").insert({
-      user_id: single.user_id,
+      payee_id: single.payee_id,
       entry_type: single.mode,
       amount,
       note: single.note.trim() || null,
@@ -173,7 +173,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         defval: "",
       });
 
-      const byName = new Map(members.map((m) => [m.full_name.trim(), m]));
+      const byName = new Map(members.map((m) => [m.name.trim(), m]));
 
       const parsed: ParsedRow[] = raw.map((r, i) => {
         const errors: string[] = [];
@@ -185,10 +185,10 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
             typeRaw ? `구분 '${typeRaw}'을 알 수 없음` : "구분이 비어 있음",
           );
 
-        const name = String(r["사역자명"] ?? "").trim();
+        const name = String(r["대상자"] ?? "").trim();
         const member = byName.get(name);
-        if (!name) errors.push("사역자명이 비어 있음");
-        else if (!member) errors.push(`'${name}' 사역자를 찾을 수 없음`);
+        if (!name) errors.push("대상자가 비어 있음");
+        else if (!member) errors.push(`'${name}' 명부에 없음`);
 
         const amount = parseAmount(r["금액"]);
         if (amount === null) errors.push("금액을 읽을 수 없음");
@@ -208,7 +208,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
           line: i + 2, // 헤더가 1행
           entry_type,
           name,
-          user_id: member?.id ?? null,
+          payee_id: member?.id ?? null,
           amount,
           note,
           description,
@@ -236,7 +236,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
     setSavingBulk(true);
     const { error } = await supabase.from("fund_ledger").insert(
       validRows.map((r) => ({
-        user_id: r.user_id,
+        payee_id: r.payee_id,
         entry_type: r.entry_type,
         amount: r.amount,
         note: r.note || null,
@@ -280,16 +280,18 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
           </div>
 
           <div>
-            <Label>사역자</Label>
+            <Label>대상자</Label>
             <MemberField
               members={members}
               name={single.name}
-              selectedId={single.user_id}
+              selectedId={single.payee_id}
+              placeholder="이름을 입력하세요"
+              emptyHint="명부에 없는 이름입니다. '대상자 명부' 탭에서 먼저 등록해주세요."
               onTextChange={(v) =>
-                setSingle({ ...single, name: v, user_id: "" })
+                setSingle({ ...single, name: v, payee_id: "" })
               }
               onPick={(m) =>
-                setSingle({ ...single, name: m.full_name, user_id: m.id })
+                setSingle({ ...single, name: m.name, payee_id: m.id })
               }
             />
           </div>
@@ -380,8 +382,10 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         </div>
         <p className="mt-3 text-sm leading-relaxed text-gray-600">
           구분 칸에는 <b>적립</b> 또는 <b>사용</b>을 적고, 적요에 무슨 돈인지
-          짧게 적습니다(예: 본인적립금 9월). 구분이 '사용'이면 날짜는 이체일자로
-          기록되고, 처리자는 파일을 올린 담당자로 남습니다.
+          짧게 적습니다(예: 본인적립금 9월). 대상자는 <b>대상자 명부에 있는
+          이름과 똑같이</b> 적어야 합니다 — 못 찾은 줄은 저장 전에 빨갛게
+          표시됩니다. 구분이 '사용'이면 날짜는 이체일자로 기록되고, 처리자는
+          파일을 올린 담당자로 남습니다.
         </p>
 
         {rows && (
@@ -398,13 +402,13 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
               )}
             </div>
 
-            <div className="border border-gray-200 rounded-lg overflow-auto custom-scrollbar max-h-[360px]">
+            <div className="border border-gray-200 rounded-lg overflow-auto custom-scrollbar max-h-[300px]">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
                     <th className="text-left px-3 py-2 font-bold">행</th>
                     <th className="text-left px-3 py-2 font-bold">구분</th>
-                    <th className="text-left px-3 py-2 font-bold">사역자</th>
+                    <th className="text-left px-3 py-2 font-bold">대상자</th>
                     <th className="text-right px-3 py-2 font-bold">금액</th>
                     <th className="text-left px-3 py-2 font-bold">적요</th>
                     <th className="text-left px-3 py-2 font-bold">내용</th>

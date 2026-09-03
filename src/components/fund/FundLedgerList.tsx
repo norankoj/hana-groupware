@@ -11,14 +11,13 @@ import {
   formatWon,
   selectClass,
   type FundBalance,
+  type FundPayee,
   type FundLedger,
 } from "./shared";
 
-type Member = { id: string; full_name: string; position: string | null };
-
 type Props = {
   ledger: FundLedger[];
-  members: Member[];
+  payees: FundPayee[];
   balances: Record<string, FundBalance>;
   onRefresh: () => void;
 };
@@ -31,7 +30,7 @@ const TYPE_FILTER = [
 
 export default function FundLedgerList({
   ledger,
-  members,
+  payees,
   balances,
   onRefresh,
 }: Props) {
@@ -47,19 +46,19 @@ export default function FundLedgerList({
     [ledger],
   );
 
-  const memberOptions = useMemo(
+  const payeeOptions = useMemo(
     () => [
-      { value: "all", label: "전체 사역자" },
-      ...members.map((m) => ({ value: m.id, label: m.full_name })),
+      { value: "all", label: "전체 대상자" },
+      ...payees.map((p) => ({ value: p.id, label: p.name })),
     ],
-    [members],
+    [payees],
   );
 
   const filtered = useMemo(
     () =>
       ledger.filter((l) => {
         if (typeFilter !== "all" && l.entry_type !== typeFilter) return false;
-        if (userFilter !== "all" && l.user_id !== userFilter) return false;
+        if (userFilter !== "all" && l.payee_id !== userFilter) return false;
         return true;
       }),
     [ledger, typeFilter, userFilter],
@@ -116,7 +115,7 @@ export default function FundLedgerList({
           <Select
             value={userFilter}
             onChange={setUserFilter}
-            options={memberOptions}
+            options={payeeOptions}
             className={selectClass}
           />
         </div>
@@ -133,14 +132,14 @@ export default function FundLedgerList({
           disabled={!selectedBalance}
         />
         <TotalCell
-          label={selectedBalance ? "선택 사역자 잔액" : "잔액 (사역자 선택 시)"}
+          label={selectedBalance ? "선택 대상자 잔액" : "잔액 (대상자 선택 시)"}
           value={selectedBalance?.balance ?? 0}
           disabled={!selectedBalance}
         />
       </div>
 
       {/* 목록 — 높이를 고정하고 안쪽만 스크롤 (제목줄은 위에 고정) */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[480px] sm:h-[560px]">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
         <div className="flex-1 overflow-auto custom-scrollbar">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-gray-400">
@@ -151,7 +150,7 @@ export default function FundLedgerList({
               <thead className="sticky top-0 z-10">
                 <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
                   <th className="text-left px-4 py-3 font-bold">일자</th>
-                  <th className="text-left px-4 py-3 font-bold">사역자</th>
+                  <th className="text-left px-4 py-3 font-bold">대상자</th>
                   <th className="text-left px-4 py-3 font-bold">구분</th>
                   <th className="text-left px-4 py-3 font-bold">적요</th>
                   <th className="text-left px-4 py-3 font-bold">내용</th>
@@ -175,7 +174,7 @@ export default function FundLedgerList({
                         {row.entry_date}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
-                        {row.profiles?.full_name ?? "-"}
+                        {row.payee?.name ?? "-"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span

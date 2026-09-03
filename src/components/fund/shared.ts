@@ -5,9 +5,20 @@
 export type FundEntryType = "deposit" | "withdraw";
 export type FundStatus = "pending" | "completed" | "cancelled" | "rejected";
 
+/** 펀드 대상자 — 그룹웨어 계정이 없어도 원장에 기록할 수 있게 하는 명부 */
+export type FundPayee = {
+  id: string;
+  name: string;
+  user_id: string | null;
+  kind: "person" | "fund";
+  memo: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
 export type FundLedger = {
   id: string;
-  user_id: string;
+  payee_id: string;
   entry_type: FundEntryType;
   amount: number;
   note: string | null;
@@ -17,7 +28,7 @@ export type FundLedger = {
   corrects_id: string | null;
   created_by: string | null;
   created_at: string;
-  profiles?: { full_name: string; position: string } | null;
+  payee?: { name: string; kind: "person" | "fund" } | null;
 };
 
 export type FundRequest = {
@@ -43,11 +54,19 @@ export type FundRequest = {
 };
 
 export type FundBalance = {
-  user_id: string;
+  payee_id: string;
+  user_id: string | null;
+  name: string;
+  kind: "person" | "fund";
   deposit_total: number;
   withdraw_total: number;
   pending_total: number;
   balance: number;
+};
+
+export const PAYEE_KIND_LABEL: Record<FundPayee["kind"], string> = {
+  person: "사역자",
+  fund: "기타",
 };
 
 export type FundUser = {
@@ -58,12 +77,17 @@ export type FundUser = {
   is_fund_manager: boolean;
 };
 
-export const EMPTY_BALANCE: Omit<FundBalance, "user_id"> = {
+/** 명부에 아직 등록되지 않은 사용자의 빈 잔액 */
+export const emptyBalance = (name: string): FundBalance => ({
+  payee_id: "",
+  user_id: null,
+  name,
+  kind: "person",
   deposit_total: 0,
   withdraw_total: 0,
   pending_total: 0,
   balance: 0,
-};
+});
 
 // --- 라벨 ---
 export const ENTRY_TYPE_LABEL: Record<FundEntryType, string> = {

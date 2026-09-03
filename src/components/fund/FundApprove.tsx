@@ -126,7 +126,7 @@ export default function FundApprove({ requests, onRefresh }: Props) {
       </div>
 
       {/* 목록 — 연차 결재함처럼 높이를 고정하고 안쪽만 스크롤 */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[520px] sm:h-[640px]">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[400px] sm:h-[480px]">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-gray-400">

@@ -9,16 +9,18 @@ import FundMyView from "@/components/fund/FundMyView";
 import FundApprove from "@/components/fund/FundApprove";
 import FundEntryForm from "@/components/fund/FundEntryForm";
 import FundLedgerList from "@/components/fund/FundLedgerList";
+import FundPayeeTab from "@/components/fund/FundPayeeTab";
 import {
-  EMPTY_BALANCE,
+  emptyBalance,
   type FundBalance,
   type FundLedger,
+  type FundPayee,
   type FundRequest,
   type FundUser,
 } from "@/components/fund/shared";
 
-type Member = { id: string; full_name: string; position: string | null };
-type Tab = "mine" | "approve" | "entry" | "ledger";
+type Profile = { id: string; full_name: string; position: string | null };
+type Tab = "mine" | "approve" | "entry" | "ledger" | "payees";
 
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
@@ -38,7 +40,8 @@ function FundContent() {
   // 담당자 전용
   const [allRequests, setAllRequests] = useState<FundRequest[]>([]);
   const [allLedger, setAllLedger] = useState<FundLedger[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [payees, setPayees] = useState<FundPayee[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [balances, setBalances] = useState<Record<string, FundBalance>>({});
 
   const [loading, setLoading] = useState(true);
@@ -67,18 +70,26 @@ function FundContent() {
     }
 
     // ── 본인 데이터 ──
-    const [{ data: bal }, { data: ledger }, { data: reqs }] = await Promise.all([
-      supabase
-        .from("fund_balances")
-        .select("*")
-        .eq("user_id", authUser.id)
-        .maybeSingle(),
-      supabase
-        .from("fund_ledger")
-        .select("*")
-        .eq("user_id", authUser.id)
-        .order("entry_date", { ascending: false })
-        .order("created_at", { ascending: false }),
+    // 명부에 내 계정이 연결돼 있어야 잔액·적립내역이 보인다
+    const { data: bal } = await supabase
+      .from("fund_balances")
+      .select("*")
+      .eq("user_id", authUser.id)
+      .maybeSingle();
+
+    const myBalance =
+      (bal as FundBalance) ?? emptyBalance(profile.full_name ?? "");
+    setBalance(myBalance);
+
+    const [{ data: ledger }, { data: reqs }] = await Promise.all([
+      myBalance.payee_id
+        ? supabase
+            .from("fund_ledger")
+            .select("*")
+            .eq("payee_id", myBalance.payee_id)
+            .order("entry_date", { ascending: false })
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] as FundLedger[] }),
       supabase
         .from("fund_requests")
         .select("*, handler:handler_id(full_name)")
@@ -86,7 +97,6 @@ function FundContent() {
         .order("requested_at", { ascending: false }),
     ]);
 
-    setBalance((bal as FundBalance) ?? { user_id: authUser.id, ...EMPTY_BALANCE });
     setMyLedger((ledger as FundLedger[]) ?? []);
     setMyRequests((reqs as FundRequest[]) ?? []);
 
@@ -110,7 +120,8 @@ function FundContent() {
       const [
         { data: aReqs },
         { data: aLedger },
-        { data: mem },
+        { data: pay },
+        { data: profs },
         { data: aBal },
       ] = await Promise.all([
         supabase
@@ -121,9 +132,10 @@ function FundContent() {
           .order("requested_at", { ascending: false }),
         supabase
           .from("fund_ledger")
-          .select("*, profiles:user_id(full_name, position)")
+          .select("*, payee:payee_id(name, kind)")
           .order("entry_date", { ascending: false })
           .order("created_at", { ascending: false }),
+        supabase.from("fund_payees").select("*").order("name"),
         supabase
           .from("profiles")
           .select("id, full_name, position")
@@ -139,10 +151,11 @@ function FundContent() {
       });
       setAllRequests(sorted);
       setAllLedger((aLedger as FundLedger[]) ?? []);
-      setMembers((mem as Member[]) ?? []);
+      setPayees((pay as FundPayee[]) ?? []);
+      setProfiles((profs as Profile[]) ?? []);
       setBalances(
         Object.fromEntries(
-          ((aBal as FundBalance[]) ?? []).map((b) => [b.user_id, b]),
+          ((aBal as FundBalance[]) ?? []).map((b) => [b.payee_id, b]),
         ),
       );
     }
@@ -181,9 +194,13 @@ function FundContent() {
           { key: "approve", label: "펀드신청 리스트", badge: pendingCount },
           { key: "entry", label: "적립 등록" },
           { key: "ledger", label: "전체 내역" },
+          { key: "payees", label: "대상자 명부" },
         ] as const)
       : []),
   ];
+
+  // 적립 등록·전체 내역에서 고를 수 있는 대상자 (사용 중인 항목만)
+  const activePayees = payees.filter((p) => p.is_active);
 
   return (
     <div className="w-full max-w-7xl mx-auto h-full flex flex-col p-1 pb-20">
@@ -233,15 +250,27 @@ function FundContent() {
         {activeTab === "entry" && isManager && (
           <FundEntryForm
             manager={user}
-            members={members}
+            members={activePayees.map((p) => ({
+              id: p.id,
+              name: p.name,
+              hint: p.user_id ? null : "미가입",
+            }))}
             onSaved={fetchData}
           />
         )}
         {activeTab === "ledger" && isManager && (
           <FundLedgerList
             ledger={allLedger}
-            members={members}
+            payees={payees}
             balances={balances}
+            onRefresh={fetchData}
+          />
+        )}
+        {activeTab === "payees" && isManager && (
+          <FundPayeeTab
+            payees={payees}
+            balances={balances}
+            profiles={profiles}
             onRefresh={fetchData}
           />
         )}

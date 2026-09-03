@@ -62,6 +62,15 @@ export default function FundMyView({
 
   return (
     <div className="space-y-4">
+      {!balance.payee_id && (
+        <div className="border-l-4 border-amber-400 bg-amber-50 rounded-r-lg px-5 py-4">
+          <p className="text-sm leading-relaxed text-amber-900">
+            아직 선교펀드 대상자로 등록되지 않았습니다. 펀드 담당자에게
+            문의해주세요. 등록되면 잔액과 적립내역이 바로 보입니다.
+          </p>
+        </div>
+      )}
+
       {/* ── 잔액 요약 ── */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-5 py-5 sm:px-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
@@ -82,7 +91,8 @@ export default function FundMyView({
           </div>
           <button
             onClick={() => setIsRequestOpen(true)}
-            className="px-5 py-3 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer whitespace-nowrap"
+            disabled={!balance.payee_id}
+            className="px-5 py-3 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             펀드 신청하기
           </button>
@@ -302,7 +312,7 @@ const Section = ({
   empty: string;
   children: React.ReactNode;
 }) => (
-  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[420px]">
+  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[340px]">
     <div className="px-4 sm:px-5 py-3 border-b border-gray-200 bg-gray-50/50 flex items-center gap-2 shrink-0">
       <h2 className="text-base font-bold text-gray-800">{title}</h2>
       <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full">

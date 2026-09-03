@@ -9,7 +9,7 @@ import "react-calendar/dist/Calendar.css";
 import { format } from "date-fns";
 import { inputClass, toCommaInput } from "./shared";
 
-export type Member = { id: string; full_name: string; position: string | null };
+export type Member = { id: string; name: string; hint?: string | null };
 
 /* ── 날짜 (차량 정비 등록 화면과 같은 react-calendar) ──
    스크롤되는 목록 안에서도 잘리지 않도록 body에 포털로 띄운다. */
@@ -144,19 +144,23 @@ export function AmountField({
   );
 }
 
-/* ── 사역자 자동완성 (방향키·Enter 선택 가능) ── */
+/* ── 대상자 자동완성 (방향키·Enter 선택 가능) ── */
 export function MemberField({
   members,
   name,
   selectedId,
   onPick,
   onTextChange,
+  placeholder = "이름을 입력하세요",
+  emptyHint,
 }: {
   members: Member[];
   name: string;
   selectedId: string;
   onPick: (m: Member) => void;
   onTextChange: (v: string) => void;
+  placeholder?: string;
+  emptyHint?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -165,7 +169,7 @@ export function MemberField({
 
   const kw = name.trim().toLowerCase();
   const suggestions = kw
-    ? members.filter((m) => m.full_name.toLowerCase().includes(kw)).slice(0, 8)
+    ? members.filter((m) => m.name.toLowerCase().includes(kw)).slice(0, 8)
     : members.slice(0, 8);
 
   useEffect(() => {
@@ -227,7 +231,7 @@ export function MemberField({
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        placeholder="이름을 입력하세요"
+        placeholder={placeholder}
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
@@ -255,10 +259,10 @@ export function MemberField({
                   i === highlight ? "bg-blue-50 text-blue-700" : "text-gray-800"
                 }`}
               >
-                {m.full_name}
-                <span className="ml-2 text-xs text-gray-500">
-                  {m.position ?? ""}
-                </span>
+                {m.name}
+                {m.hint && (
+                  <span className="ml-2 text-xs text-gray-500">{m.hint}</span>
+                )}
               </button>
             </li>
           ))}
@@ -267,7 +271,9 @@ export function MemberField({
 
       {name && !selectedId && (
         <p className="mt-1 text-xs text-amber-600">
-          목록에서 사역자를 선택해주세요.
+          {suggestions.length === 0 && emptyHint
+            ? emptyHint
+            : "목록에서 선택해주세요."}
         </p>
       )}
     </div>

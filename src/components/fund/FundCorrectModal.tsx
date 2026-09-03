@@ -79,10 +79,7 @@ export default function FundCorrectModal({
           {/* 원래 내역 */}
           <div className="border border-gray-200 rounded-lg p-4 space-y-2 bg-gray-50/60">
             <p className="text-sm font-bold text-gray-700 mb-1">원래 내역</p>
-            <ConfirmRow
-              label="사역자"
-              value={target.profiles?.full_name ?? "-"}
-            />
+            <ConfirmRow label="대상자" value={target.payee?.name ?? "-"} />
             <ConfirmRow
               label="구분"
               value={ENTRY_TYPE_LABEL[target.entry_type]}
