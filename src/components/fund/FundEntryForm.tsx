@@ -8,11 +8,13 @@ import * as XLSX from "xlsx";
 import Select from "@/components/Select";
 import { AmountField, DateField, MemberField, type Member } from "./FundFields";
 import {
+  BANK_OPTIONS,
   ENTRY_MODE_OPTIONS,
   ENTRY_TYPE_ALIASES,
   ENTRY_TYPE_LABEL,
   formatWon,
   inputClass,
+  joinAccountInfo,
   parseAmount,
   parseEntryDate,
   selectClass,
@@ -64,8 +66,11 @@ const EMPTY_SINGLE = {
   note: "",
   description: "",
   entry_date: todayString(),
-  request_date: todayString(), // 사용일 때만 씀
-  account_info: "", // 사용일 때만 씀
+  // 아래 넷은 '사용'일 때만 쓴다
+  request_date: todayString(),
+  bank_name: "",
+  account_no: "",
+  account_holder: "",
 };
 
 export default function FundEntryForm({ manager, members, onSaved }: Props) {
@@ -90,10 +95,17 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
       entry_type: single.mode,
       amount,
       note: single.note.trim() || null,
-      description: single.description.trim() || null,
+      // 사용은 적요만 쓴다
+      description: isDeposit ? single.description.trim() || null : null,
       entry_date: single.entry_date,
       request_date: isDeposit ? null : single.request_date || null,
-      account_info: isDeposit ? null : single.account_info.trim() || null,
+      account_info: isDeposit
+        ? null
+        : joinAccountInfo({
+            bank_name: single.bank_name || null,
+            account_no: single.account_no.trim() || null,
+            account_holder: single.account_holder.trim() || null,
+          }) || null,
       created_by: manager.id,
     });
     setSavingSingle(false);
@@ -375,24 +387,27 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
             <input
               value={single.note}
               onChange={(e) => setSingle({ ...single, note: e.target.value })}
-              placeholder={isDeposit ? "예) 본인적립금 9월" : "예) 항공권"}
+              placeholder={
+                isDeposit ? "예) 본인적립금 9월" : "예) 요르단 비전트립 항공권"
+              }
               className={inputClass}
             />
           </div>
 
-          <div className="lg:col-span-2">
-            <Label>내용</Label>
-            <input
-              value={single.description}
-              onChange={(e) =>
-                setSingle({ ...single, description: e.target.value })
-              }
-              placeholder={
-                isDeposit ? "예) 9월 적립분" : "예) 요르단 비전트립 항공권"
-              }
-              className={inputClass}
-            />
-          </div>
+          {/* 사용은 적요 하나로 충분하다 */}
+          {isDeposit && (
+            <div className="lg:col-span-3">
+              <Label>내용</Label>
+              <input
+                value={single.description}
+                onChange={(e) =>
+                  setSingle({ ...single, description: e.target.value })
+                }
+                placeholder="예) 9월 적립분"
+                className={inputClass}
+              />
+            </div>
+          )}
 
           <div>
             <Label>{isDeposit ? "입금일자" : "이체일자"}</Label>
@@ -412,16 +427,37 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                   onChange={(v) => setSingle({ ...single, request_date: v })}
                 />
               </div>
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-2">
                 <Label>받을 계좌</Label>
-                <input
-                  value={single.account_info}
-                  onChange={(e) =>
-                    setSingle({ ...single, account_info: e.target.value })
-                  }
-                  placeholder="예) 국민, 00000-00-00000, 고성호"
-                  className={inputClass}
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <Select
+                    value={single.bank_name}
+                    onChange={(v) => setSingle({ ...single, bank_name: v })}
+                    options={BANK_OPTIONS}
+                    placeholder="은행 선택"
+                    className={selectClass}
+                  />
+                  <input
+                    inputMode="numeric"
+                    value={single.account_no}
+                    onChange={(e) =>
+                      setSingle({
+                        ...single,
+                        account_no: e.target.value.replace(/[^\d-]/g, ""),
+                      })
+                    }
+                    placeholder="계좌번호"
+                    className={`sm:col-span-2 ${inputClass}`}
+                  />
+                  <input
+                    value={single.account_holder}
+                    onChange={(e) =>
+                      setSingle({ ...single, account_holder: e.target.value })
+                    }
+                    placeholder="예금주"
+                    className={inputClass}
+                  />
+                </div>
               </div>
             </>
           )}
