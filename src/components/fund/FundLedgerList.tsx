@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
 import Select from "@/components/Select";
 import FundCorrectModal from "./FundCorrectModal";
 import FundEntryDetailModal from "./FundEntryDetailModal";
@@ -131,6 +132,7 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [sortKey, setSortKey] = useState<DetailSortKey>("entry_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -211,6 +213,77 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
   useEffect(() => {
     setPage(0);
   }, [year, typeFilter, payeeFilter]);
+
+  // 화면에 보이는 조건 그대로, 그러나 페이지 나누지 않고 전부 받아 내려받는다
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const all: FundLedger[] = [];
+      const STEP = 1000;
+
+      for (let from = 0; ; from += STEP) {
+        let q = supabase
+          .from("fund_ledger")
+          .select("*, payee:payee_id(name, kind)")
+          .gte("entry_date", `${year}-01-01`)
+          .lte("entry_date", `${year}-12-31`);
+
+        if (typeFilter !== "all") q = q.eq("entry_type", typeFilter);
+        if (payeeFilter !== "all") q = q.eq("payee_id", payeeFilter);
+
+        const asc = sortDir === "asc";
+        q =
+          sortKey === "payee"
+            ? q.order("name", { ascending: asc, referencedTable: "payee" })
+            : q.order(sortKey, { ascending: asc });
+
+        const { data, error } = await q.range(from, from + STEP - 1);
+        if (error) throw error;
+
+        const chunk = (data as FundLedger[]) ?? [];
+        all.push(...chunk);
+        if (chunk.length < STEP) break;
+      }
+
+      if (all.length === 0) {
+        setExporting(false);
+        return toast.error("내려받을 내역이 없습니다.");
+      }
+
+      const sheet = XLSX.utils.json_to_sheet(
+        all.map((r) => ({
+          일자: r.entry_date,
+          대상자: r.payee?.name ?? "",
+          구분: ENTRY_TYPE_LABEL[r.entry_type],
+          적요: r.note ?? "",
+          내용: r.description ?? "",
+          금액: r.amount,
+          요청일자: r.request_date ?? "",
+          "받을 계좌": r.account_info ?? "",
+          비고: r.corrects_id ? "정정 내역" : r.request_id ? "신청 건" : "",
+        })),
+      );
+      sheet["!cols"] = [
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 8 },
+        { wch: 20 },
+        { wch: 28 },
+        { wch: 14 },
+        { wch: 12 },
+        { wch: 28 },
+        { wch: 10 },
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, sheet, `${year}년`);
+      XLSX.writeFile(wb, `선교펀드_전체내역_${year}.xlsx`);
+      toast.success(`${all.length}건 내려받았습니다.`);
+    } catch (e: any) {
+      toast.error("내려받기 실패: " + (e?.message ?? ""));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const toggleSort = (key: DetailSortKey) => {
     if (sortKey === key) {
@@ -381,6 +454,13 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
             <div className="flex items-center justify-center bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-500 whitespace-nowrap">
               총&nbsp;<b className="text-gray-700">{total}</b>건
             </div>
+            <button
+              onClick={handleExport}
+              disabled={exporting || total === 0}
+              className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {exporting ? "만드는 중..." : "엑셀 받기"}
+            </button>
           </>
         )}
       </div>

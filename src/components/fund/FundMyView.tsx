@@ -1,10 +1,11 @@
 // src/components/fund/FundMyView.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import ConfirmModal, { ConfirmRow } from "./ConfirmModal";
+import FundEntryDetailModal from "./FundEntryDetailModal";
 import FundMyRequestModal from "./FundMyRequestModal";
 import FundRequestModal from "./FundRequestModal";
 import {
@@ -39,10 +40,42 @@ export default function FundMyView({
   const supabase = createClient();
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [detailReq, setDetailReq] = useState<FundRequest | null>(null);
+  const [detailEntry, setDetailEntry] = useState<FundLedger | null>(null);
   const [cancelTarget, setCancelTarget] = useState<FundRequest | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   const deposits = ledger.filter((l) => l.entry_type !== "withdraw");
+
+  // 사용내역 = 내가 낸 신청서 + 담당자가 신청 없이 직접 넣은 사용 줄
+  const usages = useMemo(() => {
+    const fromRequests = requests.map((r) => ({
+      key: `r-${r.id}`,
+      req: r,
+      entry: null as FundLedger | null,
+      amount: r.amount,
+      title: r.purpose,
+      sub:
+        `신청 ${r.requested_at?.substring(0, 10)}` +
+        (r.transfer_date ? ` · 이체 ${r.transfer_date}` : ""),
+      sortKey: r.transfer_date ?? r.requested_at?.substring(0, 10) ?? "",
+    }));
+
+    const direct = ledger
+      .filter((l) => l.entry_type === "withdraw" && !l.request_id)
+      .map((l) => ({
+        key: `l-${l.id}`,
+        req: null as FundRequest | null,
+        entry: l,
+        amount: l.amount,
+        title: l.note || l.description || "펀드 사용",
+        sub: `이체 ${l.entry_date}`,
+        sortKey: l.entry_date,
+      }));
+
+    return [...fromRequests, ...direct].sort((a, b) =>
+      b.sortKey.localeCompare(a.sortKey),
+    );
+  }, [requests, ledger]);
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -114,31 +147,34 @@ export default function FundMyView({
       {/* ── 사용내역 ── */}
       <Section
         title="사용내역"
-        count={requests.length}
-        empty="아직 신청한 내역이 없습니다."
+        count={usages.length}
+        empty="아직 사용한 내역이 없습니다."
       >
-        {requests.map((req) => (
+        {usages.map((u) => (
           <button
-            key={req.id}
-            onClick={() => setDetailReq(req)}
+            key={u.key}
+            onClick={() =>
+              u.req ? setDetailReq(u.req) : setDetailEntry(u.entry!)
+            }
             className="w-full px-4 sm:px-5 py-3.5 flex items-start gap-3 sm:gap-4 hover:bg-gray-50 transition text-left cursor-pointer border-b border-gray-100 last:border-0"
           >
             <span
-              className={`mt-0.5 px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap ${STATUS_STYLE[req.status]}`}
+              className={`mt-0.5 px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap ${
+                u.req
+                  ? STATUS_STYLE[u.req.status]
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              }`}
             >
-              {STATUS_LABEL[req.status]}
+              {u.req ? STATUS_LABEL[u.req.status] : "이체완료"}
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate">
-                {req.purpose}
+                {u.title}
               </p>
-              <p className="mt-0.5 text-xs text-gray-500">
-                신청 {req.requested_at?.substring(0, 10)}
-                {req.transfer_date && ` · 이체 ${req.transfer_date}`}
-              </p>
+              <p className="mt-0.5 text-xs text-gray-500">{u.sub}</p>
             </div>
             <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">
-              −{formatWon(req.amount)}
+              −{formatWon(u.amount)}
             </span>
           </button>
         ))}
@@ -183,6 +219,11 @@ export default function FundMyView({
           );
         })}
       </Section>
+
+      <FundEntryDetailModal
+        entry={detailEntry}
+        onClose={() => setDetailEntry(null)}
+      />
 
       <FundMyRequestModal
         request={detailReq}
