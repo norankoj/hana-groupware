@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     const { data: row } = await supabase
       .from("fund_requests")
-      .select("proof_url, proof_name")
+      .select("proof_url, proof_name, proof_files")
       .eq("id", requestId)
       .maybeSingle();
 
@@ -56,7 +56,18 @@ export async function GET(req: NextRequest) {
         { status: 404 },
       );
     }
-    if (!row.proof_url) {
+
+    // v6부터 여러 개를 붙일 수 있다. 예전 한 개짜리도 함께 다룬다.
+    const files: { url: string; name: string }[] = Array.isArray(row.proof_files)
+      ? row.proof_files
+      : [];
+    if (files.length === 0 && row.proof_url) {
+      files.push({ url: row.proof_url, name: row.proof_name ?? "증빙자료" });
+    }
+
+    const index = Number(req.nextUrl.searchParams.get("i") ?? "0");
+    const target = files[Number.isFinite(index) ? index : 0];
+    if (!target?.url) {
       return NextResponse.json(
         { error: "첨부된 증빙자료가 없습니다" },
         { status: 404 },
@@ -64,7 +75,7 @@ export async function GET(req: NextRequest) {
     }
 
     const client = getMinioClient();
-    const stream = await client.getObject(BUCKETS.private, row.proof_url);
+    const stream = await client.getObject(BUCKETS.private, target.url);
 
     const chunks: Buffer[] = [];
     await new Promise<void>((resolve, reject) => {
@@ -74,7 +85,7 @@ export async function GET(req: NextRequest) {
     });
     const buffer = Buffer.concat(chunks);
 
-    const fileName = row.proof_name || row.proof_url.split("/").pop() || "증빙자료";
+    const fileName = target.name || target.url.split("/").pop() || "증빙자료";
     const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
     const contentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
     const disposition = INLINE.includes(ext) ? "inline" : "attachment";

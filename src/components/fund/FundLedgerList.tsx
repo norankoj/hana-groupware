@@ -10,6 +10,7 @@ import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import FundCorrectModal from "./FundCorrectModal";
+import FundEntryDetailModal from "./FundEntryDetailModal";
 import {
   ENTRY_TYPE_LABEL,
   formatWon,
@@ -54,6 +55,61 @@ const YEAR_OPTIONS = (() => {
   }));
 })();
 
+type DetailSortKey =
+  | "entry_date"
+  | "payee"
+  | "entry_type"
+  | "note"
+  | "description"
+  | "amount";
+
+const DETAIL_COLUMNS: {
+  key: DetailSortKey;
+  label: string;
+  align?: "left" | "right";
+}[] = [
+  { key: "entry_date", label: "일자" },
+  { key: "payee", label: "대상자" },
+  { key: "entry_type", label: "구분" },
+  { key: "note", label: "적요" },
+  { key: "description", label: "내용" },
+  { key: "amount", label: "금액", align: "right" },
+];
+
+const SortHeader = ({
+  label,
+  active,
+  dir,
+  onClick,
+  align = "left",
+}: {
+  label: string;
+  active: boolean;
+  dir: "asc" | "desc";
+  onClick: () => void;
+  align?: "left" | "right";
+}) => (
+  <th
+    className={`px-4 py-3 font-bold ${align === "right" ? "text-right" : "text-left"}`}
+  >
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 cursor-pointer transition hover:text-gray-800 ${
+        active ? "text-gray-900" : ""
+      }`}
+    >
+      {label}
+      <span
+        aria-hidden="true"
+        className={`text-[10px] leading-none ${active ? "text-blue-600" : "text-gray-300"}`}
+      >
+        {active ? (dir === "asc" ? "▲" : "▼") : "▲"}
+      </span>
+    </button>
+  </th>
+);
+
 const pagerBtn =
   "px-4 py-2 text-sm font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
@@ -76,8 +132,12 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
   const [page, setPage] = useState(0);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  const [sortKey, setSortKey] = useState<DetailSortKey>("entry_date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
   const [busyId, setBusyId] = useState<string | null>(null);
   const [correctTarget, setCorrectTarget] = useState<FundLedger | null>(null);
+  const [detailTarget, setDetailTarget] = useState<FundLedger | null>(null);
   const [correctedIds, setCorrectedIds] = useState<Set<string>>(new Set());
 
   const payeeOptions = useMemo(
@@ -113,8 +173,17 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
     if (typeFilter !== "all") q = q.eq("entry_type", typeFilter);
     if (payeeFilter !== "all") q = q.eq("payee_id", payeeFilter);
 
+    const asc = sortDir === "asc";
+    // 대상자는 조인된 이름 기준으로 정렬한다
+    q =
+      sortKey === "payee"
+        ? q.order("name", {
+            ascending: asc,
+            referencedTable: "payee",
+          })
+        : q.order(sortKey, { ascending: asc });
+
     const { data, count, error } = await q
-      .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
     setLoadingDetail(false);
@@ -128,7 +197,7 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
     setCorrectedIds(
       new Set(list.map((l) => l.corrects_id).filter(Boolean) as string[]),
     );
-  }, [supabase, year, typeFilter, payeeFilter, page]);
+  }, [supabase, year, typeFilter, payeeFilter, page, sortKey, sortDir]);
 
   useEffect(() => {
     fetchSummary();
@@ -142,6 +211,16 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
   useEffect(() => {
     setPage(0);
   }, [year, typeFilter, payeeFilter]);
+
+  const toggleSort = (key: DetailSortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "amount" || key === "entry_date" ? "desc" : "asc");
+    }
+    setPage(0);
+  };
 
   const reload = () => {
     fetchSummary();
@@ -473,12 +552,16 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
                 <table className="w-full min-w-[760px] text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
-                      <th className="text-left px-4 py-3 font-bold">일자</th>
-                      <th className="text-left px-4 py-3 font-bold">대상자</th>
-                      <th className="text-left px-4 py-3 font-bold">구분</th>
-                      <th className="text-left px-4 py-3 font-bold">적요</th>
-                      <th className="text-left px-4 py-3 font-bold">내용</th>
-                      <th className="text-right px-4 py-3 font-bold">금액</th>
+                      {DETAIL_COLUMNS.map((c) => (
+                        <SortHeader
+                          key={c.key}
+                          label={c.label}
+                          align={c.align}
+                          active={sortKey === c.key}
+                          dir={sortDir}
+                          onClick={() => toggleSort(c.key)}
+                        />
+                      ))}
                       <th className="text-right px-4 py-3 font-bold">관리</th>
                     </tr>
                   </thead>
@@ -490,7 +573,8 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
                       return (
                         <tr
                           key={row.id}
-                          className={`border-b border-gray-100 last:border-0 ${
+                          onClick={() => setDetailTarget(row)}
+                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50/40 ${
                             isCorrection ? "bg-amber-50/50" : ""
                           }`}
                         >
@@ -551,7 +635,10 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
                               </span>
                             ) : (
                               <button
-                                onClick={() => setCorrectTarget(row)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCorrectTarget(row);
+                                }}
                                 disabled={busyId === row.id}
                                 className="px-3 py-1.5 text-xs font-bold text-red-600 bg-white border border-red-200 rounded hover:bg-red-50 disabled:opacity-60 cursor-pointer"
                               >
@@ -591,6 +678,11 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
           )}
         </>
       )}
+
+      <FundEntryDetailModal
+        entry={detailTarget}
+        onClose={() => setDetailTarget(null)}
+      />
 
       <FundCorrectModal
         target={correctTarget}

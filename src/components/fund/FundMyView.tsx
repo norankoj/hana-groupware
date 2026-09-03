@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import ConfirmModal, { ConfirmRow } from "./ConfirmModal";
+import FundMyRequestModal from "./FundMyRequestModal";
 import FundRequestModal from "./FundRequestModal";
 import {
   ENTRY_TYPE_LABEL,
@@ -37,7 +38,7 @@ export default function FundMyView({
 }: Props) {
   const supabase = createClient();
   const [isRequestOpen, setIsRequestOpen] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailReq, setDetailReq] = useState<FundRequest | null>(null);
   const [cancelTarget, setCancelTarget] = useState<FundRequest | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
@@ -116,89 +117,31 @@ export default function FundMyView({
         count={requests.length}
         empty="아직 신청한 내역이 없습니다."
       >
-        {requests.map((req) => {
-          const open = detailId === req.id;
-          return (
-            <div key={req.id} className="border-b border-gray-100 last:border-0">
-              <button
-                onClick={() => setDetailId(open ? null : req.id)}
-                className="w-full px-4 sm:px-5 py-3.5 flex items-start gap-3 sm:gap-4 hover:bg-gray-50 transition text-left cursor-pointer"
-              >
-                <span
-                  className={`mt-0.5 px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap ${STATUS_STYLE[req.status]}`}
-                >
-                  {STATUS_LABEL[req.status]}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
-                    {req.purpose}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    신청 {req.requested_at?.substring(0, 10)}
-                    {req.transfer_date && ` · 이체 ${req.transfer_date}`}
-                  </p>
-                </div>
-                <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">
-                  −{formatWon(req.amount)}
-                </span>
-              </button>
-
-              {open && (
-                <div className="px-4 sm:px-5 pb-4 pt-1 bg-gray-50/60 space-y-2.5 text-sm">
-                  <DetailRow label="요청내역" value={req.purpose} />
-                  <DetailRow
-                    label="금액"
-                    value={`${formatWon(req.amount)}원`}
-                  />
-                  <DetailRow
-                    label="받을 계좌"
-                    value={joinAccountInfo(req) || "-"}
-                  />
-                  <DetailRow
-                    label="요청일시"
-                    value={req.requested_at?.replace("T", " ").substring(0, 16)}
-                  />
-                  {req.transfer_date && (
-                    <DetailRow label="이체일자" value={req.transfer_date} />
-                  )}
-                  {req.handler?.full_name && (
-                    <DetailRow label="처리자" value={req.handler.full_name} />
-                  )}
-                  {req.reject_reason && (
-                    <DetailRow
-                      label="반려사유"
-                      value={req.reject_reason}
-                      highlight
-                    />
-                  )}
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {req.proof_url && (
-                      <button
-                        onClick={() => openProof(req.id)}
-                        className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
-                      >
-                        증빙자료 보기
-                        {req.proof_name && (
-                          <span className="ml-1.5 font-normal text-gray-500">
-                            {req.proof_name}
-                          </span>
-                        )}
-                      </button>
-                    )}
-                    {req.status === "pending" && (
-                      <button
-                        onClick={() => setCancelTarget(req)}
-                        className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 cursor-pointer"
-                      >
-                        신청 취소
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+        {requests.map((req) => (
+          <button
+            key={req.id}
+            onClick={() => setDetailReq(req)}
+            className="w-full px-4 sm:px-5 py-3.5 flex items-start gap-3 sm:gap-4 hover:bg-gray-50 transition text-left cursor-pointer border-b border-gray-100 last:border-0"
+          >
+            <span
+              className={`mt-0.5 px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap ${STATUS_STYLE[req.status]}`}
+            >
+              {STATUS_LABEL[req.status]}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {req.purpose}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                신청 {req.requested_at?.substring(0, 10)}
+                {req.transfer_date && ` · 이체 ${req.transfer_date}`}
+              </p>
             </div>
-          );
-        })}
+            <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">
+              −{formatWon(req.amount)}
+            </span>
+          </button>
+        ))}
       </Section>
 
       {/* ── 적립내역 ── */}
@@ -240,6 +183,15 @@ export default function FundMyView({
           );
         })}
       </Section>
+
+      <FundMyRequestModal
+        request={detailReq}
+        onClose={() => setDetailReq(null)}
+        onCancel={(req) => {
+          setDetailReq(null);
+          setCancelTarget(req);
+        }}
+      />
 
       <FundRequestModal
         isOpen={isRequestOpen}

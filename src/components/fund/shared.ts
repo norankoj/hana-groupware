@@ -3,6 +3,9 @@
 
 // --- 타입 정의 ---
 export type FundEntryType = "deposit" | "withdraw";
+
+/** 신청에 붙인 증빙자료 한 개 */
+export type ProofFile = { url: string; name: string };
 export type FundStatus = "pending" | "completed" | "cancelled" | "rejected";
 
 /** 펀드 대상자 — 그룹웨어 계정이 없어도 원장에 기록할 수 있게 하는 명부 */
@@ -22,6 +25,8 @@ export type FundLedger = {
   entry_type: FundEntryType;
   amount: number;
   note: string | null;
+  request_date: string | null; // 사용: 사역자가 요청한 날
+  account_info: string | null; // 사용: 받을 계좌
   description: string | null;
   entry_date: string;
   request_id: string | null;
@@ -39,8 +44,9 @@ export type FundRequest = {
   bank_name: string | null;
   account_no: string | null;
   account_holder: string | null;
-  proof_url: string | null;
+  proof_url: string | null; // 예전 한 개짜리 첨부 (v6부터 proof_files 사용)
   proof_name: string | null;
+  proof_files: ProofFile[];
   status: FundStatus;
   requested_at: string;
   handler_id: string | null;
@@ -250,12 +256,23 @@ const toDateString = (d: Date) =>
 export const todayString = () => toDateString(new Date());
 
 /** 증빙자료 열기 — 교회 NAS에서 받아온다. 권한은 서버에서 확인한다. */
-export const openProof = (requestId: string) => {
+export const openProof = (requestId: string, index = 0) => {
   window.open(
-    `/api/fund/proof?request=${encodeURIComponent(requestId)}`,
+    `/api/fund/proof?request=${encodeURIComponent(requestId)}&i=${index}`,
     "_blank",
     "noopener",
   );
+};
+
+/** 신청에 붙은 증빙 목록 (예전 한 개짜리도 함께 다룬다) */
+export const proofList = (r: {
+  proof_files?: ProofFile[] | null;
+  proof_url?: string | null;
+  proof_name?: string | null;
+}): ProofFile[] => {
+  if (r.proof_files?.length) return r.proof_files;
+  if (r.proof_url) return [{ url: r.proof_url, name: r.proof_name ?? "증빙자료" }];
+  return [];
 };
 
 /** "국민, 00000-00-00000, 고성호" 형태의 계좌정보를 세 조각으로 */

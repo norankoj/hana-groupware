@@ -110,10 +110,10 @@ export const ConfirmRow = ({
   label: string;
   value: React.ReactNode;
 }) => (
-  <div className="flex gap-3 text-sm">
-    <span className="w-20 shrink-0 text-xs font-bold text-gray-500 pt-0.5">
+  <div className="flex gap-4 text-[15px] leading-relaxed">
+    <span className="w-24 shrink-0 text-sm font-bold text-gray-500 pt-0.5">
       {label}
     </span>
-    <span className="flex-1 text-gray-800 break-words">{value}</span>
+    <span className="flex-1 text-gray-900 break-words">{value}</span>
   </div>
 );

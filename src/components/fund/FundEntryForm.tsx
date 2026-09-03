@@ -38,6 +38,7 @@ type ParsedRow = {
   description: string;
   entry_date: string | null;
   account: string;
+  request_date: string | null;
   errors: string[];
 };
 // 한 번에 보낼 건수 · 미리보기에 그릴 줄 수
@@ -63,6 +64,8 @@ const EMPTY_SINGLE = {
   note: "",
   description: "",
   entry_date: todayString(),
+  request_date: todayString(), // 사용일 때만 씀
+  account_info: "", // 사용일 때만 씀
 };
 
 export default function FundEntryForm({ manager, members, onSaved }: Props) {
@@ -89,6 +92,8 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
       note: single.note.trim() || null,
       description: single.description.trim() || null,
       entry_date: single.entry_date,
+      request_date: isDeposit ? null : single.request_date || null,
+      account_info: isDeposit ? null : single.account_info.trim() || null,
       created_by: manager.id,
     });
     setSavingSingle(false);
@@ -202,12 +207,12 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         const entry_date = parseEntryDate(r["날짜"]);
         if (!entry_date) errors.push("날짜를 읽을 수 없음");
 
-        const account = String(r["계좌정보"] ?? "").trim();
+
         const note = String(r["적요"] ?? "").trim();
-        let description = String(r["내용"] ?? "").trim();
-        if (entry_type === "withdraw" && account) {
-          description = description ? `${description} / ${account}` : account;
-        }
+        const description = String(r["내용"] ?? "").trim();
+        // 사용 행에만 딸려오는 정보 — 별도 칸에 그대로 담는다
+        const account = String(r["계좌정보"] ?? "").trim();
+        const request_date = parseEntryDate(r["요청일자"]);
 
         return {
           line: i + 2, // 헤더가 1행
@@ -219,6 +224,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
           description,
           entry_date,
           account,
+          request_date,
           errors,
         };
       });
@@ -281,6 +287,8 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
       note: r.note || null,
       description: r.description || null,
       entry_date: r.entry_date,
+      request_date: r.entry_type === "withdraw" ? r.request_date : null,
+      account_info: r.entry_type === "withdraw" ? r.account || null : null,
       created_by: manager.id,
     }));
 
@@ -393,6 +401,30 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
               onChange={(v) => setSingle({ ...single, entry_date: v })}
             />
           </div>
+
+          {/* 사용은 신청서 없이 소급 등록하는 경우라 요청 정보를 함께 남긴다 */}
+          {!isDeposit && (
+            <>
+              <div>
+                <Label>요청일자</Label>
+                <DateField
+                  value={single.request_date}
+                  onChange={(v) => setSingle({ ...single, request_date: v })}
+                />
+              </div>
+              <div className="lg:col-span-3">
+                <Label>받을 계좌</Label>
+                <input
+                  value={single.account_info}
+                  onChange={(e) =>
+                    setSingle({ ...single, account_info: e.target.value })
+                  }
+                  placeholder="예) 국민, 00000-00-00000, 고성호"
+                  className={inputClass}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {isDeposit && (

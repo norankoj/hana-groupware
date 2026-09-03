@@ -48,14 +48,14 @@ export default function FundRequestModal({
 }: Props) {
   const supabase = createClient();
   const [form, setForm] = useState(EMPTY_FORM);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setForm({ ...EMPTY_FORM, account_holder: user.full_name });
-      setFile(null);
+      setFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }, [isOpen, user.full_name]);
@@ -75,12 +75,11 @@ export default function FundRequestModal({
 
     setSaving(true);
     try {
-      // 증빙자료 업로드 (선택) — 교회 NAS private 버킷의 fund/{user_id}/ 아래
-      let proofUrl: string | null = null;
-      let proofName: string | null = null;
-      if (file) {
+      // 증빙자료 업로드 (선택, 여러 개) — 교회 NAS private 버킷의 fund/{user_id}/ 아래
+      const proofFiles: { url: string; name: string }[] = [];
+      for (const f of files) {
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", f);
         formData.append("bucket", "private");
         formData.append("folder", `fund/${user.id}`);
 
@@ -89,9 +88,9 @@ export default function FundRequestModal({
           body: formData,
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error ?? "증빙자료 업로드 실패");
-        proofUrl = json.objectName;
-        proofName = file.name;
+        if (!res.ok)
+          throw new Error(`${f.name} — ${json?.error ?? "업로드 실패"}`);
+        proofFiles.push({ url: json.objectName, name: f.name });
       }
 
       const { error } = await supabase.from("fund_requests").insert({
@@ -101,8 +100,7 @@ export default function FundRequestModal({
         bank_name: form.bank_name.trim(),
         account_no: form.account_no.trim(),
         account_holder: form.account_holder.trim() || null,
-        proof_url: proofUrl,
-        proof_name: proofName,
+        proof_files: proofFiles,
         status: "pending",
       });
       if (error) throw error;
@@ -212,12 +210,29 @@ export default function FundRequestModal({
             ref={fileInputRef}
             type="file"
             accept={PROOF_ACCEPT}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
             className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 file:cursor-pointer"
           />
           <p className="mt-1.5 text-sm text-gray-500">
-            영수증·견적서 등 (선택). 사진·PDF·엑셀·워드, 10MB 이하.
+            영수증·견적서 등 (선택). 여러 개 고를 수 있습니다. 사진·PDF·엑셀·워드,
+            개당 10MB 이하.
           </p>
+          {files.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {files.map((f, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-2 text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5"
+                >
+                  <span className="truncate text-gray-700">{f.name}</span>
+                  <span className="shrink-0 text-xs text-gray-400 tabular-nums">
+                    {(f.size / 1024).toFixed(0)} KB
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Field>
 
         {/* 운영규정 안내 */}

@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import ConfirmModal, { ConfirmRow } from "./ConfirmModal";
 import { DateField } from "./FundFields";
+import FundProofList from "./FundProofList";
 import {
   STATUS_LABEL,
   STATUS_OPTIONS,
@@ -14,7 +15,6 @@ import {
   formatWon,
   inputClass,
   joinAccountInfo,
-  openProof,
   selectClass,
   todayString,
   type FundRequest,
@@ -201,23 +201,7 @@ export default function FundApprove({ requests, onRefresh }: Props) {
                         />
                       )}
 
-                      {req.proof_url ? (
-                        <button
-                          onClick={() => openProof(req.id)}
-                          className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
-                        >
-                          증빙자료 보기
-                          {req.proof_name && (
-                            <span className="ml-1.5 font-normal text-gray-500">
-                              {req.proof_name}
-                            </span>
-                          )}
-                        </button>
-                      ) : (
-                        <p className="text-xs text-gray-400">
-                          첨부된 증빙자료가 없습니다.
-                        </p>
-                      )}
+                      <FundProofList request={req} />
 
                       {req.status === "pending" && (
                         <div className="pt-3 mt-1 border-t border-gray-200 flex flex-col sm:flex-row sm:items-end gap-3">
@@ -345,11 +329,11 @@ const DetailRow = ({
   highlight?: boolean;
 }) => (
   <div className="flex flex-col sm:flex-row sm:gap-4">
-    <span className="w-full sm:w-24 shrink-0 text-xs font-bold text-gray-500 pt-0.5">
+    <span className="w-full sm:w-24 shrink-0 text-sm font-bold text-gray-500 pt-0.5">
       {label}
     </span>
     <span
-      className={`flex-1 text-sm break-words ${highlight ? "text-red-600 font-medium" : "text-gray-800"}`}
+      className={`flex-1 text-[15px] leading-relaxed break-words ${highlight ? "text-red-600 font-medium" : "text-gray-900"}`}
     >
       {value}
     </span>
