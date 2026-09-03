@@ -39,7 +39,6 @@ function FundContent() {
 
   // 담당자 전용
   const [allRequests, setAllRequests] = useState<FundRequest[]>([]);
-  const [allLedger, setAllLedger] = useState<FundLedger[]>([]);
   const [payees, setPayees] = useState<FundPayee[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [balances, setBalances] = useState<Record<string, FundBalance>>({});
@@ -117,32 +116,24 @@ function FundContent() {
 
     // ── 담당자 데이터 ──
     if (isManager) {
-      const [
-        { data: aReqs },
-        { data: aLedger },
-        { data: pay },
-        { data: profs },
-        { data: aBal },
-      ] = await Promise.all([
-        supabase
-          .from("fund_requests")
-          .select(
-            "*, profiles:user_id(full_name, position), handler:handler_id(full_name)",
-          )
-          .order("requested_at", { ascending: false }),
-        supabase
-          .from("fund_ledger")
-          .select("*, payee:payee_id(name, kind)")
-          .order("entry_date", { ascending: false })
-          .order("created_at", { ascending: false }),
-        supabase.from("fund_payees").select("*").order("name"),
-        supabase
-          .from("profiles")
-          .select("id, full_name, position")
-          .neq("role", "pending")
-          .order("full_name"),
-        supabase.from("fund_balances").select("*"),
-      ]);
+      // 원장은 건수가 계속 늘어나므로 여기서 통째로 받지 않는다.
+      // 전체 내역 탭이 연도·페이지 단위로 직접 불러온다.
+      const [{ data: aReqs }, { data: pay }, { data: profs }, { data: aBal }] =
+        await Promise.all([
+          supabase
+            .from("fund_requests")
+            .select(
+              "*, profiles:user_id(full_name, position), handler:handler_id(full_name)",
+            )
+            .order("requested_at", { ascending: false }),
+          supabase.from("fund_payees").select("*").order("name"),
+          supabase
+            .from("profiles")
+            .select("id, full_name, position")
+            .neq("role", "pending")
+            .order("full_name"),
+          supabase.from("fund_balances").select("*"),
+        ]);
 
       const sorted = ((aReqs as FundRequest[]) ?? []).sort((a, b) => {
         if (a.status === "pending" && b.status !== "pending") return -1;
@@ -150,7 +141,6 @@ function FundContent() {
         return (b.requested_at ?? "").localeCompare(a.requested_at ?? "");
       });
       setAllRequests(sorted);
-      setAllLedger((aLedger as FundLedger[]) ?? []);
       setPayees((pay as FundPayee[]) ?? []);
       setProfiles((profs as Profile[]) ?? []);
       setBalances(
@@ -259,12 +249,7 @@ function FundContent() {
           />
         )}
         {activeTab === "ledger" && isManager && (
-          <FundLedgerList
-            ledger={allLedger}
-            payees={payees}
-            balances={balances}
-            onRefresh={fetchData}
-          />
+          <FundLedgerList payees={payees} onRefresh={fetchData} />
         )}
         {activeTab === "payees" && isManager && (
           <FundPayeeTab

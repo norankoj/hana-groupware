@@ -40,6 +40,9 @@ type ParsedRow = {
   account: string;
   errors: string[];
 };
+// 한 번에 보낼 건수 · 미리보기에 그릴 줄 수
+const CHUNK_SIZE = 500;
+const PREVIEW_LIMIT = 200;
 
 const TEMPLATE_HEADERS = [
   "구분",
@@ -108,6 +111,8 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
   const [rows, setRows] = useState<ParsedRow[] | null>(null);
   const [fileName, setFileName] = useState("");
   const [savingBulk, setSavingBulk] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [overlapMonths, setOverlapMonths] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const validRows = rows?.filter((r) => r.errors.length === 0) ?? [];
@@ -224,31 +229,81 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         return;
       }
       setRows(parsed);
+      await checkOverlap(parsed);
     } catch (e: any) {
       toast.error("파일을 읽지 못했습니다: " + (e?.message ?? ""));
       setRows(null);
     }
   };
 
+  // 같은 파일을 두 번 올리면 내역이 두 배가 되므로,
+  // 파일에 들어 있는 달에 이미 기록이 있는지 미리 확인해 알려준다.
+  const checkOverlap = async (parsed: ParsedRow[]) => {
+    const wanted = new Set<string>();
+    for (const r of parsed) {
+      if (!r.payee_id || !r.entry_date) continue;
+      wanted.add(`${r.payee_id}|${r.entry_date.slice(0, 7)}`);
+    }
+    if (wanted.size === 0) return setOverlapMonths([]);
+
+    const years = [
+      ...new Set(parsed.map((r) => r.entry_date?.slice(0, 4)).filter(Boolean)),
+    ] as string[];
+
+    const { data } = await supabase
+      .from("fund_monthly_summary")
+      .select("payee_id, year, month")
+      .in(
+        "year",
+        years.map((y) => Number(y)),
+      );
+
+    const hit = new Set<string>();
+    for (const m of (data as {
+      payee_id: string;
+      year: number;
+      month: number;
+    }[]) ?? []) {
+      const key = `${m.payee_id}|${m.year}-${String(m.month).padStart(2, "0")}`;
+      if (wanted.has(key)) hit.add(key.split("|")[1]);
+    }
+    setOverlapMonths([...hit].sort());
+  };
+
+  // 수천 건을 한 번에 보내면 요청이 거부되므로 나눠서 저장한다
   const handleSaveBulk = async () => {
     if (validRows.length === 0) return toast.error("저장할 줄이 없습니다.");
 
-    setSavingBulk(true);
-    const { error } = await supabase.from("fund_ledger").insert(
-      validRows.map((r) => ({
-        payee_id: r.payee_id,
-        entry_type: r.entry_type,
-        amount: r.amount,
-        note: r.note || null,
-        description: r.description || null,
-        entry_date: r.entry_date,
-        created_by: manager.id,
-      })),
-    );
-    setSavingBulk(false);
+    const payload = validRows.map((r) => ({
+      payee_id: r.payee_id,
+      entry_type: r.entry_type,
+      amount: r.amount,
+      note: r.note || null,
+      description: r.description || null,
+      entry_date: r.entry_date,
+      created_by: manager.id,
+    }));
 
-    if (error) return toast.error("저장 실패: " + error.message);
-    toast.success(`${validRows.length}건 등록 완료`);
+    setSavingBulk(true);
+    setSavedCount(0);
+
+    for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+      const chunk = payload.slice(i, i + CHUNK_SIZE);
+      const { error } = await supabase.from("fund_ledger").insert(chunk);
+
+      if (error) {
+        setSavingBulk(false);
+        return toast.error(
+          `${i}건까지 저장한 뒤 실패했습니다: ${error.message}\n` +
+            `이미 저장된 ${i}건은 전체 내역에서 확인하고 필요하면 정정해주세요.`,
+          { duration: 8000 },
+        );
+      }
+      setSavedCount(i + chunk.length);
+    }
+
+    setSavingBulk(false);
+    toast.success(`${payload.length}건 등록 완료`);
     resetBulk();
     onSaved();
   };
@@ -256,6 +311,8 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
   const resetBulk = () => {
     setRows(null);
     setFileName("");
+    setSavedCount(0);
+    setOverlapMonths([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -382,10 +439,10 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         </div>
         <p className="mt-3 text-sm leading-relaxed text-gray-600">
           구분 칸에는 <b>적립</b> 또는 <b>사용</b>을 적고, 적요에 무슨 돈인지
-          짧게 적습니다(예: 본인적립금 9월). 대상자는 <b>대상자 명부에 있는
-          이름과 똑같이</b> 적어야 합니다 — 못 찾은 줄은 저장 전에 빨갛게
-          표시됩니다. 구분이 '사용'이면 날짜는 이체일자로 기록되고, 처리자는
-          파일을 올린 담당자로 남습니다.
+          짧게 적습니다(예: 본인적립금 9월). 대상자는{" "}
+          <b>대상자 명부에 있는 이름과 똑같이</b> 적어야 합니다 — 못 찾은 줄은
+          저장 전에 빨갛게 표시됩니다. 구분이 '사용'이면 날짜는 이체일자로
+          기록되고, 처리자는 파일을 올린 담당자로 남습니다.
         </p>
 
         {rows && (
@@ -400,7 +457,43 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                   오류 {invalidRows.length}건
                 </span>
               )}
+              {rows.length > PREVIEW_LIMIT && (
+                <span className="text-gray-500 text-xs">
+                  미리보기는 앞 {PREVIEW_LIMIT}줄만 보여줍니다 (저장은 전부)
+                </span>
+              )}
             </div>
+
+            {overlapMonths.length > 0 && (
+              <div className="border-l-4 border-amber-400 bg-amber-50 rounded-r-lg px-4 py-3">
+                <p className="text-sm leading-relaxed text-amber-900">
+                  <b>이미 기록이 있는 달이 섞여 있습니다</b> —{" "}
+                  {overlapMonths.join(", ")}
+                  <br />
+                  그대로 저장하면 내역이 두 번 쌓입니다. 같은 파일을 이미
+                  올리셨던 게 아닌지 확인해주세요.
+                </p>
+              </div>
+            )}
+
+            {savingBulk && (
+              <div className="border border-gray-200 rounded-lg px-4 py-3">
+                <div className="flex justify-between text-sm text-gray-600 mb-1.5">
+                  <span>저장 중...</span>
+                  <span className="tabular-nums font-bold text-gray-800">
+                    {savedCount} / {validRows.length}
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#2151EC] transition-all duration-200"
+                    style={{
+                      width: `${validRows.length ? (savedCount / validRows.length) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="border border-gray-200 rounded-lg overflow-auto custom-scrollbar max-h-[300px]">
               <table className="w-full min-w-[720px] text-sm">
@@ -417,7 +510,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => {
+                  {rows.slice(0, PREVIEW_LIMIT).map((r) => {
                     const bad = r.errors.length > 0;
                     return (
                       <tr
