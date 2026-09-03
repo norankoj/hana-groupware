@@ -88,9 +88,8 @@ export default function FundMyView({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-gray-200 divide-x divide-gray-200">
-          <SummaryCell label="본인적립금" value={balance.self_total} />
-          <SummaryCell label="교회지원금" value={balance.match_total} />
+        <div className="grid grid-cols-3 border-t border-gray-200 divide-x divide-gray-200">
+          <SummaryCell label="적립 합계" value={balance.deposit_total} />
           <SummaryCell label="사용 완료" value={balance.withdraw_total} muted />
           <SummaryCell label="처리대기" value={balance.pending_total} muted />
         </div>
@@ -205,14 +204,8 @@ export default function FundMyView({
               key={row.id}
               className="px-4 sm:px-5 py-3 flex items-center gap-3 sm:gap-4 border-b border-gray-100 last:border-0"
             >
-              <span
-                className={`px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap ${
-                  row.entry_type === "self_deposit"
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                }`}
-              >
-                {ENTRY_TYPE_LABEL[row.entry_type]}
+              <span className="px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                {row.note || ENTRY_TYPE_LABEL[row.entry_type]}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-900 truncate">

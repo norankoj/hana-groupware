@@ -2,7 +2,7 @@
 // 해외사역매칭펀드(선교펀드) 공용 타입 · 상수 · 헬퍼
 
 // --- 타입 정의 ---
-export type FundEntryType = "self_deposit" | "church_match" | "withdraw";
+export type FundEntryType = "deposit" | "withdraw";
 export type FundStatus = "pending" | "completed" | "cancelled" | "rejected";
 
 export type FundLedger = {
@@ -10,6 +10,7 @@ export type FundLedger = {
   user_id: string;
   entry_type: FundEntryType;
   amount: number;
+  note: string | null;
   description: string | null;
   entry_date: string;
   request_id: string | null;
@@ -43,8 +44,6 @@ export type FundRequest = {
 
 export type FundBalance = {
   user_id: string;
-  self_total: number;
-  match_total: number;
   deposit_total: number;
   withdraw_total: number;
   pending_total: number;
@@ -60,8 +59,6 @@ export type FundUser = {
 };
 
 export const EMPTY_BALANCE: Omit<FundBalance, "user_id"> = {
-  self_total: 0,
-  match_total: 0,
   deposit_total: 0,
   withdraw_total: 0,
   pending_total: 0,
@@ -70,26 +67,27 @@ export const EMPTY_BALANCE: Omit<FundBalance, "user_id"> = {
 
 // --- 라벨 ---
 export const ENTRY_TYPE_LABEL: Record<FundEntryType, string> = {
-  self_deposit: "본인적립금",
-  church_match: "교회지원금",
+  deposit: "적립",
   withdraw: "사용",
 };
 
-// 건별 입력의 '구분' — 적립을 고르면 본인적립금·교회지원금을 함께 넣는다
+// 건별 입력 · 전체 내역 필터의 '구분'
 export const ENTRY_MODE_OPTIONS = [
   { value: "deposit", label: "적립" },
   { value: "withdraw", label: "사용" },
 ];
 
 // 엑셀 구분 칸에 들어올 수 있는 표기들 → 내부 값
+// (예전 양식의 '본인적립금 / 교회지원금'도 적립으로 받아준다)
 export const ENTRY_TYPE_ALIASES: Record<string, FundEntryType> = {
-  본인적립금: "self_deposit",
-  본인적립: "self_deposit",
-  적립: "self_deposit",
-  교회지원금: "church_match",
-  교회지원: "church_match",
-  교회매칭금: "church_match",
-  매칭: "church_match",
+  적립: "deposit",
+  적립금: "deposit",
+  입금: "deposit",
+  본인적립금: "deposit",
+  본인적립: "deposit",
+  교회지원금: "deposit",
+  교회지원: "deposit",
+  교회매칭금: "deposit",
   사용: "withdraw",
   출금: "withdraw",
 };

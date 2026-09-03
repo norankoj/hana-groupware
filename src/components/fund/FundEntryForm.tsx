@@ -34,6 +34,7 @@ type ParsedRow = {
   name: string;
   user_id: string | null;
   amount: number | null;
+  note: string;
   description: string;
   entry_date: string | null;
   account: string;
@@ -44,6 +45,7 @@ const TEMPLATE_HEADERS = [
   "구분",
   "사역자명",
   "금액",
+  "적요",
   "내용",
   "날짜",
   "요청일자",
@@ -51,12 +53,11 @@ const TEMPLATE_HEADERS = [
 ];
 
 const EMPTY_SINGLE = {
-  mode: "deposit" as "deposit" | "withdraw",
+  mode: "deposit" as FundEntryType,
   name: "",
   user_id: "",
-  self_amount: "",
-  match_amount: "",
-  use_amount: "",
+  amount: "",
+  note: "",
   description: "",
   entry_date: todayString(),
 };
@@ -74,43 +75,26 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
     if (!single.user_id) return toast.error("사역자를 목록에서 선택해주세요.");
     if (!single.entry_date) return toast.error("일자를 입력해주세요.");
 
-    const base = {
+    const amount = parseAmount(single.amount) ?? 0;
+    if (amount <= 0) return toast.error("금액을 입력해주세요.");
+
+    setSavingSingle(true);
+    const { error } = await supabase.from("fund_ledger").insert({
       user_id: single.user_id,
+      entry_type: single.mode,
+      amount,
+      note: single.note.trim() || null,
       description: single.description.trim() || null,
       entry_date: single.entry_date,
       created_by: manager.id,
-    };
-
-    const rows: Record<string, unknown>[] = [];
-
-    if (isDeposit) {
-      const self = parseAmount(single.self_amount) ?? 0;
-      const match = parseAmount(single.match_amount) ?? 0;
-      if (self <= 0 && match <= 0)
-        return toast.error("본인적립금 또는 교회지원금을 입력해주세요.");
-      if (self > 0)
-        rows.push({ ...base, entry_type: "self_deposit", amount: self });
-      if (match > 0)
-        rows.push({ ...base, entry_type: "church_match", amount: match });
-    } else {
-      const use = parseAmount(single.use_amount) ?? 0;
-      if (use <= 0) return toast.error("금액을 입력해주세요.");
-      rows.push({ ...base, entry_type: "withdraw", amount: use });
-    }
-
-    setSavingSingle(true);
-    const { error } = await supabase.from("fund_ledger").insert(rows);
+    });
     setSavingSingle(false);
 
     if (error) return toast.error("등록 실패: " + error.message);
 
-    const summary = rows
-      .map(
-        (r) =>
-          `${ENTRY_TYPE_LABEL[r.entry_type as FundEntryType]} ${formatWon(r.amount as number)}원`,
-      )
-      .join(" · ");
-    toast.success(`${single.name} — ${summary} 등록 완료`);
+    toast.success(
+      `${single.name} — ${ENTRY_TYPE_LABEL[single.mode]} ${formatWon(amount)}원 등록 완료`,
+    );
 
     setSingle({
       ...EMPTY_SINGLE,
@@ -132,12 +116,31 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
   const handleDownloadTemplate = () => {
     const sample = [
       TEMPLATE_HEADERS,
-      ["본인적립금", "고성호", 250000, "본인적립금 9월", "2026-09-01", "", ""],
-      ["교회지원금", "고성호", 250000, "교회지원금 9월", "2026-09-01", "", ""],
+      [
+        "적립",
+        "고성호",
+        250000,
+        "본인적립금 9월",
+        "9월 적립분",
+        "2026-09-01",
+        "",
+        "",
+      ],
+      [
+        "적립",
+        "고성호",
+        250000,
+        "교회지원금 9월",
+        "9월 적립분",
+        "2026-09-01",
+        "",
+        "",
+      ],
       [
         "사용",
         "고성호",
         1250000,
+        "항공권",
         "요르단비전트립 항공권",
         "2026-08-30",
         "2026-08-28",
@@ -146,9 +149,10 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
     ];
     const ws = XLSX.utils.aoa_to_sheet(sample);
     ws["!cols"] = [
-      { wch: 12 },
+      { wch: 10 },
       { wch: 10 },
       { wch: 12 },
+      { wch: 18 },
       { wch: 24 },
       { wch: 12 },
       { wch: 12 },
@@ -194,6 +198,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         if (!entry_date) errors.push("날짜를 읽을 수 없음");
 
         const account = String(r["계좌정보"] ?? "").trim();
+        const note = String(r["적요"] ?? "").trim();
         let description = String(r["내용"] ?? "").trim();
         if (entry_type === "withdraw" && account) {
           description = description ? `${description} / ${account}` : account;
@@ -205,6 +210,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
           name,
           user_id: member?.id ?? null,
           amount,
+          note,
           description,
           entry_date,
           account,
@@ -233,6 +239,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         user_id: r.user_id,
         entry_type: r.entry_type,
         amount: r.amount,
+        note: r.note || null,
         description: r.description || null,
         entry_date: r.entry_date,
         created_by: manager.id,
@@ -257,7 +264,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
       {/* ── 건별 입력 ── */}
       <Card
         title="건별 입력"
-        desc="한 건씩 직접 등록합니다. 적립은 본인적립금과 교회지원금을 함께 넣을 수 있습니다."
+        desc="한 건씩 직접 등록합니다. 적요에 무슨 돈인지 적어주세요."
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3">
           <div>
@@ -287,44 +294,35 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
             />
           </div>
 
-          {isDeposit ? (
-            <>
-              <div>
-                <Label>본인적립금</Label>
-                <AmountField
-                  value={single.self_amount}
-                  onChange={(v) => setSingle({ ...single, self_amount: v })}
-                  placeholder="250,000"
-                />
-              </div>
-              <div>
-                <Label>교회지원금</Label>
-                <AmountField
-                  value={single.match_amount}
-                  onChange={(v) => setSingle({ ...single, match_amount: v })}
-                  placeholder="250,000"
-                />
-              </div>
-            </>
-          ) : (
-            <div>
-              <Label>금액</Label>
-              <AmountField
-                value={single.use_amount}
-                onChange={(v) => setSingle({ ...single, use_amount: v })}
-                placeholder="1,250,000"
-              />
-            </div>
-          )}
+          <div>
+            <Label>금액</Label>
+            <AmountField
+              value={single.amount}
+              onChange={(v) => setSingle({ ...single, amount: v })}
+              placeholder={isDeposit ? "250,000" : "1,250,000"}
+            />
+          </div>
 
-          <div className={isDeposit ? "lg:col-span-3" : "lg:col-span-2"}>
+          <div>
+            <Label>적요</Label>
+            <input
+              value={single.note}
+              onChange={(e) => setSingle({ ...single, note: e.target.value })}
+              placeholder={isDeposit ? "예) 본인적립금 9월" : "예) 항공권"}
+              className={inputClass}
+            />
+          </div>
+
+          <div className="lg:col-span-2">
             <Label>내용</Label>
             <input
               value={single.description}
               onChange={(e) =>
                 setSingle({ ...single, description: e.target.value })
               }
-              placeholder={isDeposit ? "예) 9월 적립" : "예) 비전트립 항공권"}
+              placeholder={
+                isDeposit ? "예) 9월 적립분" : "예) 요르단 비전트립 항공권"
+              }
               className={inputClass}
             />
           </div>
@@ -340,8 +338,9 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
 
         {isDeposit && (
           <p className="mt-4 text-sm leading-relaxed text-gray-600">
-            교회지원금은 규정(가정 25만원 / 싱글 15만원 한도)에 맞춰 직접
-            입력하시면 됩니다. 한쪽만 넣어도 등록됩니다.
+            적요에는 무슨 돈인지 짧게 적어주세요 — 예) 본인적립금 9월,
+            교회지원금 9월. 교회지원금은 규정(가정 25만원 / 싱글 15만원 한도)에
+            맞춰 직접 입력하시면 됩니다.
           </p>
         )}
 
@@ -380,9 +379,9 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
           />
         </div>
         <p className="mt-3 text-sm leading-relaxed text-gray-600">
-          구분 칸에는 <b>본인적립금 · 교회지원금 · 사용</b> 중 하나를 적습니다.
-          구분이 '사용'이면 날짜는 이체일자로 기록되고, 처리자는 파일을 올린
-          담당자로 남습니다.
+          구분 칸에는 <b>적립</b> 또는 <b>사용</b>을 적고, 적요에 무슨 돈인지
+          짧게 적습니다(예: 본인적립금 9월). 구분이 '사용'이면 날짜는 이체일자로
+          기록되고, 처리자는 파일을 올린 담당자로 남습니다.
         </p>
 
         {rows && (
@@ -407,6 +406,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                     <th className="text-left px-3 py-2 font-bold">구분</th>
                     <th className="text-left px-3 py-2 font-bold">사역자</th>
                     <th className="text-right px-3 py-2 font-bold">금액</th>
+                    <th className="text-left px-3 py-2 font-bold">적요</th>
                     <th className="text-left px-3 py-2 font-bold">내용</th>
                     <th className="text-left px-3 py-2 font-bold">날짜</th>
                     <th className="text-left px-3 py-2 font-bold">확인</th>
@@ -430,7 +430,10 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                         <td className="px-3 py-2 text-right tabular-nums">
                           {r.amount === null ? "-" : formatWon(r.amount)}
                         </td>
-                        <td className="px-3 py-2 max-w-[220px] truncate">
+                        <td className="px-3 py-2 max-w-[140px] truncate">
+                          {r.note || "-"}
+                        </td>
+                        <td className="px-3 py-2 max-w-[200px] truncate">
                           {r.description || "-"}
                         </td>
                         <td className="px-3 py-2">{r.entry_date ?? "-"}</td>

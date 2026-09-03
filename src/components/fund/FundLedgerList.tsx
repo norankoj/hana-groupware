@@ -25,8 +25,7 @@ type Props = {
 
 const TYPE_FILTER = [
   { value: "all", label: "전체 구분" },
-  { value: "self_deposit", label: "본인적립금" },
-  { value: "church_match", label: "교회지원금" },
+  { value: "deposit", label: "적립" },
   { value: "withdraw", label: "사용" },
 ];
 
@@ -154,6 +153,7 @@ export default function FundLedgerList({
                   <th className="text-left px-4 py-3 font-bold">일자</th>
                   <th className="text-left px-4 py-3 font-bold">사역자</th>
                   <th className="text-left px-4 py-3 font-bold">구분</th>
+                  <th className="text-left px-4 py-3 font-bold">적요</th>
                   <th className="text-left px-4 py-3 font-bold">내용</th>
                   <th className="text-right px-4 py-3 font-bold">금액</th>
                   <th className="text-right px-4 py-3 font-bold">관리</th>
@@ -182,12 +182,15 @@ export default function FundLedgerList({
                           className={`px-2 py-0.5 text-[11px] font-bold rounded border ${
                             row.entry_type === "withdraw"
                               ? "bg-orange-50 text-orange-700 border-orange-200"
-                              : row.entry_type === "self_deposit"
-                                ? "bg-blue-50 text-blue-700 border-blue-200"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-blue-50 text-blue-700 border-blue-200"
                           }`}
                         >
                           {ENTRY_TYPE_LABEL[row.entry_type]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 max-w-[180px]">
+                        <span className="block truncate text-gray-700">
+                          {row.note || "-"}
                         </span>
                       </td>
                       <td className="px-4 py-3 max-w-[280px]">
