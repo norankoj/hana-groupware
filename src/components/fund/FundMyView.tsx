@@ -191,21 +191,22 @@ export default function FundMyView({
           return (
             <div
               key={row.id}
-              className="px-4 sm:px-5 py-3 flex items-center gap-3 sm:gap-4 border-b border-gray-100 last:border-0"
+              className="px-4 sm:px-5 py-3.5 flex items-center gap-3 sm:gap-4 border-b border-gray-100 last:border-0"
             >
-              <span className="px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
-                {row.note || ENTRY_TYPE_LABEL[row.entry_type]}
-              </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-900 truncate">
-                  {row.description || "-"}
+                {/* 적요가 사실상 제목이라 앞으로 올리고, 내용은 날짜 옆에 붙인다 */}
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {row.note || ENTRY_TYPE_LABEL[row.entry_type]}
                   {isCorrection && (
                     <span className="ml-2 text-[11px] font-bold text-amber-700">
                       정정
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-gray-500">{row.entry_date}</p>
+                <p className="mt-0.5 text-xs text-gray-500 truncate">
+                  {row.entry_date}
+                  {row.description && ` · ${row.description}`}
+                </p>
               </div>
               <span
                 className={`text-sm font-bold tabular-nums whitespace-nowrap ${
