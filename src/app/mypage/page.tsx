@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import Script from "next/script";
+import PushSettingCard from "@/components/PushSettingCard";
 import { formatWon, type FundBalance } from "@/components/fund/shared";
 
 // Daum 우편번호 서비스 타입 선언
@@ -500,7 +501,10 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* 3. 선교펀드 섹션 */}
+      {/* 3. 알림 설정 */}
+      <PushSettingCard />
+
+      {/* 4. 선교펀드 섹션 */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-800">선교펀드</h2>

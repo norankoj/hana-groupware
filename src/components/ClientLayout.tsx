@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import toast, { Toaster } from "react-hot-toast";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import HeaderWeatherBadge from "@/components/dashboard/HeaderWeatherBadge";
+import PushBellButton from "@/components/PushBellButton";
 import Image from "next/image";
 
 // --- [1] Context 생성 (데이터 공유용) ---
@@ -179,7 +180,8 @@ export default function ClientLayout({
         .from("profiles")
         .update({ last_seen_at: new Date().toISOString() })
         .eq("id", userId);
-      if (lastSeenErr) console.error("last_seen_at 업데이트 실패:", lastSeenErr);
+      if (lastSeenErr)
+        console.error("last_seen_at 업데이트 실패:", lastSeenErr);
     };
 
     // onAuthStateChange로 모든 세션 상태 관리
@@ -279,8 +281,7 @@ export default function ClientLayout({
     );
 
   // 차량 QR 연락처(/vehicle/contact/*) — 로그인 없이 접근, 사이드바·헤더 없이 렌더
-  if (pathname.startsWith("/vehicle/contact"))
-    return <>{children}</>;
+  if (pathname.startsWith("/vehicle/contact")) return <>{children}</>;
 
   // 가입 승인 대기 중인 사용자 전용 화면
   if (profile && profile.role === "pending") {
@@ -334,7 +335,8 @@ export default function ClientLayout({
 
   const visibleMenus = menus.filter((menu) => {
     if (!profile) return false;
-    if (menu.is_admin_only && !["admin", "director"].includes(profile.role)) return false;
+    if (menu.is_admin_only && !["admin", "director"].includes(profile.role))
+      return false;
     return menu.roles.includes(profile.role);
   });
 
@@ -474,56 +476,59 @@ export default function ClientLayout({
               </button>
             </div>
 
-            {/* 우측 프로필 영역 */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-4 focus:outline-none group"
-              >
-                <div className="text-right hidden sm:flex flex-col items-end justify-center">
-                  <span className="text-base font-bold text-gray-900 leading-none mb-1">
-                    {profile?.full_name || "로딩중..."} 님
-                  </span>
-                  <span className="text-sm text-gray-500 font-normal leading-none">
-                    {teamName} · {profile?.position || "직분미정"}
-                  </span>
-                </div>
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] flex items-center justify-center text-white text-lg font-medium shadow-sm transition-transform group-hover:scale-105">
-                  {profile?.full_name ? profile.full_name.slice(0, 1) : "?"}
-                </div>
-              </button>
-              {isDropdownOpen && (
-                <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-fadeIn z-50">
-                  <div className="px-4 py-3 border-b border-gray-100 sm:hidden">
-                    <p className="text-sm font-bold text-gray-900">
-                      {profile?.full_name}
-                    </p>
-                    <p className="text-xs text-gray-500">{teamName}</p>
+            {/* 우측 — 알림 종 + 프로필 */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              <PushBellButton />
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-4 focus:outline-none group"
+                >
+                  <div className="text-right hidden sm:flex flex-col items-end justify-center">
+                    <span className="text-base font-bold text-gray-900 leading-none mb-1">
+                      {profile?.full_name || "로딩중..."} 님
+                    </span>
+                    <span className="text-sm text-gray-500 font-normal leading-none">
+                      {teamName} · {profile?.position || "직분미정"}
+                    </span>
                   </div>
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] flex items-center justify-center text-white text-lg font-medium shadow-sm transition-transform group-hover:scale-105">
+                    {profile?.full_name ? profile.full_name.slice(0, 1) : "?"}
+                  </div>
+                </button>
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-fadeIn z-50">
+                    <div className="px-4 py-3 border-b border-gray-100 sm:hidden">
+                      <p className="text-sm font-bold text-gray-900">
+                        {profile?.full_name}
+                      </p>
+                      <p className="text-xs text-gray-500">{teamName}</p>
+                    </div>
 
-                  <button
-                    onClick={() => router.push("/mypage")}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
-                    내 정보
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsPasswordModalOpen(true);
-                      setIsDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
-                    비밀번호 변경
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                  >
-                    로그아웃
-                  </button>
-                </div>
-              )}
+                    <button
+                      onClick={() => router.push("/mypage")}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      내 정보
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsPasswordModalOpen(true);
+                        setIsDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      비밀번호 변경
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      로그아웃
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </header>
 
