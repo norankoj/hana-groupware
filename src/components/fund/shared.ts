@@ -224,29 +224,33 @@ export const parseAmount = (raw: unknown): number | null => {
 
 /** "2026.09.01", "2026-9-1", 엑셀 날짜(시리얼) 등을 yyyy-MM-dd 로. 실패하면 null */
 export const parseEntryDate = (raw: unknown): string | null => {
-  if (raw instanceof Date && !isNaN(raw.getTime())) {
-    return toDateString(raw);
-  }
-  // 엑셀에서 날짜 서식이면 1900-01-01 기준 시리얼 숫자로 들어온다
+  // 엑셀 날짜는 1899-12-30 기준 일련번호로 들어온다.
+  // 이걸 지역시간 Date로 바꾸면 시간대만큼 밀려 하루가 어긋나므로
+  // UTC로만 계산하고 UTC 값만 읽는다.
   if (typeof raw === "number" && raw > 0) {
-    const ms = Math.round((raw - 25569) * 86400 * 1000);
-    const d = new Date(ms);
-    return isNaN(d.getTime()) ? null : toDateString(d);
+    const d = new Date(Math.round((raw - 25569) * 86400000));
+    if (isNaN(d.getTime())) return null;
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
   }
-  if (typeof raw !== "string") return null;
-  const m = raw.trim().match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
-  if (!m) return null;
-  const [, y, mo, d] = m;
-  const date = new Date(Number(y), Number(mo) - 1, Number(d));
-  if (
-    date.getFullYear() !== Number(y) ||
-    date.getMonth() !== Number(mo) - 1 ||
-    date.getDate() !== Number(d)
-  ) {
-    return null;
+
+  // "2026-01-01", "2026.01.01" 같은 글자 — Date를 거치지 않고 그대로 쓴다
+  if (typeof raw === "string") {
+    const m = raw.trim().match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    return `${y}-${pad(mo)}-${pad(d)}`;
   }
-  return toDateString(date);
+
+  // 우리 코드가 만든 Date (지역시간 기준)
+  if (raw instanceof Date && !isNaN(raw.getTime())) return toDateString(raw);
+
+  return null;
 };
+
+const pad = (n: number) => String(n).padStart(2, "0");
 
 const toDateString = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(

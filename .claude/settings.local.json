@@ -24,7 +24,9 @@
       "Bash(ls -la \"C:/Users/suwonhanaweb/Documents/카카오톡 받은 파일/\" | grep -i \"펀드\")",
       "Bash(grep -n \"^      </div>$\\\\|^    </div>$\\\\|^  \\);$\\\\|^}$\" src/components/fund/FundLedgerList.tsx)",
       "Bash(npx prettier *)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node -e ' *)",
+      "Bash(sed -i 's/const wb = XLSX.read\\(buf, { type: \"array\", cellDates: true }\\);/\\\\/\\\\/ cellDates를 쓰면 날짜가 지역시간 Date로 바뀌며 하루씩 밀린다. 일련번호 그대로 받는다.\\\\n      const wb = XLSX.read\\(buf, { type: \"array\" }\\);/' src/components/fund/FundEntryForm.tsx)"
     ],
     "deny": [
       "Read(.env*)",

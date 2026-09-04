@@ -189,7 +189,8 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
     setFileName(file.name);
     try {
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      // cellDates를 쓰면 날짜가 지역시간 Date로 바뀌며 하루씩 밀린다. 일련번호 그대로 받는다.
+      const wb = XLSX.read(buf, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
         defval: "",
