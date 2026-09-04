@@ -31,6 +31,12 @@ type Props = {
 const PROOF_ACCEPT =
   "image/*,application/pdf,.xlsx,.xls,.docx,.doc,.zip";
 
+type SavedAccount = {
+  bank_name: string;
+  account_no: string;
+  account_holder: string;
+};
+
 const EMPTY_FORM = {
   amount: "",
   purpose: "",
@@ -49,16 +55,51 @@ export default function FundRequestModal({
   const supabase = createClient();
   const [form, setForm] = useState(EMPTY_FORM);
   const [files, setFiles] = useState<File[]>([]);
+  const [saved, setSaved] = useState<SavedAccount[]>([]);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 예전에 썼던 계좌를 불러와 고를 수 있게 한다 (최근에 쓴 것이 위)
   useEffect(() => {
-    if (isOpen) {
-      setForm({ ...EMPTY_FORM, account_holder: user.full_name });
-      setFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }, [isOpen, user.full_name]);
+    if (!isOpen) return;
+
+    setFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    const load = async () => {
+      const { data } = await supabase
+        .from("fund_requests")
+        .select("bank_name, account_no, account_holder")
+        .eq("user_id", user.id)
+        .not("account_no", "is", null)
+        .order("requested_at", { ascending: false })
+        .limit(30);
+
+      const seen = new Set<string>();
+      const list: SavedAccount[] = [];
+      for (const r of data ?? []) {
+        const key = `${r.bank_name}|${r.account_no}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        list.push({
+          bank_name: r.bank_name ?? "",
+          account_no: r.account_no ?? "",
+          account_holder: r.account_holder ?? "",
+        });
+      }
+      setSaved(list);
+
+      // 가장 최근에 쓴 계좌를 미리 채워둔다
+      setForm({
+        ...EMPTY_FORM,
+        ...(list[0] ?? { account_holder: user.full_name }),
+      });
+    };
+
+    setSaved([]);
+    setForm({ ...EMPTY_FORM, account_holder: user.full_name });
+    load();
+  }, [isOpen, user.id, user.full_name, supabase]);
 
   const amount = parseAmount(form.amount) ?? 0;
   const over = amount > balance;
@@ -201,6 +242,43 @@ export default function FundRequestModal({
         </Field>
 
         <Field label="받을 계좌" required>
+          {saved.length > 0 && (
+            <div className="mb-2.5 flex flex-wrap gap-2">
+              {saved.map((a, i) => {
+                const picked =
+                  form.bank_name === a.bank_name &&
+                  form.account_no === a.account_no;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setForm({ ...form, ...a })}
+                    className={`px-3 py-1.5 text-sm rounded-lg border transition cursor-pointer ${
+                      picked
+                        ? "border-blue-500 bg-blue-50 text-blue-700 font-bold"
+                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {a.bank_name} {a.account_no}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    bank_name: "",
+                    account_no: "",
+                    account_holder: user.full_name,
+                  })
+                }
+                className="px-3 py-1.5 text-sm rounded-lg border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 cursor-pointer"
+              >
+                새 계좌
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Select
               value={form.bank_name}
