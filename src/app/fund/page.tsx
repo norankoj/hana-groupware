@@ -249,7 +249,11 @@ function FundContent() {
           />
         )}
         {activeTab === "ledger" && isManager && (
-          <FundLedgerList payees={payees} onRefresh={fetchData} />
+          <FundLedgerList
+            payees={payees}
+            balances={balances}
+            onRefresh={fetchData}
+          />
         )}
         {activeTab === "payees" && isManager && (
           <FundPayeeTab

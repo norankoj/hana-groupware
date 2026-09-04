@@ -17,12 +17,14 @@ import {
   formatWon,
   inputClass,
   selectClass,
+  type FundBalance,
   type FundLedger,
   type FundPayee,
 } from "./shared";
 
 type Props = {
   payees: FundPayee[];
+  balances: Record<string, FundBalance>;
   onRefresh: () => void;
 };
 
@@ -109,7 +111,11 @@ const SortHeader = ({
 const pagerBtn =
   "px-4 py-2 text-sm font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
-export default function FundLedgerList({ payees, onRefresh }: Props) {
+export default function FundLedgerList({
+  payees,
+  balances,
+  onRefresh,
+}: Props) {
   const supabase = createClient();
   const [view, setView] = useState<"summary" | "detail">("summary");
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -369,6 +375,9 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
     };
   }, [monthly, payees, keyword, month]);
 
+  // 상세에서 대상자를 하나 고른 경우 그 사람의 현재 잔액
+  const selected = payeeFilter !== "all" ? balances[payeeFilter] : undefined;
+
   const lastPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
 
   return (
@@ -608,6 +617,47 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
       ) : (
         /* ── 상세 목록 ── */
         <>
+          {/* 대상자를 고르면 그 사람의 현재 잔액을 표 바로 위에 띄운다.
+              연도 필터와 무관한 '지금' 기준 금액이라 따로 구분해 보여준다. */}
+          {selected && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-baseline gap-3">
+                <span className="text-base font-bold text-gray-900">
+                  {selected.name}
+                </span>
+                <span className="text-sm text-blue-700">현재 잔액</span>
+                <span className="text-2xl font-bold text-blue-800 tabular-nums">
+                  {formatWon(selected.balance)}
+                  <span className="ml-1 text-base font-semibold text-blue-500">
+                    원
+                  </span>
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-600">
+                <span>
+                  적립{" "}
+                  <b className="tabular-nums text-gray-900">
+                    {formatWon(selected.deposit_total)}
+                  </b>
+                </span>
+                <span>
+                  사용{" "}
+                  <b className="tabular-nums text-gray-900">
+                    {formatWon(selected.withdraw_total)}
+                  </b>
+                </span>
+                {selected.pending_total > 0 && (
+                  <span className="text-amber-700">
+                    처리대기{" "}
+                    <b className="tabular-nums">
+                      {formatWon(selected.pending_total)}
+                    </b>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
             <div className="flex-1 overflow-auto custom-scrollbar">
               {loadingDetail ? (

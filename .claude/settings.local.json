@@ -26,7 +26,9 @@
       "Bash(npx prettier *)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(node -e ' *)",
-      "Bash(sed -i 's/const wb = XLSX.read\\(buf, { type: \"array\", cellDates: true }\\);/\\\\/\\\\/ cellDates를 쓰면 날짜가 지역시간 Date로 바뀌며 하루씩 밀린다. 일련번호 그대로 받는다.\\\\n      const wb = XLSX.read\\(buf, { type: \"array\" }\\);/' src/components/fund/FundEntryForm.tsx)"
+      "Bash(sed -i 's/const wb = XLSX.read\\(buf, { type: \"array\", cellDates: true }\\);/\\\\/\\\\/ cellDates를 쓰면 날짜가 지역시간 Date로 바뀌며 하루씩 밀린다. 일련번호 그대로 받는다.\\\\n      const wb = XLSX.read\\(buf, { type: \"array\" }\\);/' src/components/fund/FundEntryForm.tsx)",
+      "Bash(grep -n \"{/\\\\* 상세 목록 \\\\*/}\\\\|── 상세 목록 ──\" src/components/fund/FundLedgerList.tsx)",
+      "Bash(sed -n '/── 상세 목록 ──/,+4p' src/components/fund/FundLedgerList.tsx)"
     ],
     "deny": [
       "Read(.env*)",
