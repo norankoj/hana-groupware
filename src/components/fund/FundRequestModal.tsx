@@ -63,6 +63,32 @@ export default function FundRequestModal({
   const amount = parseAmount(form.amount) ?? 0;
   const over = amount > balance;
 
+  // 선교펀드 담당자에게만 알림을 보낸다. 실패해도 신청 자체는 이미 끝났으므로 조용히 넘어간다.
+  const notifyManagers = async (won: number) => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("is_fund_manager", true);
+
+      const ids = (data ?? []).map((p) => p.id);
+      if (ids.length === 0) return;
+
+      await fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userIds: ids,
+          title: "선교펀드 사용 신청",
+          body: `${user.full_name}님이 ${formatWon(won)}원을 신청했습니다.`,
+          url: "/fund?tab=approve",
+        }),
+      });
+    } catch {
+      // 알림 실패는 신청 결과에 영향을 주지 않는다
+    }
+  };
+
   const handleSubmit = async () => {
     if (amount <= 0) return toast.error("금액을 입력해주세요.");
     if (over)
@@ -105,6 +131,7 @@ export default function FundRequestModal({
       });
       if (error) throw error;
 
+      notifyManagers(amount);
       toast.success("펀드 신청이 접수되었습니다.");
       onSubmitted();
     } catch (e: any) {
