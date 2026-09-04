@@ -59,7 +59,7 @@ export default function FundEntryDetailModal({
       {entry && (
         <div className="space-y-5">
           <div className="border border-gray-200 rounded-lg p-4 space-y-2 bg-gray-50/60">
-            <ConfirmRow label="대상자" value={entry.payee?.name ?? "-"} />
+            <ConfirmRow label="대상자" value={entry.payee?.name ?? entry.payee_name ?? "-"} />
             <ConfirmRow
               label="구분"
               value={ENTRY_TYPE_LABEL[entry.entry_type]}

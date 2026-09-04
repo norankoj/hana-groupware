@@ -34,6 +34,7 @@ export type FundLedger = {
   created_by: string | null;
   created_at: string;
   payee?: { name: string; kind: "person" | "fund" } | null;
+  payee_name?: string | null; // fund_ledger_view 로 조회할 때 채워진다
 };
 
 export type FundRequest = {

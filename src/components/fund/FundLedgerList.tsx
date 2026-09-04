@@ -57,12 +57,7 @@ const YEAR_OPTIONS = (() => {
 })();
 
 type DetailSortKey =
-  | "entry_date"
-  | "payee"
-  | "entry_type"
-  | "note"
-  | "description"
-  | "amount";
+  "entry_date" | "payee" | "entry_type" | "note" | "description" | "amount";
 
 const DETAIL_COLUMNS: {
   key: DetailSortKey;
@@ -167,8 +162,8 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
   const fetchDetail = useCallback(async () => {
     setLoadingDetail(true);
     let q = supabase
-      .from("fund_ledger")
-      .select("*, payee:payee_id(name, kind)", { count: "exact" })
+      .from("fund_ledger_view")
+      .select("*", { count: "exact" })
       .gte("entry_date", `${year}-01-01`)
       .lte("entry_date", `${year}-12-31`);
 
@@ -177,13 +172,9 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
 
     const asc = sortDir === "asc";
     // 대상자는 조인된 이름 기준으로 정렬한다
-    q =
-      sortKey === "payee"
-        ? q.order("name", {
-            ascending: asc,
-            referencedTable: "payee",
-          })
-        : q.order(sortKey, { ascending: asc });
+    q = q.order(sortKey === "payee" ? "payee_name" : sortKey, {
+      ascending: asc,
+    });
 
     const { data, count, error } = await q
       .order("created_at", { ascending: false })
@@ -223,8 +214,8 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
 
       for (let from = 0; ; from += STEP) {
         let q = supabase
-          .from("fund_ledger")
-          .select("*, payee:payee_id(name, kind)")
+          .from("fund_ledger_view")
+          .select("*")
           .gte("entry_date", `${year}-01-01`)
           .lte("entry_date", `${year}-12-31`);
 
@@ -232,10 +223,9 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
         if (payeeFilter !== "all") q = q.eq("payee_id", payeeFilter);
 
         const asc = sortDir === "asc";
-        q =
-          sortKey === "payee"
-            ? q.order("name", { ascending: asc, referencedTable: "payee" })
-            : q.order(sortKey, { ascending: asc });
+        q = q.order(sortKey === "payee" ? "payee_name" : sortKey, {
+          ascending: asc,
+        });
 
         const { data, error } = await q.range(from, from + STEP - 1);
         if (error) throw error;
@@ -253,7 +243,7 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
       const sheet = XLSX.utils.json_to_sheet(
         all.map((r) => ({
           일자: r.entry_date,
-          대상자: r.payee?.name ?? "",
+          대상자: r.payee_name ?? "",
           구분: ENTRY_TYPE_LABEL[r.entry_type],
           적요: r.note ?? "",
           내용: r.description ?? "",
@@ -662,7 +652,7 @@ export default function FundLedgerList({ payees, onRefresh }: Props) {
                             {row.entry_date}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
-                            {row.payee?.name ?? "-"}
+                            {row.payee_name ?? "-"}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span
