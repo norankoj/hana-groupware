@@ -28,7 +28,13 @@
       "Bash(node -e ' *)",
       "Bash(sed -i 's/const wb = XLSX.read\\(buf, { type: \"array\", cellDates: true }\\);/\\\\/\\\\/ cellDates를 쓰면 날짜가 지역시간 Date로 바뀌며 하루씩 밀린다. 일련번호 그대로 받는다.\\\\n      const wb = XLSX.read\\(buf, { type: \"array\" }\\);/' src/components/fund/FundEntryForm.tsx)",
       "Bash(grep -n \"{/\\\\* 상세 목록 \\\\*/}\\\\|── 상세 목록 ──\" src/components/fund/FundLedgerList.tsx)",
-      "Bash(sed -n '/── 상세 목록 ──/,+4p' src/components/fund/FundLedgerList.tsx)"
+      "Bash(sed -n '/── 상세 목록 ──/,+4p' src/components/fund/FundLedgerList.tsx)",
+      "Bash(python -c \"import openpyxl; print\\('ok'\\)\")",
+      "Bash(node dump-xlsx.js)",
+      "Bash(rm -f dump-xlsx.js dump2.js /tmp/dump.js && git status --short | head -5)",
+      "Bash(node scripts/seed-budget.js)",
+      "Bash(npx eslint *)",
+      "Bash(grep -v \"^$\")"
     ],
     "deny": [
       "Read(.env*)",

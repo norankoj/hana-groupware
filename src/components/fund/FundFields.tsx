@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+// 차량·휴가·예약 화면과 같은 그룹웨어 공용 달력 스타일
+import "@/styles/calendar.css";
 import { format } from "date-fns";
 import { inputClass, toCommaInput } from "./shared";
 
@@ -52,7 +54,9 @@ export function DateField({
     setStyle({
       position: "fixed",
       left: Math.min(rect.left, window.innerWidth - 320),
-      zIndex: 200,
+      // body로 포털되므로 Modal(z-9999)보다 위에 있어야 한다 —
+      // 모달 안에서 쓰면 그보다 낮은 값은 팝업 뒤에 가려진다
+      zIndex: 10001,
       ...(openUpward
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }),
@@ -91,11 +95,12 @@ export function DateField({
         createPortal(
           <>
             <div
-              className="fixed inset-0 z-[199]"
+              className="fixed inset-0 z-[10000]"
               onClick={() => setOpen(false)}
             />
+            {/* range-calendar-wrapper: 공용 스타일이 숨기는 월 이동 버튼을 팝업에서는 되살린다 */}
             <div
-              className="bg-white border border-gray-200 rounded-xl shadow-2xl p-2"
+              className="range-calendar-wrapper animate-fadeIn bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-[300px] sm:w-[350px]"
               style={style}
             >
               <Calendar

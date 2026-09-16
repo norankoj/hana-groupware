@@ -24,6 +24,7 @@ type Profile = {
   status: string;
   is_approver?: boolean;
   is_fund_manager?: boolean;
+  is_expense_manager?: boolean;
 };
 
 type TeamInfo = { id: number; name: string };
@@ -49,6 +50,9 @@ export default function Home() {
   // 선교펀드 — 담당자: 처리대기 건수 / 사역자: 확인 안 한 처리 결과 유무
   const [fundPendingCount, setFundPendingCount] = useState(0);
   const [hasFundResult, setHasFundResult] = useState(false);
+  // 지출결의서 — 담당자: 처리대기 건수 / 신청자: 확인 안 한 처리 결과 유무
+  const [expensePendingCount, setExpensePendingCount] = useState(0);
+  const [hasExpenseResult, setHasExpenseResult] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
@@ -159,6 +163,26 @@ export default function Home() {
 
     setFundPendingCount(fundCount || 0);
     setHasFundResult((myFundResultCount || 0) > 0);
+
+    // 지출결의서 표시 (담당자는 처리대기 건수, 본인은 미확인 결과 유무)
+    const [{ count: expenseCount }, { count: myExpenseResultCount }] =
+      await Promise.all([
+        profileData.is_expense_manager
+          ? supabase
+              .from("expense_requests")
+              .select("*", { count: "exact", head: true })
+              .eq("status", "pending")
+          : Promise.resolve({ count: 0 }),
+        supabase
+          .from("expense_requests")
+          .select("*", { count: "exact", head: true })
+          .eq("requester_id", user.id)
+          .eq("result_seen", false)
+          .in("status", ["paid", "rejected"]),
+      ]);
+
+    setExpensePendingCount(expenseCount || 0);
+    setHasExpenseResult((myExpenseResultCount || 0) > 0);
 
     if (!ALLOWED_ROLES.includes(myRole)) {
       setLoading(false);
@@ -505,30 +529,51 @@ export default function Home() {
               </span>
             </Link>
 
-            {/* 랜덤 게임 */}
-            <Link
-              href="/games"
-              className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
-            >
-              <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                  />
-                </svg>
-              </div>
-              <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
-                랜덤 게임
-              </span>
-            </Link>
+            {/* 지출결의서 — 담당자는 처리대기 건수, 신청자는 미확인 결과 점.
+                ponytail: 메뉴와 같은 조건으로 노출한다. /admin/menus 에서 역할을
+                넓히면 여기 조건도 함께 넓혀야 한다. */}
+            {(profile.is_expense_manager || profile.role === "admin") && (
+              <Link
+                href={
+                  profile.is_expense_manager ? "/expense?tab=approve" : "/expense"
+                }
+                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+              >
+                {profile.is_expense_manager ? (
+                  expensePendingCount > 0 && (
+                    <span className="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                      {expensePendingCount > 99 ? "99+" : expensePendingCount}
+                    </span>
+                  )
+                ) : (
+                  hasExpenseResult && (
+                    <span
+                      className="absolute top-3.5 right-3.5 w-2.5 h-2.5 bg-red-500 rounded-full"
+                      aria-label="확인하지 않은 처리 결과가 있습니다"
+                    />
+                  )
+                )}
+                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.8}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                    />
+                  </svg>
+                </div>
+                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                  지출결의서
+                </span>
+              </Link>
+            )}
+
           </div>
 
           {/* ── Row 3 ── */}
