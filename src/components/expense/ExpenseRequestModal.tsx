@@ -3,7 +3,7 @@
 // 계좌는 줄마다 따로 적는다. 최근에 쓴 계좌를 버튼으로 골라 넣을 수 있다.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { Paperclip, Plus, Trash2, X } from "lucide-react";
@@ -94,11 +94,6 @@ const isTouched = (r: Row) =>
     r.files.length
   );
 
-/** 목록에 보일 이름 — 제목을 따로 받지 않고 첫 품명에서 만든다 */
-const makeTitle = (rows: Row[]) => {
-  const first = rows[0]?.item_name.trim() || "경비지급 요청";
-  return rows.length > 1 ? `${first} 외 ${rows.length - 1}건` : first;
-};
 
 export default function ExpenseRequestModal({
   isOpen,
@@ -115,7 +110,10 @@ export default function ExpenseRequestModal({
   const [saving, setSaving] = useState(false);
 
   // 예전에 썼던 계좌를 불러와 버튼으로 고를 수 있게 한다 (최근에 쓴 것이 위).
-  // 내 결의서 줄만 보이므로(RLS) 남의 계좌가 섞이지 않는다.
+  //
+  // 반드시 '내가 올린 청구'로 좁혀야 한다. 결의서 줄 조회 정책은
+  // '본인 것 또는 담당자는 전체'라서, 담당자 계정에서는 조건 없이 긁으면
+  // 남의 계좌까지 목록에 뜬다.
   useEffect(() => {
     if (!isOpen) return;
 
@@ -126,7 +124,10 @@ export default function ExpenseRequestModal({
     const load = async () => {
       const { data } = await supabase
         .from("expense_request_items")
-        .select("bank_name, account_no, account_holder, created_at")
+        .select(
+          "bank_name, account_no, account_holder, created_at, request:request_id!inner(requester_id)",
+        )
+        .eq("request.requester_id", user.id)
         .not("account_no", "is", null)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -148,7 +149,7 @@ export default function ExpenseRequestModal({
     };
 
     load();
-  }, [isOpen, supabase]);
+  }, [isOpen, user.id, supabase]);
 
   const patchRow = (key: string, patch: Partial<Row>) =>
     setRows((prev) =>
@@ -231,7 +232,8 @@ export default function ExpenseRequestModal({
     }
 
     setSaving(true);
-    let requestId: string | null = null;
+    // 중간에 실패하면 이미 만든 청구를 되돌린다
+    const created: string[] = [];
 
     try {
       // 1) 영수증 업로드 — 교회 NAS private 버킷의 expense/{user_id}/ 아래
@@ -256,28 +258,29 @@ export default function ExpenseRequestModal({
         uploaded.push(files);
       }
 
-      // 2) 헤더 — 계좌는 줄마다 따로 적으므로 여기엔 남기지 않는다
-      const { data: header, error: headerError } = await supabase
-        .from("expense_requests")
-        .insert({
-          requester_id: user.id,
-          fiscal_year: fiscalYear,
-          title: makeTitle(touched),
-          request_date: requestDate,
-          status: "pending",
-        })
-        .select("id")
-        .single();
-      if (headerError) throw headerError;
-      requestId = header.id;
+      // 2) 줄마다 따로 청구한다.
+      //    한 줄은 승인되고 다른 줄은 반려될 수 있으므로 건별로 처리돼야 한다.
+      //    입력만 한 화면에서 모아 받고, 저장은 건별로 쪼갠다.
+      for (const [i, r] of touched.entries()) {
+        const { data: request, error: requestError } = await supabase
+          .from("expense_requests")
+          .insert({
+            requester_id: user.id,
+            fiscal_year: fiscalYear,
+            title: r.item_name.trim(),
+            request_date: requestDate,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+        if (requestError) throw requestError;
+        created.push(request.id);
 
-      // 3) 청구 줄
-      const { error: itemsError } = await supabase
-        .from("expense_request_items")
-        .insert(
-          touched.map((r, i) => ({
-            request_id: header.id,
-            sort_order: i + 1,
+        const { error: itemError } = await supabase
+          .from("expense_request_items")
+          .insert({
+            request_id: request.id,
+            sort_order: 1,
             item_name: r.item_name.trim(),
             qty: Number(r.qty || "1"),
             unit_price: parseAmount(r.unit_price) ?? 0,
@@ -287,17 +290,17 @@ export default function ExpenseRequestModal({
             account_no: r.account_no.trim(),
             account_holder: r.account_holder.trim() || null,
             receipt_files: uploaded[i],
-          })),
-        );
-      if (itemsError) throw itemsError;
+          });
+        if (itemError) throw itemError;
+      }
 
       notifyManagers(touched.length, total);
       toast.success(`${touched.length}건이 접수되었습니다.`);
       onSubmitted();
     } catch (e: unknown) {
-      // 줄을 못 넣었으면 헤더만 남아 빈 결의서가 된다 — 같이 지운다
-      if (requestId) {
-        await supabase.from("expense_requests").delete().eq("id", requestId);
+      // 절반만 들어가면 신청자가 무엇이 접수됐는지 알 수 없다 — 전부 되돌린다
+      if (created.length > 0) {
+        await supabase.from("expense_requests").delete().in("id", created);
       }
       const message = e instanceof Error ? e.message : "알 수 없는 오류";
       toast.error("청구 실패: " + message);
@@ -566,16 +569,47 @@ function ReceiptPicker({
   onChange: (files: File[]) => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const [pasteReady, setPasteReady] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const inputId = `receipt-${index}`;
 
   const add = (picked: File[]) => {
     if (picked.length) onChange([...files, ...picked]);
   };
 
+  /**
+   * 붙여넣기 — 캡처한 이미지는 죄다 'image.png' 라는 이름으로 들어와
+   * 여러 장 붙이면 구분이 안 된다. 순번과 시각을 붙여 이름을 만든다.
+   */
+  const addPasted = (list: FileList | null) => {
+    const picked = Array.from(list ?? []);
+    if (picked.length === 0) return false;
+
+    const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
+    add(
+      picked.map((f, i) => {
+        const ext = f.name.split(".").pop()?.toLowerCase() || "png";
+        const generic = !f.name || /^image\.\w+$/i.test(f.name);
+        return generic
+          ? new File([f], `영수증_${stamp}_${i + 1}.${ext}`, { type: f.type })
+          : f;
+      }),
+    );
+    return true;
+  };
+
   return (
     <SubField label="영수증">
-      <label
-        htmlFor={inputId}
+      {/* 누르기 · 끌어놓기 · 붙여넣기를 한 자리에서 받는다.
+          붙여넣기는 포커스된 요소에만 오므로 label 이 아니라 button 이어야 한다. */}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        onFocus={() => setPasteReady(true)}
+        onBlur={() => setPasteReady(false)}
+        onPaste={(e) => {
+          if (addPasted(e.clipboardData?.files ?? null)) e.preventDefault();
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -584,23 +618,28 @@ function ReceiptPicker({
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          add(Array.from(e.dataTransfer.files ?? []));
+          addPasted(e.dataTransfer.files);
         }}
-        className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-dashed cursor-pointer transition text-sm ${
+        className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-dashed cursor-pointer transition text-sm outline-none ${
           dragging
             ? "border-[#2151EC] bg-blue-50 text-[#2151EC]"
-            : "border-gray-300 bg-gray-50/60 text-gray-500 hover:bg-gray-100"
+            : pasteReady
+              ? "border-[#2151EC] bg-blue-50/50 text-[#2151EC] ring-2 ring-blue-100"
+              : "border-gray-300 bg-gray-50/60 text-gray-500 hover:bg-gray-100"
         }`}
       >
         <Paperclip size={15} className="shrink-0" />
         <span>
-          {files.length > 0
-            ? `${files.length}장 선택됨 — 더 추가하려면 누르거나 끌어다 놓으세요`
-            : "영수증 여러 장을 한 번에 선택하거나 끌어다 놓으세요"}
+          {pasteReady
+            ? "Ctrl+V 로 복사한 이미지를 붙여넣으세요"
+            : files.length > 0
+              ? `${files.length}장 선택됨 — 더 넣으려면 누르거나 끌어다 놓으세요`
+              : "여러 장 선택 · 끌어다 놓기 · 붙여넣기(Ctrl+V)"}
         </span>
-      </label>
+      </button>
       <input
         id={inputId}
+        ref={inputRef}
         type="file"
         accept={RECEIPT_ACCEPT}
         multiple

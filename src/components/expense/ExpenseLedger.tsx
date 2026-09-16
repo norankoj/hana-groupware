@@ -4,10 +4,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import * as XLSX from "xlsx";
 import { Download, Search, X } from "lucide-react";
 import Select from "@/components/Select";
 import { StickyTh, NumCell } from "./TableCells";
+import { UNASSIGNED, exportExpenseLines } from "./exportExcel";
 import {
   STATUS_LABEL,
   STATUS_STYLE,
@@ -16,6 +16,7 @@ import {
   formatWon,
   inputClass,
   itemLabel,
+  majorLabels,
   resolveAccount,
   selectClass,
   type BudgetItem,
@@ -42,12 +43,11 @@ const STATUS_OPTIONS = [
   { value: "all", label: "전체 상태" },
   { value: "pending", label: "처리대기" },
   { value: "approved", label: "승인됨" },
+  { value: "paying", label: "이체중" },
   { value: "paid", label: "지급완료" },
   { value: "rejected", label: "반려됨" },
   { value: "cancelled", label: "취소됨" },
 ];
-
-const UNASSIGNED = "(비목 미배정)";
 
 export default function ExpenseLedger({
   fiscalYear,
@@ -59,15 +59,10 @@ export default function ExpenseLedger({
   const [major, setMajor] = useState("all");
   const [query, setQuery] = useState("");
 
-  // 비목 id → 그 비목이 속한 대항목 이름
-  const majorOf = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const o of flattenBudget(budgetItems, usage)) {
-      const root = o.path.split(" › ")[0];
-      map.set(o.id, root || itemLabel(o));
-    }
-    return map;
-  }, [budgetItems, usage]);
+  const majorOf = useMemo(
+    () => majorLabels(flattenBudget(budgetItems, usage)),
+    [budgetItems, usage],
+  );
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
@@ -122,62 +117,15 @@ export default function ExpenseLedger({
 
   const shownTotal = shown.reduce((sum, r) => sum + r.item.amount, 0);
 
-  const exportExcel = () => {
-    const head = [
-      "청구일자",
-      "신청자",
-      "품명/지출대상",
-      "수량",
-      "단가",
-      "금액",
-      "용도/비고",
-      "대항목",
-      "비목코드",
-      "비목",
-      "은행",
-      "계좌번호",
-      "예금주",
-      "상태",
-      "이체일자",
-    ];
-
-    const body = shown.map((r) => {
-      const acc = resolveAccount(r.item, r.request);
-      return [
-        r.request.request_date,
-        r.request.requester?.full_name ?? "",
-        r.item.item_name,
-        r.item.qty,
-        r.item.unit_price,
-        r.item.amount,
-        r.item.purpose ?? "",
-        r.majorLabel === UNASSIGNED ? "" : r.majorLabel,
-        r.item.budget_item?.code ?? "",
-        r.item.budget_item?.name ?? "",
-        acc.bank_name ?? "",
-        acc.account_no ?? "",
-        acc.account_holder ?? "",
-        STATUS_LABEL[r.request.status],
-        r.request.paid_at ?? "",
-      ];
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet([
-      head,
-      ...body,
-      [],
-      ["", "", "합계", "", "", shownTotal],
-    ]);
-    ws["!cols"] = [
-      { wch: 11 }, { wch: 9 }, { wch: 18 }, { wch: 6 }, { wch: 11 },
-      { wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 9 }, { wch: 22 },
-      { wch: 10 }, { wch: 18 }, { wch: 9 }, { wch: 9 }, { wch: 11 },
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "지출결의내역");
-    XLSX.writeFile(wb, `지출결의내역_${fiscalYear}.xlsx`);
-  };
+  const exportExcel = () =>
+    exportExpenseLines(
+      shown.map((r) => ({
+        item: r.item,
+        request: r.request,
+        major: r.majorLabel,
+      })),
+      `지출결의내역_${fiscalYear}.xlsx`,
+    );
 
   return (
     <div className="border border-gray-200 rounded-xl bg-white overflow-hidden flex flex-col">

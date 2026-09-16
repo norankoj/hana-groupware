@@ -125,7 +125,9 @@ export default function ExpenseMyView({
                         {r.title}
                       </p>
                       <p className="mt-0.5 text-xs text-gray-500">
-                        청구 {r.request_date} · {items.length}건
+                        청구 {r.request_date}
+                        {/* 예전에 한 장으로 올린 묶음은 건수를 함께 보여준다 */}
+                        {items.length > 1 && ` · ${items.length}건`}
                         {r.paid_at && ` · 이체 ${r.paid_at}`}
                       </p>
                     </div>

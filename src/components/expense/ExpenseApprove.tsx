@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
-import { ChevronDown, ChevronRight, Paperclip } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Paperclip } from "lucide-react";
 import ConfirmModal, { ConfirmRow } from "@/components/fund/ConfirmModal";
 import { DateField } from "@/components/fund/FundFields";
 import BudgetItemPicker from "./BudgetItemPicker";
@@ -14,6 +14,7 @@ import ReceiptViewer, {
   collectReceipts,
   type ReceiptRef,
 } from "./ReceiptViewer";
+import { exportExpenseLines, toExportLines } from "./exportExcel";
 import {
   STATUS_LABEL,
   STATUS_STYLE,
@@ -23,6 +24,7 @@ import {
   flattenBudget,
   formatWon,
   itemLabel,
+  majorLabels,
   requestTotal,
   resolveAccount,
   todayString,
@@ -43,6 +45,7 @@ type Props = {
 const STATUS_FILTERS = [
   { key: "pending", label: "처리대기" },
   { key: "approved", label: "승인됨" },
+  { key: "paying", label: "이체중" },
   { key: "paid", label: "지급완료" },
   { key: "all", label: "전체" },
 ] as const;
@@ -59,11 +62,15 @@ export default function ExpenseApprove({
   const supabase = createClient();
 
   const [filter, setFilter] = useState<Filter>("pending");
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  // 청구는 한 건씩 오므로 기본으로 펴둔다 — 담은 것을 보려고 매번 누르지 않게
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ExpenseRequest | null>(null);
   const [payTarget, setPayTarget] = useState<ExpenseRequest | null>(null);
+  /** 이체중 전체를 한꺼번에 지급완료 처리하는 중 */
+  const [payAll, setPayAll] = useState(false);
   const [payDate, setPayDate] = useState(todayString());
+  const [listing, setListing] = useState(false);
   // 영수증 미리보기 — 한 청구서의 영수증을 모두 모아 옆으로 넘긴다
   const [viewer, setViewer] = useState<{
     receipts: ReceiptRef[];
@@ -105,9 +112,22 @@ export default function ExpenseApprove({
   }, [requests, filter]);
 
   const pendingCount = requests.filter((r) => r.status === "pending").length;
+  const approvedCount = requests.filter((r) => r.status === "approved").length;
+  const payingCount = requests.filter((r) => r.status === "paying").length;
+  const shownTotal = shown.reduce((sum, r) => sum + requestTotal(r.items ?? []), 0);
+
+  /** 지금 걸러본 목록을 엑셀로 — 승인된 목록이 곧 이체할 목록이다 */
+  const exportExcel = () => {
+    const label =
+      STATUS_FILTERS.find((f) => f.key === filter)?.label ?? "전체";
+    exportExpenseLines(
+      toExportLines(shown, majorLabels(options)),
+      `지출결의_${label}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
+  };
 
   const toggle = (id: string) =>
-    setOpenIds((prev) => {
+    setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -217,10 +237,71 @@ export default function ExpenseApprove({
     onRefresh();
   };
 
-  const pay = async () => {
-    if (!payTarget) return;
+  /**
+   * 이체 목록 만들기 — 지금 승인된 건들을 한꺼번에 '이체중'으로 넘기고
+   * 엑셀을 내려준다. 은행에 들고 갈 목록을 여기서 확정하므로,
+   * 그 뒤에 승인되는 건은 '승인됨'에 남아 섞이지 않는다.
+   */
+  const makePayoutList = async () => {
+    const approved = requests.filter((r) => r.status === "approved");
+    if (approved.length === 0) return;
 
-    setBusyId(payTarget.id);
+    const total = approved.reduce(
+      (sum, r) => sum + requestTotal(r.items ?? []),
+      0,
+    );
+    const ok = await showConfirm(
+      "이체 목록을 만들까요?",
+      `승인된 ${approved.length}건 ${formatWon(total)}원이 '이체중'으로 넘어가고 엑셀이 내려갑니다. 이 목록을 은행에 들고 가세요.`,
+      "만들기",
+    );
+    if (!ok) return;
+
+    setListing(true);
+    const { data, error } = await supabase
+      .from("expense_requests")
+      .update({
+        status: "paying",
+        payout_listed_at: new Date().toISOString(),
+        handler_id: user.id,
+      })
+      .in(
+        "id",
+        approved.map((r) => r.id),
+      )
+      .eq("status", "approved")
+      .select("id");
+    setListing(false);
+
+    if (error) return toast.error("이체 목록 실패: " + error.message);
+    if (!data || data.length === 0) {
+      toast.error("다른 담당자가 이미 목록을 만들었습니다.");
+      return onRefresh();
+    }
+
+    // 실제로 넘어간 건만 엑셀에 담는다
+    const moved = new Set(data.map((d) => d.id));
+    exportExpenseLines(
+      toExportLines(
+        approved.filter((r) => moved.has(r.id)),
+        majorLabels(options),
+      ),
+      `이체목록_${todayString()}.xlsx`,
+    );
+
+    toast.success(`${data.length}건을 이체 목록으로 넘겼습니다.`);
+    setFilter("paying");
+    onRefresh();
+  };
+
+  /** 이체중 → 지급완료. payTarget 이 없으면 이체중 전체를 한꺼번에 처리한다 */
+  const pay = async () => {
+    const targets = payTarget
+      ? [payTarget]
+      : requests.filter((r) => r.status === "paying");
+    if (targets.length === 0) return;
+
+    setBusyId(payTarget?.id ?? "bulk");
     const { data, error } = await supabase
       .from("expense_requests")
       .update({
@@ -229,25 +310,49 @@ export default function ExpenseApprove({
         handler_id: user.id,
         result_seen: false,
       })
-      .eq("id", payTarget.id)
-      .eq("status", "approved")
+      .in(
+        "id",
+        targets.map((r) => r.id),
+      )
+      .eq("status", "paying")
       .select("id");
     setBusyId(null);
     setPayTarget(null);
+    setPayAll(false);
 
     if (error) return toast.error("지급 처리 실패: " + error.message);
     if (!data || data.length === 0) {
       toast.error("이미 처리된 청구입니다. 목록을 새로 불러옵니다.");
       return onRefresh();
     }
-    toast.success("지급완료로 기록했습니다.");
+    toast.success(`${data.length}건을 지급완료로 기록했습니다.`);
+    onRefresh();
+  };
+
+  /** 계좌가 틀려 못 보낸 건은 승인됨으로 돌려놓는다 */
+  const undoPaying = async (req: ExpenseRequest) => {
+    setBusyId(req.id);
+    const { data, error } = await supabase
+      .from("expense_requests")
+      .update({ status: "approved", payout_listed_at: null })
+      .eq("id", req.id)
+      .eq("status", "paying")
+      .select("id");
+    setBusyId(null);
+
+    if (error) return toast.error("되돌리기 실패: " + error.message);
+    if (!data || data.length === 0) {
+      toast.error("이미 처리된 청구입니다. 목록을 새로 불러옵니다.");
+      return onRefresh();
+    }
+    toast.success("승인됨으로 되돌렸습니다.");
     onRefresh();
   };
 
   return (
     <div className="space-y-4">
-      {/* 상태 필터 */}
-      <div className="flex flex-wrap gap-2">
+      {/* 상태 필터 · 엑셀 */}
+      <div className="flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.key}
@@ -266,7 +371,73 @@ export default function ExpenseApprove({
             )}
           </button>
         ))}
+
+        <div className="ml-auto flex items-center gap-3">
+          {shown.length > 0 && (
+            <span className="text-sm text-gray-500">
+              {shown.length}건{" "}
+              <b className="font-mono tabular-nums text-gray-900">
+                {formatWon(shownTotal)}
+              </b>
+              원
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={exportExcel}
+            disabled={shown.length === 0}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            <Download size={15} /> 엑셀
+          </button>
+        </div>
       </div>
+
+      {/* 이체 흐름 — 승인됨에서 목록을 확정하고, 이체중에서 일괄 지급 처리한다 */}
+      {filter === "approved" && approvedCount > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 border border-blue-200 bg-blue-50/60 rounded-xl px-4 py-3">
+          <div className="flex-1">
+            <p className="text-sm font-bold text-gray-900">
+              승인된 {approvedCount}건을 은행에 들고 갈 목록으로 확정
+            </p>
+            <p className="mt-0.5 text-xs text-gray-600">
+              엑셀이 함께 내려가고 이 건들은 <b>이체중</b>으로 넘어갑니다.
+              이후 승인되는 건은 여기 섞이지 않습니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={makePayoutList}
+            disabled={listing}
+            className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {listing ? "만드는 중..." : "이체 목록 만들기"}
+          </button>
+        </div>
+      )}
+
+      {filter === "paying" && payingCount > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 border border-indigo-200 bg-indigo-50/60 rounded-xl px-4 py-3">
+          <div className="flex-1">
+            <p className="text-sm font-bold text-gray-900">
+              은행 이체를 마치셨나요? {payingCount}건을 한 번에 기록
+            </p>
+            <p className="mt-0.5 text-xs text-gray-600">
+              못 보낸 건은 그 건만 아래에서 <b>승인됨으로 되돌리기</b> 하세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setPayDate(todayString());
+              setPayAll(true);
+            }}
+            className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer whitespace-nowrap"
+          >
+            전체 지급완료 기록
+          </button>
+        </div>
+      )}
 
       {budgetItems.length === 0 && (
         <div className="border-l-4 border-amber-400 bg-amber-50 rounded-r-lg px-5 py-4">
@@ -291,7 +462,7 @@ export default function ExpenseApprove({
             const items = req.items ?? [];
             const total = requestTotal(items);
             const assigned = items.filter((i) => !!i.budget_item_id).length;
-            const isOpen = openIds.has(req.id);
+            const isOpen = !collapsedIds.has(req.id);
             const busy = busyId === req.id;
             // 이 청구서의 영수증 전체 — 미리보기에서 옆으로 넘길 목록
             const allReceipts = collectReceipts(items);
@@ -325,7 +496,9 @@ export default function ExpenseApprove({
                     </p>
                     <p className="mt-0.5 text-xs text-gray-500">
                       {req.requester?.full_name ?? "-"} · 청구{" "}
-                      {req.request_date} · {items.length}건
+                      {req.request_date}
+                      {/* 예전에 한 장으로 올린 묶음은 건수를 함께 보여준다 */}
+                      {items.length > 1 && ` · ${items.length}건`}
                       {req.paid_at && ` · 이체 ${req.paid_at}`}
                     </p>
                   </div>
@@ -333,15 +506,10 @@ export default function ExpenseApprove({
                     <p className="text-sm font-bold text-gray-900 tabular-nums">
                       {formatWon(total)}
                     </p>
-                    {req.status === "pending" && (
-                      <p
-                        className={`mt-0.5 text-[11px] font-medium ${
-                          assigned === items.length
-                            ? "text-emerald-600"
-                            : "text-amber-600"
-                        }`}
-                      >
-                        비목 {assigned}/{items.length}
+                    {req.status === "pending" && assigned < items.length && (
+                      <p className="mt-0.5 text-[11px] font-medium text-amber-600">
+                        비목 미배정
+                        {items.length > 1 && ` ${items.length - assigned}건`}
                       </p>
                     )}
                   </div>
@@ -425,7 +593,9 @@ export default function ExpenseApprove({
                         {req.status === "pending" &&
                           "모든 줄에 비목을 배정하면 승인할 수 있습니다."}
                         {req.status === "approved" &&
-                          "은행 이체를 마치면 이체일자를 기록해주세요."}
+                          "승인됨 탭에서 이체 목록을 만들면 은행에 들고 갈 목록에 들어갑니다."}
+                        {req.status === "paying" &&
+                          `이체 목록 ${req.payout_listed_at?.slice(0, 10) ?? ""} · 은행 이체 후 지급완료를 기록해주세요.`}
                         {req.status === "rejected" &&
                           `반려 — ${req.reject_reason ?? ""}`}
                         {req.status === "paid" &&
@@ -451,17 +621,26 @@ export default function ExpenseApprove({
                             </button>
                           </>
                         )}
-                        {req.status === "approved" && (
-                          <button
-                            onClick={() => {
-                              setPayDate(todayString());
-                              setPayTarget(req);
-                            }}
-                            disabled={busy}
-                            className={btnStyles.save}
-                          >
-                            지급완료 기록
-                          </button>
+                        {req.status === "paying" && (
+                          <>
+                            <button
+                              onClick={() => undoPaying(req)}
+                              disabled={busy}
+                              className={btnStyles.cancel}
+                            >
+                              승인됨으로 되돌리기
+                            </button>
+                            <button
+                              onClick={() => {
+                                setPayDate(todayString());
+                                setPayTarget(req);
+                              }}
+                              disabled={busy}
+                              className={btnStyles.save}
+                            >
+                              지급완료 기록
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -516,34 +695,59 @@ export default function ExpenseApprove({
         )}
       </ConfirmModal>
 
-      {/* 이체일자 */}
+      {/* 이체일자 — 단건과 전체를 같은 창에서 받는다 */}
       <ConfirmModal
-        isOpen={!!payTarget}
-        onClose={() => setPayTarget(null)}
+        isOpen={!!payTarget || payAll}
+        onClose={() => {
+          setPayTarget(null);
+          setPayAll(false);
+        }}
         title="지급완료로 기록할까요?"
         confirmText="지급완료"
-        busy={busyId === payTarget?.id}
+        busy={busyId === (payTarget?.id ?? "bulk")}
         onConfirm={pay}
       >
-        {payTarget && (
-          <div className="space-y-3">
-            <ConfirmRow label="제목" value={payTarget.title} />
-            <ConfirmRow
-              label="합계"
-              value={
-                <b className="tabular-nums">
-                  {formatWon(requestTotal(payTarget.items ?? []))}원
-                </b>
-              }
-            />
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1.5">
-                이체일자
-              </label>
-              <DateField value={payDate} onChange={setPayDate} />
-            </div>
+        <div className="space-y-3">
+          {payTarget ? (
+            <>
+              <ConfirmRow label="제목" value={payTarget.title} />
+              <ConfirmRow
+                label="금액"
+                value={
+                  <b className="tabular-nums">
+                    {formatWon(requestTotal(payTarget.items ?? []))}원
+                  </b>
+                }
+              />
+            </>
+          ) : (
+            <>
+              <ConfirmRow label="대상" value={`이체중 ${payingCount}건 전체`} />
+              <ConfirmRow
+                label="합계"
+                value={
+                  <b className="tabular-nums">
+                    {formatWon(
+                      requests
+                        .filter((r) => r.status === "paying")
+                        .reduce(
+                          (sum, r) => sum + requestTotal(r.items ?? []),
+                          0,
+                        ),
+                    )}
+                    원
+                  </b>
+                }
+              />
+            </>
+          )}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1.5">
+              이체일자
+            </label>
+            <DateField value={payDate} onChange={setPayDate} />
           </div>
-        )}
+        </div>
       </ConfirmModal>
     </div>
   );

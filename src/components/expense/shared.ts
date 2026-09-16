@@ -56,6 +56,8 @@ export type BudgetNode = BudgetItem & {
 export type ExpenseStatus =
   | "pending"
   | "approved"
+  /** 이체 목록에 들어가 은행에 들고 간 상태 */
+  | "paying"
   | "paid"
   | "rejected"
   | "cancelled";
@@ -93,6 +95,8 @@ export type ExpenseRequest = {
   status: ExpenseStatus;
   handler_id: string | null;
   decided_at: string | null;
+  /** 이체 목록을 만든 시각 — 같은 시각이면 같은 묶음 */
+  payout_listed_at: string | null;
   paid_at: string | null;
   reject_reason: string | null;
   result_seen: boolean;
@@ -105,6 +109,7 @@ export type ExpenseRequest = {
 export const STATUS_LABEL: Record<ExpenseStatus, string> = {
   pending: "처리대기",
   approved: "승인됨",
+  paying: "이체중",
   paid: "지급완료",
   rejected: "반려됨",
   cancelled: "취소됨",
@@ -113,6 +118,7 @@ export const STATUS_LABEL: Record<ExpenseStatus, string> = {
 export const STATUS_STYLE: Record<ExpenseStatus, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
   approved: "bg-blue-50 text-blue-700 border-blue-200",
+  paying: "bg-indigo-50 text-indigo-700 border-indigo-200",
   paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
   rejected: "bg-red-50 text-red-600 border-red-200",
   cancelled: "bg-gray-100 text-gray-500 border-gray-200",
@@ -204,6 +210,14 @@ export const availableAmount = (n: {
 /** "1707 선교지/선교사 후원" — 비목 검색·표시용 */
 export const itemLabel = (it: { code: string | null; name: string }) =>
   it.code ? `${it.code} ${it.name}` : it.name;
+
+/** 비목 id → 그 비목이 속한 대항목 이름 (걸러보기·엑셀에서 함께 쓴다) */
+export const majorLabels = (options: BudgetFlat[]) => {
+  const map = new Map<string, string>();
+  for (const o of options)
+    map.set(o.id, o.path.split(" › ")[0] || itemLabel(o));
+  return map;
+};
 
 /** 결의서 총액 */
 export const requestTotal = (items: { amount: number }[]) =>
