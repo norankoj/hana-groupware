@@ -35,7 +35,8 @@
       "Bash(node scripts/seed-budget.js)",
       "Bash(npx eslint *)",
       "Bash(grep -v \"^$\")",
-      "Bash(node scripts/seed-withdraw-accounts.js)"
+      "Bash(node scripts/seed-withdraw-accounts.js)",
+      "Bash(npm view *)"
     ],
     "deny": [
       "Read(.env*)",

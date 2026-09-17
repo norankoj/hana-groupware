@@ -18,6 +18,7 @@ import {
   inputClass,
   itemLabel,
   spentRatio,
+  withdrawDefaults,
   withdrawLabel,
   type BudgetItem,
   type BudgetNode,
@@ -91,12 +92,25 @@ export default function BudgetItemModal({
   /** 작은 화면에서 지금 보이는 열 */
   const [mobileCol, setMobileCol] = useState(start.col);
   const [searchAt, setSearchAt] = useState(0);
+  /** 항목마다 자동으로 붙는 출금계좌 (엑셀 계좌코드, 상위는 하위가 같을 때만) */
+  const defaults = useMemo(() => withdrawDefaults(items), [items]);
+  const autoOf = (id: string | null) => (id ? (defaults.get(id) ?? null) : null);
+
   /**
-   * 출금계좌. null 이면 '고른 비목의 기본값을 따른다'는 뜻이고,
-   * 손으로 바꾸면 그 값이 비목을 바꿔도 유지된다.
+   * 손으로 바꾼 출금계좌. null 이면 '자동을 따른다'.
+   * 이미 자동값과 다르게 저장된 줄을 다시 열면 그 값을 그대로 이어받는다
+   * (안 그러면 팝업을 열 때마다 손으로 고친 계좌가 자동값으로 덮인다).
    */
-  const [withdraw, setWithdraw] = useState<string | null>(withdrawValue);
-  const [withdrawTouched, setWithdrawTouched] = useState(false);
+  const [override, setOverride] = useState<{
+    /** 어느 항목에서 바꾼 값인지 — 다른 항목으로 옮기면 그 항목의 자동값을 쓴다 */
+    for: string | null;
+    code: string | null;
+  } | null>(() =>
+    withdrawValue && withdrawValue !== autoOf(value)
+      ? { for: value, code: withdrawValue }
+      : null,
+  );
+  const [editingWithdraw, setEditingWithdraw] = useState(false);
 
   const searching = query.trim().length > 0;
 
@@ -130,15 +144,16 @@ export default function BudgetItemModal({
     for (let i = col + 1; i < 3; i++) next[i] = null;
     setTrail(next);
     setFocusCol(col);
+    // 다른 항목으로 옮기면 출금계좌는 다시 자동 표시로
+    setEditingWithdraw(false);
     // 하위가 있으면 작은 화면에서는 그 열로 넘어간다
     if (node.children.length > 0) setMobileCol(Math.min(col + 1, 2));
   };
 
-  /** 손으로 고치지 않았으면 고른 비목의 기본 계좌를 따라간다 */
+  /** 그 항목에서 손으로 바꾸지 않았으면 자동 계좌를 따라간다 */
+  const isManual = (id: string | null) => !!override && override.for === id;
   const effectiveWithdraw = (id: string | null) =>
-    withdrawTouched
-      ? withdraw
-      : ((id ? byId.get(id)?.withdraw_code : null) ?? withdraw);
+    isManual(id) ? override!.code : autoOf(id);
 
   const confirm = (id?: string) => {
     const target = id ?? selectedId;
@@ -210,39 +225,23 @@ export default function BudgetItemModal({
       bodyClassName="p-0 flex flex-col min-h-0"
       footer={
         <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full">
-          {/* 출금계좌 — 비목을 고르면 그 비목의 계좌가 따라오고, 여기서 바꿀 수 있다 */}
-          <div className="w-full sm:w-[190px] shrink-0 order-2 sm:order-1">
-            <label
-              htmlFor="withdraw-select"
-              className="block text-[11px] font-bold text-gray-500 mb-1"
-            >
-              출금계좌
-              {!withdrawTouched && selected?.withdraw_code && (
-                <span className="ml-1.5 font-normal text-[#2151EC]">
-                  비목 기본값
-                </span>
-              )}
-            </label>
-            <select
-              id="withdraw-select"
-              value={effectiveWithdraw(selectedId) ?? ""}
-              onChange={(e) => {
-                setWithdraw(e.target.value || null);
-                setWithdrawTouched(true);
+          {/* 출금계좌 — 고른 항목에 맞춰 자동으로 들어간다.
+              '변경'을 눌렀을 때만 직접 고른다. */}
+          <div className="w-full sm:w-[210px] shrink-0 order-2 sm:order-1">
+            <WithdrawField
+              accounts={accounts}
+              hasSelection={!!selected}
+              auto={autoOf(selectedId)}
+              value={effectiveWithdraw(selectedId)}
+              manual={isManual(selectedId)}
+              editing={editingWithdraw}
+              onEdit={() => setEditingWithdraw(true)}
+              onChange={(code) => setOverride({ for: selectedId, code })}
+              onReset={() => {
+                setOverride(null);
+                setEditingWithdraw(false);
               }}
-              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer ${
-                effectiveWithdraw(selectedId)
-                  ? "border-gray-300"
-                  : "border-amber-300 bg-amber-50 text-amber-800"
-              }`}
-            >
-              <option value="">미지정</option>
-              {accounts.map((a) => (
-                <option key={a.code} value={a.code}>
-                  {withdrawLabel(a)}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div className="flex-1 min-w-0 order-1 sm:order-2">
@@ -379,6 +378,7 @@ export default function BudgetItemModal({
                     )}
                     {o.name}
                     <LevelTag level={o.level} />
+                    <WithdrawTag code={autoOf(o.id)} inline />
                   </span>
                   <span className="shrink-0 flex items-baseline gap-2.5">
                     <Available node={o} />
@@ -471,6 +471,7 @@ export default function BudgetItemModal({
                                 )}
                                 {n.name}
                               </span>
+                              <WithdrawTag code={autoOf(n.id)} />
                               {n.children.length > 0 && (
                                 <ChevronRight
                                   size={14}
@@ -497,6 +498,23 @@ export default function BudgetItemModal({
     </Modal>
   );
 }
+
+/** 이 항목에 자동으로 붙는 출금계좌 코드 — 둘러볼 때 바로 보이게 */
+const WithdrawTag = ({
+  code,
+  inline = false,
+}: {
+  code: string | null;
+  inline?: boolean;
+}) =>
+  code ? (
+    <span
+      title={`출금계좌 ${code} (자동)`}
+      className={`${inline ? "ml-1.5 align-middle" : "shrink-0"} inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded border border-gray-300 bg-white font-mono text-[10px] font-bold text-gray-600`}
+    >
+      {code}
+    </span>
+  ) : null;
 
 const LevelTag = ({ level }: { level: number }) => (
   <span className="ml-1.5 text-[10px] text-gray-400 border border-gray-200 rounded px-1">
@@ -547,3 +565,104 @@ const SpentPct = ({ pct }: { pct: number }) => (
     {Math.round(pct)}%
   </span>
 );
+
+/* ── 출금계좌 칸 ──────────────────────────────────────────────────────── */
+
+/**
+ * 평소에는 자동으로 들어간 계좌를 글로 보여주고, '변경'을 눌렀을 때만 고른다.
+ * 하위 계좌가 섞인 상위 항목처럼 자동값이 없으면 처음부터 고르게 한다.
+ */
+function WithdrawField({
+  accounts,
+  hasSelection,
+  auto,
+  value,
+  manual,
+  editing,
+  onEdit,
+  onChange,
+  onReset,
+}: {
+  accounts: WithdrawAccount[];
+  hasSelection: boolean;
+  /** 고른 항목의 자동 계좌 (없으면 null) */
+  auto: string | null;
+  /** 실제로 저장될 계좌 */
+  value: string | null;
+  /** 손으로 바꾼 값인지 */
+  manual: boolean;
+  editing: boolean;
+  onEdit: () => void;
+  onChange: (code: string | null) => void;
+  onReset: () => void;
+}) {
+  const labelOf = (code: string | null) => {
+    const a = accounts.find((x) => x.code === code);
+    return a ? withdrawLabel(a) : null;
+  };
+
+  const showSelect = editing || manual || (hasSelection && !auto);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label
+          htmlFor="withdraw-select"
+          className="text-[11px] font-bold text-gray-500"
+        >
+          출금계좌
+        </label>
+        {manual && auto && (
+          <button
+            type="button"
+            onClick={onReset}
+            className="text-[11px] text-[#2151EC] hover:underline cursor-pointer"
+          >
+            자동({auto})으로
+          </button>
+        )}
+      </div>
+
+      {!hasSelection ? (
+        <p className="py-2 text-sm text-gray-400">항목을 고르면 자동으로</p>
+      ) : !showSelect ? (
+        <div className="flex items-center gap-2 py-1">
+          <b className="text-sm text-gray-900">{labelOf(value)}</b>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="px-2 py-0.5 rounded-md border border-[#2151EC] bg-white text-xs font-bold text-[#2151EC] hover:bg-blue-50 transition cursor-pointer"
+          >
+            변경
+          </button>
+        </div>
+      ) : (
+        <>
+          <select
+            id="withdraw-select"
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value || null)}
+            className={`w-full bg-white border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer ${
+              value
+                ? "border-gray-300"
+                : "border-amber-300 bg-amber-50 text-amber-800"
+            }`}
+          >
+            <option value="">미지정</option>
+            {accounts.map((a) => (
+              <option key={a.code} value={a.code}>
+                {withdrawLabel(a)}
+                {a.code === auto ? " (자동)" : ""}
+              </option>
+            ))}
+          </select>
+          {!auto && (
+            <p className="mt-1 text-[11px] text-amber-700">
+              하위 항목마다 계좌가 달라 직접 골라주세요
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

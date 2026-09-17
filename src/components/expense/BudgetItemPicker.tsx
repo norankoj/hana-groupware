@@ -9,6 +9,7 @@ import {
   availableAmount,
   formatWon,
   itemLabel,
+  withdrawDefaults,
   withdrawLabel,
   type BudgetFlat,
   type BudgetItem,
@@ -47,6 +48,8 @@ export default function BudgetItemPicker({
     () => options.find((o) => o.id === value) ?? null,
     [options, value],
   );
+  // 최근 비목 버튼으로 바로 넣을 때 쓰는 자동 출금계좌
+  const defaults = useMemo(() => withdrawDefaults(items), [items]);
   const account = useMemo(
     () => accounts.find((a) => a.code === withdrawValue) ?? null,
     [accounts, withdrawValue],
@@ -139,8 +142,8 @@ export default function BudgetItemPicker({
           <button
             key={o.id}
             type="button"
-            // 최근 비목으로 바로 배정 — 출금계좌는 그 비목의 기본값을 따른다
-            onClick={() => onChange(o.id, o.withdraw_code)}
+            // 최근 비목으로 바로 배정 — 출금계좌는 그 항목의 자동값을 따른다
+            onClick={() => onChange(o.id, defaults.get(o.id) ?? null)}
             title={`${o.path} › ${itemLabel(o)}`}
             className="px-2 py-1 rounded-md border border-gray-200 bg-white text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition cursor-pointer max-w-[150px] truncate"
           >

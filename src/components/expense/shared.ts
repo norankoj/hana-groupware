@@ -67,6 +67,48 @@ export type WithdrawAccount = {
 /** "A 일반재정" */
 export const withdrawLabel = (a: WithdrawAccount) => `${a.code} ${a.name}`;
 
+/**
+ * 항목마다 자동으로 붙일 출금계좌.
+ *
+ * 엑셀의 계좌코드는 말단(비목, 또는 하위가 없는 소항목)에만 적혀 있다.
+ * 소항목·대항목에 바로 배정하는 경우를 위해, 하위 말단이 모두 같은
+ * 계좌를 쓰면 그 계좌를 쓰고, 섞여 있으면 정하지 않는다(null → 직접 고름).
+ *   예) 3. 사역자 사례 → 하위 전부 A → A
+ *       170. 선교지원  → E 와 G 가 섞임 → null
+ */
+export function withdrawDefaults(
+  items: { id: string; parent_id: string | null; withdraw_code: string | null }[],
+): Map<string, string | null> {
+  const children = new Map<string, string[]>();
+  for (const it of items) {
+    if (!it.parent_id) continue;
+    if (!children.has(it.parent_id)) children.set(it.parent_id, []);
+    children.get(it.parent_id)!.push(it.id);
+  }
+  const byId = new Map(items.map((it) => [it.id, it]));
+  const memo = new Map<string, Set<string>>();
+
+  /** 이 항목 아래(자기 포함) 말단들이 쓰는 계좌 모음 */
+  const codesUnder = (id: string): Set<string> => {
+    const cached = memo.get(id);
+    if (cached) return cached;
+    const own = byId.get(id)?.withdraw_code;
+    const kids = children.get(id) ?? [];
+    const set = new Set<string>();
+    if (own) set.add(own);
+    else for (const k of kids) codesUnder(k).forEach((c) => set.add(c));
+    memo.set(id, set);
+    return set;
+  };
+
+  const out = new Map<string, string | null>();
+  for (const it of items) {
+    const set = codesUnder(it.id);
+    out.set(it.id, set.size === 1 ? [...set][0] : null);
+  }
+  return out;
+}
+
 /** 예산안 한 줄 — 대항목(1) / 소항목(2) / 비목(3) */
 export type BudgetItem = {
   id: string;
