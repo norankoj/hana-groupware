@@ -14,6 +14,7 @@ import type {
   BudgetUsage,
   ExpenseRequest,
   ExpenseUser,
+  WithdrawAccount,
 } from "@/components/expense/shared";
 
 type Tab = "mine" | "approve" | "budget" | "ledger";
@@ -47,6 +48,9 @@ function ExpenseContent() {
   const [allRequests, setAllRequests] = useState<ExpenseRequest[]>([]);
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [usage, setUsage] = useState<BudgetUsage[]>([]);
+  const [withdrawAccounts, setWithdrawAccounts] = useState<WithdrawAccount[]>(
+    [],
+  );
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("mine");
@@ -112,18 +116,28 @@ function ExpenseContent() {
     }
 
     if (canReadBudget) {
-      const [{ data: budgetItems }, { data: budgetUsage }] = await Promise.all([
-        supabase
-          .from("budget_items")
-          .select("*")
-          .eq("fiscal_year", activeYear)
-          .eq("is_active", true)
-          .order("sort_order"),
-        supabase.from("budget_usage").select("*").eq("fiscal_year", activeYear),
-      ]);
+      const [{ data: budgetItems }, { data: budgetUsage }, { data: accounts }] =
+        await Promise.all([
+          supabase
+            .from("budget_items")
+            .select("*")
+            .eq("fiscal_year", activeYear)
+            .eq("is_active", true)
+            .order("sort_order"),
+          supabase
+            .from("budget_usage")
+            .select("*")
+            .eq("fiscal_year", activeYear),
+          supabase
+            .from("withdraw_accounts")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order"),
+        ]);
 
       setItems((budgetItems as BudgetItem[]) ?? []);
       setUsage((budgetUsage as BudgetUsage[]) ?? []);
+      setWithdrawAccounts((accounts as WithdrawAccount[]) ?? []);
     }
 
     if (profile.is_expense_manager) {
@@ -224,6 +238,7 @@ function ExpenseContent() {
             requests={allRequests}
             budgetItems={items}
             usage={usage}
+            withdrawAccounts={withdrawAccounts}
             onRefresh={fetchData}
           />
         )}

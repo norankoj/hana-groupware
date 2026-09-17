@@ -23,6 +23,50 @@ export type ExpenseUser = {
   is_expense_manager: boolean;
 };
 
+/**
+ * 은행 표기와 은행코드 — 이체 엑셀에 넣는다.
+ * 코드는 금융결제원 기관코드, 표기는 기존 이체 양식에서 쓰던 짧은 이름.
+ */
+export const BANK_INFO: Record<string, { code: string; short: string }> = {
+  국민은행: { code: "004", short: "국민" },
+  하나은행: { code: "081", short: "KEB하나" },
+  우리은행: { code: "020", short: "우리" },
+  신한은행: { code: "088", short: "신한" },
+  농협은행: { code: "011", short: "농협" },
+  지역농축협: { code: "012", short: "단위농협" },
+  기업은행: { code: "003", short: "기업" },
+  SC제일은행: { code: "023", short: "SC제일" },
+  한국씨티은행: { code: "027", short: "씨티" },
+  수협은행: { code: "007", short: "수협" },
+  새마을금고: { code: "045", short: "새마을" },
+  신협: { code: "048", short: "신협" },
+  우체국: { code: "071", short: "우체국" },
+  산업은행: { code: "002", short: "산업" },
+  카카오뱅크: { code: "090", short: "카카오뱅크" },
+  케이뱅크: { code: "089", short: "케이뱅크" },
+  토스뱅크: { code: "092", short: "토스뱅크" },
+  부산은행: { code: "032", short: "부산" },
+  대구은행: { code: "031", short: "대구" },
+  경남은행: { code: "039", short: "경남" },
+  광주은행: { code: "034", short: "광주" },
+  전북은행: { code: "037", short: "전북" },
+  제주은행: { code: "035", short: "제주" },
+};
+
+/** 교회 출금계좌 — 전부 국민은행, 예금주 수원하나교회 */
+export type WithdrawAccount = {
+  code: string;
+  name: string;
+  bank_name: string;
+  account_no: string;
+  account_holder: string;
+  sort_order: number;
+  is_active: boolean;
+};
+
+/** "A 일반재정" */
+export const withdrawLabel = (a: WithdrawAccount) => `${a.code} ${a.name}`;
+
 /** 예산안 한 줄 — 대항목(1) / 소항목(2) / 비목(3) */
 export type BudgetItem = {
   id: string;
@@ -34,6 +78,8 @@ export type BudgetItem = {
   planned_amount: number;
   priority: string | null;
   note: string | null;
+  /** 이 항목의 돈이 나가는 교회 계좌 */
+  withdraw_code: string | null;
   sort_order: number;
 };
 
@@ -73,6 +119,8 @@ export type ExpenseRequestItem = {
   amount: number; // 총액
   purpose: string | null; // 용도 / 비고
   budget_item_id: string | null; // 담당자가 승인할 때 배정
+  /** 출금계좌 — 비목을 배정하면 자동으로 붙고, 손으로 바꿀 수 있다 */
+  withdraw_code: string | null;
   // 이 줄만 지급 대상이 다를 때. 비어 있으면 결의서 헤더 계좌로 지급한다.
   bank_name: string | null;
   account_no: string | null;

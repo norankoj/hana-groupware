@@ -34,7 +34,8 @@
       "Bash(rm -f dump-xlsx.js dump2.js /tmp/dump.js && git status --short | head -5)",
       "Bash(node scripts/seed-budget.js)",
       "Bash(npx eslint *)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(node scripts/seed-withdraw-accounts.js)"
     ],
     "deny": [
       "Read(.env*)",

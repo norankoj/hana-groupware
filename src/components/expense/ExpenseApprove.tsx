@@ -14,7 +14,11 @@ import ReceiptViewer, {
   collectReceipts,
   type ReceiptRef,
 } from "./ReceiptViewer";
-import { exportExpenseLines, toExportLines } from "./exportExcel";
+import {
+  exportExpenseLines,
+  exportPayoutList,
+  toExportLines,
+} from "./exportExcel";
 import {
   STATUS_LABEL,
   STATUS_STYLE,
@@ -32,6 +36,7 @@ import {
   type BudgetUsage,
   type ExpenseRequest,
   type ExpenseUser,
+  type WithdrawAccount,
 } from "./shared";
 
 type Props = {
@@ -39,6 +44,7 @@ type Props = {
   requests: ExpenseRequest[];
   budgetItems: BudgetItem[];
   usage: BudgetUsage[];
+  withdrawAccounts: WithdrawAccount[];
   onRefresh: () => void;
 };
 
@@ -57,6 +63,7 @@ export default function ExpenseApprove({
   requests,
   budgetItems,
   usage,
+  withdrawAccounts,
   onRefresh,
 }: Props) {
   const supabase = createClient();
@@ -71,6 +78,9 @@ export default function ExpenseApprove({
   const [payAll, setPayAll] = useState(false);
   const [payDate, setPayDate] = useState(todayString());
   const [listing, setListing] = useState(false);
+  /** 이체 목록 만들기 확인창 — 은행이 처리할 예정일자를 함께 받는다 */
+  const [listOpen, setListOpen] = useState(false);
+  const [listDate, setListDate] = useState(todayString());
   // 영수증 미리보기 — 한 청구서의 영수증을 모두 모아 옆으로 넘긴다
   const [viewer, setViewer] = useState<{
     receipts: ReceiptRef[];
@@ -134,11 +144,15 @@ export default function ExpenseApprove({
       return next;
     });
 
-  /** 줄에 비목 배정 — 화면은 새로 불러와 잔액까지 함께 갱신한다 */
-  const assign = async (itemId: string, budgetItemId: string | null) => {
+  /** 줄에 비목·출금계좌 배정 — 둘 다 비목 팝업에서 함께 정한다 */
+  const assign = async (
+    itemId: string,
+    budgetItemId: string | null,
+    withdrawCode: string | null,
+  ) => {
     const { error } = await supabase
       .from("expense_request_items")
-      .update({ budget_item_id: budgetItemId })
+      .update({ budget_item_id: budgetItemId, withdraw_code: withdrawCode })
       .eq("id", itemId);
 
     if (error) return toast.error("비목 배정 실패: " + error.message);
@@ -246,17 +260,6 @@ export default function ExpenseApprove({
     const approved = requests.filter((r) => r.status === "approved");
     if (approved.length === 0) return;
 
-    const total = approved.reduce(
-      (sum, r) => sum + requestTotal(r.items ?? []),
-      0,
-    );
-    const ok = await showConfirm(
-      "이체 목록을 만들까요?",
-      `승인된 ${approved.length}건 ${formatWon(total)}원이 '이체중'으로 넘어가고 엑셀이 내려갑니다. 이 목록을 은행에 들고 가세요.`,
-      "만들기",
-    );
-    if (!ok) return;
-
     setListing(true);
     const { data, error } = await supabase
       .from("expense_requests")
@@ -272,6 +275,7 @@ export default function ExpenseApprove({
       .eq("status", "approved")
       .select("id");
     setListing(false);
+    setListOpen(false);
 
     if (error) return toast.error("이체 목록 실패: " + error.message);
     if (!data || data.length === 0) {
@@ -279,14 +283,15 @@ export default function ExpenseApprove({
       return onRefresh();
     }
 
-    // 실제로 넘어간 건만 엑셀에 담는다
+    // 실제로 넘어간 건만 엑셀에 담는다. 은행에 넘기던 기존 양식을 쓴다.
     const moved = new Set(data.map((d) => d.id));
-    exportExpenseLines(
+    exportPayoutList(
       toExportLines(
         approved.filter((r) => moved.has(r.id)),
         majorLabels(options),
       ),
-      `이체목록_${todayString()}.xlsx`,
+      listDate,
+      `이체목록_${listDate.replace(/-/g, "")}.xlsx`,
     );
 
     toast.success(`${data.length}건을 이체 목록으로 넘겼습니다.`);
@@ -407,7 +412,10 @@ export default function ExpenseApprove({
           </div>
           <button
             type="button"
-            onClick={makePayoutList}
+            onClick={() => {
+              setListDate(todayString());
+              setListOpen(true);
+            }}
             disabled={listing}
             className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
           >
@@ -552,7 +560,9 @@ export default function ExpenseApprove({
                                 items={budgetItems}
                                 usage={usage}
                                 options={options}
+                                accounts={withdrawAccounts}
                                 value={it.budget_item_id}
+                                withdrawValue={it.withdraw_code}
                                 recent={recent}
                                 // 잘못 배정한 비목은 승인·지급 뒤에도 고쳐야 한다
                                 // (회계 정정). 반려·취소된 건만 잠근다.
@@ -560,7 +570,7 @@ export default function ExpenseApprove({
                                   req.status === "rejected" ||
                                   req.status === "cancelled"
                                 }
-                                onChange={(id) => assign(it.id, id)}
+                                onChange={(id, code) => assign(it.id, id, code)}
                               />
                               {receipts.map((f, i) => (
                                 <button
@@ -659,6 +669,43 @@ export default function ExpenseApprove({
           onClose={() => setViewer(null)}
         />
       )}
+
+      {/* 이체 목록 만들기 — 처리예정일자가 엑셀 맨 위 '처리요청일자'로 들어간다 */}
+      <ConfirmModal
+        isOpen={listOpen}
+        onClose={() => setListOpen(false)}
+        title="이체 목록을 만들까요?"
+        confirmText="만들기"
+        busy={listing}
+        onConfirm={makePayoutList}
+      >
+        <div className="space-y-3">
+          <ConfirmRow label="대상" value={`승인된 ${approvedCount}건`} />
+          <ConfirmRow
+            label="합계"
+            value={
+              <b className="tabular-nums">
+                {formatWon(
+                  requests
+                    .filter((r) => r.status === "approved")
+                    .reduce((sum, r) => sum + requestTotal(r.items ?? []), 0),
+                )}
+                원
+              </b>
+            }
+          />
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1.5">
+              처리예정일자
+            </label>
+            <DateField value={listDate} onChange={setListDate} />
+          </div>
+          <p className="pt-1 text-xs text-gray-500">
+            이 건들은 <b>이체중</b>으로 넘어가고 엑셀이 내려갑니다. 이후 승인되는
+            건은 여기 섞이지 않습니다.
+          </p>
+        </div>
+      </ConfirmModal>
 
       {/* 반려 사유 */}
       <ConfirmModal

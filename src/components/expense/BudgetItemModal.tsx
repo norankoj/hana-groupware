@@ -18,9 +18,11 @@ import {
   inputClass,
   itemLabel,
   spentRatio,
+  withdrawLabel,
   type BudgetItem,
   type BudgetNode,
   type BudgetUsage,
+  type WithdrawAccount,
 } from "./shared";
 
 // 부모는 열릴 때만 이 컴포넌트를 마운트한다 — 그래야 열 때마다
@@ -31,7 +33,10 @@ type Props = {
   usage: BudgetUsage[];
   /** 지금 배정된 비목 — 열 때 그 자리로 이동한다 */
   value: string | null;
-  onPick: (budgetItemId: string) => void;
+  /** 지금 정해진 출금계좌 — 비워두면 고른 비목의 기본값을 쓴다 */
+  withdrawValue?: string | null;
+  accounts: WithdrawAccount[];
+  onPick: (budgetItemId: string, withdrawCode: string | null) => void;
 };
 
 const LEVEL_TITLE = ["대항목", "소항목", "비목"];
@@ -41,6 +46,8 @@ export default function BudgetItemModal({
   items,
   usage,
   value,
+  withdrawValue = null,
+  accounts,
   onPick,
 }: Props) {
   const roots = useMemo(() => buildBudgetTree(items, usage), [items, usage]);
@@ -84,6 +91,12 @@ export default function BudgetItemModal({
   /** 작은 화면에서 지금 보이는 열 */
   const [mobileCol, setMobileCol] = useState(start.col);
   const [searchAt, setSearchAt] = useState(0);
+  /**
+   * 출금계좌. null 이면 '고른 비목의 기본값을 따른다'는 뜻이고,
+   * 손으로 바꾸면 그 값이 비목을 바꿔도 유지된다.
+   */
+  const [withdraw, setWithdraw] = useState<string | null>(withdrawValue);
+  const [withdrawTouched, setWithdrawTouched] = useState(false);
 
   const searching = query.trim().length > 0;
 
@@ -121,10 +134,16 @@ export default function BudgetItemModal({
     if (node.children.length > 0) setMobileCol(Math.min(col + 1, 2));
   };
 
+  /** 손으로 고치지 않았으면 고른 비목의 기본 계좌를 따라간다 */
+  const effectiveWithdraw = (id: string | null) =>
+    withdrawTouched
+      ? withdraw
+      : ((id ? byId.get(id)?.withdraw_code : null) ?? withdraw);
+
   const confirm = (id?: string) => {
     const target = id ?? selectedId;
     if (!target) return;
-    onPick(target);
+    onPick(target, effectiveWithdraw(target));
     onClose();
   };
 
@@ -190,8 +209,43 @@ export default function BudgetItemModal({
       className="sm:max-w-[900px]"
       bodyClassName="p-0 flex flex-col min-h-0"
       footer={
-        <div className="flex items-center gap-3 w-full">
-          <div className="flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full">
+          {/* 출금계좌 — 비목을 고르면 그 비목의 계좌가 따라오고, 여기서 바꿀 수 있다 */}
+          <div className="w-full sm:w-[190px] shrink-0 order-2 sm:order-1">
+            <label
+              htmlFor="withdraw-select"
+              className="block text-[11px] font-bold text-gray-500 mb-1"
+            >
+              출금계좌
+              {!withdrawTouched && selected?.withdraw_code && (
+                <span className="ml-1.5 font-normal text-[#2151EC]">
+                  비목 기본값
+                </span>
+              )}
+            </label>
+            <select
+              id="withdraw-select"
+              value={effectiveWithdraw(selectedId) ?? ""}
+              onChange={(e) => {
+                setWithdraw(e.target.value || null);
+                setWithdrawTouched(true);
+              }}
+              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer ${
+                effectiveWithdraw(selectedId)
+                  ? "border-gray-300"
+                  : "border-amber-300 bg-amber-50 text-amber-800"
+              }`}
+            >
+              <option value="">미지정</option>
+              {accounts.map((a) => (
+                <option key={a.code} value={a.code}>
+                  {withdrawLabel(a)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-0 order-1 sm:order-2">
             {selected ? (
               <>
                 <p className="text-[11px] text-gray-400 truncate">
@@ -239,17 +293,19 @@ export default function BudgetItemModal({
               <p className="text-sm text-gray-400">배정할 항목을 골라주세요</p>
             )}
           </div>
-          <button onClick={onClose} className={btnStyles.cancel}>
-            닫기
-          </button>
-          {/* btnStyles.cancel 에만 최소 너비가 있어 그대로 두면 두 버튼 크기가 어긋난다 */}
-          <button
-            onClick={() => confirm()}
-            disabled={!selectedId}
-            className={`${btnStyles.save} sm:min-w-[80px]`}
-          >
-            배정
-          </button>
+          <div className="flex gap-2 order-3 shrink-0">
+            <button onClick={onClose} className={btnStyles.cancel}>
+              닫기
+            </button>
+            {/* btnStyles.cancel 에만 최소 너비가 있어 그대로 두면 두 버튼 크기가 어긋난다 */}
+            <button
+              onClick={() => confirm()}
+              disabled={!selectedId}
+              className={`${btnStyles.save} sm:min-w-[80px]`}
+            >
+              배정
+            </button>
+          </div>
         </div>
       }
     >
