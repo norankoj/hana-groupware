@@ -13,6 +13,7 @@ import {
   STATUS_STYLE,
   formatWon,
   requestTotal,
+  type BudgetYear,
   type ExpenseRequest,
   type ExpenseUser,
 } from "./shared";
@@ -21,6 +22,7 @@ type Props = {
   user: ExpenseUser;
   requests: ExpenseRequest[];
   fiscalYear: number;
+  years: BudgetYear[];
   onRefresh: () => void;
 };
 
@@ -28,6 +30,7 @@ export default function ExpenseMyView({
   user,
   requests,
   fiscalYear,
+  years,
   onRefresh,
 }: Props) {
   const supabase = createClient();
@@ -147,6 +150,7 @@ export default function ExpenseMyView({
         onClose={() => setIsFormOpen(false)}
         user={user}
         fiscalYear={fiscalYear}
+        years={years}
         onSubmitted={() => {
           setIsFormOpen(false);
           onRefresh();

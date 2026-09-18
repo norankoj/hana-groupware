@@ -84,7 +84,7 @@ export default function Select({
           if (!isOpen && containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
             const spaceBelow = window.innerHeight - rect.bottom;
-            const up = spaceBelow < 260;
+            const up = spaceBelow < 360;
             setOpenUpward(up);
             // position: fixed 로 overflow:hidden 부모 탈출
             setDropdownStyle(
@@ -135,7 +135,7 @@ export default function Select({
       {/* 드롭다운 메뉴 — position:fixed로 overflow:hidden 부모 탈출 */}
       {isOpen && (
         <div
-          className="bg-white border border-gray-100 rounded-xl shadow-lg max-h-60 overflow-y-auto custom-scrollbar animate-fadeIn"
+          className="bg-white border border-gray-100 rounded-xl shadow-lg max-h-[22rem] overflow-y-auto custom-scrollbar animate-fadeIn"
           style={dropdownStyle}
         >
           {hasGroups

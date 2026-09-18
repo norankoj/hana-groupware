@@ -3,9 +3,10 @@
 "use client";
 
 import { useState } from "react";
-import { Paperclip } from "lucide-react";
 import Modal from "@/components/Modal";
 import ReceiptViewer, { collectReceipts } from "./ReceiptViewer";
+import AdjustmentHistory from "./AdjustmentHistory";
+import ReceiptThumbs from "./ReceiptThumbs";
 import {
   STATUS_LABEL,
   STATUS_STYLE,
@@ -148,27 +149,22 @@ export default function ExpenseDetailModal({
                       </span>
                     )}
 
-                    {receipts.map((f, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() =>
-                          setViewAt(
-                            Math.max(
-                              allReceipts.findIndex(
-                                (r) => r.itemId === it.id && r.index === i,
-                              ),
-                              0,
+                    <ReceiptThumbs
+                      itemId={it.id}
+                      files={receipts}
+                      onOpen={(i) =>
+                        setViewAt(
+                          Math.max(
+                            allReceipts.findIndex(
+                              (r) => r.itemId === it.id && r.index === i,
                             ),
-                          )
-                        }
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 cursor-pointer max-w-[200px]"
-                      >
-                        <Paperclip size={11} className="shrink-0" />
-                        <span className="truncate">{f.name}</span>
-                      </button>
-                    ))}
+                            0,
+                          ),
+                        )
+                      }
+                    />
                   </div>
+                  <AdjustmentHistory item={it} paidAt={request.paid_at} />
                 </li>
               );
             })}

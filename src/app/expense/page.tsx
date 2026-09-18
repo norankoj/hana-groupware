@@ -13,6 +13,7 @@ import type {
   BudgetItem,
   BudgetUsage,
   ExpenseRequest,
+  BudgetYear,
   ExpenseUser,
   WithdrawAccount,
 } from "@/components/expense/shared";
@@ -21,7 +22,7 @@ type Tab = "mine" | "approve" | "budget" | "ledger";
 
 /** 청구 + 줄 + 배정된 비목까지 한 번에 */
 const REQUEST_SELECT =
-  "*, requester:requester_id(full_name, position), handler:handler_id(full_name), items:expense_request_items(*, budget_item:budget_item_id(code, name))";
+  "*, requester:requester_id(full_name, position), handler:handler_id(full_name), items:expense_request_items(*, budget_item:budget_item_id(code, name), adjustments:expense_adjustments(*))";
 
 /** 줄 순서는 중첩 조회로 보장되지 않으므로 여기서 맞춘다 */
 const sortItems = (rows: ExpenseRequest[] | null) =>
@@ -48,6 +49,8 @@ function ExpenseContent() {
   const [allRequests, setAllRequests] = useState<ExpenseRequest[]>([]);
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [usage, setUsage] = useState<BudgetUsage[]>([]);
+  /** 예산 연도 목록 — 가예산(draft) / 확정(final) */
+  const [years, setYears] = useState<BudgetYear[]>([]);
   const [withdrawAccounts, setWithdrawAccounts] = useState<WithdrawAccount[]>(
     [],
   );
@@ -98,6 +101,12 @@ function ExpenseContent() {
     const activeYear = typeof year === "number" ? year : new Date().getFullYear();
     setFiscalYear(activeYear);
 
+    const { data: yearRows } = await supabase
+      .from("budget_years")
+      .select("*")
+      .order("fiscal_year");
+    setYears((yearRows as BudgetYear[]) ?? []);
+
     const mine = sortItems(reqs as ExpenseRequest[] | null);
     setMyRequests(mine);
 
@@ -121,13 +130,13 @@ function ExpenseContent() {
           supabase
             .from("budget_items")
             .select("*")
-            .eq("fiscal_year", activeYear)
+            // 연도를 가리지 않고 받는다 — 청구마다 제 연도 비목에 배정하고,
+            // 예산안 탭에서 연도를 바꿔 본다.
+            // ponytail: 한 해 195행이라 5년치까지는 기본 1,000건 안이다.
             .eq("is_active", true)
+            .order("fiscal_year")
             .order("sort_order"),
-          supabase
-            .from("budget_usage")
-            .select("*")
-            .eq("fiscal_year", activeYear),
+          supabase.from("budget_usage").select("*"),
           supabase
             .from("withdraw_accounts")
             .select("*")
@@ -229,6 +238,7 @@ function ExpenseContent() {
             user={user}
             requests={myRequests}
             fiscalYear={fiscalYear}
+            years={years}
             onRefresh={fetchData}
           />
         )}
@@ -243,7 +253,15 @@ function ExpenseContent() {
           />
         )}
         {tab === "budget" && canReadBudget && (
-          <BudgetTree fiscalYear={fiscalYear} items={items} usage={usage} />
+          <BudgetTree
+            defaultYear={fiscalYear}
+            years={years}
+            items={items}
+            usage={usage}
+            requests={allRequests}
+            canFinalize={user.is_expense_manager}
+            onRefresh={fetchData}
+          />
         )}
         {tab === "ledger" && user.is_expense_manager && (
           <ExpenseLedger

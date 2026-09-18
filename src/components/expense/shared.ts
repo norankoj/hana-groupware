@@ -125,6 +125,29 @@ export type BudgetItem = {
   sort_order: number;
 };
 
+/** 예산 연도 — 가예산(draft)으로 넣고 담당자가 확정(final)한다 */
+export type BudgetYear = {
+  fiscal_year: number;
+  status: "draft" | "final";
+  finalized_at: string | null;
+};
+
+/**
+ * 청구의 예산 연도 — 청구일자(지출일) 기준. 승인일이 아니다.
+ * 12월에 쓴 것을 1월에 승인해도 그 해 예산이다.
+ * 그 해 예산이 아직 확정되지 않았으면 확정된 최근 연도로 넣는다.
+ */
+export const fiscalYearFor = (
+  date: string,
+  years: BudgetYear[],
+  fallback: number,
+) => {
+  const y = Number(date.slice(0, 4));
+  return years.some((v) => v.fiscal_year === y && v.status === "final")
+    ? y
+    : fallback;
+};
+
 /** budget_usage 뷰 — 비목별 소진 집계 */
 export type BudgetUsage = {
   budget_item_id: string;
@@ -170,7 +193,33 @@ export type ExpenseRequestItem = {
   receipt_files: ProofFile[];
   created_at: string;
   budget_item?: { code: string | null; name: string } | null;
+  /** 지급완료 뒤 추가 지급 · 과지급 반환 기록 */
+  adjustments?: ExpenseAdjustment[];
 };
+
+/** 지급 정정 — 원래 금액은 두고 정정을 쌓는다 (고치거나 지우지 않는다) */
+export type ExpenseAdjustment = {
+  id: string;
+  item_id: string;
+  kind: "extra" | "refund";
+  amount: number;
+  occurred_on: string;
+  memo: string;
+  created_at: string;
+};
+
+export const ADJ_LABEL: Record<ExpenseAdjustment["kind"], string> = {
+  extra: "추가 지급",
+  refund: "과지급 반환",
+};
+
+/** 정정까지 반영한 최종 지급액 */
+export const netPaid = (it: { amount: number; adjustments?: ExpenseAdjustment[] }) =>
+  it.amount +
+  (it.adjustments ?? []).reduce(
+    (sum, a) => sum + (a.kind === "extra" ? a.amount : -a.amount),
+    0,
+  );
 
 /** 결의서 헤더 — 한 번의 청구 */
 export type ExpenseRequest = {

@@ -55,7 +55,7 @@ export default function Modal({
           ? "sm:rounded-sm sm:max-w-[400px] h-auto sm:h-auto sm:max-h-[90vh]"
           : "sm:rounded-sm sm:max-w-[600px] h-[92dvh] sm:h-auto sm:max-h-[90vh]"
       } ${className}`}>
-        <div className={`border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0 ${isSm ? "px-4 py-3" : "px-6 py-4"}`}>
+        <div className={`border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0 px-6 py-4`}>
           <h2 className={`font-bold text-gray-900 tracking-tight ${isSm ? "text-base" : "text-lg"}`}>
             {title}
           </h2>
@@ -81,11 +81,11 @@ export default function Modal({
         </div>
 
         {/* 본문 */}
-        <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName || (isSm ? "p-4" : "p-6")}`}>{children}</div>
+        <div className={`flex-1 min-h-0 overflow-y-auto ${bodyClassName || "p-6"}`}>{children}</div>
 
         {/* 푸터 */}
         {footer && (
-          <div className={`border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3 shrink-0 ${isSm ? "px-4 py-3" : "px-6 py-4"}`}>
+          <div className={`border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3 shrink-0 px-6 py-4`}>
             {footer}
           </div>
         )}

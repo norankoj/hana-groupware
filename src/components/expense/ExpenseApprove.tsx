@@ -2,13 +2,16 @@
 // 요청 리스트 (담당자) — 줄마다 비목을 배정하고 승인 · 반려 · 지급 처리
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
-import { ChevronDown, ChevronRight, Download, Paperclip } from "lucide-react";
+import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import ConfirmModal, { ConfirmRow } from "@/components/fund/ConfirmModal";
-import { DateField } from "@/components/fund/FundFields";
+import { AmountField, DateField } from "@/components/fund/FundFields";
+import AdjustmentHistory from "./AdjustmentHistory";
+import ReceiptThumbs from "./ReceiptThumbs";
+import Modal from "@/components/Modal";
 import BudgetItemPicker from "./BudgetItemPicker";
 import ReceiptViewer, {
   collectReceipts,
@@ -29,12 +32,18 @@ import {
   formatWon,
   itemLabel,
   majorLabels,
+  netPaid,
+  parseAmount,
+  ADJ_LABEL,
   requestTotal,
   resolveAccount,
   todayString,
+  type BudgetFlat,
   type BudgetItem,
   type BudgetUsage,
+  type ExpenseAdjustment,
   type ExpenseRequest,
+  type ExpenseRequestItem,
   type ExpenseUser,
   type WithdrawAccount,
 } from "./shared";
@@ -53,7 +62,6 @@ const STATUS_FILTERS = [
   { key: "approved", label: "승인됨" },
   { key: "paying", label: "이체중" },
   { key: "paid", label: "지급완료" },
-  { key: "all", label: "전체" },
 ] as const;
 
 type Filter = (typeof STATUS_FILTERS)[number]["key"];
@@ -92,27 +100,23 @@ export default function ExpenseApprove({
     [budgetItems, usage],
   );
 
-  // 최근에 배정한 비목 — 버튼으로 바로 고를 수 있게
-  const recent = useMemo(() => {
-    const byId = new Map(options.map((o) => [o.id, o]));
-    const seen = new Set<string>();
-    const list: typeof options = [];
-    for (const r of requests) {
-      for (const it of r.items ?? []) {
-        if (!it.budget_item_id || seen.has(it.budget_item_id)) continue;
-        const found = byId.get(it.budget_item_id);
-        if (!found) continue;
-        seen.add(it.budget_item_id);
-        list.push(found);
-        if (list.length >= 5) return list;
-      }
+  /** 연도별 예산안 — 청구는 제 연도(청구일자 기준)의 비목에만 배정한다 */
+  const byYear = useMemo(() => {
+    const m = new Map<
+      number,
+      { items: BudgetItem[]; usage: BudgetUsage[]; options: BudgetFlat[] }
+    >();
+    for (const y of new Set(budgetItems.map((i) => i.fiscal_year))) {
+      const it = budgetItems.filter((i) => i.fiscal_year === y);
+      const us = usage.filter((u) => u.fiscal_year === y);
+      m.set(y, { items: it, usage: us, options: flattenBudget(it, us) });
     }
-    return list;
-  }, [requests, options]);
+    return m;
+  }, [budgetItems, usage]);
+  const EMPTY_YEAR = { items: [], usage: [], options: [] };
 
   const shown = useMemo(() => {
-    const list =
-      filter === "all" ? requests : requests.filter((r) => r.status === filter);
+    const list = requests.filter((r) => r.status === filter);
     // 처리대기가 늘 위로
     return [...list].sort((a, b) => {
       if (a.status === "pending" && b.status !== "pending") return -1;
@@ -121,10 +125,109 @@ export default function ExpenseApprove({
     });
   }, [requests, filter]);
 
+/** 정정까지 반영한 청구 한 건의 지급액 — 예산 확정지출과 같은 기준 */
+  const requestNet = (r: ExpenseRequest) =>
+    (r.items ?? []).reduce((t, i) => t + netPaid(i), 0);
+  const adjustCount = (r: ExpenseRequest) =>
+    (r.items ?? []).reduce((t, i) => t + (i.adjustments ?? []).length, 0);
+  const hasAdjustment = (r: ExpenseRequest) =>
+    (r.items ?? []).some((i) => (i.adjustments ?? []).length > 0);
+  /** "2026-09-18" → "금" */
+  const weekdayOf = (d: string) => {
+    const t = new Date(`${d}T00:00:00`);
+    return isNaN(t.getTime()) ? "" : "일월화수목금토"[t.getDay()];
+  };
+
+  /** 지급완료는 건이 많아 이체일자로 묶어 보여준다 */
+  const paidGroups = useMemo(() => {
+    const m = new Map<string, ExpenseRequest[]>();
+    for (const r of shown) {
+      if (r.status !== "paid") continue;
+      const key = r.paid_at ?? "이체일자 없음";
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(r);
+    }
+    return [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [shown]);
+  const [openDates, setOpenDates] = useState<Set<string>>(new Set());
+  /** 지급완료 표에서 '상세'로 연 한 건 — 비목 수정처럼 가끔 하는 일만 팝업에서 */
+  const [detailId, setDetailId] = useState<string | null>(null);
+  // 새로 불러온 목록에서 찾아야 정정 뒤에도 최신 내용이 보인다
+  const detailReq = detailId ? requests.find((x) => x.id === detailId) ?? null : null;
+  const toggleDate = (d: string) =>
+    setOpenDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+
+  /** 지급 정정 — 지급완료 뒤 추가 지급 · 과지급 반환 */
+  const [adjTarget, setAdjTarget] = useState<ExpenseRequestItem | null>(null);
+  const [adjKind, setAdjKind] = useState<ExpenseAdjustment["kind"]>("refund");
+  const [adjAmount, setAdjAmount] = useState("");
+  const [adjDate, setAdjDate] = useState(todayString());
+  const [adjBusy, setAdjBusy] = useState(false);
+
+  const openAdjust = (item: ExpenseRequestItem) => {
+    setAdjKind("refund");
+    setAdjAmount("");
+    setAdjDate(todayString());
+    setAdjTarget(item);
+  };
+
+  const addAdjustment = async (memo: string) => {
+    if (!adjTarget) return;
+    const amount = parseAmount(adjAmount) ?? 0;
+    if (amount <= 0) return toast.error("금액을 입력해주세요.");
+    if (!memo.trim()) return toast.error("사유를 입력해주세요.");
+
+    setAdjBusy(true);
+    const { error } = await supabase.from("expense_adjustments").insert({
+      item_id: adjTarget.id,
+      kind: adjKind,
+      amount,
+      occurred_on: adjDate,
+      memo: memo.trim(),
+    });
+    setAdjBusy(false);
+    if (error) return toast.error("기록 실패: " + error.message);
+    toast.success(`${ADJ_LABEL[adjKind]}을 기록했습니다.`);
+    setAdjTarget(null);
+    onRefresh();
+  };
+
+  /** 승인 취소 — 처리대기로 되돌려 비목을 다시 고치거나 반려할 수 있게 */
+  const unapprove = async (req: ExpenseRequest) => {
+    const ok = await showConfirm(
+      "승인을 취소할까요?",
+      "처리대기로 돌아가 비목을 다시 고치거나 반려할 수 있습니다.",
+      "승인 취소",
+    );
+    if (!ok) return;
+
+    setBusyId(req.id);
+    const { data, error } = await supabase
+      .from("expense_requests")
+      .update({ status: "pending", handler_id: null, decided_at: null })
+      .eq("id", req.id)
+      .eq("status", "approved")
+      .select("id");
+    setBusyId(null);
+
+    if (error) return toast.error("승인 취소 실패: " + error.message);
+    if (!data || data.length === 0) {
+      toast.error("이미 처리된 청구입니다. 목록을 새로 불러옵니다.");
+      return onRefresh();
+    }
+    toast.success("처리대기로 되돌렸습니다.");
+    onRefresh();
+  };
+
   const pendingCount = requests.filter((r) => r.status === "pending").length;
   const approvedCount = requests.filter((r) => r.status === "approved").length;
   const payingCount = requests.filter((r) => r.status === "paying").length;
-  const shownTotal = shown.reduce((sum, r) => sum + requestTotal(r.items ?? []), 0);
+  const shownTotal = shown.reduce((sum, r) => sum + requestNet(r), 0);
 
   /** 지금 걸러본 목록을 엑셀로 — 승인된 목록이 곧 이체할 목록이다 */
   const exportExcel = () => {
@@ -191,13 +294,14 @@ export default function ExpenseApprove({
       );
 
     const over = overBudgetOf(req);
-    if (over.length > 0) {
-      const ok = await showConfirm(
-        "예산을 넘깁니다",
-        `${over.join(", ")}의 가용 잔액을 넘깁니다. 그대로 승인할까요?`,
-      );
-      if (!ok) return;
-    }
+    const ok = await showConfirm(
+      over.length > 0 ? "예산을 넘깁니다" : "승인하시겠습니까?",
+      over.length > 0
+        ? `${over.join(", ")}의 가용 잔액을 넘깁니다. 그대로 승인할까요?`
+        : `${req.title} · ${formatWon(requestTotal(items))}원`,
+      "승인",
+    );
+    if (!ok) return;
 
     setBusyId(req.id);
     const { data, error } = await supabase
@@ -354,6 +458,212 @@ export default function ExpenseApprove({
     onRefresh();
   };
 
+  /** 청구 한 건 카드 — 목록과 지급완료 묶음 안에서 함께 쓴다 */
+  const renderCard = (req: ExpenseRequest) => {
+            const items = req.items ?? [];
+            const total = requestTotal(items);
+            const assigned = items.filter((i) => !!i.budget_item_id).length;
+            const isOpen = !collapsedIds.has(req.id);
+            const busy = busyId === req.id;
+            // 이 청구서의 영수증 전체 — 미리보기에서 옆으로 넘길 목록
+            const allReceipts = collectReceipts(items);
+
+            return (
+              <div
+                key={req.id}
+                className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden"
+              >
+                {/* 헤더 */}
+                <button
+                  onClick={() => toggle(req.id)}
+                  aria-expanded={isOpen}
+                  className="w-full px-4 sm:px-5 py-3.5 flex items-center gap-3 text-left hover:bg-gray-50 transition cursor-pointer"
+                >
+                  <span className="shrink-0 text-gray-400">
+                    {isOpen ? (
+                      <ChevronDown size={16} />
+                    ) : (
+                      <ChevronRight size={16} />
+                    )}
+                  </span>
+                  <span
+                    className={`shrink-0 px-2 py-0.5 text-[11px] font-bold rounded border ${STATUS_STYLE[req.status]}`}
+                  >
+                    {STATUS_LABEL[req.status]}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {req.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {req.requester?.full_name ?? "-"} · 청구{" "}
+                      {req.request_date}
+                      {/* 예전에 한 장으로 올린 묶음은 건수를 함께 보여준다 */}
+                      {items.length > 1 && ` · ${items.length}건`}
+                      {req.paid_at && ` · 이체 ${req.paid_at}`}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-bold text-gray-900 tabular-nums">
+                      {formatWon(total)}
+                    </p>
+                    {req.status === "pending" && assigned < items.length && (
+                      <p className="mt-0.5 text-[11px] font-medium text-amber-600">
+                        비목 미배정
+                        {items.length > 1 && ` ${items.length - assigned}건`}
+                      </p>
+                    )}
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-gray-200">
+                    {/* 청구 줄 */}
+                    <ul className="divide-y divide-gray-100">
+                      {items.map((it) => {
+                        const acc = resolveAccount(it, req);
+                        const receipts = it.receipt_files ?? [];
+                        return (
+                          <li
+                            key={it.id}
+                            className="px-4 sm:px-5 py-3 bg-gray-50/40"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-gray-900">
+                                  <span className="mr-2 text-xs text-gray-400 tabular-nums">
+                                    {it.sort_order}
+                                  </span>
+                                  {it.item_name}
+                                </p>
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                  {it.qty > 1 &&
+                                    `${it.qty} × ${formatWon(it.unit_price)} · `}
+                                  {accountText(acc)}
+                                  {it.purpose && ` · ${it.purpose}`}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-sm font-bold text-gray-900 tabular-nums">
+                                {formatWon(it.amount)}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <BudgetItemPicker
+                                {...(byYear.get(req.fiscal_year) ?? EMPTY_YEAR)}
+                                accounts={withdrawAccounts}
+                                value={it.budget_item_id}
+                                withdrawValue={it.withdraw_code}
+                                // 잘못 배정한 비목은 승인·지급 뒤에도 고쳐야 한다
+                                // (회계 정정). 반려·취소된 건만 잠근다.
+                                disabled={
+                                  req.status === "rejected" ||
+                                  req.status === "cancelled"
+                                }
+                                onChange={(id, code) => assign(it.id, id, code)}
+                              />
+                              <ReceiptThumbs
+                                itemId={it.id}
+                                files={receipts}
+                                onOpen={(i) =>
+                                  setViewer({
+                                    receipts: allReceipts,
+                                    at: allReceipts.findIndex(
+                                      (r) => r.itemId === it.id && r.index === i,
+                                    ),
+                                  })
+                                }
+                              />
+                              {req.status === "paid" && (
+                                <button
+                                  type="button"
+                                  onClick={() => openAdjust(it)}
+                                  className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                >
+                                  지급 정정
+                                </button>
+                              )}
+                            </div>
+                            <div className="mt-2">
+                              <AdjustmentHistory item={it} paidAt={req.paid_at} />
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    {/* 처리 */}
+                    <div className="px-4 sm:px-5 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-gray-500">
+                        {req.status === "pending" &&
+                          "모든 줄에 비목을 배정하면 승인할 수 있습니다."}
+                        {req.status === "approved" &&
+                          "승인됨 탭에서 이체 목록을 만들면 은행에 들고 갈 목록에 들어갑니다."}
+                        {req.status === "paying" &&
+                          `이체 목록 ${req.payout_listed_at?.slice(0, 10) ?? ""} · 은행 이체 후 지급완료를 기록해주세요.`}
+                        {req.status === "rejected" &&
+                          `반려 — ${req.reject_reason ?? ""}`}
+                        {req.status === "paid" &&
+                          `${req.handler?.full_name ?? ""} 처리 · 이체 ${req.paid_at}`}
+                        {req.status === "cancelled" && "신청자가 취소했습니다."}
+                      </p>
+                      <div className="flex gap-2">
+                        {req.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => setRejectTarget(req)}
+                              disabled={busy}
+                              className={btnStyles.delete}
+                            >
+                              반려
+                            </button>
+                            <button
+                              onClick={() => approve(req)}
+                              disabled={busy || assigned !== items.length}
+                              className={btnStyles.save}
+                            >
+                              {busy ? "처리 중..." : "승인"}
+                            </button>
+                          </>
+                        )}
+                        {req.status === "approved" && (
+                          <button
+                            onClick={() => unapprove(req)}
+                            disabled={busy}
+                            className={btnStyles.cancel}
+                          >
+                            승인 취소
+                          </button>
+                        )}
+                        {req.status === "paying" && (
+                          <>
+                            <button
+                              onClick={() => undoPaying(req)}
+                              disabled={busy}
+                              className={btnStyles.cancel}
+                            >
+                              승인됨으로 되돌리기
+                            </button>
+                            <button
+                              onClick={() => {
+                                setPayDate(todayString());
+                                setPayTarget(req);
+                              }}
+                              disabled={busy}
+                              className={btnStyles.save}
+                            >
+                              지급완료 기록
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+  };
+
   return (
     <div className="space-y-4">
       {/* 상태 필터 · 엑셀 */}
@@ -466,199 +776,174 @@ export default function ExpenseApprove({
         </div>
       ) : (
         <div className="space-y-3">
-          {shown.map((req) => {
-            const items = req.items ?? [];
-            const total = requestTotal(items);
-            const assigned = items.filter((i) => !!i.budget_item_id).length;
-            const isOpen = !collapsedIds.has(req.id);
-            const busy = busyId === req.id;
-            // 이 청구서의 영수증 전체 — 미리보기에서 옆으로 넘길 목록
-            const allReceipts = collectReceipts(items);
-
-            return (
-              <div
-                key={req.id}
-                className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden"
-              >
-                {/* 헤더 */}
-                <button
-                  onClick={() => toggle(req.id)}
-                  aria-expanded={isOpen}
-                  className="w-full px-4 sm:px-5 py-3.5 flex items-center gap-3 text-left hover:bg-gray-50 transition cursor-pointer"
-                >
-                  <span className="shrink-0 text-gray-400">
-                    {isOpen ? (
-                      <ChevronDown size={16} />
-                    ) : (
-                      <ChevronRight size={16} />
-                    )}
-                  </span>
-                  <span
-                    className={`shrink-0 px-2 py-0.5 text-[11px] font-bold rounded border ${STATUS_STYLE[req.status]}`}
+          {filter === "paid"
+            ? paidGroups.map(([date, list]) => {
+                const isOpen = openDates.has(date);
+                const sum = list.reduce((t, r) => t + requestNet(r), 0);
+                const adjustedCount = list.filter(hasAdjustment).length;
+                return (
+                  <section
+                    key={date}
+                    className="border border-gray-200 rounded-xl bg-white overflow-hidden"
                   >
-                    {STATUS_LABEL[req.status]}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
-                      {req.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {req.requester?.full_name ?? "-"} · 청구{" "}
-                      {req.request_date}
-                      {/* 예전에 한 장으로 올린 묶음은 건수를 함께 보여준다 */}
-                      {items.length > 1 && ` · ${items.length}건`}
-                      {req.paid_at && ` · 이체 ${req.paid_at}`}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-bold text-gray-900 tabular-nums">
-                      {formatWon(total)}
-                    </p>
-                    {req.status === "pending" && assigned < items.length && (
-                      <p className="mt-0.5 text-[11px] font-medium text-amber-600">
-                        비목 미배정
-                        {items.length > 1 && ` ${items.length - assigned}건`}
-                      </p>
-                    )}
-                  </div>
-                </button>
+                    {/* 이체일 한 줄 — 날짜 · 건수 · 합계 */}
+                    <button
+                      type="button"
+                      onClick={() => toggleDate(date)}
+                      aria-expanded={isOpen}
+                      className={`w-full flex items-center gap-3 px-4 sm:px-5 py-3 text-left transition cursor-pointer ${
+                        isOpen ? "bg-gray-50 border-b border-gray-200" : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className="shrink-0 text-gray-400">
+                        {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </span>
+                      <span className="font-mono text-sm font-bold tabular-nums text-gray-900">
+                        {date}
+                      </span>
+                      {weekdayOf(date) && (
+                        <span className="text-xs text-gray-400">({weekdayOf(date)})</span>
+                      )}
+                      <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-bold text-gray-600 tabular-nums">
+                        {list.length}건
+                      </span>
+                      {adjustedCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-100 text-[11px] font-bold text-amber-700 tabular-nums">
+                          정정 {adjustedCount}건
+                        </span>
+                      )}
+                      <span className="ml-auto font-mono text-sm font-bold tabular-nums text-gray-900">
+                        {formatWon(sum)}
+                      </span>
+                    </button>
 
-                {isOpen && (
-                  <div className="border-t border-gray-200">
-                    {/* 청구 줄 */}
-                    <ul className="divide-y divide-gray-100">
-                      {items.map((it) => {
-                        const acc = resolveAccount(it, req);
-                        const receipts = it.receipt_files ?? [];
-                        return (
-                          <li
-                            key={it.id}
-                            className="px-4 sm:px-5 py-3 bg-gray-50/40"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-gray-900">
-                                  <span className="mr-2 text-xs text-gray-400 tabular-nums">
-                                    {it.sort_order}
-                                  </span>
-                                  {it.item_name}
-                                </p>
-                                <p className="mt-0.5 text-xs text-gray-500">
-                                  {it.qty > 1 &&
-                                    `${it.qty} × ${formatWon(it.unit_price)} · `}
-                                  {accountText(acc)}
-                                  {it.purpose && ` · ${it.purpose}`}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-sm font-bold text-gray-900 tabular-nums">
-                                {formatWon(it.amount)}
-                              </span>
-                            </div>
-
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <BudgetItemPicker
-                                items={budgetItems}
-                                usage={usage}
-                                options={options}
-                                accounts={withdrawAccounts}
-                                value={it.budget_item_id}
-                                withdrawValue={it.withdraw_code}
-                                recent={recent}
-                                // 잘못 배정한 비목은 승인·지급 뒤에도 고쳐야 한다
-                                // (회계 정정). 반려·취소된 건만 잠근다.
-                                disabled={
-                                  req.status === "rejected" ||
-                                  req.status === "cancelled"
-                                }
-                                onChange={(id, code) => assign(it.id, id, code)}
-                              />
-                              {receipts.map((f, i) => (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={() =>
-                                    setViewer({
-                                      receipts: allReceipts,
-                                      at: allReceipts.findIndex(
-                                        (r) =>
-                                          r.itemId === it.id && r.index === i,
-                                      ),
-                                    })
-                                  }
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 bg-white text-xs text-gray-600 hover:bg-gray-50 hover:border-gray-300 cursor-pointer max-w-[180px]"
-                                >
-                                  <Paperclip size={11} className="shrink-0" />
-                                  <span className="truncate">{f.name}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-
-                    {/* 처리 */}
-                    <div className="px-4 sm:px-5 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-xs text-gray-500">
-                        {req.status === "pending" &&
-                          "모든 줄에 비목을 배정하면 승인할 수 있습니다."}
-                        {req.status === "approved" &&
-                          "승인됨 탭에서 이체 목록을 만들면 은행에 들고 갈 목록에 들어갑니다."}
-                        {req.status === "paying" &&
-                          `이체 목록 ${req.payout_listed_at?.slice(0, 10) ?? ""} · 은행 이체 후 지급완료를 기록해주세요.`}
-                        {req.status === "rejected" &&
-                          `반려 — ${req.reject_reason ?? ""}`}
-                        {req.status === "paid" &&
-                          `${req.handler?.full_name ?? ""} 처리 · 이체 ${req.paid_at}`}
-                        {req.status === "cancelled" && "신청자가 취소했습니다."}
-                      </p>
-                      <div className="flex gap-2">
-                        {req.status === "pending" && (
-                          <>
-                            <button
-                              onClick={() => setRejectTarget(req)}
-                              disabled={busy}
-                              className={btnStyles.delete}
-                            >
-                              반려
-                            </button>
-                            <button
-                              onClick={() => approve(req)}
-                              disabled={busy || assigned !== items.length}
-                              className={btnStyles.save}
-                            >
-                              {busy ? "처리 중..." : "승인"}
-                            </button>
-                          </>
-                        )}
-                        {req.status === "paying" && (
-                          <>
-                            <button
-                              onClick={() => undoPaying(req)}
-                              disabled={busy}
-                              className={btnStyles.cancel}
-                            >
-                              승인됨으로 되돌리기
-                            </button>
-                            <button
-                              onClick={() => {
-                                setPayDate(todayString());
-                                setPayTarget(req);
-                              }}
-                              disabled={busy}
-                              className={btnStyles.save}
-                            >
-                              지급완료 기록
-                            </button>
-                          </>
-                        )}
+                    {/* 그날 이체한 건 — 한 줄에 한 건, 누르면 카드(영수증·지급 정정)가 열린다 */}
+                    {isOpen && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[980px] border-collapse text-sm">
+                          <thead>
+                            <tr className="text-[11px] font-semibold text-gray-500 border-b border-gray-200">
+                              <th className="py-2 pl-5 pr-3 text-left">신청자</th>
+                              <th className="py-2 px-3 text-left">품명 / 용도</th>
+                              <th className="py-2 px-3 text-left">비목</th>
+                              <th className="py-2 px-3 text-left">출금</th>
+                              <th className="py-2 px-3 text-left">받는 계좌</th>
+                              <th className="py-2 px-3 text-left">영수증</th>
+                              <th className="py-2 px-3 text-right">지급액</th>
+                              <th className="py-2 pl-3 pr-5" aria-label="처리" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {list.map((req) => {
+                              const it = (req.items ?? [])[0];
+                              const adjusted = hasAdjustment(req);
+                              const reqReceipts = collectReceipts(req.items ?? []);
+                              return (
+                                <Fragment key={req.id}>
+                                  <tr className="border-b border-gray-100 align-top hover:bg-gray-50">
+                                    <td className="py-2.5 pl-5 pr-3 whitespace-nowrap text-gray-800">
+                                      {req.requester?.full_name ?? "-"}
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <p className="font-medium text-gray-900">{req.title}</p>
+                                      {it?.purpose && (
+                                        <p className="mt-0.5 text-xs text-gray-400">{it.purpose}</p>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 px-3 whitespace-nowrap text-xs text-gray-600">
+                                      {it?.budget_item ? (
+                                        <>
+                                          <span className="mr-1 font-mono text-gray-400">
+                                            {it.budget_item.code}
+                                          </span>
+                                          {it.budget_item.name}
+                                        </>
+                                      ) : (
+                                        "-"
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 px-3 whitespace-nowrap">
+                                      {it?.withdraw_code ? (
+                                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded border border-gray-300 font-mono text-[11px] font-bold text-gray-600">
+                                          {it.withdraw_code}
+                                        </span>
+                                      ) : (
+                                        <span className="text-xs text-gray-300">-</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-gray-500">
+                                      {it ? accountText(resolveAccount(it, req)) : "-"}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      {reqReceipts.length > 0 ? (
+                                        <div className="flex gap-1">
+                                          {(req.items ?? []).map((line) => (
+                                            <ReceiptThumbs
+                                              key={line.id}
+                                              itemId={line.id}
+                                              files={line.receipt_files ?? []}
+                                              onOpen={(i) =>
+                                                setViewer({
+                                                  receipts: reqReceipts,
+                                                  at: reqReceipts.findIndex(
+                                                    (x) => x.itemId === line.id && x.index === i,
+                                                  ),
+                                                })
+                                              }
+                                            />
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-gray-300">없음</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                      <span className="font-mono font-semibold tabular-nums text-gray-900">
+                                        {formatWon(requestNet(req))}
+                                      </span>
+                                      {adjusted && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setDetailId(req.id)}
+                                          title="정정 내역 보기"
+                                          className="mt-1 ml-auto block px-1.5 py-0.5 rounded bg-amber-100 text-[11px] font-bold text-amber-700 hover:bg-amber-200 tabular-nums cursor-pointer"
+                                        >
+                                          정정 {adjustCount(req)}건
+                                        </button>
+                                      )}
+                                    </td>
+                                    <td className="py-2 pl-3 pr-5 whitespace-nowrap text-right">
+                                      <div className="inline-flex gap-1.5">
+                                        {it && (
+                                          <button
+                                            type="button"
+                                            onClick={() => openAdjust(it)}
+                                            className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                          >
+                                            지급 정정
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => setDetailId(req.id)}
+                                          className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                        >
+                                          상세
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    )}
+                  </section>
+                );
+              })
+            : shown.map(renderCard)}
         </div>
       )}
 
@@ -705,6 +990,171 @@ export default function ExpenseApprove({
             건은 여기 섞이지 않습니다.
           </p>
         </div>
+      </ConfirmModal>
+
+      {detailReq && (
+        <Modal
+          isOpen
+          onClose={() => setDetailId(null)}
+          title={detailReq.title}
+          className="sm:max-w-[680px]"
+          footer={
+            <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
+              <button onClick={() => setDetailId(null)} className={btnStyles.cancel}>
+                닫기
+              </button>
+              {detailReq.status === "paid" && (detailReq.items ?? [])[0] && (
+                <button
+                  onClick={() => openAdjust((detailReq.items ?? [])[0])}
+                  className={`${btnStyles.save} sm:min-w-[80px]`}
+                >
+                  지급 정정
+                </button>
+              )}
+            </div>
+          }
+        >
+          <div className="space-y-5">
+            {/* 상태 · 금액 */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+              <span
+                className={`px-2.5 py-1 text-xs font-bold rounded border ${STATUS_STYLE[detailReq.status]}`}
+              >
+                {STATUS_LABEL[detailReq.status]}
+              </span>
+              <span className="text-sm text-gray-600">
+                {hasAdjustment(detailReq) ? "최종 지급액" : "금액"}{" "}
+                <b className="text-lg text-gray-900 tabular-nums">
+                  {formatWon(requestNet(detailReq))}
+                </b>
+                원
+              </span>
+            </div>
+
+            {/* 기본 정보 */}
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+              <InfoRow label="신청자" value={detailReq.requester?.full_name ?? "-"} />
+              <InfoRow label="청구일자" value={detailReq.request_date} />
+              {detailReq.paid_at && <InfoRow label="이체일자" value={detailReq.paid_at} />}
+              {detailReq.handler?.full_name && (
+                <InfoRow label="처리" value={detailReq.handler.full_name} />
+              )}
+            </dl>
+
+            {(detailReq.items ?? []).map((it) => {
+              const all = collectReceipts(detailReq.items ?? []);
+              return (
+                <div key={it.id} className="space-y-4 border-t border-gray-200 pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900">{it.item_name}</p>
+                      {it.purpose && (
+                        <p className="mt-0.5 text-xs text-gray-500">{it.purpose}</p>
+                      )}
+                      <p className="mt-1 font-mono text-xs text-gray-500">
+                        {accountText(resolveAccount(it, detailReq))}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-gray-900">
+                      {formatWon(it.amount)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 mb-1.5">비목 · 출금계좌</p>
+                    <BudgetItemPicker
+                      {...(byYear.get(detailReq.fiscal_year) ?? EMPTY_YEAR)}
+                      accounts={withdrawAccounts}
+                      value={it.budget_item_id}
+                      withdrawValue={it.withdraw_code}
+                      disabled={
+                        detailReq.status === "rejected" ||
+                        detailReq.status === "cancelled"
+                      }
+                      onChange={(id, code) => assign(it.id, id, code)}
+                    />
+                  </div>
+
+                  {(it.receipt_files ?? []).length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 mb-1.5">영수증</p>
+                      <ReceiptThumbs
+                        itemId={it.id}
+                        files={it.receipt_files ?? []}
+                        onOpen={(i) =>
+                          setViewer({
+                            receipts: all,
+                            at: all.findIndex((x) => x.itemId === it.id && x.index === i),
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+
+                  <AdjustmentHistory item={it} paidAt={detailReq.paid_at} />
+                </div>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
+
+      {/* 지급 정정 — 사유는 필수, 기록은 지우지 않는다 */}
+      <ConfirmModal
+        isOpen={!!adjTarget}
+        onClose={() => setAdjTarget(null)}
+        title="지급 정정 기록"
+        inputLabel="사유"
+        inputPlaceholder="예) 영수증 금액보다 1,000원 더 이체해 돌려받음"
+        multiline
+        confirmText="기록"
+        busy={adjBusy}
+        onConfirm={addAdjustment}
+      >
+        {adjTarget && (
+          <div className="space-y-3">
+            <ConfirmRow label="품명" value={adjTarget.item_name} />
+            <ConfirmRow
+              label="청구 금액"
+              value={<b className="tabular-nums">{formatWon(adjTarget.amount)}원</b>}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              {(["refund", "extra"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setAdjKind(k)}
+                  className={`py-2 rounded-lg border text-sm font-bold transition cursor-pointer ${
+                    adjKind === k
+                      ? k === "extra"
+                        ? "border-[#2151EC] bg-blue-50 text-[#2151EC]"
+                        : "border-red-400 bg-red-50 text-red-600"
+                      : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {ADJ_LABEL[k]}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                  금액
+                </label>
+                <AmountField value={adjAmount} onChange={setAdjAmount} placeholder="0" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                  {adjKind === "extra" ? "이체일자" : "반환받은 날"}
+                </label>
+                <DateField value={adjDate} onChange={setAdjDate} />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              기록은 고치거나 지울 수 없습니다. 잘못 넣었으면 반대 기록을 하나 더 넣어주세요.
+            </p>
+          </div>
+        )}
       </ConfirmModal>
 
       {/* 반려 사유 */}
@@ -799,3 +1249,11 @@ export default function ExpenseApprove({
     </div>
   );
 }
+
+/** 상세 팝업의 이름 · 값 한 줄 (결의서 상세 팝업과 같은 모양) */
+const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="flex gap-3">
+    <dt className="w-20 shrink-0 text-xs font-bold text-gray-500 pt-0.5">{label}</dt>
+    <dd className="flex-1 text-sm text-gray-800 break-words">{value}</dd>
+  </div>
+);

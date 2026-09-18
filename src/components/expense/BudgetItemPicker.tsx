@@ -4,12 +4,12 @@
 
 import { useMemo, useState } from "react";
 import { Check, X } from "lucide-react";
+import { showConfirm } from "@/utils/alert";
 import BudgetItemModal from "./BudgetItemModal";
 import {
   availableAmount,
   formatWon,
   itemLabel,
-  withdrawDefaults,
   withdrawLabel,
   type BudgetFlat,
   type BudgetItem,
@@ -26,8 +26,6 @@ type Props = {
   value: string | null;
   withdrawValue: string | null;
   onChange: (budgetItemId: string | null, withdrawCode: string | null) => void;
-  /** 최근에 배정한 비목 — 한 번에 고를 수 있게 */
-  recent?: BudgetFlat[];
   disabled?: boolean;
 };
 
@@ -39,7 +37,6 @@ export default function BudgetItemPicker({
   value,
   withdrawValue,
   onChange,
-  recent = [],
   disabled = false,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -48,8 +45,6 @@ export default function BudgetItemPicker({
     () => options.find((o) => o.id === value) ?? null,
     [options, value],
   );
-  // 최근 비목 버튼으로 바로 넣을 때 쓰는 자동 출금계좌
-  const defaults = useMemo(() => withdrawDefaults(items), [items]);
   const account = useMemo(
     () => accounts.find((a) => a.code === withdrawValue) ?? null,
     [accounts, withdrawValue],
@@ -114,7 +109,15 @@ export default function BudgetItemPicker({
           {!disabled && (
             <button
               type="button"
-              onClick={() => onChange(null, null)}
+              // 잘못 누르면 바로 지워지므로 한 번 묻는다
+              onClick={async () => {
+                const ok = await showConfirm(
+                  "비목 배정을 해제할까요?",
+                  `${itemLabel(selected)} 배정과 출금계좌가 함께 지워집니다.`,
+                  "해제",
+                );
+                if (ok) onChange(null, null);
+              }}
               aria-label="비목 배정 해제"
               className="text-gray-300 hover:text-red-500 cursor-pointer"
             >
@@ -130,27 +133,13 @@ export default function BudgetItemPicker({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[#2151EC] bg-white text-xs font-bold text-[#2151EC] hover:bg-blue-50 transition cursor-pointer"
-        >
-          비목 배정
-        </button>
-        {recent.slice(0, 3).map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            // 최근 비목으로 바로 배정 — 출금계좌는 그 항목의 자동값을 따른다
-            onClick={() => onChange(o.id, defaults.get(o.id) ?? null)}
-            title={`${o.path} › ${itemLabel(o)}`}
-            className="px-2 py-1 rounded-md border border-gray-200 bg-white text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition cursor-pointer max-w-[150px] truncate"
-          >
-            {itemLabel(o)}
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[#2151EC] bg-white text-xs font-bold text-[#2151EC] hover:bg-blue-50 transition cursor-pointer"
+      >
+        비목 배정
+      </button>
       {modal}
     </>
   );

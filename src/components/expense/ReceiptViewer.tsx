@@ -33,11 +33,11 @@ type Props = {
   onClose: () => void;
 };
 
-const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp"];
+export const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp"];
 
-const extOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
+export const extOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
 
-const urlOf = (r: ReceiptRef) =>
+export const urlOf = (r: ReceiptRef) =>
   `/api/expense/receipt?item=${encodeURIComponent(r.itemId)}&i=${r.index}`;
 
 export default function ReceiptViewer({ receipts, startAt, onClose }: Props) {

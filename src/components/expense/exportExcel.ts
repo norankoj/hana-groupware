@@ -71,6 +71,7 @@ const HEAD = [
   "청구일자",
   "신청자",
   "은행",
+  "은행코드",
   "계좌번호",
   "예금주",
   "금액",
@@ -86,7 +87,7 @@ const HEAD = [
 ];
 
 // 위 열 순서에 맞춘 너비
-const WIDTHS = [11, 9, 10, 18, 9, 12, 18, 6, 11, 22, 16, 9, 22, 9, 11];
+const WIDTHS = [11, 9, 10, 8, 18, 9, 12, 18, 6, 11, 22, 16, 9, 22, 9, 11];
 
 export function exportExpenseLines(lines: ExportLine[], fileName: string) {
   const body = lines.map(({ item, request, major }) => {
@@ -95,6 +96,7 @@ export function exportExpenseLines(lines: ExportLine[], fileName: string) {
       request.request_date,
       request.requester?.full_name ?? "",
       acc.bank_name ?? "",
+      BANK_INFO[acc.bank_name ?? ""]?.code ?? "",
       acc.account_no ?? "",
       acc.account_holder ?? "",
       item.amount,
@@ -116,8 +118,8 @@ export function exportExpenseLines(lines: ExportLine[], fileName: string) {
     HEAD,
     ...body,
     [],
-    // 금액이 여섯 번째 열이므로 합계도 그 자리에 맞춘다
-    ["", "", "", "", "합계", total],
+    // 금액이 일곱 번째 열이므로 합계도 그 자리에 맞춘다
+    ["", "", "", "", "", "합계", total],
   ]);
   ws["!cols"] = WIDTHS.map((wch) => ({ wch }));
 
@@ -128,7 +130,7 @@ export function exportExpenseLines(lines: ExportLine[], fileName: string) {
         ws,
         i + 1,
         c,
-        cellStyle({ align: c === 5 ? "right" : [6, 9, 12].includes(c) ? "left" : "center" }),
+        cellStyle({ align: c === 6 ? "right" : [7, 10, 13].includes(c) ? "left" : "center" }),
       ),
     ),
   );

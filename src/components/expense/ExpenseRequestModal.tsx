@@ -19,6 +19,8 @@ import {
   selectClass,
   todayString,
   toCommaInput,
+  fiscalYearFor,
+  type BudgetYear,
   type ExpenseUser,
   type ProofFile,
 } from "./shared";
@@ -29,6 +31,7 @@ type Props = {
   user: ExpenseUser;
   /** 어느 연도 예산으로 처리할 청구인지. 담당자가 이 연도의 비목에 배정한다. */
   fiscalYear: number;
+  years: BudgetYear[];
   onSubmitted: () => void;
 };
 
@@ -38,34 +41,109 @@ const RECEIPT_ACCEPT = "image/*,application/pdf,.xlsx,.xls,.docx,.doc,.zip";
 /** 통장 적요에 들어가는 길이 — 넘으면 은행에서 잘린다 */
 const ITEM_NAME_HINT = 7;
 
-// 브라우저가 다시 그려서 줄일 수 있는 사진 형식 (HEIC·PDF 등은 그대로 올린다)
-const COMPRESSIBLE = ["image/jpeg", "image/png", "image/webp"];
+// 브라우저가 다시 그려서 줄일 수 있는 사진 형식.
+// HEIC·TIFF 는 대부분의 브라우저가 못 읽고, GIF 는 움직임이 사라져서 그대로 올린다.
+const COMPRESSIBLE = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/bmp",
+  "image/avif",
+];
+
+/** 이보다 작으면 이미 충분히 작다 — 다시 그리면 오히려 글씨만 흐려진다 */
+const SMALL_ENOUGH = 300 * 1024;
+
+/** 줄이기 전 원래 크기 — 목록에 '4.2MB → 380KB'로 보여주려고 기억한다 */
+const originalSize = new WeakMap<File, number>();
+
+/** WebP 로 저장할 수 있는 브라우저인지 (못 하면 JPEG 로 저장한다) */
+let webpOk: boolean | null = null;
+const canEncodeWebp = () => {
+  if (webpOk !== null) return webpOk;
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 1;
+    webpOk = c.toDataURL("image/webp").startsWith("data:image/webp");
+  } catch {
+    webpOk = false;
+  }
+  return webpOk;
+};
+
+/** PDF 는 브라우저에서 줄일 수 없어 크기로 막는다 */
+const PDF_MAX = 1024 * 1024;
+const isPdf = (f: File) =>
+  f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+
+/** 아이폰 사진(HEIC) — 대부분의 브라우저가 못 읽으니 먼저 JPEG 로 바꾼다 */
+const isHeic = (f: File) =>
+  /image\/hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
+const heicToJpeg = async (file: File): Promise<File> => {
+  const { default: heic2any } = await import("heic2any");
+  const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+  const blob = Array.isArray(out) ? out[0] : out;
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
+    type: "image/jpeg",
+  });
+};
 
 /**
- * 폰 사진 영수증은 3~8MB라 미리보기가 느리다. 올리기 전에 줄인다.
- * 영수증 글씨가 읽혀야 하므로 차량 사진(1024px·0.7)보다 넉넉하게 잡는다.
- * 1MB 이하(캡처 이미지 등)는 손대지 않는다 — 글씨가 뭉개질 수 있다.
+ * 영수증 사진을 올리기 전에 줄인다. 고르기·끌어놓기·붙여넣기 모두 같은 기준.
+ *
+ *  · 긴 변 2000px — 영수증 글씨가 읽혀야 해서 차량 사진(1024px)보다 넉넉하게
+ *  · WebP 품질 0.8 — 같은 화질에서 JPEG 보다 작고, 캡처 화면(PNG)은 훨씬 작아진다
+ *  · 한 장 0.5MB 안쪽 — 폰 사진 3~8MB 가 대략 200~500KB 가 된다
  */
-const shrinkReceipt = async (file: File): Promise<File> => {
-  if (!COMPRESSIBLE.includes(file.type) || file.size <= 1024 * 1024) return file;
+
+const shrinkReceipt = async (input: File): Promise<File> => {
+  let file = input;
+  if (isHeic(file)) {
+    try {
+      file = await heicToJpeg(file);
+    } catch {
+      return input; // 바꾸지 못하면 원본 그대로 올린다
+    }
+  }
+  if (!COMPRESSIBLE.includes(file.type) || file.size <= SMALL_ENOUGH) {
+    if (file !== input) originalSize.set(file, input.size);
+    return file;
+  }
   try {
     const { default: imageCompression } = await import(
       "browser-image-compression"
     );
+    const type = canEncodeWebp() ? "image/webp" : "image/jpeg";
     const out = await imageCompression(file, {
-      maxSizeMB: 1,
+      maxSizeMB: 0.5,
       maxWidthOrHeight: 2000,
-      initialQuality: 0.85,
+      initialQuality: 0.8,
+      fileType: type,
       useWebWorker: true,
     });
     // 줄인 결과가 오히려 크면 원본을 쓴다
-    return out.size < file.size
-      ? new File([out], file.name, { type: out.type || file.type })
-      : file;
+    if (out.size >= file.size) {
+      if (file !== input) originalSize.set(file, input.size);
+      return file;
+    }
+
+    // 형식이 바뀌었으니 확장자도 맞춘다 — 서버가 확장자로 파일 형식을 판단한다
+    const ext = out.type === "image/webp" ? "webp" : "jpg";
+    const shrunk = new File([out], `${file.name.replace(/\.[^.]+$/, "")}.${ext}`, {
+      type: out.type || type,
+    });
+    originalSize.set(shrunk, input.size);
+    return shrunk;
   } catch {
     return file; // 줄이지 못하면 원본 그대로 올린다
   }
 };
+
+const sizeText = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)}MB`
+    : `${Math.max(1, Math.round(bytes / 1024))}KB`;
 
 type Account = {
   bank_name: string;
@@ -129,6 +207,7 @@ export default function ExpenseRequestModal({
   onClose,
   user,
   fiscalYear,
+  years,
   onSubmitted,
 }: Props) {
   const supabase = createClient();
@@ -137,6 +216,12 @@ export default function ExpenseRequestModal({
   const [saved, setSaved] = useState<Account[]>([]);
   const [rows, setRows] = useState<Row[]>([newRow(emptyAccount())]);
   const [saving, setSaving] = useState(false);
+  /** 사진을 줄이는 중인 장수 — 끝나기 전에 청구하면 빠진다 */
+  const [shrinking, setShrinking] = useState(0);
+  const addFiles = (key: string, added: File[]) =>
+    setRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, files: [...r.files, ...added] } : r)),
+    );
 
   // 예전에 썼던 계좌를 불러와 버튼으로 고를 수 있게 한다 (최근에 쓴 것이 위).
   //
@@ -271,7 +356,7 @@ export default function ExpenseRequestModal({
         const files: ProofFile[] = [];
         for (const f of r.files) {
           const formData = new FormData();
-          formData.append("file", await shrinkReceipt(f));
+          formData.append("file", f);
           formData.append("bucket", "private");
           formData.append("folder", `expense/${user.id}`);
 
@@ -295,7 +380,8 @@ export default function ExpenseRequestModal({
           .from("expense_requests")
           .insert({
             requester_id: user.id,
-            fiscal_year: fiscalYear,
+            // 청구일자(지출일) 기준 — 그 해 예산이 확정 전이면 확정된 최근 연도
+            fiscal_year: fiscalYearFor(requestDate, years, fiscalYear),
             title: r.item_name.trim(),
             request_date: requestDate,
             status: "pending",
@@ -360,10 +446,10 @@ export default function ExpenseRequestModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || shrinking > 0}
             className={btnStyles.save}
           >
-            {saving ? "접수 중..." : "청구하기"}
+            {saving ? "접수 중..." : shrinking > 0 ? "사진 줄이는 중..." : "청구하기"}
           </button>
         </div>
       }
@@ -397,6 +483,8 @@ export default function ExpenseRequestModal({
                 saved={saved}
                 canRemove={rows.length > 1}
                 onChange={(patch) => patchRow(r.key, patch)}
+                onAddFiles={(files) => addFiles(r.key, files)}
+                onShrinking={(d) => setShrinking((n) => Math.max(0, n + d))}
                 onRemove={() =>
                   setRows((prev) => prev.filter((x) => x.key !== r.key))
                 }
@@ -425,6 +513,8 @@ function RowCard({
   saved,
   canRemove,
   onChange,
+  onAddFiles,
+  onShrinking,
   onRemove,
 }: {
   index: number;
@@ -432,6 +522,8 @@ function RowCard({
   saved: Account[];
   canRemove: boolean;
   onChange: (patch: Partial<Row>) => void;
+  onAddFiles: (files: File[]) => void;
+  onShrinking: (delta: number) => void;
   onRemove: () => void;
 }) {
   const amount = rowAmount(row);
@@ -521,6 +613,8 @@ function RowCard({
             index={index}
             files={row.files}
             onChange={(files) => onChange({ files })}
+            onAdd={onAddFiles}
+            onShrinking={onShrinking}
           />
 
           <SubField label="받을 계좌">
@@ -592,18 +686,40 @@ function ReceiptPicker({
   index,
   files,
   onChange,
+  onAdd,
+  onShrinking,
 }: {
   index: number;
   files: File[];
+  /** 지우기용 — 목록 전체를 바꾼다 */
   onChange: (files: File[]) => void;
+  /** 추가용 — 줄이는 동안 다른 파일이 들어와도 안 빠지게 부모가 이어 붙인다 */
+  onAdd: (files: File[]) => void;
+  onShrinking: (delta: number) => void;
 }) {
+  const [busy, setBusy] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [pasteReady, setPasteReady] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = `receipt-${index}`;
 
-  const add = (picked: File[]) => {
-    if (picked.length) onChange([...files, ...picked]);
+  /** 넣는 순간 줄인다 — 고르기·끌어놓기·붙여넣기 모두 같은 기준 */
+  const add = async (all: File[]) => {
+    const tooBig = all.filter((f) => isPdf(f) && f.size > PDF_MAX);
+    if (tooBig.length)
+      toast.error(
+        `PDF는 1MB까지 올릴 수 있습니다: ${tooBig.map((f) => f.name).join(", ")}`,
+      );
+    const picked = all.filter((f) => !tooBig.includes(f));
+    if (!picked.length) return;
+    setBusy((n) => n + picked.length);
+    onShrinking(picked.length);
+    try {
+      onAdd(await Promise.all(picked.map(shrinkReceipt)));
+    } finally {
+      setBusy((n) => n - picked.length);
+      onShrinking(-picked.length);
+    }
   };
 
   /**
@@ -615,7 +731,7 @@ function ReceiptPicker({
     if (picked.length === 0) return false;
 
     const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
-    add(
+    void add(
       picked.map((f, i) => {
         const ext = f.name.split(".").pop()?.toLowerCase() || "png";
         const generic = !f.name || /^image\.\w+$/i.test(f.name);
@@ -659,7 +775,9 @@ function ReceiptPicker({
       >
         <Paperclip size={15} className="shrink-0" />
         <span>
-          {pasteReady
+          {busy > 0
+            ? `사진 ${busy}장 줄이는 중...`
+            : pasteReady
             ? "Ctrl+V 로 복사한 이미지를 붙여넣으세요"
             : files.length > 0
               ? `${files.length}장 선택됨 — 더 넣으려면 누르거나 끌어다 놓으세요`
@@ -673,7 +791,7 @@ function ReceiptPicker({
         accept={RECEIPT_ACCEPT}
         multiple
         onChange={(e) => {
-          add(Array.from(e.target.files ?? []));
+          void add(Array.from(e.target.files ?? []));
           e.target.value = ""; // 같은 파일을 다시 고를 수 있게
         }}
         className="hidden"
@@ -689,7 +807,9 @@ function ReceiptPicker({
               <span className="truncate text-gray-700">{f.name}</span>
               <span className="flex items-center gap-2 shrink-0">
                 <span className="text-xs text-gray-400 tabular-nums">
-                  {(f.size / 1024).toFixed(0)} KB
+                  {originalSize.has(f)
+                    ? `${sizeText(originalSize.get(f)!)} → ${sizeText(f.size)}`
+                    : sizeText(f.size)}
                 </span>
                 <button
                   type="button"

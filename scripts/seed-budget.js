@@ -209,6 +209,12 @@ lines.push(
     .join(",\n") + ";",
 );
 
+lines.push(
+  ``,
+  `-- 새 연도는 가예산으로 들어간다. 앱의 예산안 탭에서 확정한다.`,
+  `insert into budget_years (fiscal_year, status) values (${CONFIG.fiscalYear}, 'draft')`,
+  `on conflict (fiscal_year) do nothing;`,
+);
 lines.push(``, `commit;`, ``);
 
 const outPath = path.join(root, CONFIG.out);

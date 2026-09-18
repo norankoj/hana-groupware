@@ -5,24 +5,46 @@
 
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import toast from "react-hot-toast";
+import Modal from "@/components/Modal";
+import Select from "@/components/Select";
+import { createClient } from "@/utils/supabase/client";
+import { showConfirm } from "@/utils/alert";
 import { StickyTh, NumCell } from "./TableCells";
 import {
+  STATUS_LABEL,
+  STATUS_STYLE,
   WARN_AT,
+  btnStyles,
   buildBudgetTree,
   formatWon,
   inputClass,
   itemLabel,
+  netPaid,
   spentRatio,
   type BudgetItem,
   type BudgetNode,
   type BudgetUsage,
+  type BudgetYear,
+  type ExpenseRequest,
 } from "./shared";
 
 type Props = {
-  fiscalYear: number;
+  /** 처음 보여줄 연도 (확정된 최근 연도) */
+  defaultYear: number;
+  years: BudgetYear[];
+  /** 전 연도 예산안 — 여기서 고른 연도만 걸러 쓴다 */
   items: BudgetItem[];
   usage: BudgetUsage[];
+  /** 확정지출·처리대기 세부내역용 (담당자만 받는다) */
+  requests: ExpenseRequest[];
+  /** 가예산을 확정할 수 있는지 (지출결의 담당자) */
+  canFinalize: boolean;
+  onRefresh: () => void;
 };
+
+/** 확정지출로 셈하는 상태 — budget_usage 뷰와 같은 기준 */
+const SPENT = ["approved", "paying", "paid"];
 
 const hit = (n: BudgetNode, q: string) => itemLabel(n).toLowerCase().includes(q);
 
@@ -32,7 +54,81 @@ const subtreeHit = (n: BudgetNode, q: string): boolean =>
 const subtreeWarn = (n: BudgetNode): boolean =>
   spentRatio(n) >= WARN_AT || n.children.some(subtreeWarn);
 
-export default function BudgetTree({ fiscalYear, items, usage }: Props) {
+export default function BudgetTree({
+  defaultYear,
+  years,
+  items: allItems,
+  usage: allUsage,
+  requests,
+  canFinalize,
+  onRefresh,
+}: Props) {
+  const [fiscalYear, setFiscalYear] = useState(defaultYear);
+  const yearInfo = years.find((y) => y.fiscal_year === fiscalYear);
+  const yearList = years.length ? years.map((y) => y.fiscal_year) : [defaultYear];
+  const items = useMemo(
+    () => allItems.filter((i) => i.fiscal_year === fiscalYear),
+    [allItems, fiscalYear],
+  );
+  const usage = useMemo(
+    () => allUsage.filter((u) => u.fiscal_year === fiscalYear),
+    [allUsage, fiscalYear],
+  );
+
+  /** 확정지출·처리대기 숫자를 눌렀을 때 — 그 항목(하위 포함)에 걸린 청구 */
+  const [detail, setDetail] = useState<{
+    node: BudgetNode;
+    kind: "spent" | "pending";
+  } | null>(null);
+  const detailLines = useMemo(() => {
+    if (!detail) return [];
+    const ids = new Set<string>();
+    const walk = (n: BudgetNode) => {
+      ids.add(n.id);
+      n.children.forEach(walk);
+    };
+    walk(detail.node);
+    const want = detail.kind === "spent" ? SPENT : ["pending"];
+    return requests
+      .filter((r) => want.includes(r.status))
+      .flatMap((r) =>
+        (r.items ?? [])
+          .filter((i) => i.budget_item_id && ids.has(i.budget_item_id))
+          .map((i) => ({ r, i })),
+      )
+      .sort((a, b) => b.r.request_date.localeCompare(a.r.request_date));
+  }, [detail, requests]);
+
+  const detailSum = detailLines.reduce(
+    (sum, { i }) => sum + (detail?.kind === "spent" ? netPaid(i) : i.amount),
+    0,
+  );
+  /** 확정지출을 상태별로 — 승인됨 · 이체중 · 지급완료 */
+  const detailBreakdown = SPENT.map((st) => {
+    const rows = detailLines.filter(({ r }) => r.status === st);
+    return [
+      st as ExpenseRequest["status"],
+      rows.length,
+      rows.reduce((sum, { i }) => sum + netPaid(i), 0),
+    ] as const;
+  }).filter(([, n]) => n > 0);
+
+  const finalize = async () => {
+    const ok = await showConfirm(
+      `${fiscalYear}년 예산안을 확정할까요?`,
+      "확정하면 청구일자가 이 해인 청구부터 이 예산으로 들어갑니다.",
+      "확정",
+    );
+    if (!ok) return;
+    const { error } = await createClient()
+      .from("budget_years")
+      .update({ status: "final", finalized_at: new Date().toISOString() })
+      .eq("fiscal_year", fiscalYear);
+    if (error) return toast.error("확정 실패: " + error.message);
+    toast.success(`${fiscalYear}년 예산안을 확정했습니다.`);
+    onRefresh();
+  };
+
   const roots = useMemo(() => buildBudgetTree(items, usage), [items, usage]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -172,9 +268,23 @@ export default function BudgetTree({ fiscalYear, items, usage }: Props) {
             </div>
           </th>
           <NumCell>{formatWon(n.planned_amount)}</NumCell>
-          <NumCell muted={!n.spent}>{n.spent ? formatWon(n.spent) : "-"}</NumCell>
+          <NumCell muted={!n.spent}>
+            {n.spent ? (
+              <DetailLink onClick={() => setDetail({ node: n, kind: "spent" })}>
+                {formatWon(n.spent)}
+              </DetailLink>
+            ) : (
+              "-"
+            )}
+          </NumCell>
           <NumCell muted={!n.pending} tone={n.pending ? "text-amber-600" : ""}>
-            {n.pending ? formatWon(n.pending) : "-"}
+            {n.pending ? (
+              <DetailLink onClick={() => setDetail({ node: n, kind: "pending" })}>
+                {formatWon(n.pending)}
+              </DetailLink>
+            ) : (
+              "-"
+            )}
           </NumCell>
           <NumCell tone={remaining < 0 ? "text-red-600 font-bold" : ""}>
             {formatWon(remaining)}
@@ -221,8 +331,37 @@ export default function BudgetTree({ fiscalYear, items, usage }: Props) {
     <div className="border border-gray-200 rounded-xl bg-white overflow-hidden flex flex-col">
       {/* 총계 — 한 줄로 붙여 표가 차지할 높이를 남긴다 */}
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-4 py-3 border-b border-gray-200 bg-gray-50/60">
-        <span className="text-sm font-bold text-gray-800">
-          {fiscalYear}년 예산안
+        <span className="flex items-center gap-2">
+          <div className="w-[150px]">
+            <Select
+              value={String(fiscalYear)}
+              onChange={(v) => {
+                setFiscalYear(Number(v));
+                setExpanded(new Set());
+              }}
+              options={yearList.map((y) => ({
+                value: String(y),
+                label: `${y}년 예산안`,
+              }))}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+            />
+          </div>
+          {yearInfo?.status === "draft" && (
+            <>
+              <span className="px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-[11px] font-bold text-amber-700">
+                가예산
+              </span>
+              {canFinalize && (
+                <button
+                  type="button"
+                  onClick={finalize}
+                  className="px-2 py-0.5 rounded-md border border-[#2151EC] bg-white text-xs font-bold text-[#2151EC] hover:bg-blue-50 cursor-pointer"
+                >
+                  확정
+                </button>
+              )}
+            </>
+          )}
         </span>
         <Stat label="계획" value={total.planned} />
         <Stat label="확정지출" value={total.spent} />
@@ -324,6 +463,141 @@ export default function BudgetTree({ fiscalYear, items, usage }: Props) {
         확정지출은 승인·지급완료 건의 합입니다. 처리대기는 잔액에서 빼지 않고 따로
         보여줍니다. 상위 항목의 숫자는 하위 항목을 모두 더한 값입니다.
       </p>
+
+      {detail && (
+        <Modal
+          isOpen
+          onClose={() => setDetail(null)}
+          title={detail.kind === "spent" ? "확정지출 내역" : "처리대기 내역"}
+          className="sm:max-w-[860px]"
+          footer={
+            <button onClick={() => setDetail(null)} className={btnStyles.cancel}>
+              닫기
+            </button>
+          }
+        >
+          <div className="space-y-4">
+            {/* 요약 — 다른 상세 팝업과 같은 회색 띠 */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <p className="min-w-0 text-sm font-bold text-gray-900">
+                  <span className="mr-1.5 text-xs font-medium text-gray-500">
+                    {fiscalYear}년
+                  </span>
+                  {detail.node.code && (
+                    <span className="mr-1.5 font-mono text-[#2151EC]">
+                      {detail.node.code}
+                    </span>
+                  )}
+                  {detail.node.name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {detailLines.length}건 ·{" "}
+                  <b
+                    className={`text-lg tabular-nums ${
+                      detail.kind === "spent" ? "text-[#2151EC]" : "text-amber-600"
+                    }`}
+                  >
+                    {formatWon(detailSum)}
+                  </b>
+                  원
+                </p>
+              </div>
+              {detail.kind === "spent" && detailBreakdown.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {detailBreakdown.map(([st, n, sum]) => (
+                    <span
+                      key={st}
+                      className={`px-2 py-0.5 rounded border text-[11px] font-medium ${STATUS_STYLE[st]}`}
+                    >
+                      {STATUS_LABEL[st]} {n}건 ·{" "}
+                      <span className="font-mono tabular-nums">{formatWon(sum)}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 표 — 건이 수백 건이 되어도 팝업은 그대로, 표 안에서만 스크롤 */}
+            {detailLines.length === 0 ? (
+              <p className="py-12 text-center text-sm text-gray-400">
+                {requests.length === 0
+                  ? "청구 내역은 지출결의 담당자만 볼 수 있습니다."
+                  : "해당하는 청구가 없습니다."}
+              </p>
+            ) : (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="max-h-[clamp(220px,48vh,480px)] overflow-auto">
+                  <table className="w-full min-w-[640px] border-collapse text-sm">
+                    <thead>
+                      <tr className="text-[11px] font-semibold text-gray-600">
+                        <StickyTh align="left" className="pl-4">청구일자</StickyTh>
+                        <StickyTh align="left">신청자</StickyTh>
+                        <StickyTh align="left">품명 / 용도</StickyTh>
+                        <StickyTh align="left">비목</StickyTh>
+                        <StickyTh>금액</StickyTh>
+                        <StickyTh align="left" className="pr-4">상태</StickyTh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailLines.map(({ r, i }) => {
+                        const adjusted = (i.adjustments ?? []).length > 0;
+                        const amt = detail.kind === "spent" ? netPaid(i) : i.amount;
+                        return (
+                          <tr
+                            key={i.id}
+                            className="border-b border-gray-100 last:border-0 hover:bg-blue-50/40 align-top"
+                          >
+                            <td className="py-2.5 pl-4 pr-3 font-mono text-[12px] tabular-nums text-gray-500 whitespace-nowrap">
+                              {r.request_date}
+                            </td>
+                            <td className="py-2.5 px-3 whitespace-nowrap text-gray-800">
+                              {r.requester?.full_name ?? "-"}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <p className="text-gray-900">{i.item_name}</p>
+                              {i.purpose && (
+                                <p className="mt-0.5 text-xs text-gray-400">{i.purpose}</p>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-xs text-gray-500 whitespace-nowrap">
+                              {i.budget_item ? (
+                                <>
+                                  <span className="mr-1 font-mono text-gray-400">
+                                    {i.budget_item.code}
+                                  </span>
+                                  {i.budget_item.name}
+                                </>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                              <span className="font-mono tabular-nums font-semibold text-gray-900">
+                                {formatWon(amt)}
+                              </span>
+                              {adjusted && detail.kind === "spent" && (
+                                <p className="mt-0.5 text-[10px] text-amber-700">정정 반영</p>
+                              )}
+                            </td>
+                            <td className="py-2.5 pl-3 pr-4 whitespace-nowrap">
+                              <span
+                                className={`px-1.5 py-0.5 text-[11px] font-bold rounded border ${STATUS_STYLE[r.status]}`}
+                              >
+                                {STATUS_LABEL[r.status]}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -344,4 +618,22 @@ const Stat = ({
       {formatWon(value)}
     </b>
   </span>
+);
+
+/** 숫자를 눌러 세부내역을 여는 링크 */
+const DetailLink = ({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title="세부내역 보기"
+    className="underline decoration-dotted underline-offset-2 hover:text-[#2151EC] hover:decoration-solid cursor-pointer"
+  >
+    {children}
+  </button>
 );

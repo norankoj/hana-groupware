@@ -6,6 +6,7 @@
 import { useMemo, useState } from "react";
 import { Download, Search, X } from "lucide-react";
 import Select from "@/components/Select";
+import { DateField } from "@/components/fund/FundFields";
 import { StickyTh, NumCell } from "./TableCells";
 import { UNASSIGNED, exportExpenseLines } from "./exportExcel";
 import {
@@ -58,6 +59,10 @@ export default function ExpenseLedger({
   const [status, setStatus] = useState("all");
   const [major, setMajor] = useState("all");
   const [query, setQuery] = useState("");
+  /** 기간 검색 — 청구일자 또는 이체일자 기준 */
+  const [basis, setBasis] = useState<"request" | "paid">("request");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   const majorOf = useMemo(
     () => majorLabels(flattenBudget(budgetItems, usage)),
@@ -100,20 +105,35 @@ export default function ExpenseLedger({
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
       if (status !== "all" && r.request.status !== status) return false;
+      const day =
+        basis === "paid" ? r.request.paid_at : r.request.request_date;
+      // 이체일자 기준인데 아직 이체 전이면 기간을 걸었을 때 뺀다
+      if (from && (!day || day < from)) return false;
+      if (to && (!day || day > to)) return false;
       if (major !== "all" && r.majorLabel !== major) return false;
       if (!q) return true;
+      const acc = resolveAccount(r.item, r.request);
       const haystack = [
         r.item.item_name,
         r.item.purpose ?? "",
         r.request.requester?.full_name ?? "",
         r.item.budget_item ? itemLabel(r.item.budget_item) : "",
         r.majorLabel,
+        r.request.reject_reason ?? "",
+        acc.account_holder ?? "",
+        acc.account_no ?? "",
       ]
         .join(" ")
         .toLowerCase();
-      return haystack.includes(q);
+      // 계좌번호는 하이픈을 넣든 빼든 찾히게 숫자만으로도 비교한다
+      const qDigits = q.replace(/\D/g, "");
+      return (
+        haystack.includes(q) ||
+        (qDigits.length >= 4 &&
+          (acc.account_no ?? "").replace(/\D/g, "").includes(qDigits))
+      );
     });
-  }, [rows, status, major, query]);
+  }, [rows, status, major, query, basis, from, to]);
 
   const shownTotal = shown.reduce((sum, r) => sum + r.item.amount, 0);
 
@@ -132,7 +152,7 @@ export default function ExpenseLedger({
       {/* 요약 */}
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-4 py-3 border-b border-gray-200 bg-gray-50/60">
         <span className="text-sm font-bold text-gray-800">
-          {fiscalYear}년 전체 내역
+          전체 내역
         </span>
         <span className="flex items-baseline gap-1.5">
           <span className="text-xs text-gray-500">건수</span>
@@ -159,7 +179,7 @@ export default function ExpenseLedger({
             id="ledger-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="품명 · 신청자 · 용도 · 비목으로 검색"
+            placeholder="품명 · 신청자 · 용도 · 비목 · 예금주 · 계좌번호 · 반려 사유로 검색"
             className={`${inputClass} py-2 pl-9 pr-9`}
           />
           {query && (
@@ -199,12 +219,48 @@ export default function ExpenseLedger({
         </button>
       </div>
 
+      {/* 기간 */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50/40">
+        <span className="text-xs font-bold text-gray-500">기간</span>
+        <div className="w-[120px]">
+          <Select
+            value={basis}
+            onChange={(v) => setBasis(v as "request" | "paid")}
+            options={[
+              { value: "request", label: "청구일자" },
+              { value: "paid", label: "이체일자" },
+            ]}
+            className={`${selectClass} py-1.5`}
+          />
+        </div>
+        <div className="w-[140px]">
+          <DateField value={from} onChange={setFrom} />
+        </div>
+        <span className="text-gray-400">~</span>
+        <div className="w-[140px]">
+          <DateField value={to} onChange={setTo} />
+        </div>
+        {(from || to) && (
+          <button
+            type="button"
+            onClick={() => {
+              setFrom("");
+              setTo("");
+            }}
+            className="text-xs text-gray-500 underline underline-offset-2 hover:text-gray-900 cursor-pointer"
+          >
+            기간 지우기
+          </button>
+        )}
+      </div>
+
       {/* 내역 — 높이를 고정하고 이 안에서만 스크롤한다 */}
       <div className="h-[clamp(320px,58vh,700px)] overflow-auto">
-        <table className="w-full min-w-[1040px] border-collapse text-sm">
+        <table className="w-full min-w-[1130px] border-collapse text-sm">
           <thead>
             <tr className="text-[11px] font-semibold text-gray-600">
               <StickyTh align="left">청구일자</StickyTh>
+              <StickyTh align="left">이체일자</StickyTh>
               <StickyTh align="left">신청자</StickyTh>
               <StickyTh align="left">품명 / 지출대상</StickyTh>
               <StickyTh>수량</StickyTh>
@@ -219,7 +275,7 @@ export default function ExpenseLedger({
             {shown.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={10}
                   className="py-16 text-center text-sm text-gray-400"
                 >
                   해당하는 내역이 없습니다.
@@ -236,6 +292,9 @@ export default function ExpenseLedger({
                     <td className="py-1.5 pl-3 pr-3 font-mono text-[12px] tabular-nums text-gray-500 whitespace-nowrap">
                       {r.request.request_date}
                     </td>
+                    <td className="py-1.5 px-3 font-mono text-[12px] tabular-nums text-gray-500 whitespace-nowrap">
+                      {r.request.paid_at ?? "-"}
+                    </td>
                     <td className="py-1.5 px-3 text-gray-700 whitespace-nowrap">
                       {r.request.requester?.full_name ?? "-"}
                     </td>
@@ -245,6 +304,12 @@ export default function ExpenseLedger({
                         <span className="ml-1.5 text-xs text-gray-400">
                           {r.item.purpose}
                         </span>
+                      )}
+                      {/* 요청 리스트에서 반려 건을 보던 자리가 여기로 옮겨왔다 */}
+                      {r.request.status === "rejected" && r.request.reject_reason && (
+                        <p className="mt-0.5 text-xs text-red-600">
+                          반려 사유 · {r.request.reject_reason}
+                        </p>
                       )}
                     </td>
                     <NumCell size="text-[12px]" muted={!r.item.qty || r.item.qty === 1}>
