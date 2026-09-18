@@ -113,7 +113,12 @@ const EXCEL_COLS = [
 
 type TmapResult = { duration: string; mapUrl: string };
 
-async function calcTmapDuration(from: string, to: string): Promise<TmapResult | null> {
+async function calcTmapDuration(
+  from: string,
+  to: string,
+  eventDate?: string,      // "YYYY-MM-DD"
+  departureTime?: string,  // "HH:MM"
+): Promise<TmapResult | null> {
   const appKey = process.env.NEXT_PUBLIC_TMAP_APP_KEY;
   if (!appKey) return null;
 
@@ -130,18 +135,28 @@ async function calcTmapDuration(from: string, to: string): Promise<TmapResult | 
   const [start, end] = await Promise.all([getPoi(from), getPoi(to)]);
   if (!start || !end) return null;
 
+  // 집회 날짜+시간 기준 교통 반영 (형식: YYYYMMddHHmm)
+  const tmapDepartureTime =
+    eventDate && departureTime
+      ? eventDate.replace(/-/g, "") + departureTime.replace(":", "")
+      : undefined;
+
+  const params: Record<string, string> = {
+    startX: start.x, startY: start.y,
+    endX: end.x, endY: end.y,
+    reqCoordType: "WGS84GEO",
+    resCoordType: "WGS84GEO",
+    startName: encodeURIComponent(from),
+    endName: encodeURIComponent(to),
+    searchOption: "0",
+    trafficInfo: "Y",
+  };
+  if (tmapDepartureTime) params.departureTime = tmapDepartureTime;
+
   const res = await fetch("https://apis.openapi.sk.com/tmap/routes?version=1", {
     method: "POST",
     headers: { appKey, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      startX: start.x, startY: start.y,
-      endX: end.x, endY: end.y,
-      reqCoordType: "WGS84GEO",
-      resCoordType: "WGS84GEO",
-      startName: encodeURIComponent(from),
-      endName: encodeURIComponent(to),
-      searchOption: "0",
-    }),
+    body: new URLSearchParams(params),
   });
   const data = await res.json();
   const seconds: number | undefined = data?.features?.[0]?.properties?.totalTime;
@@ -1527,7 +1542,12 @@ function RideFormModal({
                   const mapWin = window.open("", "_blank");
                   setDurationLoading(true);
                   try {
-                    const result = await calcTmapDuration(form.departure_location, form.arrival_location);
+                    const result = await calcTmapDuration(
+                      form.departure_location,
+                      form.arrival_location,
+                      form.event_date || undefined,
+                      form.departure_time || undefined,
+                    );
                     if (result) {
                       set("estimated_duration", result.duration);
                       toast.success(`소요시간: ${result.duration}`);

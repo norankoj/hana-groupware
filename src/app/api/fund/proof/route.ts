@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getMinioClient, BUCKETS } from "@/utils/minio";
+import { streamObject } from "@/utils/minio";
 
 const CONTENT_TYPES: Record<string, string> = {
   pdf: "application/pdf",
@@ -74,34 +74,28 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const client = getMinioClient();
-    const stream = await client.getObject(BUCKETS.private, target.url);
-
-    const chunks: Buffer[] = [];
-    await new Promise<void>((resolve, reject) => {
-      stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-      stream.on("end", resolve);
-      stream.on("error", reject);
-    });
-    const buffer = Buffer.concat(chunks);
-
     const fileName = target.name || target.url.split("/").pop() || "증빙자료";
     const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
     const contentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
     const disposition = INLINE.includes(ext) ? "inline" : "attachment";
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    // NAS에서 받는 대로 브라우저로 흘려보낸다 (다 모았다가 보내지 않는다)
+    const body = await streamObject("private", target.url);
+
+    return new NextResponse(body, {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-        "Cache-Control": "private, no-store",
+        // 증빙 파일은 올린 뒤 바뀌지 않는다. 본인 브라우저에만 하루 둔다.
+        "Cache-Control": "private, max-age=86400",
       },
     });
-  } catch (error: any) {
-    console.error("[fund/proof] 오류:", error?.message ?? error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[fund/proof] 오류:", message);
     return NextResponse.json(
       { error: "증빙자료를 불러오지 못했습니다" },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

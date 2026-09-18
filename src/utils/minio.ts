@@ -1,4 +1,5 @@
 // src/utils/minio.ts
+import { Readable } from "node:stream";
 import * as Minio from "minio";
 
 // MinIO 클라이언트 싱글톤
@@ -36,6 +37,23 @@ export type BucketKey = keyof typeof BUCKETS;
 
 // Public 버킷 (notice, vehicle) — 이미지 URL 직접 접근 허용
 const PUBLIC_BUCKETS: BucketKey[] = ["notice", "vehicle", "project"];
+
+/** 권한 확인 없이 내려줘도 되는 버킷인지 (private 은 아니다) */
+export const isPublicBucket = (key: string): key is BucketKey =>
+  (PUBLIC_BUCKETS as string[]).includes(key);
+
+/**
+ * 파일을 받는 대로 흘려보낼 스트림.
+ * 다 받아 모았다가 보내면 파일 전체를 기다려야 첫 바이트가 나간다.
+ * 브라우저가 중간에 끊으면 NAS 연결도 같이 닫힌다.
+ */
+export async function streamObject(
+  bucketKey: BucketKey,
+  objectName: string,
+): Promise<ReadableStream<Uint8Array>> {
+  const stream = await getMinioClient().getObject(BUCKETS[bucketKey], objectName);
+  return Readable.toWeb(stream) as ReadableStream<Uint8Array>;
+}
 
 /** 버킷에 공개 읽기 정책 설정 */
 async function ensurePublicReadPolicy(bucketName: string): Promise<void> {

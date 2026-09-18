@@ -7,10 +7,9 @@
 // NAS(MinIO)는 HTTP라 HTTPS 페이지에서 바로 부를 수 없어 이 서버를 거친다.
 // 대신 받는 대로 흘려보내고(스트리밍), 브라우저가 한 번 받은 영수증은 다시 받지 않게 한다.
 
-import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getMinioClient, BUCKETS } from "@/utils/minio";
+import { streamObject } from "@/utils/minio";
 
 const CONTENT_TYPES: Record<string, string> = {
   pdf: "application/pdf",
@@ -80,19 +79,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const stream = await getMinioClient().getObject(
-      BUCKETS.private,
-      target.url,
-    );
-
     const fileName = target.name || target.url.split("/").pop() || "영수증";
     const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
     const contentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
     const disposition = INLINE.includes(ext) ? "inline" : "attachment";
 
-    // 다 받아 모았다가 보내면 파일 전체를 기다려야 첫 바이트가 나간다.
-    // NAS에서 받는 대로 브라우저로 흘려보낸다.
-    const body = Readable.toWeb(stream) as ReadableStream<Uint8Array>;
+    // NAS에서 받는 대로 브라우저로 흘려보낸다
+    const body = await streamObject("private", target.url);
 
     return new NextResponse(body, {
       headers: {
