@@ -69,6 +69,18 @@ export default function ReceiptViewer({ receipts, startAt, onClose }: Props) {
     };
   }, [receipts.length, onClose]);
 
+  // 앞뒤 영수증을 미리 받아둔다 — 서버가 브라우저에 하루 캐시하도록 하므로
+  // 넘기는 순간 바로 뜬다. 사진만 (PDF·문서는 무거워서 누를 때 받는다).
+  useEffect(() => {
+    if (receipts.length < 2) return;
+    const neighbors = [at + 1, at - 1].map(
+      (i) => receipts[(i + receipts.length) % receipts.length],
+    );
+    for (const r of neighbors) {
+      if (r && IMAGE_EXT.includes(extOf(r.name))) new Image().src = urlOf(r);
+    }
+  }, [at, receipts]);
+
   const current = receipts[Math.min(at, receipts.length - 1)];
   if (!current) return null;
 

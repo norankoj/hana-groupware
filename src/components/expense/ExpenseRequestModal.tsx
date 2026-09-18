@@ -38,6 +38,35 @@ const RECEIPT_ACCEPT = "image/*,application/pdf,.xlsx,.xls,.docx,.doc,.zip";
 /** 통장 적요에 들어가는 길이 — 넘으면 은행에서 잘린다 */
 const ITEM_NAME_HINT = 7;
 
+// 브라우저가 다시 그려서 줄일 수 있는 사진 형식 (HEIC·PDF 등은 그대로 올린다)
+const COMPRESSIBLE = ["image/jpeg", "image/png", "image/webp"];
+
+/**
+ * 폰 사진 영수증은 3~8MB라 미리보기가 느리다. 올리기 전에 줄인다.
+ * 영수증 글씨가 읽혀야 하므로 차량 사진(1024px·0.7)보다 넉넉하게 잡는다.
+ * 1MB 이하(캡처 이미지 등)는 손대지 않는다 — 글씨가 뭉개질 수 있다.
+ */
+const shrinkReceipt = async (file: File): Promise<File> => {
+  if (!COMPRESSIBLE.includes(file.type) || file.size <= 1024 * 1024) return file;
+  try {
+    const { default: imageCompression } = await import(
+      "browser-image-compression"
+    );
+    const out = await imageCompression(file, {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 2000,
+      initialQuality: 0.85,
+      useWebWorker: true,
+    });
+    // 줄인 결과가 오히려 크면 원본을 쓴다
+    return out.size < file.size
+      ? new File([out], file.name, { type: out.type || file.type })
+      : file;
+  } catch {
+    return file; // 줄이지 못하면 원본 그대로 올린다
+  }
+};
+
 type Account = {
   bank_name: string;
   account_no: string;
@@ -242,7 +271,7 @@ export default function ExpenseRequestModal({
         const files: ProofFile[] = [];
         for (const f of r.files) {
           const formData = new FormData();
-          formData.append("file", f);
+          formData.append("file", await shrinkReceipt(f));
           formData.append("bucket", "private");
           formData.append("folder", `expense/${user.id}`);
 
