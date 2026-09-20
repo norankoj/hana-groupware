@@ -60,7 +60,7 @@ const STATUS_LABEL: Record<string, string> = {
   noshow: "노쇼",
 };
 
-const DAY_KO = ["월", "화", "수", "목", "금", "토", "일"];
+const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 
 function overlapsDay(log: VehicleLog, day: Date) {
   const start = new Date(log.start_at);
@@ -156,7 +156,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
 
   // ── 주간 뷰 ────────────────────────────────────────────────────────────────
   if (viewMode === "week") {
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const weekLabel = `${format(weekStart, "yyyy년 M월 d일")} ~ ${format(weekDays[6], "M월 d일")}`;
 
@@ -183,8 +183,8 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                     차량
                   </th>
                   {weekDays.map((day, i) => {
-                    const isSat = i === 5;
-                    const isSun = i === 6;
+                    const isSat = i === 6;
+                    const isSun = i === 0;
                     const today = isToday(day);
                     return (
                       <th
@@ -221,8 +221,8 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                     </td>
                     {/* 날짜별 셀 */}
                     {weekDays.map((day, i) => {
-                      const isSat = i === 5;
-                      const isSun = i === 6;
+                      const isSat = i === 6;
+                      const isSun = i === 0;
                       const today = isToday(day);
                       const dayLogs = logs.filter(
                         (l) => l.resource_id === vehicle.id && overlapsDay(l, day),
@@ -306,8 +306,8 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
             </thead>
             <tbody className="divide-y divide-gray-100">
               {weekDays.map((day, i) => {
-                const isSat = i === 5;
-                const isSun = i === 6;
+                const isSat = i === 6;
+                const isSun = i === 0;
                 const today = isToday(day);
                 return (
                   <tr
@@ -380,8 +380,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const startDow = monthStart.getDay(); // 0=Sun
-  const startPad = startDow === 0 ? 6 : startDow - 1; // Mon-based padding
+  const startPad = monthStart.getDay(); // 0=Sun 시작
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -401,7 +400,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
             <div
               key={d}
               className={`text-center text-xs font-bold py-1 ${
-                i === 5 ? "text-blue-400" : i === 6 ? "text-red-400" : "text-gray-500"
+                i === 6 ? "text-blue-400" : i === 0 ? "text-red-400" : "text-gray-500"
               }`}
             >
               {d}
