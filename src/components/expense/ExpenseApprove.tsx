@@ -3,6 +3,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { format } from "date-fns";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
@@ -12,6 +13,7 @@ import { AmountField, DateField } from "@/components/fund/FundFields";
 import AdjustmentHistory from "./AdjustmentHistory";
 import ReceiptThumbs from "./ReceiptThumbs";
 import Modal from "@/components/Modal";
+import Select from "@/components/Select";
 import BudgetItemPicker from "./BudgetItemPicker";
 import ReceiptViewer, {
   collectReceipts,
@@ -82,8 +84,11 @@ export default function ExpenseApprove({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ExpenseRequest | null>(null);
   const [payTarget, setPayTarget] = useState<ExpenseRequest | null>(null);
-  /** 이체중 전체를 한꺼번에 지급완료 처리하는 중 */
-  const [payAll, setPayAll] = useState(false);
+  /**
+   * 지급완료를 기록할 이체 목록 (만든 시각). 이체중을 통째로 처리하면
+   * 아직 은행에 안 간 다른 목록까지 지급완료가 된다 — 목록 단위로만 한다.
+   */
+  const [payBatch, setPayBatch] = useState<string | null>(null);
   const [payDate, setPayDate] = useState(todayString());
   const [listing, setListing] = useState(false);
   /** 이체 목록 만들기 확인창 — 은행이 처리할 예정일자를 함께 받는다 */
@@ -192,8 +197,63 @@ export default function ExpenseApprove({
     });
     setAdjBusy(false);
     if (error) return toast.error("기록 실패: " + error.message);
-    toast.success(`${ADJ_LABEL[adjKind]}을 기록했습니다.`);
+
+    if (adjKind === "extra") {
+      const req = requests.find((x) => (x.items ?? []).some((i) => i.id === adjTarget.id));
+      if (req) {
+        exportPayoutList(
+          [{ item: adjTarget, request: req, major: "", amount, memo: `추가지급: ${memo.trim()}` }],
+          adjDate,
+          `추가지급_${adjDate.replace(/-/g, "")}_${adjTarget.item_name}.xlsx`,
+        );
+      }
+      toast.success("추가 지급을 기록했습니다. 이체 양식을 내려받았어요.");
+    } else {
+      toast.success(`${ADJ_LABEL[adjKind]}을 기록했습니다.`);
+    }
     setAdjTarget(null);
+    onRefresh();
+  };
+
+  /** 예산 연도 목록 — 청구를 다른 해 예산으로 옮길 때 */
+  const yearOptions = [...new Set(budgetItems.map((i) => i.fiscal_year))]
+    .sort()
+    .map((y) => ({ value: String(y), label: `${y}년 예산` }));
+
+  /**
+   * 예산 연도 옮기기 — 청구일자로 자동으로 정한 연도가 맞지 않을 때.
+   * 비목은 연도별로 달라서 배정한 비목·출금계좌는 지운다. 처리대기일 때만.
+   */
+  const moveYear = async (req: ExpenseRequest, year: number) => {
+    if (year === req.fiscal_year) return;
+    const ok = await showConfirm(
+      `${year}년 예산으로 옮길까요?`,
+      "배정한 비목과 출금계좌는 지워집니다. 새 연도의 비목으로 다시 배정해주세요.",
+      "옮기기",
+    );
+    if (!ok) return;
+
+    setBusyId(req.id);
+    const { data, error } = await supabase
+      .from("expense_requests")
+      .update({ fiscal_year: year })
+      .eq("id", req.id)
+      .eq("status", "pending")
+      .select("id");
+    if (!error && data && data.length > 0) {
+      await supabase
+        .from("expense_request_items")
+        .update({ budget_item_id: null, withdraw_code: null })
+        .eq("request_id", req.id);
+    }
+    setBusyId(null);
+
+    if (error) return toast.error("옮기기 실패: " + error.message);
+    if (!data || data.length === 0) {
+      toast.error("이미 처리된 청구입니다. 목록을 새로 불러옵니다.");
+      return onRefresh();
+    }
+    toast.success(`${year}년 예산으로 옮겼습니다.`);
     onRefresh();
   };
 
@@ -223,6 +283,22 @@ export default function ExpenseApprove({
     toast.success("처리대기로 되돌렸습니다.");
     onRefresh();
   };
+
+/** 이체중을 이체 목록(만든 시각)별로 — 먼저 만든 목록이 위 */
+  const batchKey = (r: ExpenseRequest) => r.payout_listed_at ?? "none";
+  const batchLabel = (key: string) =>
+    key === "none" ? "목록 시각 없음" : format(new Date(key), "yyyy-MM-dd HH:mm");
+  const payingBatches = useMemo(() => {
+    const m = new Map<string, ExpenseRequest[]>();
+    for (const r of requests) {
+      if (r.status !== "paying") continue;
+      const k = batchKey(r);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(r);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [requests]);
+  const batchTargets = payBatch ? (payingBatches.find(([k]) => k === payBatch)?.[1] ?? []) : [];
 
   const pendingCount = requests.filter((r) => r.status === "pending").length;
   const approvedCount = requests.filter((r) => r.status === "approved").length;
@@ -403,11 +479,9 @@ export default function ExpenseApprove({
     onRefresh();
   };
 
-  /** 이체중 → 지급완료. payTarget 이 없으면 이체중 전체를 한꺼번에 처리한다 */
+  /** 이체중 → 지급완료. payTarget 이 없으면 고른 이체 목록 하나를 처리한다 */
   const pay = async () => {
-    const targets = payTarget
-      ? [payTarget]
-      : requests.filter((r) => r.status === "paying");
+    const targets = payTarget ? [payTarget] : batchTargets;
     if (targets.length === 0) return;
 
     setBusyId(payTarget?.id ?? "bulk");
@@ -427,7 +501,7 @@ export default function ExpenseApprove({
       .select("id");
     setBusyId(null);
     setPayTarget(null);
-    setPayAll(false);
+    setPayBatch(null);
 
     if (error) return toast.error("지급 처리 실패: " + error.message);
     if (!data || data.length === 0) {
@@ -498,6 +572,17 @@ export default function ExpenseApprove({
                     <p className="mt-0.5 text-xs text-gray-500">
                       {req.requester?.full_name ?? "-"} · 청구{" "}
                       {req.request_date}
+                      {" · "}
+                      {/* 청구일자와 다른 해 예산에 들어갔으면 눈에 띄게 */}
+                      <span
+                        className={
+                          Number(req.request_date.slice(0, 4)) !== req.fiscal_year
+                            ? "font-bold text-amber-700"
+                            : ""
+                        }
+                      >
+                        {req.fiscal_year}년 예산
+                      </span>
                       {/* 예전에 한 장으로 올린 묶음은 건수를 함께 보여준다 */}
                       {items.length > 1 && ` · ${items.length}건`}
                       {req.paid_at && ` · 이체 ${req.paid_at}`}
@@ -536,12 +621,20 @@ export default function ExpenseApprove({
                                   </span>
                                   {it.item_name}
                                 </p>
-                                <p className="mt-0.5 text-xs text-gray-500">
+                                <p className="mt-0.5 font-mono text-xs text-gray-500">
                                   {it.qty > 1 &&
                                     `${it.qty} × ${formatWon(it.unit_price)} · `}
                                   {accountText(acc)}
-                                  {it.purpose && ` · ${it.purpose}`}
                                 </p>
+                                {/* 용도는 길게 적는 칸이라 계좌 줄에 붙이지 않고 따로 둔다 */}
+                                {it.purpose && (
+                                  <p className="mt-1.5 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap break-words">
+                                    <span className="mr-1.5 align-[1px] text-[11px] font-bold text-gray-400">
+                                      용도
+                                    </span>
+                                    {it.purpose}
+                                  </p>
+                                )}
                               </div>
                               <span className="shrink-0 text-sm font-bold text-gray-900 tabular-nums">
                                 {formatWon(it.amount)}
@@ -610,6 +703,16 @@ export default function ExpenseApprove({
                       <div className="flex gap-2">
                         {req.status === "pending" && (
                           <>
+                            {yearOptions.length > 1 && (
+                              <div className="w-[130px]">
+                                <Select
+                                  value={String(req.fiscal_year)}
+                                  onChange={(v) => moveYear(req, Number(v))}
+                                  options={yearOptions}
+                                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+                                />
+                              </div>
+                            )}
                             <button
                               onClick={() => setRejectTarget(req)}
                               disabled={busy}
@@ -735,25 +838,41 @@ export default function ExpenseApprove({
       )}
 
       {filter === "paying" && payingCount > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 border border-indigo-200 bg-indigo-50/60 rounded-xl px-4 py-3">
-          <div className="flex-1">
-            <p className="text-sm font-bold text-gray-900">
-              은행 이체를 마치셨나요? {payingCount}건을 한 번에 기록
-            </p>
-            <p className="mt-0.5 text-xs text-gray-600">
-              못 보낸 건은 그 건만 아래에서 <b>승인됨으로 되돌리기</b> 하세요.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setPayDate(todayString());
-              setPayAll(true);
-            }}
-            className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer whitespace-nowrap"
-          >
-            전체 지급완료 기록
-          </button>
+        <div className="border border-indigo-200 bg-indigo-50/60 rounded-xl px-4 py-3">
+          <p className="text-sm font-bold text-gray-900">
+            은행 이체를 마친 목록을 지급완료로 기록하세요
+          </p>
+          <p className="mt-0.5 text-xs text-gray-600">
+            목록마다 따로 기록합니다. 못 보낸 건은 그 건만 아래에서 <b>승인됨으로 되돌리기</b> 하세요.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {payingBatches.map(([key, list]) => (
+              <li
+                key={key}
+                className="flex flex-wrap items-center gap-3 bg-white border border-indigo-100 rounded-lg px-3 py-2"
+              >
+                <span className="text-sm font-bold text-gray-900">
+                  이체 목록 <span className="font-mono">{batchLabel(key)}</span>
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-bold text-gray-600 tabular-nums">
+                  {list.length}건
+                </span>
+                <span className="font-mono text-sm font-bold tabular-nums text-gray-900">
+                  {formatWon(list.reduce((t, r) => t + requestTotal(r.items ?? []), 0))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPayDate(todayString());
+                    setPayBatch(key);
+                  }}
+                  className="ml-auto px-4 py-2 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm cursor-pointer whitespace-nowrap"
+                >
+                  지급완료 기록
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -1049,7 +1168,12 @@ export default function ExpenseApprove({
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-gray-900">{it.item_name}</p>
                       {it.purpose && (
-                        <p className="mt-0.5 text-xs text-gray-500">{it.purpose}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap break-words">
+                          <span className="mr-1.5 align-[1px] text-[11px] font-bold text-gray-400">
+                            용도
+                          </span>
+                          {it.purpose}
+                        </p>
                       )}
                       <p className="mt-1 font-mono text-xs text-gray-500">
                         {accountText(resolveAccount(it, detailReq))}
@@ -1145,11 +1269,16 @@ export default function ExpenseApprove({
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5">
-                  {adjKind === "extra" ? "이체일자" : "반환받은 날"}
+                  {adjKind === "extra" ? "이체할 날" : "반환받은 날"}
                 </label>
                 <DateField value={adjDate} onChange={setAdjDate} />
               </div>
             </div>
+            {adjKind === "extra" && (
+              <p className="text-xs text-[#2151EC]">
+                기록하면 이 금액만 담은 이체 양식(엑셀)이 바로 내려받아집니다.
+              </p>
+            )}
             <p className="text-xs text-gray-500">
               기록은 고치거나 지울 수 없습니다. 잘못 넣었으면 반대 기록을 하나 더 넣어주세요.
             </p>
@@ -1194,10 +1323,10 @@ export default function ExpenseApprove({
 
       {/* 이체일자 — 단건과 전체를 같은 창에서 받는다 */}
       <ConfirmModal
-        isOpen={!!payTarget || payAll}
+        isOpen={!!payTarget || !!payBatch}
         onClose={() => {
           setPayTarget(null);
-          setPayAll(false);
+          setPayBatch(null);
         }}
         title="지급완료로 기록할까요?"
         confirmText="지급완료"
@@ -1219,18 +1348,16 @@ export default function ExpenseApprove({
             </>
           ) : (
             <>
-              <ConfirmRow label="대상" value={`이체중 ${payingCount}건 전체`} />
+              <ConfirmRow
+                label="대상"
+                value={`이체 목록 ${payBatch ? batchLabel(payBatch) : ""} · ${batchTargets.length}건`}
+              />
               <ConfirmRow
                 label="합계"
                 value={
                   <b className="tabular-nums">
                     {formatWon(
-                      requests
-                        .filter((r) => r.status === "paying")
-                        .reduce(
-                          (sum, r) => sum + requestTotal(r.items ?? []),
-                          0,
-                        ),
+                      batchTargets.reduce((sum, r) => sum + requestTotal(r.items ?? []), 0),
                     )}
                     원
                   </b>

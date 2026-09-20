@@ -123,7 +123,52 @@ export type BudgetItem = {
   /** 이 항목의 돈이 나가는 교회 계좌 */
   withdraw_code: string | null;
   sort_order: number;
+  /** 추경·전용 전의 원안 금액 (변경이 있을 때만 채워진다) */
+  original_planned?: number;
 };
+
+/** 예산 변경 — 추경(늘리기·줄이기) · 전용(옮기기). 원안은 두고 기록을 쌓는다 */
+export type BudgetChange = {
+  id: string;
+  fiscal_year: number;
+  kind: "revise" | "transfer";
+  from_item_id: string | null;
+  to_item_id: string;
+  amount: number;
+  memo: string;
+  changed_on: string;
+  created_at: string;
+};
+
+export const CHANGE_LABEL: Record<BudgetChange["kind"], string> = {
+  revise: "추경",
+  transfer: "전용",
+};
+
+/**
+ * 원안에 추경·전용을 더해 현재 예산을 만든다. 바뀐 금액은 상위 항목까지 올려서
+ * 대항목·소항목 합계가 하위 합과 계속 맞게 한다. 원안은 original_planned 에 남긴다.
+ */
+export function applyBudgetChanges(
+  items: BudgetItem[],
+  changes: BudgetChange[],
+): BudgetItem[] {
+  const byId = new Map(
+    items.map((i) => [i.id, { ...i, original_planned: i.planned_amount }]),
+  );
+  const bump = (id: string, delta: number) => {
+    let cur = byId.get(id);
+    while (cur) {
+      cur.planned_amount += delta;
+      cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+    }
+  };
+  for (const c of changes) {
+    if (c.kind === "transfer" && c.from_item_id) bump(c.from_item_id, -c.amount);
+    bump(c.to_item_id, c.amount);
+  }
+  return items.map((i) => byId.get(i.id)!);
+}
 
 /** 예산 연도 — 가예산(draft)으로 넣고 담당자가 확정(final)한다 */
 export type BudgetYear = {

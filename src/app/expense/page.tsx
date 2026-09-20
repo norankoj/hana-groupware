@@ -13,16 +13,43 @@ import type {
   BudgetItem,
   BudgetUsage,
   ExpenseRequest,
+  BudgetChange,
   BudgetYear,
   ExpenseUser,
   WithdrawAccount,
 } from "@/components/expense/shared";
+import { applyBudgetChanges } from "@/components/expense/shared";
 
 type Tab = "mine" | "approve" | "budget" | "ledger";
 
 /** 청구 + 줄 + 배정된 비목까지 한 번에 */
 const REQUEST_SELECT =
   "*, requester:requester_id(full_name, position), handler:handler_id(full_name), items:expense_request_items(*, budget_item:budget_item_id(code, name), adjustments:expense_adjustments(*))";
+
+/**
+ * Supabase 는 한 번에 최대 1,000건만 돌려준다. 넘으면 오류 없이 잘려서
+ * 오래된 청구가 목록에서 조용히 사라진다(주 30건이면 8개월 만에 넘는다).
+ * 1,000건씩 끝까지 나눠 받는다.
+ * ponytail: 전부 받아 화면에서 거른다. 수천 건이 쌓여 느려지면
+ * 연도·상태 조건을 서버로 보내는 방식으로 바꾼다.
+ */
+const PAGE = 1000;
+async function fetchAll(
+  build: () => {
+    range: (
+      from: number,
+      to: number,
+    ) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+  },
+): Promise<unknown[]> {
+  const out: unknown[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE) return out;
+  }
+}
 
 /** 줄 순서는 중첩 조회로 보장되지 않으므로 여기서 맞춘다 */
 const sortItems = (rows: ExpenseRequest[] | null) =>
@@ -51,6 +78,8 @@ function ExpenseContent() {
   const [usage, setUsage] = useState<BudgetUsage[]>([]);
   /** 예산 연도 목록 — 가예산(draft) / 확정(final) */
   const [years, setYears] = useState<BudgetYear[]>([]);
+  /** 추경·전용 기록 */
+  const [changes, setChanges] = useState<BudgetChange[]>([]);
   const [withdrawAccounts, setWithdrawAccounts] = useState<WithdrawAccount[]>(
     [],
   );
@@ -88,14 +117,18 @@ function ExpenseContent() {
     }
 
     // 청구에 남길 예산 연도. 예산안을 못 보는 사역자도 알 수 있게 함수로 받는다.
-    const [{ data: year }, { data: reqs }] = await Promise.all([
+    const [{ data: year }, reqs] = await Promise.all([
       supabase.rpc("current_fiscal_year"),
-      supabase
-        .from("expense_requests")
-        .select(REQUEST_SELECT)
-        .eq("requester_id", authUser.id)
-        .order("request_date", { ascending: false })
-        .order("created_at", { ascending: false }),
+      // 나눠 받으려면 순서가 흔들리지 않아야 한다 — 마지막에 id 로 못 박는다
+      fetchAll(() =>
+        supabase
+          .from("expense_requests")
+          .select(REQUEST_SELECT)
+          .eq("requester_id", authUser.id)
+          .order("request_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id"),
+      ),
     ]);
 
     const activeYear = typeof year === "number" ? year : new Date().getFullYear();
@@ -125,38 +158,56 @@ function ExpenseContent() {
     }
 
     if (canReadBudget) {
-      const [{ data: budgetItems }, { data: budgetUsage }, { data: accounts }] =
+      const [budgetItems, budgetUsage, { data: accounts }, budgetChanges] =
         await Promise.all([
-          supabase
-            .from("budget_items")
-            .select("*")
-            // 연도를 가리지 않고 받는다 — 청구마다 제 연도 비목에 배정하고,
-            // 예산안 탭에서 연도를 바꿔 본다.
-            // ponytail: 한 해 195행이라 5년치까지는 기본 1,000건 안이다.
-            .eq("is_active", true)
-            .order("fiscal_year")
-            .order("sort_order"),
-          supabase.from("budget_usage").select("*"),
+          // 연도를 가리지 않고 받는다 — 청구마다 제 연도 비목에 배정하고,
+          // 예산안 탭에서 연도를 바꿔 본다. 한 해 195행이라 해가 쌓이면 1,000건을 넘는다.
+          fetchAll(() =>
+            supabase
+              .from("budget_items")
+              .select("*")
+              .eq("is_active", true)
+              .order("fiscal_year")
+              .order("sort_order")
+              .order("id"),
+          ),
+          fetchAll(() =>
+            supabase.from("budget_usage").select("*").order("budget_item_id"),
+          ),
           supabase
             .from("withdraw_accounts")
             .select("*")
             .eq("is_active", true)
             .order("sort_order"),
+          fetchAll(() =>
+            supabase
+              .from("budget_changes")
+              .select("*")
+              .order("changed_on")
+              .order("created_at")
+              .order("id"),
+          ),
         ]);
 
-      setItems((budgetItems as BudgetItem[]) ?? []);
+      // 화면 어디서나 같은 금액을 보도록, 예산안은 변경을 반영한 채로 넘긴다
+      const changeRows = budgetChanges as BudgetChange[];
+      setChanges(changeRows);
+      setItems(applyBudgetChanges(budgetItems as BudgetItem[], changeRows));
       setUsage((budgetUsage as BudgetUsage[]) ?? []);
       setWithdrawAccounts((accounts as WithdrawAccount[]) ?? []);
     }
 
     if (profile.is_expense_manager) {
-      const { data: all } = await supabase
-        .from("expense_requests")
-        .select(REQUEST_SELECT)
-        .order("request_date", { ascending: false })
-        .order("created_at", { ascending: false });
+      const all = await fetchAll(() =>
+        supabase
+          .from("expense_requests")
+          .select(REQUEST_SELECT)
+          .order("request_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id"),
+      );
 
-      setAllRequests(sortItems(all as ExpenseRequest[] | null));
+      setAllRequests(sortItems(all as ExpenseRequest[]));
     }
 
     setLoading(false);
@@ -259,6 +310,7 @@ function ExpenseContent() {
             items={items}
             usage={usage}
             requests={allRequests}
+            changes={changes}
             canFinalize={user.is_expense_manager}
             onRefresh={fetchData}
           />

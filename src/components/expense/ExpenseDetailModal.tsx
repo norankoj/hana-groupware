@@ -87,6 +87,10 @@ export default function ExpenseDetailModal({
             <p className="mt-1 text-sm text-red-900 whitespace-pre-wrap">
               {request.reject_reason}
             </p>
+            <p className="mt-2 pt-2 border-t border-red-200 text-xs text-red-700">
+              반려된 청구는 고칠 수 없어요. 사유를 확인해 내용을 바로잡은 뒤{" "}
+              <b>경비지급 요청</b>에서 처음부터 다시 신청해주세요.
+            </p>
           </div>
         )}
 
@@ -128,13 +132,16 @@ export default function ExpenseDetailModal({
                           </span>
                         )}
                         <span className="text-gray-600">{accountText(acc)}</span>
-                        {it.purpose && (
-                          <>
-                            <span className="mx-1.5 text-gray-300">·</span>
-                            {it.purpose}
-                          </>
-                        )}
                       </p>
+                      {/* 용도는 길게 적는 칸이라 따로 둔다 */}
+                      {it.purpose && (
+                        <p className="mt-1.5 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap break-words">
+                          <span className="mr-1.5 align-[1px] text-[11px] font-bold text-gray-400">
+                            용도
+                          </span>
+                          {it.purpose}
+                        </p>
+                      )}
                     </div>
                     <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">
                       {formatWon(it.amount)}

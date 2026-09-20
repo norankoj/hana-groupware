@@ -163,7 +163,8 @@ type Row = Account & {
   files: File[];
 };
 
-// 예금주는 비워둔다 — 본인이 아닌 다른 사람 계좌로 넣는 경우가 있다
+// 예금주는 미리 채우지 않는다 — 본인이 아닌 다른 사람 계좌로 넣는 경우가 있다.
+// 대신 청구할 때는 꼭 적어야 한다 (이체 목록에 빈칸으로 나가면 안 된다).
 const emptyAccount = (): Account => ({
   bank_name: "",
   account_no: "",
@@ -343,6 +344,9 @@ export default function ExpenseRequestModal({
         return toast.error(`${i + 1}번 줄의 금액을 입력해주세요.`);
       if (!r.bank_name.trim() || !r.account_no.trim())
         return toast.error(`${i + 1}번 줄의 받을 계좌를 입력해주세요.`);
+      // 예금주가 비면 이체 목록에 빈칸으로 나가고, 누구 계좌인지 확인할 수 없다
+      if (!r.account_holder.trim())
+        return toast.error(`${i + 1}번 줄의 예금주를 입력해주세요.`);
     }
 
     setSaving(true);
@@ -599,11 +603,12 @@ function RowCard({
         </div>
 
         <SubField label="용도 / 비고">
-          <input
+          <textarea
             value={row.purpose}
             onChange={(e) => onChange({ purpose: e.target.value })}
+            rows={2}
             placeholder="선교전략회의 의전"
-            className={inputClass}
+            className={`${inputClass} resize-y leading-relaxed`}
           />
         </SubField>
 

@@ -133,6 +133,11 @@ export default function ExpenseMyView({
                         {items.length > 1 && ` · ${items.length}건`}
                         {r.paid_at && ` · 이체 ${r.paid_at}`}
                       </p>
+                      {r.status === "rejected" && (
+                        <p className="mt-0.5 text-xs text-red-600">
+                          반려되었어요. 사유를 확인하고 처음부터 다시 신청해주세요.
+                        </p>
+                      )}
                     </div>
                     <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">
                       {formatWon(requestTotal(items))}

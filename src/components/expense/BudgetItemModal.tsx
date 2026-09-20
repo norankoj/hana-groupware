@@ -37,6 +37,8 @@ type Props = {
   /** 지금 정해진 출금계좌 — 비워두면 고른 비목의 기본값을 쓴다 */
   withdrawValue?: string | null;
   accounts: WithdrawAccount[];
+  /** 항목만 고르고 출금계좌는 필요 없을 때 (예산 변경) */
+  hideWithdraw?: boolean;
   onPick: (budgetItemId: string, withdrawCode: string | null) => void;
 };
 
@@ -49,6 +51,7 @@ export default function BudgetItemModal({
   value,
   withdrawValue = null,
   accounts,
+  hideWithdraw = false,
   onPick,
 }: Props) {
   const roots = useMemo(() => buildBudgetTree(items, usage), [items, usage]);
@@ -220,13 +223,14 @@ export default function BudgetItemModal({
     <Modal
       isOpen
       onClose={onClose}
-      title="비목 배정"
+      title={hideWithdraw ? "항목 고르기" : "비목 배정"}
       className="sm:max-w-[900px]"
       bodyClassName="p-0 flex flex-col min-h-0"
       footer={
         <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full">
           {/* 출금계좌 — 고른 항목에 맞춰 자동으로 들어간다.
               '변경'을 눌렀을 때만 직접 고른다. */}
+          {!hideWithdraw && (
           <div className="w-full sm:w-[210px] shrink-0 order-2 sm:order-1">
             <WithdrawField
               accounts={accounts}
@@ -243,6 +247,7 @@ export default function BudgetItemModal({
               }}
             />
           </div>
+          )}
 
           <div className="flex-1 min-w-0 order-1 sm:order-2">
             {selected ? (
@@ -302,7 +307,7 @@ export default function BudgetItemModal({
               disabled={!selectedId}
               className={`${btnStyles.save} sm:min-w-[80px]`}
             >
-              배정
+              {hideWithdraw ? "고르기" : "배정"}
             </button>
           </div>
         </div>

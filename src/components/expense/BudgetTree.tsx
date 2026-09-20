@@ -11,7 +11,9 @@ import Select from "@/components/Select";
 import { createClient } from "@/utils/supabase/client";
 import { showConfirm } from "@/utils/alert";
 import { StickyTh, NumCell } from "./TableCells";
+import BudgetChangeModal from "./BudgetChangeModal";
 import {
+  CHANGE_LABEL,
   STATUS_LABEL,
   STATUS_STYLE,
   WARN_AT,
@@ -22,6 +24,7 @@ import {
   itemLabel,
   netPaid,
   spentRatio,
+  type BudgetChange,
   type BudgetItem,
   type BudgetNode,
   type BudgetUsage,
@@ -38,6 +41,8 @@ type Props = {
   usage: BudgetUsage[];
   /** 확정지출·처리대기 세부내역용 (담당자만 받는다) */
   requests: ExpenseRequest[];
+  /** 추경·전용 기록 (전 연도) */
+  changes: BudgetChange[];
   /** 가예산을 확정할 수 있는지 (지출결의 담당자) */
   canFinalize: boolean;
   onRefresh: () => void;
@@ -60,6 +65,7 @@ export default function BudgetTree({
   items: allItems,
   usage: allUsage,
   requests,
+  changes,
   canFinalize,
   onRefresh,
 }: Props) {
@@ -112,6 +118,21 @@ export default function BudgetTree({
       rows.reduce((sum, { i }) => sum + netPaid(i), 0),
     ] as const;
   }).filter(([, n]) => n > 0);
+
+  /** 예산 변경 — 확정된 해만 (가예산은 엑셀을 고쳐 다시 넣는다) */
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const yearChanges = changes
+    .filter((c) => c.fiscal_year === fiscalYear)
+    .sort((a, b) =>
+      b.changed_on === a.changed_on
+        ? b.created_at.localeCompare(a.created_at)
+        : b.changed_on.localeCompare(a.changed_on),
+    );
+  const itemName = (id: string | null) => {
+    const it = id ? items.find((x) => x.id === id) : undefined;
+    return it ? itemLabel(it) : "-";
+  };
 
   const finalize = async () => {
     const ok = await showConfirm(
@@ -267,7 +288,19 @@ export default function BudgetTree({
               </span>
             </div>
           </th>
-          <NumCell>{formatWon(n.planned_amount)}</NumCell>
+          <NumCell>
+            {formatWon(n.planned_amount)}
+            {/* 추경·전용으로 원안과 달라진 항목 */}
+            {n.original_planned !== undefined &&
+              n.original_planned !== n.planned_amount && (
+                <span
+                  title={`원안 ${formatWon(n.original_planned)}`}
+                  className="ml-1.5 px-1 rounded bg-amber-100 font-sans text-[10px] font-bold text-amber-700"
+                >
+                  변경
+                </span>
+              )}
+          </NumCell>
           <NumCell muted={!n.spent}>
             {n.spent ? (
               <DetailLink onClick={() => setDetail({ node: n, kind: "spent" })}>
@@ -361,6 +394,24 @@ export default function BudgetTree({
                 </button>
               )}
             </>
+          )}
+          {canFinalize && yearInfo?.status !== "draft" && (
+            <button
+              type="button"
+              onClick={() => setChangeOpen(true)}
+              className="px-2 py-0.5 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+            >
+              예산 변경
+            </button>
+          )}
+          {yearChanges.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="px-2 py-0.5 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+            >
+              변경 내역 <span className="font-mono tabular-nums">{yearChanges.length}</span>
+            </button>
           )}
         </span>
         <Stat label="계획" value={total.planned} />
@@ -595,6 +646,78 @@ export default function BudgetTree({
                 </div>
               </div>
             )}
+          </div>
+        </Modal>
+      )}
+
+      {changeOpen && (
+        <BudgetChangeModal
+          fiscalYear={fiscalYear}
+          items={items}
+          usage={usage}
+          onClose={() => setChangeOpen(false)}
+          onSaved={() => {
+            setChangeOpen(false);
+            onRefresh();
+          }}
+        />
+      )}
+
+      {historyOpen && (
+        <Modal
+          isOpen
+          onClose={() => setHistoryOpen(false)}
+          title={`${fiscalYear}년 예산 변경 내역`}
+          className="sm:max-w-[820px]"
+          footer={
+            <button onClick={() => setHistoryOpen(false)} className={btnStyles.cancel}>
+              닫기
+            </button>
+          }
+        >
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="max-h-[clamp(220px,50vh,480px)] overflow-auto">
+              <table className="w-full min-w-[620px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-[11px] font-semibold text-gray-600">
+                    <StickyTh align="left" className="pl-4">변경일</StickyTh>
+                    <StickyTh align="left">구분</StickyTh>
+                    <StickyTh align="left">항목</StickyTh>
+                    <StickyTh className="pr-4">금액</StickyTh>
+                  </tr>
+                </thead>
+                <tbody>
+                  {yearChanges.map((c) => (
+                    <tr key={c.id} className="border-b border-gray-100 last:border-0 align-top">
+                      <td className="py-2.5 pl-4 pr-3 font-mono text-[12px] text-gray-500 whitespace-nowrap">
+                        {c.changed_on}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-bold text-gray-700">
+                          {CHANGE_LABEL[c.kind]}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <p className="text-gray-900">
+                          {c.kind === "transfer"
+                            ? `${itemName(c.from_item_id)} → ${itemName(c.to_item_id)}`
+                            : itemName(c.to_item_id)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-500">{c.memo}</p>
+                      </td>
+                      <td
+                        className={`py-2.5 pl-3 pr-4 text-right font-mono tabular-nums whitespace-nowrap ${
+                          c.kind === "revise" && c.amount < 0 ? "text-red-600" : "text-gray-900"
+                        }`}
+                      >
+                        {c.kind === "revise" ? (c.amount > 0 ? "+" : "−") : ""}
+                        {formatWon(Math.abs(c.amount))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </Modal>
       )}

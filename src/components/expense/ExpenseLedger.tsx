@@ -353,10 +353,7 @@ export default function ExpenseLedger({
 
       <p className="px-4 py-2.5 border-t border-gray-200 bg-gray-50/60 text-xs text-gray-500">
         엑셀에는 지금 걸러본 {shown.length}건이 그대로 내려갑니다.
-        {/* ponytail: 요청 리스트가 불러온 결의서(기본 1,000건)를 펴서 쓴다.
-            연 수천 건으로 늘면 연도 조건을 붙인 별도 조회로 바꿔야 한다. */}
-        {requests.length >= 1000 &&
-          " 결의서가 1,000건에 도달해 일부가 빠졌을 수 있습니다."}
+
       </p>
     </div>
   );

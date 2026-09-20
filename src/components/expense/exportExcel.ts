@@ -8,6 +8,7 @@ import * as XLSX from "xlsx-js-style";
 import {
   BANK_INFO,
   STATUS_LABEL,
+  netPaid,
   resolveAccount,
   type ExpenseRequest,
   type ExpenseRequestItem,
@@ -21,6 +22,10 @@ export type ExportLine = {
   request: ExpenseRequest;
   /** 비목이 속한 대항목 — 배정 전이면 UNASSIGNED */
   major: string;
+  /** 이체 목록에서 청구 금액 대신 보낼 금액 (추가 지급처럼 일부만 보낼 때) */
+  amount?: number;
+  /** 이체 목록의 용도/비고를 바꿀 때 */
+  memo?: string;
 };
 
 /* ── 스타일 ─────────────────────────────────────────────────────────────
@@ -67,71 +72,66 @@ const paint = (ws: XLSX.WorkSheet, r: number, c: number, style: object) => {
 
 /* ── 일반 내보내기 (요청 리스트 · 전체 내역) ────────────────────────── */
 
-const HEAD = [
-  "청구일자",
-  "신청자",
-  "은행",
-  "은행코드",
-  "계좌번호",
-  "예금주",
-  "금액",
-  "품명/지출대상",
-  "수량",
-  "단가",
-  "용도/비고",
-  "대항목",
-  "비목코드",
-  "비목",
-  "상태",
-  "이체일자",
+/** 열마다 이름 · 너비 · 정렬 · 값. 열을 넣고 빼도 위치 계산을 따로 할 필요가 없다 */
+const GENERAL_COLS: {
+  head: string;
+  width: number;
+  align?: Align;
+  value: (l: ExportLine) => string | number;
+}[] = [
+  { head: "청구일자", width: 11, value: (l) => l.request.request_date },
+  { head: "신청자", width: 9, value: (l) => l.request.requester?.full_name ?? "" },
+  { head: "은행", width: 10, value: (l) => resolveAccount(l.item, l.request).bank_name ?? "" },
+  {
+    head: "은행코드",
+    width: 8,
+    value: (l) => BANK_INFO[resolveAccount(l.item, l.request).bank_name ?? ""]?.code ?? "",
+  },
+  { head: "계좌번호", width: 18, value: (l) => resolveAccount(l.item, l.request).account_no ?? "" },
+  { head: "예금주", width: 12, value: (l) => resolveAccount(l.item, l.request).account_holder ?? "" },
+  { head: "청구금액", width: 12, align: "right", value: (l) => l.item.amount },
+  {
+    head: "지급정정",
+    width: 11,
+    align: "right",
+    // 정정이 없으면 비운다 (추가 지급 +, 반환 −)
+    value: (l) => netPaid(l.item) - l.item.amount || "",
+  },
+  { head: "최종지급액", width: 12, align: "right", value: (l) => netPaid(l.item) },
+  { head: "품명/지출대상", width: 18, align: "left", value: (l) => l.item.item_name },
+  { head: "수량", width: 6, value: (l) => l.item.qty },
+  { head: "단가", width: 11, align: "right", value: (l) => l.item.unit_price },
+  { head: "용도/비고", width: 22, align: "left", value: (l) => l.item.purpose ?? "" },
+  { head: "대항목", width: 16, value: (l) => (l.major === UNASSIGNED ? "" : l.major) },
+  { head: "비목코드", width: 9, value: (l) => l.item.budget_item?.code ?? "" },
+  { head: "비목", width: 22, align: "left", value: (l) => l.item.budget_item?.name ?? "" },
+  { head: "상태", width: 9, value: (l) => STATUS_LABEL[l.request.status] },
+  { head: "이체일자", width: 11, value: (l) => l.request.paid_at ?? "" },
 ];
 
-// 위 열 순서에 맞춘 너비
-const WIDTHS = [11, 9, 10, 8, 18, 9, 12, 18, 6, 11, 22, 16, 9, 22, 9, 11];
-
 export function exportExpenseLines(lines: ExportLine[], fileName: string) {
-  const body = lines.map(({ item, request, major }) => {
-    const acc = resolveAccount(item, request);
-    return [
-      request.request_date,
-      request.requester?.full_name ?? "",
-      acc.bank_name ?? "",
-      BANK_INFO[acc.bank_name ?? ""]?.code ?? "",
-      acc.account_no ?? "",
-      acc.account_holder ?? "",
-      item.amount,
-      item.item_name,
-      item.qty,
-      item.unit_price,
-      item.purpose ?? "",
-      major === UNASSIGNED ? "" : major,
-      item.budget_item?.code ?? "",
-      item.budget_item?.name ?? "",
-      STATUS_LABEL[request.status],
-      request.paid_at ?? "",
-    ];
-  });
+  const body = lines.map((l) => GENERAL_COLS.map((c) => c.value(l)));
 
-  const total = lines.reduce((sum, l) => sum + l.item.amount, 0);
+  // 합계 — 청구금액 · 최종지급액 칸 아래에 맞춘다
+  const totalRow: (string | number)[] = GENERAL_COLS.map(() => "");
+  const claimAt = GENERAL_COLS.findIndex((c) => c.head === "청구금액");
+  const netAt = GENERAL_COLS.findIndex((c) => c.head === "최종지급액");
+  totalRow[claimAt - 1] = "합계";
+  totalRow[claimAt] = lines.reduce((t, l) => t + l.item.amount, 0);
+  totalRow[netAt] = lines.reduce((t, l) => t + netPaid(l.item), 0);
 
   const ws = XLSX.utils.aoa_to_sheet([
-    HEAD,
+    GENERAL_COLS.map((c) => c.head),
     ...body,
     [],
-    // 금액이 일곱 번째 열이므로 합계도 그 자리에 맞춘다
-    ["", "", "", "", "", "합계", total],
+    totalRow,
   ]);
-  ws["!cols"] = WIDTHS.map((wch) => ({ wch }));
+  ws["!cols"] = GENERAL_COLS.map((c) => ({ wch: c.width }));
 
-  HEAD.forEach((_, c) => paint(ws, 0, c, HEAD_STYLE));
+  GENERAL_COLS.forEach((_, c) => paint(ws, 0, c, HEAD_STYLE));
   body.forEach((_, i) =>
-    HEAD.forEach((__, c) =>
-      paint(
-        ws,
-        i + 1,
-        c,
-        cellStyle({ align: c === 6 ? "right" : [7, 10, 13].includes(c) ? "left" : "center" }),
-      ),
+    GENERAL_COLS.forEach((col, c) =>
+      paint(ws, i + 1, c, cellStyle({ align: col.align })),
     ),
   );
 
@@ -200,7 +200,8 @@ export function exportPayoutList(
   payoutDate: string,
   fileName: string,
 ) {
-  const body = lines.map(({ item, request }, i) => {
+  const body = lines.map((line, i) => {
+    const { item, request } = line;
     const acc = resolveAccount(item, request);
     const bank = BANK_INFO[acc.bank_name ?? ""];
     return [
@@ -214,15 +215,15 @@ export function exportPayoutList(
       bank?.short ?? acc.bank_name ?? "",
       bank?.code ?? "",
       digits(acc.account_no),
-      item.amount,
+      line.amount ?? item.amount,
       "", // 받는통장표시 — 기존 양식에서도 비워 보냈다
       item.item_name,
       item.item_name,
-      item.purpose ?? "",
+      line.memo ?? item.purpose ?? "",
     ];
   });
 
-  const total = lines.reduce((sum, l) => sum + l.item.amount, 0);
+  const total = lines.reduce((sum, l) => sum + (l.amount ?? l.item.amount), 0);
 
   // 1행 처리요청일자, 2행 비움, 3행 머리글, 4행부터 본문
   const HEAD_ROW = 2;
