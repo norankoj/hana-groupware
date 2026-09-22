@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Modal from "@/components/Modal";
+import { table, tdWide, thWide } from "@/components/ui/table";
 
 type Props = {
   projectId: string;
@@ -145,16 +146,16 @@ const TYPE_SORT: Record<TLType, number> = {
 
 type TLMeta = { label: string; badgeCls: string };
 const TYPE_META: Record<TLType, TLMeta> = {
-  arrival: { label: "입국", badgeCls: "bg-blue-100 text-blue-700" },
+  arrival: { label: "입국", badgeCls: "bg-primary-soft text-primary-active" },
   ride_in: { label: "라이드", badgeCls: "bg-amber-100 text-amber-700" },
   accom_start: {
     label: "숙소시작",
     badgeCls: "bg-emerald-100 text-emerald-700",
   },
-  accom_end: { label: "숙소종료", badgeCls: "bg-gray-100 text-gray-500" },
+  accom_end: { label: "숙소종료", badgeCls: "bg-gray-100 text-muted" },
   cleaning: { label: "청소", badgeCls: "bg-orange-100 text-orange-600" },
   vehicle_start: { label: "차량시작", badgeCls: "bg-sky-100 text-sky-700" },
-  vehicle_end: { label: "차량반납", badgeCls: "bg-gray-100 text-gray-500" },
+  vehicle_end: { label: "차량반납", badgeCls: "bg-gray-100 text-muted" },
   ride_out: { label: "라이드OUT", badgeCls: "bg-amber-100 text-amber-700" },
   departure: { label: "출국", badgeCls: "bg-purple-100 text-purple-700" },
 };
@@ -193,7 +194,7 @@ const getDayName = (dateStr: string) => {
 
 // 이벤트 타입별 색상 점
 const TYPE_DOT: Record<TLType, string> = {
-  arrival:       "bg-blue-400",
+  arrival:       "bg-primary-soft",
   ride_in:       "bg-amber-400",
   accom_start:   "bg-emerald-500",
   accom_end:     "bg-gray-300",
@@ -246,7 +247,7 @@ const SCHED_CATS: Record<string, string> = {
   general:   "일반",
 };
 const SCHED_CAT_CLS: Record<string, string> = {
-  arrival:   "bg-blue-100 text-blue-700",
+  arrival:   "bg-primary-soft text-primary-active",
   event:     "bg-purple-100 text-purple-700",
   meeting:   "bg-green-100 text-green-700",
   departure: "bg-orange-100 text-orange-700",
@@ -735,9 +736,9 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
       {isMarf && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {/* 타임라인 카드 */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+          <div className="bg-white border border-line rounded-xl overflow-hidden flex flex-col">
             {/* 헤더 + 월 네비게이션 */}
-            <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between shrink-0">
+            <div className="px-4 py-2.5 border-b border-line-soft flex items-center justify-between shrink-0">
               <h3 className="text-sm font-semibold text-gray-800">
                 다가오는 일정
               </h3>
@@ -774,19 +775,19 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                   return (
                     <div
                       key={date}
-                      className={`flex border-b border-gray-50 last:border-b-0 ${isToday ? "bg-blue-50/30" : ""}`}
+                      className={`flex border-b border-gray-50 last:border-b-0 ${isToday ? "bg-primary-wash/30" : ""}`}
                     >
                       {/* 날짜 컬럼 */}
                       <div
-                        className={`w-[68px] shrink-0 flex flex-col items-center pt-3.5 pb-3 gap-0.5 ${isToday ? "border-l-[3px] border-blue-400" : "border-l-[3px] border-transparent"}`}
+                        className={`w-[68px] shrink-0 flex flex-col items-center pt-3.5 pb-3 gap-0.5 ${isToday ? "border-l-[3px] border-primary" : "border-l-[3px] border-transparent"}`}
                       >
                         <span
-                          className={`text-xs font-bold tabular-nums leading-none ${isToday ? "text-blue-600" : "text-gray-500"}`}
+                          className={`text-xs font-bold tabular-nums leading-none ${isToday ? "text-primary" : "text-muted"}`}
                         >
                           {fmtMD(date)}
                         </span>
                         {isToday && (
-                          <span className="text-[10px] text-blue-400 font-medium">
+                          <span className="text-[10px] text-primary/60 font-medium">
                             오늘
                           </span>
                         )}
@@ -798,7 +799,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                           return (
                             <div
                               key={e.id}
-                              className="flex items-center gap-2 py-0.5 px-1 -mx-1 rounded cursor-pointer hover:bg-blue-50 transition-colors group/ev"
+                              className="flex items-center gap-2 py-0.5 px-1 -mx-1 rounded cursor-pointer hover:bg-primary-wash transition-colors group/ev"
                               onClick={(ev) => {
                                 ev.stopPropagation();
                                 setTlPopup({ ev: e, x: ev.clientX, y: ev.clientY });
@@ -809,7 +810,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                               >
                                 {meta.label}
                               </span>
-                              <span className="text-sm text-gray-800 font-medium truncate group-hover/ev:text-blue-700 transition-colors">
+                              <span className="text-sm text-gray-800 font-medium truncate group-hover/ev:text-primary-active transition-colors">
                                 {e.title}
                               </span>
                               {e.sub && (
@@ -817,7 +818,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                                   {e.sub}
                                 </span>
                               )}
-                              <svg className="w-3 h-3 text-gray-200 group-hover/ev:text-blue-400 shrink-0 ml-auto transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-3 h-3 text-gray-200 group-hover/ev:text-primary/60 shrink-0 ml-auto transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
                             </div>
@@ -832,8 +833,8 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
           </div>
 
           {/* 체크리스트 카드 */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
-            <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+          <div className="bg-white border border-line rounded-xl overflow-hidden flex flex-col">
+            <div className="px-4 py-2.5 border-b border-line-soft shrink-0">
               <h3 className="text-sm font-semibold text-gray-800">
                 체크리스트{" "}
                 <span className="text-gray-400 font-normal">— {win.label}</span>
@@ -854,7 +855,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                     >
                       {/* 체크박스 */}
                       <span
-                        className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${c.is_completed ? "bg-green-500 border-green-500" : "border-gray-300 hover:border-green-400"}`}
+                        className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${c.is_completed ? "bg-green-500 border-green-500" : "border-line-strong hover:border-green-400"}`}
                       >
                         {c.is_completed && (
                           <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -873,7 +874,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                               {fmtMD(c.due_date)}
                             </span>
                           )}
-                          <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] text-muted bg-gray-100 px-1.5 py-0.5 rounded">
                             {c.category}
                           </span>
                         </div>
@@ -893,8 +894,8 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
 
           {/* 다가오는 라이드 일정 */}
           {upcomingRides.length > 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col h-[460px]">
-            <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+          <div className="bg-white border border-line rounded-xl overflow-hidden flex flex-col h-[460px]">
+            <div className="px-4 py-2.5 border-b border-line-soft shrink-0">
               <h3 className="text-sm font-semibold text-gray-800">다가오는 라이드 일정</h3>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
@@ -906,13 +907,13 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                   const [, mm, dd] = date.split("-");
                   const dayName = DAY_KO[new Date(date + "T00:00:00").getDay()];
                   return (
-                    <div key={date} className={`flex border-b border-gray-50 last:border-b-0 ${isToday ? "bg-blue-50/30" : ""}`}>
+                    <div key={date} className={`flex border-b border-gray-50 last:border-b-0 ${isToday ? "bg-primary-wash/30" : ""}`}>
                       {/* 날짜 컬럼 */}
-                      <div className={`w-[72px] shrink-0 flex flex-col items-center pt-3.5 pb-3 gap-0.5 ${isToday ? "border-l-[3px] border-blue-400" : "border-l-[3px] border-transparent"}`}>
-                        <span className={`text-xs font-bold tabular-nums leading-none ${isToday ? "text-blue-600" : "text-gray-500"}`}>
+                      <div className={`w-[72px] shrink-0 flex flex-col items-center pt-3.5 pb-3 gap-0.5 ${isToday ? "border-l-[3px] border-primary" : "border-l-[3px] border-transparent"}`}>
+                        <span className={`text-xs font-bold tabular-nums leading-none ${isToday ? "text-primary" : "text-muted"}`}>
                           {mm}/{dd}({dayName})
                         </span>
-                        {isToday && <span className="text-[10px] text-blue-400 font-medium">오늘</span>}
+                        {isToday && <span className="text-[10px] text-primary/60 font-medium">오늘</span>}
                       </div>
                       {/* 라이드 목록 */}
                       <div className="flex-1 py-2 pr-4 space-y-1.5">
@@ -920,11 +921,11 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                           const statusCls = ride.status === "completed"
                             ? "bg-green-100 text-green-700"
                             : ride.status === "confirmed"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-500";
+                            ? "bg-primary-soft text-primary-active"
+                            : "bg-gray-100 text-muted";
                           const statusLabel = ride.status === "completed" ? "완료" : ride.status === "confirmed" ? "확정" : "미정";
                           return (
-                            <div key={ride.id} className={`rounded-lg px-3 py-2 text-sm ${ride.is_important ? "bg-blue-50 border border-blue-100" : "bg-gray-50"}`}>
+                            <div key={ride.id} className={`rounded-lg px-3 py-2 text-sm ${ride.is_important ? "bg-primary-wash border border-primary-soft" : "bg-table-header"}`}>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusCls}`}>
                                   {statusLabel}
@@ -938,14 +939,14 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500 flex-wrap">
+                              <div className="flex items-center gap-1.5 mt-1 text-xs text-muted flex-wrap">
                                 {ride.rider_name && <span>🚗 {ride.rider_name}</span>}
                                 {(ride.departure_location || ride.arrival_location) && (
                                   <span>
                                     {ride.departure_location ?? "-"} → {ride.arrival_location ?? "-"}
                                   </span>
                                 )}
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${{왕복:"bg-purple-100 text-purple-700",편도:"bg-green-100 text-green-700"}[ride.direction] ?? "bg-gray-100 text-gray-500"}`}>{ride.direction}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${{왕복:"bg-purple-100 text-purple-700",편도:"bg-green-100 text-green-700"}[ride.direction] ?? "bg-gray-100 text-muted"}`}>{ride.direction}</span>
                               </div>
                             </div>
                           );
@@ -960,8 +961,8 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
           )}
 
           {/* 체크리스트 */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
-            <div className="px-4 py-2.5 border-b border-gray-100 shrink-0">
+          <div className="bg-white border border-line rounded-xl overflow-hidden flex flex-col">
+            <div className="px-4 py-2.5 border-b border-line-soft shrink-0">
               <h3 className="text-sm font-semibold text-gray-800">
                 체크리스트
                 {checklists.filter((c) => !c.is_completed).length > 0 && (
@@ -982,7 +983,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                       onClick={() => handleToggle(c)}
                       className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${c.is_completed ? "opacity-50" : ""}`}
                     >
-                      <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${c.is_completed ? "bg-green-500 border-green-500" : "border-gray-300 hover:border-green-400"}`}>
+                      <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${c.is_completed ? "bg-green-500 border-green-500" : "border-line-strong hover:border-green-400"}`}>
                         {c.is_completed && (
                           <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -997,7 +998,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                           {c.due_date && (
                             <span className="text-xs text-gray-400 tabular-nums">{fmtMD(c.due_date)}</span>
                           )}
-                          <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{c.category}</span>
+                          <span className="text-[10px] text-muted bg-gray-100 px-1.5 py-0.5 rounded">{c.category}</span>
                         </div>
                       </div>
                     </div>
@@ -1011,32 +1012,32 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
 
       {/* ── 행사 일정 ── */}
       {schedules.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
+        <div className="bg-white border border-line rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-line-soft">
             <h3 className="text-sm font-semibold text-gray-800">행사 일정</h3>
           </div>
           <div className="divide-y divide-gray-50">
             {schedules.map((s) => (
               <div
                 key={s.id}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-blue-50/40 cursor-pointer transition-colors group"
+                className="flex items-center gap-3 px-5 py-3 hover:bg-primary-wash/40 cursor-pointer transition-colors group"
                 onClick={() => { setDetailSched(s); setShowSchedDetail(true); }}
               >
                 <span className="text-xs text-gray-400 tabular-nums w-12 shrink-0">
                   {fmtMD(s.event_date)}
                 </span>
                 {s.category && (
-                  <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${SCHED_CAT_CLS[s.category] ?? "bg-gray-100 text-gray-500"}`}>
+                  <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${SCHED_CAT_CLS[s.category] ?? "bg-gray-100 text-muted"}`}>
                     {SCHED_CATS[s.category] ?? s.category}
                   </span>
                 )}
-                <span className="text-sm text-gray-800 flex-1 group-hover:text-blue-700 transition-colors">{s.title}</span>
+                <span className="text-sm text-gray-800 flex-1 group-hover:text-primary-active transition-colors">{s.title}</span>
                 {s.location && (
                   <span className="text-xs text-gray-400 shrink-0">
                     📍 {s.location}
                   </span>
                 )}
-                <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-400 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-3.5 h-3.5 text-disabled-text group-hover:text-primary/60 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
@@ -1106,14 +1107,14 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
         return (
           <div
             ref={tlPopupRef}
-            className="fixed z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+            className="fixed z-50 bg-white rounded-2xl shadow-2xl border border-line overflow-hidden"
             style={{ width: W, top: py, left: px }}
           >
             {/* 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line-soft">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${TYPE_DOT[e.type]}`} />
-                <span className="font-bold text-gray-900 text-base truncate">{title}</span>
+                <span className="font-bold text-heading text-base truncate">{title}</span>
                 {isMEvt && m?.family_group?.trim() && (
                   <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
                     {m.family_group.trim()}
@@ -1130,40 +1131,40 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
 
             {/* 내용 테이블 */}
             <div className="px-2 py-2">
-            <table className="w-full text-sm rounded-xl overflow-hidden border border-gray-100">
-              <tbody className="divide-y divide-gray-100">
+            <table className={`${table} w-full overflow-hidden`}>
+              <tbody>
 
                 {/* ── 선교사 이벤트 ── */}
                 {isMEvt && m && (
                   <>
                     {/* 체류 기간 */}
                     <tr>
-                      <th className="w-[84px] px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">체류 기간</th>
-                      <td className="px-5 py-3.5 text-gray-800 font-semibold">
+                      <th className={`${thWide} w-[84px] font-medium text-left whitespace-nowrap`}>체류 기간</th>
+                      <td className={`${tdWide} font-semibold`}>
                         {m.arrival_date?.slice(5) ?? "—"} ~ {m.departure_date?.slice(5) ?? "미정"}
                       </td>
                     </tr>
                     {/* 항공편 */}
                     {(e.type === "arrival" || e.type === "ride_in") && m.arrival_flight && (
                       <tr>
-                        <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">항공편</th>
-                        <td className="px-5 py-3.5 text-gray-700">
+                        <th className={`${thWide} font-medium text-left whitespace-nowrap`}>항공편</th>
+                        <td className={`${tdWide}`}>
                           {[m.arrival_flight, m.arrival_time?.slice(0,5), m.arrival_terminal].filter(Boolean).join(" · ")}
                         </td>
                       </tr>
                     )}
                     {(e.type === "departure" || e.type === "ride_out") && m.departure_flight && (
                       <tr>
-                        <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">항공편</th>
-                        <td className="px-5 py-3.5 text-gray-700">
+                        <th className={`${thWide} font-medium text-left whitespace-nowrap`}>항공편</th>
+                        <td className={`${tdWide}`}>
                           {[m.departure_flight, m.departure_time?.slice(0,5), m.departure_terminal].filter(Boolean).join(" · ")}
                         </td>
                       </tr>
                     )}
                     {/* 숙소 */}
                     <tr>
-                      <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">숙소</th>
-                      <td className="px-5 py-3.5">
+                      <th className={`${thWide} font-medium text-left whitespace-nowrap`}>숙소</th>
+                      <td className={`${tdWide}`}>
                         {mAccom ? (
                           <span className="text-gray-800">
                             {mAccom.provider_name}
@@ -1177,8 +1178,8 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                     </tr>
                     {/* 차량 */}
                     <tr>
-                      <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">차량</th>
-                      <td className="px-5 py-3.5">
+                      <th className={`${thWide} font-medium text-left whitespace-nowrap`}>차량</th>
+                      <td className={`${tdWide}`}>
                         {mVehicle ? (
                           <span className="text-gray-800">
                             {mVehicle.car_model
@@ -1199,31 +1200,31 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                   <>
                     {accomAsn?.from && (
                       <tr>
-                        <th className="w-[84px] px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">입실</th>
-                        <td className="px-5 py-3.5 text-gray-800 font-semibold">{accomAsn.from.slice(5)}</td>
+                        <th className={`${thWide} w-[84px] font-medium text-left whitespace-nowrap`}>입실</th>
+                        <td className={`${tdWide} font-semibold`}>{accomAsn.from.slice(5)}</td>
                       </tr>
                     )}
                     {accomAsn?.to && (
                       <tr>
-                        <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">퇴실</th>
-                        <td className="px-5 py-3.5 text-gray-800 font-semibold">{accomAsn.to.slice(5)}</td>
+                        <th className={`${thWide} font-medium text-left whitespace-nowrap`}>퇴실</th>
+                        <td className={`${tdWide} font-semibold`}>{accomAsn.to.slice(5)}</td>
                       </tr>
                     )}
                     {accom.address && (
                       <tr>
-                        <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">주소</th>
-                        <td className="px-5 py-3.5 text-gray-700 leading-relaxed">{accom.address}</td>
+                        <th className={`${thWide} font-medium text-left whitespace-nowrap`}>주소</th>
+                        <td className={`${tdWide} leading-relaxed`}>{accom.address}</td>
                       </tr>
                     )}
                     {accom.notes && (
                       <tr>
-                        <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap align-top">메모</th>
-                        <td className="px-5 py-3.5 text-gray-700 whitespace-pre-wrap leading-relaxed">{accom.notes}</td>
+                        <th className={`${thWide} font-medium text-left whitespace-nowrap align-top`}>메모</th>
+                        <td className={`${tdWide} whitespace-pre-wrap leading-relaxed`}>{accom.notes}</td>
                       </tr>
                     )}
                     {e.type === "cleaning" && (
                       <tr>
-                        <td colSpan={2} className="px-5 py-3 text-orange-600 text-sm font-medium bg-orange-50">
+                        <td colSpan={2} className={`${tdWide} bg-warning-soft text-warning-active font-medium`}>
                           퇴실 청소 일정
                         </td>
                       </tr>
@@ -1236,27 +1237,27 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                   <>
                     {vehicleAsn?.from && (
                       <tr>
-                        <th className="w-[84px] px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">시작</th>
-                        <td className="px-5 py-3.5 text-gray-800 font-semibold">{vehicleAsn.from.slice(5)}</td>
+                        <th className={`${thWide} w-[84px] font-medium text-left whitespace-nowrap`}>시작</th>
+                        <td className={`${tdWide} font-semibold`}>{vehicleAsn.from.slice(5)}</td>
                       </tr>
                     )}
                     {vehicleAsn?.to && (
                       <tr>
-                        <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">반납</th>
-                        <td className="px-5 py-3.5 text-gray-800 font-semibold">{vehicleAsn.to.slice(5)}</td>
+                        <th className={`${thWide} font-medium text-left whitespace-nowrap`}>반납</th>
+                        <td className={`${tdWide} font-semibold`}>{vehicleAsn.to.slice(5)}</td>
                       </tr>
                     )}
                     {!vehicle.insurance_added && (
                       <tr>
-                        <td colSpan={2} className="px-5 py-3 text-orange-500 text-sm font-medium bg-orange-50">
+                        <td colSpan={2} className={`${tdWide} bg-warning-soft text-warning-active font-medium`}>
                           운전자 보험 미추가
                         </td>
                       </tr>
                     )}
                     {vehicle.notes && (
                       <tr>
-                        <th className="px-5 py-3.5 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap align-top">메모</th>
-                        <td className="px-5 py-3.5 text-gray-700 whitespace-pre-wrap leading-relaxed">{vehicle.notes}</td>
+                        <th className={`${thWide} font-medium text-left whitespace-nowrap align-top`}>메모</th>
+                        <td className={`${tdWide} whitespace-pre-wrap leading-relaxed`}>{vehicle.notes}</td>
                       </tr>
                     )}
                   </>
@@ -1281,10 +1282,10 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
         >
           <div className="space-y-4">
             {/* ── 일정 기본 정보 ── */}
-            <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+            <div className="bg-table-header rounded-xl p-4 space-y-2 text-sm">
               <div className="flex items-center gap-3">
                 <span className="text-gray-400 w-12 shrink-0">날짜</span>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-heading">
                   {detailSched.event_date}
                   <span className="ml-2 font-normal text-gray-400">
                     ({["일","월","화","수","목","금","토"][new Date(detailSched.event_date + "T00:00:00").getDay()]}요일)
@@ -1329,7 +1330,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                 (m.arrival_date && m.departure_date && d > m.arrival_date && d < m.departure_date),
               );
               if (related.length === 0) return (
-                <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-400 text-center py-4 bg-table-header rounded-xl">
                   이 날짜와 관련된 선교사가 없습니다.
                 </p>
               );
@@ -1368,7 +1369,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                 return (
                   <div className="space-y-1.5 text-sm">
                     {isArr && (
-                      <div className="text-xs text-blue-700 font-medium flex items-center gap-1.5">
+                      <div className="text-xs text-primary-active font-medium flex items-center gap-1.5">
                         <span>✈️ 입국</span>
                         {m.arrival_time && <span>{m.arrival_time.slice(0,5)}</span>}
                         {m.arrival_terminal && <span>· {m.arrival_terminal}</span>}
@@ -1420,7 +1421,7 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                     {m.ride_needed && <div className="text-xs text-purple-600">🚕 공항 라이드 필요</div>}
                     {/* 특이사항 / 메모 */}
                     {m.dietary_notes && (
-                      <div className="text-xs text-gray-500">🍽️ {m.dietary_notes}</div>
+                      <div className="text-xs text-muted">🍽️ {m.dietary_notes}</div>
                     )}
                     {m.notes && (
                       <div className="text-xs text-gray-600 bg-yellow-50 border border-yellow-100 rounded px-2 py-1.5 whitespace-pre-wrap">
@@ -1442,21 +1443,21 @@ export default function OverviewTab({ projectId, myUserId, isMarf, isRide }: Pro
                   </div>
                   <div className="space-y-3">
                     {[...groupMap.entries()].map(([grp, members]) => (
-                      <div key={grp} className="bg-white rounded-xl border border-gray-200 p-3">
+                      <div key={grp} className="bg-white rounded-xl border border-line p-3">
                         <div className="font-semibold text-gray-800 text-sm mb-2">
                           👨‍👩‍👧 {grp}
                           <span className="ml-1.5 text-xs text-gray-400 font-normal">{members.length}명</span>
                         </div>
                         {renderCard(members[0])}
                         {members.length > 1 && (
-                          <div className="mt-1.5 pt-1.5 border-t border-gray-100 text-xs text-gray-400">
+                          <div className="mt-1.5 pt-1.5 border-t border-line-soft text-xs text-gray-400">
                             동반: {members.slice(1).map((m) => m.name).join(", ")}
                           </div>
                         )}
                       </div>
                     ))}
                     {solos.map((m) => (
-                      <div key={m.id} className="bg-white rounded-xl border border-gray-200 p-3">
+                      <div key={m.id} className="bg-white rounded-xl border border-line p-3">
                         <div className="font-semibold text-gray-800 text-sm mb-2">👤 {m.name}</div>
                         {renderCard(m)}
                       </div>
@@ -1495,17 +1496,17 @@ function StatCard({
   const hasAlert = (tooltipItems?.length ?? 0) > 0;
 
   const colors: Record<string, string> = {
-    blue: "bg-white border-gray-200",
-    green: "bg-white border-gray-200",
-    yellow: "bg-white border-gray-200",
-    purple: "bg-white border-gray-200",
-    sky: "bg-white border-gray-200",
+    blue: "bg-white border-line",
+    green: "bg-white border-line",
+    yellow: "bg-white border-line",
+    purple: "bg-white border-line",
+    sky: "bg-white border-line",
   };
 
   return (
     <div className="relative">
       <div
-        className={`rounded-xl border p-4 ${colors[color] ?? "bg-gray-50 border-gray-100"} ${hasAlert ? "cursor-pointer select-none" : ""}`}
+        className={`rounded-xl border p-4 ${colors[color] ?? "bg-table-header border-line-soft"} ${hasAlert ? "cursor-pointer select-none" : ""}`}
         onClick={() => hasAlert && setOpen((o) => !o)}
       >
         <div className="flex items-start justify-between mb-1">
@@ -1516,7 +1517,7 @@ function StatCard({
             </span>
           )}
         </div>
-        <div className="text-lg font-bold text-gray-900">{value}</div>
+        <div className="text-lg font-bold text-heading">{value}</div>
         <div className="text-xs text-gray-600 font-medium">{label}</div>
         {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
       </div>
@@ -1524,7 +1525,7 @@ function StatCard({
       {hasAlert && open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1.5 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-3 min-w-[180px] max-w-[260px]">
+          <div className="absolute top-full left-0 mt-1.5 z-20 bg-white border border-line rounded-xl shadow-lg p-3 min-w-[180px] max-w-[260px]">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
               {tooltipTitle}
             </p>

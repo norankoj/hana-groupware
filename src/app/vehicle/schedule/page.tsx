@@ -119,9 +119,9 @@ export default function VehicleSchedulePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-table-header flex flex-col">
       {/* 헤더 */}
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+      <header className="sticky top-0 z-30 bg-white border-b border-line shadow-sm">
         <div className="flex items-center gap-3 px-4 h-14">
           <button
             onClick={() => router.back()}
@@ -131,10 +131,10 @@ export default function VehicleSchedulePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-base font-bold text-gray-900 flex-1">차량 스케줄</h1>
+          <h1 className="text-base font-bold text-heading flex-1">차량 스케줄</h1>
           <button
             onClick={fetchData}
-            className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition text-gray-500"
+            className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition text-muted"
             title="새로고침"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

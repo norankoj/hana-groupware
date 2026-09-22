@@ -240,9 +240,9 @@ export default function MyPage() {
   // 급여명세서 카드
   const DocCard = ({ doc }: { doc: DocStub }) => {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition flex flex-col justify-between group">
+      <div className="bg-white border border-line rounded-lg p-4 hover:shadow-md transition flex flex-col justify-between group">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary-wash text-primary">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -259,7 +259,7 @@ export default function MyPage() {
           </div>
           <div>
             <h3 className="font-bold text-gray-800">{doc.month} 명세서</h3>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               {doc.created_at.substring(0, 10)}
             </p>
           </div>
@@ -267,7 +267,7 @@ export default function MyPage() {
         <div className="flex gap-2 w-full">
           <button
             onClick={() => handlePreview(doc.file_url)}
-            className="flex-1 py-2 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded transition"
+            className="flex-1 py-2 text-sm font-bold text-primary bg-primary-wash hover:bg-primary-soft border border-primary-soft rounded transition"
           >
             미리보기
           </button>
@@ -275,7 +275,7 @@ export default function MyPage() {
             onClick={() =>
               handleDownload(doc.file_url, `${doc.month}_급여명세서.pdf`)
             }
-            className="flex-1 py-2 text-sm font-bold rounded transition text-white bg-blue-600 hover:bg-blue-700"
+            className="flex-1 py-2 text-sm font-bold rounded transition text-white bg-primary hover:bg-primary-active"
           >
             다운로드
           </button>
@@ -294,24 +294,24 @@ export default function MyPage() {
         strategy="lazyOnload"
       />
 
-      <h1 className="text-2xl font-bold text-gray-900">내 정보 관리</h1>
+      <h1 className="text-2xl font-bold text-heading">내 정보 관리</h1>
 
       {/* 1. 기본 정보 섹션 */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+      <div className="bg-white border border-line rounded-lg overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-line bg-table-header flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-800">기본 정보</h2>
           {isEditing ? (
             <div className="flex gap-2">
               <button
                 onClick={handleUpdateProfile}
                 disabled={isSaving}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-xs font-bold text-white bg-primary rounded hover:bg-primary-active disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSaving ? "저장 중..." : "저장"}
               </button>
               <button
                 onClick={() => setIsEditing(false)}
-                className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-line-strong rounded hover:bg-gray-50"
               >
                 취소
               </button>
@@ -319,14 +319,14 @@ export default function MyPage() {
           ) : (
             <button
               onClick={() => setIsEditing(true)}
-              className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded hover:bg-blue-100"
+              className="px-3 py-1.5 text-xs font-bold text-primary bg-primary-wash border border-primary-soft rounded hover:bg-primary-soft"
             >
               정보 수정
             </button>
           )}
         </div>
         <div className="p-6">
-          <div className="border border-gray-200 rounded-sm">
+          <div className="border border-line rounded-sm">
             <InfoRow label="이름" value={profile?.full_name} />
             <InfoRow
               label="소속 / 직분"
@@ -340,7 +340,7 @@ export default function MyPage() {
               value={
                 isEditing ? (
                   <input
-                    className="border border-gray-300 p-2 rounded w-full sm:w-64 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="border border-line-strong p-2 rounded w-full sm:w-64 focus:ring-2 focus:ring-primary outline-none"
                     value={editForm.phone}
                     onChange={(e) =>
                       setEditForm({ ...editForm, phone: e.target.value })
@@ -360,7 +360,7 @@ export default function MyPage() {
                 isEditing ? (
                   <input
                     type="date"
-                    className="border border-gray-300 p-2 rounded w-full sm:w-64 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="border border-line-strong p-2 rounded w-full sm:w-64 focus:ring-2 focus:ring-primary outline-none"
                     value={editForm.birth_date}
                     onChange={(e) =>
                       setEditForm({ ...editForm, birth_date: e.target.value })
@@ -373,11 +373,11 @@ export default function MyPage() {
             />
 
             {/* 주소 (검색 기능) */}
-            <div className="flex flex-col sm:flex-row border-b border-gray-200 last:border-b-0">
-              <div className="w-full sm:w-48 bg-gray-50 p-4 text-sm font-bold text-gray-600 flex items-center border-b sm:border-b-0 sm:border-r border-gray-200">
+            <div className="flex flex-col sm:flex-row border-b border-line last:border-b-0">
+              <div className="w-full sm:w-48 bg-table-header p-4 text-sm font-bold text-gray-600 flex items-center border-b sm:border-b-0 sm:border-r border-line">
                 집 주소 *
               </div>
-              <div className="flex-1 p-4 text-sm text-gray-900">
+              <div className="flex-1 p-4 text-sm text-heading">
                 {isEditing ? (
                   <div className="space-y-2">
                     <div className="flex gap-2">
@@ -386,7 +386,7 @@ export default function MyPage() {
                         readOnly
                         placeholder="우편번호"
                         value={editForm.zipcode}
-                        className="border border-gray-300 p-2 rounded w-24 bg-gray-50 text-gray-500"
+                        className="border border-line-strong p-2 rounded w-24 bg-table-header text-muted"
                       />
                       <button
                         onClick={openPostcode}
@@ -414,7 +414,7 @@ export default function MyPage() {
                       placeholder="주소 검색 버튼을 눌러주세요"
                       value={editForm.address}
                       onClick={openPostcode}
-                      className="border border-gray-300 p-2 rounded w-full bg-gray-50 cursor-pointer"
+                      className="border border-line-strong p-2 rounded w-full bg-table-header cursor-pointer"
                     />
                     <input
                       id="detailed-address-input"
@@ -427,7 +427,7 @@ export default function MyPage() {
                           detailed_address: e.target.value,
                         })
                       }
-                      className="border border-gray-300 p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="border border-line-strong p-2 rounded w-full focus:ring-2 focus:ring-primary outline-none"
                     />
                   </div>
                 ) : (
@@ -458,7 +458,7 @@ export default function MyPage() {
                 isEditing ? (
                   <div className="w-full">
                     <input
-                      className="border border-gray-300 p-2 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="border border-line-strong p-2 rounded w-full focus:ring-2 focus:ring-primary outline-none"
                       value={editForm.vehicle_number}
                       onChange={(e) =>
                         setEditForm({
@@ -479,14 +479,14 @@ export default function MyPage() {
       </div>
 
       {/* 2. 급여명세서 섹션 (파란색) */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+      <div className="bg-white border border-line rounded-lg overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-line bg-table-header flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-800">급여명세서 조회</h2>
-          <span className="text-xs text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded">
+          <span className="text-xs text-muted bg-white border border-line px-2 py-1 rounded">
             본인만 확인 가능 🔒
           </span>
         </div>
-        <div className="p-6 bg-gray-50/30 max-h-96 overflow-y-auto custom-scrollbar">
+        <div className="p-6 bg-table-header max-h-96 overflow-y-auto custom-scrollbar">
           {salaries.length === 0 ? (
             <div className="text-center py-10 text-gray-400 text-sm">
               내역 없음
@@ -505,17 +505,17 @@ export default function MyPage() {
       <PushSettingCard />
 
       {/* 4. 선교펀드 섹션 */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+      <div className="bg-white border border-line rounded-lg overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-line bg-table-header flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-800">선교펀드</h2>
-          <span className="text-xs text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded">
+          <span className="text-xs text-muted bg-white border border-line px-2 py-1 rounded">
             본인만 확인 가능 🔒
           </span>
         </div>
         <div className="p-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
           <div>
-            <p className="text-sm font-medium text-gray-500">현재 잔액</p>
-            <p className="mt-1 text-3xl font-bold text-gray-900 tabular-nums tracking-tight">
+            <p className="text-sm font-medium text-muted">현재 잔액</p>
+            <p className="mt-1 text-3xl font-bold text-heading tabular-nums tracking-tight">
               {formatWon(fund?.balance ?? 0)}
               <span className="ml-1 text-xl font-semibold text-gray-400">
                 원
@@ -530,7 +530,7 @@ export default function MyPage() {
           </div>
           <Link
             href="/fund"
-            className="px-5 py-3 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md text-center whitespace-nowrap"
+            className="px-5 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-active transition text-sm shadow-md text-center whitespace-nowrap"
           >
             적립·사용 내역 보기
           </Link>
@@ -548,11 +548,11 @@ const InfoRow = ({
   label: string;
   value: React.ReactNode;
 }) => (
-  <div className="flex flex-col sm:flex-row border-b border-gray-200 last:border-b-0">
-    <div className="w-full sm:w-48 bg-gray-50 p-4 text-sm font-bold text-gray-600 flex items-center border-b sm:border-b-0 sm:border-r border-gray-200">
+  <div className="flex flex-col sm:flex-row border-b border-line last:border-b-0">
+    <div className="w-full sm:w-48 bg-table-header p-4 text-sm font-bold text-gray-600 flex items-center border-b sm:border-b-0 sm:border-r border-line">
       {label}
     </div>
-    <div className="flex-1 p-4 text-sm text-gray-900 font-medium flex items-center">
+    <div className="flex-1 p-4 text-sm text-heading font-medium flex items-center">
       {value || "-"}
     </div>
   </div>

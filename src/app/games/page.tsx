@@ -89,10 +89,10 @@ export default function GamesPage() {
     <div className="max-w-xl mx-auto py-8 px-4 pb-32">
       {/* 헤더 */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 mb-2">
+        <h1 className="text-3xl font-extrabold text-heading mb-2">
           🎲 랜덤 게임
         </h1>
-        <p className="text-gray-500 text-sm">룰렛, 제비뽑기, 사다리타기</p>
+        <p className="text-muted text-sm">룰렛, 제비뽑기, 사다리타기</p>
       </div>
 
       {/* 탭 */}
@@ -105,7 +105,7 @@ export default function GamesPage() {
               ${
                 tab === t.key
                   ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                  : "border-line bg-white text-muted hover:border-line-strong"
               }`}
           >
             {/* <span className="text-2xl">{t.icon}</span> */}
@@ -118,7 +118,7 @@ export default function GamesPage() {
       </div>
 
       {/* 이름 입력 */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
+      <div className="bg-white rounded-2xl border border-line p-4 mb-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
           참가자 이름{" "}
           <span className="text-indigo-500">({validNames.length}명)</span>
@@ -153,7 +153,7 @@ export default function GamesPage() {
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addName()}
             placeholder="이름 입력 후 Enter 또는 추가 버튼"
-            className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400"
+            className="flex-1 text-sm border border-line rounded-lg px-3 py-2 outline-none focus:border-indigo-400"
             maxLength={8}
           />
           <button
@@ -166,7 +166,7 @@ export default function GamesPage() {
       </div>
 
       {/* 게임 영역 */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+      <div className="bg-white rounded-2xl border border-line p-5">
         {tab === "roulette" && (
           <RouletteGame names={validNames} onFireConfetti={fireConfetti} />
         )}

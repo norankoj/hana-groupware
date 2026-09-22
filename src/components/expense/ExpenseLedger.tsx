@@ -148,28 +148,28 @@ export default function ExpenseLedger({
     );
 
   return (
-    <div className="border border-gray-200 rounded-xl bg-white overflow-hidden flex flex-col">
+    <div className="border border-line rounded-xl bg-white overflow-hidden flex flex-col">
       {/* 요약 */}
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-4 py-3 border-b border-gray-200 bg-gray-50/60">
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-4 py-3 border-b border-line bg-table-header">
         <span className="text-sm font-bold text-gray-800">
           전체 내역
         </span>
         <span className="flex items-baseline gap-1.5">
-          <span className="text-xs text-gray-500">건수</span>
-          <b className="font-mono text-[15px] tabular-nums text-gray-900">
+          <span className="text-xs text-muted">건수</span>
+          <b className="font-mono text-[15px] tabular-nums text-heading">
             {shown.length}
           </b>
         </span>
         <span className="flex items-baseline gap-1.5">
-          <span className="text-xs text-gray-500">합계</span>
-          <b className="font-mono text-[15px] tabular-nums text-[#2151EC]">
+          <span className="text-xs text-muted">합계</span>
+          <b className="font-mono text-[15px] tabular-nums text-primary">
             {formatWon(shownTotal)}
           </b>
         </span>
       </div>
 
       {/* 걸러보기 */}
-      <div className="flex flex-col sm:flex-row gap-2 px-4 py-3 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row gap-2 px-4 py-3 border-b border-line">
         <div className="relative flex-1">
           <Search
             size={15}
@@ -187,7 +187,7 @@ export default function ExpenseLedger({
               type="button"
               onClick={() => setQuery("")}
               aria-label="검색 지우기"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-heading cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -213,15 +213,15 @@ export default function ExpenseLedger({
           type="button"
           onClick={exportExcel}
           disabled={shown.length === 0}
-          className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm font-medium bg-white border border-line-strong rounded-lg text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           <Download size={15} /> 엑셀
         </button>
       </div>
 
       {/* 기간 */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50/40">
-        <span className="text-xs font-bold text-gray-500">기간</span>
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-line bg-table-header">
+        <span className="text-xs font-bold text-muted">기간</span>
         <div className="w-[120px]">
           <Select
             value={basis}
@@ -247,7 +247,7 @@ export default function ExpenseLedger({
               setFrom("");
               setTo("");
             }}
-            className="text-xs text-gray-500 underline underline-offset-2 hover:text-gray-900 cursor-pointer"
+            className="text-xs text-muted underline underline-offset-2 hover:text-heading cursor-pointer"
           >
             기간 지우기
           </button>
@@ -287,18 +287,18 @@ export default function ExpenseLedger({
                 return (
                   <tr
                     key={r.item.id}
-                    className="border-b border-gray-100 last:border-0 hover:bg-blue-50/40"
+                    className="border-b border-table-line last:border-0 hover:bg-primary-wash/40"
                   >
-                    <td className="py-1.5 pl-3 pr-3 font-mono text-[12px] tabular-nums text-gray-500 whitespace-nowrap">
+                    <td className="py-1.5 pl-3 pr-3 font-mono text-[12px] tabular-nums text-muted whitespace-nowrap">
                       {r.request.request_date}
                     </td>
-                    <td className="py-1.5 px-3 font-mono text-[12px] tabular-nums text-gray-500 whitespace-nowrap">
+                    <td className="py-1.5 px-3 font-mono text-[12px] tabular-nums text-muted whitespace-nowrap">
                       {r.request.paid_at ?? "-"}
                     </td>
                     <td className="py-1.5 px-3 text-gray-700 whitespace-nowrap">
                       {r.request.requester?.full_name ?? "-"}
                     </td>
-                    <td className="py-1.5 px-3 text-gray-900">
+                    <td className="py-1.5 px-3 text-heading">
                       {r.item.item_name}
                       {r.item.purpose && (
                         <span className="ml-1.5 text-xs text-gray-400">
@@ -318,7 +318,7 @@ export default function ExpenseLedger({
                     <NumCell size="text-[12px]" muted={!r.item.unit_price}>
                       {r.item.unit_price ? formatWon(r.item.unit_price) : "-"}
                     </NumCell>
-                    <NumCell size="text-[12px]" tone="text-gray-900 font-semibold">
+                    <NumCell size="text-[12px]" tone="text-heading font-semibold">
                       {formatWon(r.item.amount)}
                     </NumCell>
                     <td className="py-1.5 px-3 whitespace-nowrap">
@@ -333,7 +333,7 @@ export default function ExpenseLedger({
                         <span className="text-xs text-amber-600">미배정</span>
                       )}
                     </td>
-                    <td className="py-1.5 px-3 font-mono text-[11px] text-gray-500 whitespace-nowrap">
+                    <td className="py-1.5 px-3 font-mono text-[11px] text-muted whitespace-nowrap">
                       {accountText(acc)}
                     </td>
                     <td className="py-1.5 px-3 whitespace-nowrap">
@@ -351,7 +351,7 @@ export default function ExpenseLedger({
         </table>
       </div>
 
-      <p className="px-4 py-2.5 border-t border-gray-200 bg-gray-50/60 text-xs text-gray-500">
+      <p className="px-4 py-2.5 border-t border-line bg-table-header text-xs text-muted">
         엑셀에는 지금 걸러본 {shown.length}건이 그대로 내려갑니다.
 
       </p>

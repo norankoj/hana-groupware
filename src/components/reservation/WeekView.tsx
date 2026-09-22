@@ -89,7 +89,7 @@ export default function WeekView({
               className={`px-3 py-1.5 rounded-full text-xs font-bold border transition ${
                 activeRes?.id === r.id
                   ? "text-white border-transparent"
-                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  : "bg-white text-gray-600 border-line hover:bg-gray-50"
               }`}
               style={activeRes?.id === r.id ? { backgroundColor: r.color, borderColor: r.color } : {}}
             >
@@ -101,13 +101,13 @@ export default function WeekView({
 
       {/* 그리드 */}
       <div
-        className="bg-white border border-gray-200 rounded-xl flex flex-col relative overflow-auto custom-scrollbar pb-px flex-1"
+        className="bg-white border border-line rounded-xl flex flex-col relative overflow-auto custom-scrollbar pb-px flex-1"
         style={{ maxHeight: "calc(100vh - 260px)" }}
       >
         <div className="flex relative min-w-full">
           {/* 시간 레이블 */}
-          <div className="sticky left-0 z-30 bg-white border-r border-gray-200 w-14 shrink-0 flex flex-col shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
-            <div className="border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-40" style={{ height: HEADER_HEIGHT_PX }} />
+          <div className="sticky left-0 z-30 bg-white border-r border-line w-14 shrink-0 flex flex-col shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+            <div className="border-b border-line bg-table-header shrink-0 sticky top-0 z-40" style={{ height: HEADER_HEIGHT_PX }} />
             <div className="relative" style={{ height: TOTAL_GRID_HEIGHT }}>
               {TIME_SLOTS.map((hour, i) => (
                 <div
@@ -140,16 +140,16 @@ export default function WeekView({
                 : [];
 
               return (
-                <div key={day.toISOString()} className="flex-1 min-w-[80px] border-r border-gray-200 flex flex-col">
+                <div key={day.toISOString()} className="flex-1 min-w-[80px] border-r border-line flex flex-col">
                   {/* 날짜 헤더 */}
                   <div
-                    className={`sticky top-0 z-30 border-b border-gray-200 flex flex-col items-center justify-center shrink-0 ${isToday ? "bg-blue-50" : "bg-gray-50"}`}
+                    className={`sticky top-0 z-30 border-b border-line flex flex-col items-center justify-center shrink-0 ${isToday ? "bg-primary-wash" : "bg-table-header"}`}
                     style={{ height: HEADER_HEIGHT_PX }}
                   >
-                    <span className={`text-[10px] font-bold ${isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-gray-500"}`}>
+                    <span className={`text-[10px] font-bold ${isSun ? "text-red-500" : isSat ? "text-primary" : "text-muted"}`}>
                       {format(day, "EEE", { locale: ko })}
                     </span>
-                    <span className={`text-sm font-extrabold ${isToday ? "text-blue-600" : isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-gray-800"}`}>
+                    <span className={`text-sm font-extrabold ${isToday ? "text-primary" : isSun ? "text-red-500" : isSat ? "text-primary" : "text-gray-800"}`}>
                       {format(day, "d")}
                     </span>
                   </div>
@@ -159,17 +159,17 @@ export default function WeekView({
                     {TIME_SLOTS.map((hour, i) => (
                       <div
                         key={hour}
-                        className="absolute w-full border-b border-gray-100 flex flex-col"
+                        className="absolute w-full border-b border-line-soft flex flex-col"
                         style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                       >
                         {activeRes && (
                           <>
                             <div
-                              className="flex-1 border-b border-gray-50 border-dashed cursor-pointer hover:bg-blue-50/40 transition-colors"
+                              className="flex-1 border-b border-gray-50 border-dashed cursor-pointer hover:bg-primary-wash/40 transition-colors"
                               onClick={() => onSlotClick(activeRes.id, day, hour, 0)}
                             />
                             <div
-                              className="flex-1 cursor-pointer hover:bg-blue-50/40 transition-colors"
+                              className="flex-1 cursor-pointer hover:bg-primary-wash/40 transition-colors"
                               onClick={() => onSlotClick(activeRes.id, day, hour, 30)}
                             />
                           </>

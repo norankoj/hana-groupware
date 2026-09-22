@@ -28,6 +28,7 @@ import { showConfirm } from "@/utils/alert";
 import { HOLIDAYS } from "@/constants/holidays";
 import Modal from "@/components/Modal";
 import ExcelUploadModal from "@/components/reservation/ExcelUploadModal";
+import { btnStyles } from "@/components/fund/shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Resource = {
@@ -118,18 +119,18 @@ function slotStatus(
 
 // ─── 슬롯 셀 스타일 ──────────────────────────────────────────────────────────
 function cellCls(status: SlotStatus, inRange: boolean): string {
-  if (inRange) return "bg-blue-600 border-blue-600 text-white shadow-sm";
+  if (inRange) return "bg-primary border-primary text-white shadow-sm";
   switch (status) {
     case "fixed":
-      return "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed";
+      return "bg-gray-100 border-line text-gray-400 cursor-not-allowed";
     case "reserved":
-      return "bg-gray-100 border-gray-200 text-gray-400 cursor-pointer hover:bg-gray-200";
+      return "bg-gray-100 border-line text-gray-400 cursor-pointer hover:bg-gray-200";
     case "past":
-      return "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-60";
+      return "bg-table-header border-line-soft text-disabled-text cursor-not-allowed opacity-60";
     case "current":
       return "bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100 cursor-pointer";
     default:
-      return "bg-white border-gray-200 text-gray-700 hover:border-blue-400 hover:bg-blue-50 cursor-pointer";
+      return "bg-white border-line text-gray-700 hover:border-primary hover:bg-primary-wash cursor-pointer";
   }
 }
 
@@ -768,10 +769,10 @@ export default function FacilityReservationPage() {
           <div key={bld.id}>
             {/* Building header */}
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-1 h-7 bg-blue-600 rounded-full" />
+              <div className="w-1 h-7 bg-primary rounded-full" />
               <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between min-w-0 gap-2">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">
+                  <h2 className="text-lg font-bold text-heading">
                     {bld.label}
                   </h2>
                   <p className="text-xs text-gray-400">{bld.desc}</p>
@@ -782,7 +783,7 @@ export default function FacilityReservationPage() {
                       e.stopPropagation();
                       openWeekly(bld.id);
                     }}
-                    className="flex items-center gap-1.5 text-xs text-blue-600 font-bold bg-blue-50 hover:bg-blue-100 border border-blue-100 px-3 py-1.5 rounded-lg transition-all shadow-sm shrink-0"
+                    className="flex items-center gap-1.5 text-xs text-primary font-bold bg-primary-wash hover:bg-primary-soft border border-primary-soft px-3 py-1.5 rounded-lg transition-all shadow-sm shrink-0"
                   >
                     <svg
                       className="w-4 h-4"
@@ -805,7 +806,7 @@ export default function FacilityReservationPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-all shrink-0 shadow-sm"
+                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-heading px-2.5 py-1.5 rounded-lg border border-line bg-white hover:bg-gray-50 transition-all shrink-0 shadow-sm"
                     >
                       이용안내 →
                     </a>
@@ -827,12 +828,12 @@ export default function FacilityReservationPage() {
                   <div
                     key={res.id}
                     onClick={() => openBook(res)}
-                    className="bg-white border border-gray-200 rounded-2xl p-5 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all group flex flex-col gap-4"
+                    className="bg-white border border-line rounded-2xl p-5 cursor-pointer hover:border-primary-soft hover:shadow-md transition-all group flex flex-col gap-4"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
                         <div>
-                          <h3 className="text-base font-bold text-gray-900">
+                          <h3 className="text-base font-bold text-heading">
                             {res.name}
                           </h3>
                           {(res.description || res.location) && (
@@ -877,7 +878,7 @@ export default function FacilityReservationPage() {
                           />
                         ))}
                       </div>
-                      <div className="flex justify-between text-[10px] text-gray-300 mt-1">
+                      <div className="flex justify-between text-[10px] text-disabled-text mt-1">
                         <span>7시</span>
                         <span>15시</span>
                         <span>23시</span>
@@ -912,7 +913,7 @@ export default function FacilityReservationPage() {
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => setView("list")}
-          className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition px-2 py-1.5 rounded-lg hover:bg-gray-100"
+          className="flex items-center gap-1.5 text-sm font-bold text-muted hover:text-gray-800 transition px-2 py-1.5 rounded-lg hover:bg-gray-100"
         >
           <svg
             className="w-4 h-4"
@@ -931,19 +932,19 @@ export default function FacilityReservationPage() {
         </button>
         <div className="h-4 w-px bg-gray-200 hidden sm:block" />
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-bold text-heading">
             {BUILDINGS.find((b) => b.id === weeklyBld)?.label} 주간 시간표
           </h2>
         </div>
       </div>
 
       {/* Week Controls & Location Tabs (Same Line) */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white px-5 py-3.5 rounded-2xl border border-gray-200 shadow-sm">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white px-5 py-3.5 rounded-2xl border border-line shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 border border-gray-200 rounded-xl p-1 bg-gray-50">
+          <div className="flex items-center gap-2 border border-line rounded-xl p-1 bg-table-header">
             <button
               onClick={() => setWeeklyWeekStart(subWeeks(weeklyWeekStart, 1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-gray-500 transition"
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-muted transition"
             >
               <svg
                 className="w-4 h-4"
@@ -965,7 +966,7 @@ export default function FacilityReservationPage() {
             </span>
             <button
               onClick={() => setWeeklyWeekStart(addWeeks(weeklyWeekStart, 1))}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-gray-500 transition"
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-muted transition"
             >
               <svg
                 className="w-4 h-4"
@@ -986,7 +987,7 @@ export default function FacilityReservationPage() {
             onClick={() =>
               setWeeklyWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))
             }
-            className="px-2.5 py-1.5 text-xs font-bold text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+            className="px-2.5 py-1.5 text-xs font-bold text-gray-600 hover:text-primary hover:bg-primary-wash rounded-lg transition"
           >
             이번 주
           </button>
@@ -1004,7 +1005,7 @@ export default function FacilityReservationPage() {
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
                     weeklySelectedResId === res.id
                       ? "bg-gray-800 text-white shadow-sm"
-                      : "bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700 border border-gray-200/60"
+                      : "bg-table-header text-muted hover:bg-gray-100 hover:text-gray-700 border border-line/60"
                   }`}
                 >
                   {res.name}
@@ -1015,11 +1016,11 @@ export default function FacilityReservationPage() {
       </div>
 
       {/* Timetable Grid (Absolute Positioned Events) */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto shadow-sm">
+      <div className="bg-white border border-line rounded-2xl overflow-x-auto shadow-sm">
         <div className="min-w-[800px] flex flex-col text-sm text-gray-700">
           {/* Header Row */}
-          <div className="flex border-b border-gray-200 bg-gray-50">
-            <div className="w-[60px] shrink-0 border-r border-gray-200 p-2 flex items-center justify-center text-xs font-bold text-gray-500">
+          <div className="flex border-b border-line bg-table-header">
+            <div className="w-[60px] shrink-0 border-r border-line p-2 flex items-center justify-center text-xs font-bold text-muted">
               시간
             </div>
             {Array.from({ length: 7 }).map((_, i) => {
@@ -1029,7 +1030,7 @@ export default function FacilityReservationPage() {
               return (
                 <div
                   key={i}
-                  className={`flex-1 p-2 border-r border-gray-200 text-center ${isTodayDt ? "bg-blue-50/50 text-blue-700" : ""}`}
+                  className={`flex-1 p-2 border-r border-line text-center ${isTodayDt ? "bg-primary-wash/50 text-primary-active" : ""}`}
                 >
                   <div className="flex flex-col items-center gap-0.5">
                     <span
@@ -1049,11 +1050,11 @@ export default function FacilityReservationPage() {
           {/* Grid Body */}
           <div className="flex relative">
             {/* Time Axis Column */}
-            <div className="w-[60px] shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col">
+            <div className="w-[60px] shrink-0 border-r border-line bg-table-header flex flex-col">
               {HOURS.map((hour) => (
                 <div
                   key={hour}
-                  className="h-10 border-b border-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-400"
+                  className="h-10 border-b border-line flex items-center justify-center text-[11px] font-bold text-gray-400"
                 >
                   {hour}:00
                 </div>
@@ -1069,13 +1070,13 @@ export default function FacilityReservationPage() {
               return (
                 <div
                   key={dayIdx}
-                  className={`flex-1 border-r border-gray-200 relative group min-w-[100px] ${isTodayDt ? "bg-blue-50/10" : ""}`}
+                  className={`flex-1 border-r border-line relative group min-w-[100px] ${isTodayDt ? "bg-primary-wash/10" : ""}`}
                 >
                   {/* Background Lines */}
                   {HOURS.map((hour) => (
                     <div
                       key={hour}
-                      className="h-10 border-b border-gray-100 group-hover:bg-gray-50/50 transition-colors"
+                      className="h-10 border-b border-line-soft group-hover:bg-gray-50/50 transition-colors"
                     />
                   ))}
 
@@ -1104,8 +1105,8 @@ export default function FacilityReservationPage() {
                         style={{ top, height, left, width }}
                         className={`absolute p-1.5 rounded-lg text-[11px] leading-tight shadow-sm overflow-hidden flex flex-col gap-0.5 border transition-all cursor-pointer z-10 hover:z-20 ${
                           evt.type === "fixed"
-                            ? "bg-gray-100/95 text-gray-500 border-gray-200"
-                            : "bg-blue-50/95 text-blue-800 border-blue-200 hover:border-blue-400 hover:shadow-md"
+                            ? "bg-gray-100/95 text-muted border-line"
+                            : "bg-primary-wash/95 text-primary-active border-primary-soft hover:border-primary hover:shadow-md"
                         }`}
                         onClick={(e) => {
                           if (evt.type === "rsv" && evt.rsv) {
@@ -1154,7 +1155,7 @@ export default function FacilityReservationPage() {
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => setView("list")}
-          className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition px-2 py-1.5 rounded-lg hover:bg-gray-100"
+          className="flex items-center gap-1.5 text-sm font-bold text-muted hover:text-gray-800 transition px-2 py-1.5 rounded-lg hover:bg-gray-100"
         >
           <svg
             className="w-4 h-4"
@@ -1173,7 +1174,7 @@ export default function FacilityReservationPage() {
         </button>
         <div className="h-4 w-px bg-gray-200 hidden sm:block" />
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-bold text-heading">
             {selectedRes.name}
           </h2>
           {(selectedRes.description || selectedRes.location) && (
@@ -1189,7 +1190,7 @@ export default function FacilityReservationPage() {
               href={bld.notionUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-blue-300 hover:shadow transition-all"
+              className="shrink-0 flex items-center gap-1 text-xs text-gray-600 hover:text-primary px-2.5 py-1.5 rounded-lg border border-line bg-white hover:border-primary-soft hover:shadow transition-all"
             >
               이용안내 →
             </a>
@@ -1201,10 +1202,10 @@ export default function FacilityReservationPage() {
       <div className="flex flex-col lg:flex-row gap-5">
         {/* ── Left: Calendar ── */}
         <div className="lg:w-[320px] shrink-0">
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+          <div className="bg-white border border-line rounded-2xl overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-line-soft bg-table-header flex items-center justify-between">
               <p className="text-sm font-bold text-gray-700">날짜 선택</p>
-              <p className="text-sm font-bold text-blue-600">
+              <p className="text-sm font-bold text-primary">
                 {format(selectedDate, "yyyy.MM.dd (EEE)", { locale: ko })}
               </p>
             </div>
@@ -1243,11 +1244,11 @@ export default function FacilityReservationPage() {
                 예약있음
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-blue-100 border border-blue-200 inline-block" />{" "}
+                <span className="w-2 h-2 rounded-full bg-primary-soft border border-primary-soft inline-block" />{" "}
                 오늘
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />{" "}
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />{" "}
                 선택
               </span>
             </div>
@@ -1256,12 +1257,12 @@ export default function FacilityReservationPage() {
 
         {/* ── Right: Time + Form ── */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+          <div className="bg-white border border-line rounded-2xl overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-line-soft bg-table-header flex items-center justify-between">
               <p className="text-sm font-bold text-gray-700">시간 선택</p>
               {selStart !== null && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-blue-700">
+                  <span className="text-sm font-bold text-primary-active">
                     {selEnd !== null
                       ? `${Math.min(selStart, selEnd)}:00 ~ ${Math.max(selStart, selEnd) + 1}:00`
                       : `${selStart}:00 선택됨`}
@@ -1303,19 +1304,19 @@ export default function FacilityReservationPage() {
                   ))}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-4 pt-3 border-t border-gray-100">
+              <div className="flex flex-wrap gap-4 pt-3 border-t border-line-soft">
                 {[
-                  { cls: "bg-blue-600", label: "선택" },
+                  { cls: "bg-primary", label: "선택" },
                   { cls: "bg-amber-200", label: "현재 시간" },
                   {
-                    cls: "bg-white border border-gray-200",
+                    cls: "bg-white border border-line",
                     label: "예약 가능",
                   },
                   { cls: "bg-gray-200", label: "예약됨 / 고정" },
                 ].map(({ cls, label }) => (
                   <div
                     key={label}
-                    className="flex items-center gap-1.5 text-xs text-gray-500"
+                    className="flex items-center gap-1.5 text-xs text-muted"
                   >
                     <div className={`w-3 h-3 rounded ${cls}`} />
                     {label}
@@ -1326,13 +1327,13 @@ export default function FacilityReservationPage() {
           </div>
 
           {/* Booking form */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+          <div className="bg-white border border-line rounded-2xl p-5 space-y-4">
             {selStart !== null && selEnd !== null && (
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <p className="text-xs font-bold text-blue-700 mb-2">
+              <div className="bg-primary-wash border border-primary-soft rounded-xl p-4">
+                <p className="text-xs font-bold text-primary-active mb-2">
                   예약 요약
                 </p>
-                <div className="space-y-1 text-sm text-blue-800">
+                <div className="space-y-1 text-sm text-primary-active">
                   <p>
                     📅{" "}
                     {format(selectedDate, "yyyy년 M월 d일 (EEE)", {
@@ -1342,7 +1343,7 @@ export default function FacilityReservationPage() {
                   <p>
                     🕐 {Math.min(selStart, selEnd)}:00 ~{" "}
                     {Math.max(selStart, selEnd) + 1}:00
-                    <span className="text-xs text-blue-500 ml-1">
+                    <span className="text-xs text-primary ml-1">
                       ({Math.abs(selEnd - selStart) + 1}시간)
                     </span>
                   </p>
@@ -1360,7 +1361,7 @@ export default function FacilityReservationPage() {
                   type="text"
                   value={currentUserName}
                   disabled
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+                  className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-muted cursor-not-allowed"
                 />
               </div>
               <div>
@@ -1372,7 +1373,7 @@ export default function FacilityReservationPage() {
                   placeholder="사용하는 사람 이름"
                   value={reserveeName}
                   onChange={(e) => setReserveeName(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+                  className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-table-header focus:bg-white outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft transition"
                 />
               </div>
             </div>
@@ -1385,7 +1386,7 @@ export default function FacilityReservationPage() {
                 placeholder="010-0000-0000"
                 value={reserveePhone}
                 onChange={(e) => setReserveePhone(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+                className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-table-header focus:bg-white outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft transition"
               />
             </div>
             <div>
@@ -1397,16 +1398,16 @@ export default function FacilityReservationPage() {
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 rows={3}
-                className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 resize-none outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition bg-gray-50 focus:bg-white"
+                className="w-full border border-line rounded-xl p-3 text-sm text-gray-800 resize-none outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft transition bg-table-header focus:bg-white"
               />
             </div>
-            <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between p-3.5 bg-table-header rounded-xl border border-line-soft">
               <span className="text-sm font-bold text-gray-700">
                 정기 예약 (매주 반복)
               </span>
               <button
                 onClick={() => setIsRecurring(!isRecurring)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${isRecurring ? "bg-blue-600" : "bg-gray-300"}`}
+                className={`w-11 h-6 rounded-full transition-colors relative ${isRecurring ? "bg-primary" : "bg-gray-300"}`}
               >
                 <div
                   className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${isRecurring ? "left-6" : "left-1"}`}
@@ -1424,14 +1425,14 @@ export default function FacilityReservationPage() {
                   onChange={(e) => setRecurEnd(e.target.value)}
                   min={format(new Date(), "yyyy-MM-dd")}
                   max={format(addWeeks(new Date(), 26), "yyyy-MM-dd")}
-                  className="w-full border border-gray-200 rounded-xl p-2.5 text-sm bg-white outline-none focus:border-blue-400"
+                  className="w-full border border-line rounded-xl p-2.5 text-sm bg-white outline-none focus:border-primary"
                 />
               </div>
             )}
             <button
               onClick={handleReserve}
               disabled={selStart === null || selEnd === null || !purpose.trim()}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-100 disabled:text-gray-400 text-white font-bold rounded-xl transition-all shadow-sm disabled:shadow-none text-sm"
+              className="w-full py-3.5 bg-primary hover:bg-primary disabled:bg-gray-100 disabled:text-gray-400 text-white font-bold rounded-xl transition-all shadow-sm disabled:shadow-none text-sm"
             >
               {selStart === null || selEnd === null
                 ? "시간을 먼저 선택하세요"
@@ -1444,7 +1445,7 @@ export default function FacilityReservationPage() {
           {/* Selected date reservations */}
           {dateRsv.filter((r) => r.resource_id === selectedRes.id).length >
             0 && (
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="bg-white border border-line rounded-2xl p-5">
               <p className="text-sm font-bold text-gray-700 mb-3">
                 {format(selectedDate, "M월 d일 (EEE)", { locale: ko })} 예약
                 현황
@@ -1463,10 +1464,10 @@ export default function FacilityReservationPage() {
                       onClick={() =>
                         (r.user_id === currentUser || isAdmin) && setDetailRsv(r)
                       }
-                      className={`flex items-center justify-between p-3 rounded-xl border transition ${r.user_id === currentUser || isAdmin ? "border-blue-100 bg-blue-50 cursor-pointer hover:bg-blue-100" : "border-gray-100 bg-gray-50"}`}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition ${r.user_id === currentUser || isAdmin ? "border-primary-soft bg-primary-wash cursor-pointer hover:bg-primary-soft" : "border-line-soft bg-table-header"}`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-gray-500 tabular-nums">
+                        <span className="text-xs font-bold text-muted tabular-nums">
                           {format(new Date(r.start_at), "H:mm")}~
                           {format(new Date(r.end_at), "H:mm")}
                         </span>
@@ -1476,7 +1477,7 @@ export default function FacilityReservationPage() {
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {r.group_id && (
-                          <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                          <span className="text-[10px] bg-primary-soft text-primary px-1.5 py-0.5 rounded font-bold">
                             정기
                           </span>
                         )}
@@ -1484,7 +1485,7 @@ export default function FacilityReservationPage() {
                           {r.reservee_name || r.profiles?.full_name}
                         </span>
                         {r.user_id === currentUser && (
-                          <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                          <span className="text-[10px] bg-primary-wash text-primary px-1.5 py-0.5 rounded font-bold">
                             내 예약
                           </span>
                         )}
@@ -1535,7 +1536,7 @@ export default function FacilityReservationPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-heading tracking-tight">
             시설 예약
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">공간 예약 및 시설 관리</p>
@@ -1564,7 +1565,7 @@ export default function FacilityReservationPage() {
       {/* Loading */}
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : view === "list" ? (
         ListView
@@ -1584,12 +1585,12 @@ export default function FacilityReservationPage() {
         {detailRsv && (
           <div className="space-y-6 pt-2">
             {/* 헤더 — 이름 (직책 제거) */}
-            <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl shrink-0">
+            <div className="flex items-center gap-4 pb-4 border-b border-line-soft">
+              <div className="w-12 h-12 rounded-full bg-primary-soft flex items-center justify-center text-primary-active font-bold text-xl shrink-0">
                 {(detailRsv.reservee_name || detailRsv.profiles?.full_name)?.slice(0, 1)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-gray-900 text-lg">
+                <div className="font-bold text-heading text-lg">
                   {detailRsv.reservee_name || detailRsv.profiles?.full_name}
                 </div>
                 {detailRsv.reservee_name && detailRsv.profiles?.full_name && (
@@ -1599,7 +1600,7 @@ export default function FacilityReservationPage() {
                 )}
               </div>
               {detailRsv.group_id && (
-                <span className="shrink-0 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                <span className="shrink-0 bg-primary-soft text-primary-active px-2 py-1 rounded text-xs font-bold">
                   정기예약
                 </span>
               )}
@@ -1615,7 +1616,7 @@ export default function FacilityReservationPage() {
                       type="text"
                       value={detailRsv.profiles?.full_name ?? ""}
                       disabled
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+                      className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-muted cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -1627,7 +1628,7 @@ export default function FacilityReservationPage() {
                       placeholder="사용하는 사람 이름"
                       value={editReserveeName}
                       onChange={(e) => setEditReserveeName(e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+                      className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-table-header focus:bg-white outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft transition"
                     />
                   </div>
                 </div>
@@ -1640,7 +1641,7 @@ export default function FacilityReservationPage() {
                     placeholder="010-0000-0000"
                     value={editReserveePhone}
                     onChange={(e) => setEditReserveePhone(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+                    className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-table-header focus:bg-white outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft transition"
                   />
                 </div>
                 <div>
@@ -1649,19 +1650,19 @@ export default function FacilityReservationPage() {
                     value={editPurpose}
                     onChange={(e) => setEditPurpose(e.target.value)}
                     rows={3}
-                    className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 resize-none outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition bg-gray-50 focus:bg-white"
+                    className="w-full border border-line rounded-xl p-3 text-sm text-gray-800 resize-none outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft transition bg-table-header focus:bg-white"
                   />
                 </div>
-                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <div className="flex gap-2 pt-2 border-t border-line-soft sm:justify-end">
                   <button
                     onClick={() => setDetailEditMode(false)}
-                    className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition text-sm"
+                    className={btnStyles.cancel}
                   >
                     취소
                   </button>
                   <button
                     onClick={handleEditSave}
-                    className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-500 transition text-sm"
+                    className={btnStyles.save}
                   >
                     저장
                   </button>
@@ -1673,74 +1674,81 @@ export default function FacilityReservationPage() {
                 <div className="space-y-3">
                   <div className="flex">
                     <span className="w-16 text-gray-400 text-sm shrink-0">장소</span>
-                    <span className="font-bold text-gray-900">
+                    <span className="font-bold text-heading">
                       {resources.find((r) => r.id === detailRsv.resource_id)?.name}
                     </span>
                   </div>
                   <div className="flex">
                     <span className="w-16 text-gray-400 text-sm shrink-0">시간</span>
-                    <span className="font-bold text-blue-700">
+                    <span className="font-bold text-primary-active">
                       {format(new Date(detailRsv.start_at), "yyyy.MM.dd HH:mm")} ~{" "}
                       {format(new Date(detailRsv.end_at), "HH:mm")}
                     </span>
                   </div>
                   <div className="flex">
                     <span className="w-16 text-gray-400 text-sm shrink-0">목적</span>
-                    <span className="text-gray-900 whitespace-pre-wrap">
+                    <span className="text-heading whitespace-pre-wrap">
                       {detailRsv.purpose}
                     </span>
                   </div>
                   {detailRsv.reservee_phone && (
                     <div className="flex">
                       <span className="w-16 text-gray-400 text-sm shrink-0">연락처</span>
-                      <span className="text-gray-900">{detailRsv.reservee_phone}</span>
+                      <span className="text-heading">{detailRsv.reservee_phone}</span>
                     </div>
                   )}
                 </div>
-                <div className="border-t border-gray-100 pt-4 space-y-2">
+                {/* 버튼 한 줄 — 취소(되돌리기 어려움)는 왼쪽, 닫기 · 수정은 오른쪽.
+                    예전엔 너비가 다른 버튼이 세 줄로 쌓여 있었다. */}
+                <div className="border-t border-line-soft pt-4 flex flex-wrap gap-2">
                   {(detailRsv.user_id === currentUser || isAdmin) && (
-                    <button
-                      onClick={() => {
-                        setEditPurpose(detailRsv.purpose);
-                        setEditReserveeName(detailRsv.reservee_name ?? "");
-                        setEditReserveePhone(detailRsv.reservee_phone ?? "");
-                        setDetailEditMode(true);
-                      }}
-                      className="w-full bg-blue-50 text-blue-700 py-3 rounded-xl font-bold hover:bg-blue-100 transition text-sm"
-                    >
-                      예약 수정
-                    </button>
-                  )}
-                  {(detailRsv.user_id === currentUser || isAdmin) &&
-                    (detailRsv.group_id ? (
-                      <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto sm:mr-auto">
+                      {detailRsv.group_id ? (
+                        <>
+                          <button
+                            onClick={handleCancelOne}
+                            className={btnStyles.dangerSoft}
+                          >
+                            이 예약만 취소
+                          </button>
+                          <button
+                            onClick={handleCancelAll}
+                            className={btnStyles.dangerSoft}
+                          >
+                            전체 일정 취소
+                          </button>
+                        </>
+                      ) : (
                         <button
                           onClick={handleCancelOne}
-                          className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition text-sm"
+                          className={btnStyles.dangerSoft}
                         >
-                          이 예약만 취소
+                          예약 취소
                         </button>
-                        <button
-                          onClick={handleCancelAll}
-                          className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition text-sm"
-                        >
-                          전체 일정 취소
-                        </button>
-                      </div>
-                    ) : (
+                      )}
+                    </div>
+                  )}
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => { setDetailRsv(null); setDetailEditMode(false); }}
+                      className={btnStyles.cancel}
+                    >
+                      닫기
+                    </button>
+                    {(detailRsv.user_id === currentUser || isAdmin) && (
                       <button
-                        onClick={handleCancelOne}
-                        className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition"
+                        onClick={() => {
+                          setEditPurpose(detailRsv.purpose);
+                          setEditReserveeName(detailRsv.reservee_name ?? "");
+                          setEditReserveePhone(detailRsv.reservee_phone ?? "");
+                          setDetailEditMode(true);
+                        }}
+                        className={btnStyles.save}
                       >
-                        예약 취소
+                        예약 수정
                       </button>
-                    ))}
-                  <button
-                    onClick={() => { setDetailRsv(null); setDetailEditMode(false); }}
-                    className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition"
-                  >
-                    닫기
-                  </button>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -1768,7 +1776,7 @@ export default function FacilityReservationPage() {
               onClick={() => setSlotPopover(null)}
             />
             <div
-              className="fixed bg-white rounded-2xl shadow-2xl w-[272px] overflow-hidden border border-gray-100"
+              className="fixed bg-white rounded-2xl shadow-2xl w-[272px] overflow-hidden border border-line-soft"
               style={{
                 zIndex: 99999,
                 top: Math.max(
@@ -1782,9 +1790,9 @@ export default function FacilityReservationPage() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-5 py-4 bg-blue-50 flex items-start justify-between gap-2">
+              <div className="px-5 py-4 bg-primary-wash flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-blue-500 uppercase mb-1">
+                  <p className="text-[11px] font-bold text-primary uppercase mb-1">
                     {format(
                       new Date(slotPopover.rsv.start_at),
                       "M월 d일 (EEE)",
@@ -1792,7 +1800,7 @@ export default function FacilityReservationPage() {
                     )}{" "}
                     · 예약됨
                   </p>
-                  <p className="text-base font-extrabold text-gray-900 leading-snug">
+                  <p className="text-base font-extrabold text-heading leading-snug">
                     {slotPopover.rsv.reservee_name ||
                       slotPopover.rsv.profiles?.full_name ||
                       "예약자"}
@@ -1853,8 +1861,8 @@ export default function FacilityReservationPage() {
                   </span>
                 </div>
                 {slotPopover.rsv.group_id && (
-                  <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100">
-                    <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-line-soft">
+                    <span className="text-[10px] bg-primary-soft text-primary px-1.5 py-0.5 rounded font-bold">
                       정기예약
                     </span>
                     <span className="text-xs text-gray-400">매주 반복</span>
@@ -1899,7 +1907,7 @@ export default function FacilityReservationPage() {
                         setDetailEditMode(true);
                         setSlotPopover(null);
                       }}
-                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs transition border border-blue-200"
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary-wash hover:bg-primary-soft text-primary font-bold text-xs transition border border-primary-soft"
                     >
                       <svg
                         className="w-3.5 h-3.5"
@@ -1921,7 +1929,7 @@ export default function FacilityReservationPage() {
                         setDetailRsv(slotPopover.rsv);
                         setSlotPopover(null);
                       }}
-                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition border border-red-200"
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-danger-soft hover:bg-danger/20 text-danger-active font-bold text-xs transition border border-danger/30"
                     >
                       <svg
                         className="w-3.5 h-3.5"

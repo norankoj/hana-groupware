@@ -72,7 +72,7 @@ export default function PwaInstallPrompt() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[10000] bg-white border border-gray-200 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] rounded-2xl p-4 flex flex-col animate-fadeIn slide-up">
+    <div className="fixed bottom-4 left-4 right-4 z-[10000] bg-white border border-line shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] rounded-2xl p-4 flex flex-col animate-fadeIn slide-up">
       <button
         onClick={handleClose}
         className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-gray-600 rounded-full transition"
@@ -104,18 +104,18 @@ export default function PwaInstallPrompt() {
             className="rounded-xl object-cover shadow-[0_2px_10px_rgba(0,0,0,0.08)] shrink-0"
           />
           <div className="flex flex-col">
-            <p className="text-sm font-bold text-gray-900 leading-tight">
+            <p className="text-sm font-bold text-heading leading-tight">
               수원하나교회 그룹웨어
             </p>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-[11px] text-muted mt-0.5">
               앱으로 설치하고 편하게 쓰세요!
             </p>
           </div>
         </div>
 
         {isIOS && (
-          <div className="text-[10px] text-gray-500 text-right bg-gray-50 p-2 rounded-lg border border-gray-100 shrink-0">
-            하단 <span className="font-bold text-blue-600">공유(↑)</span> 누르고
+          <div className="text-[10px] text-muted text-right bg-table-header p-2 rounded-lg border border-line-soft shrink-0">
+            하단 <span className="font-bold text-primary">공유(↑)</span> 누르고
             <br />
             <span className="font-bold text-gray-800">홈 화면에 추가</span>
           </div>
@@ -125,7 +125,7 @@ export default function PwaInstallPrompt() {
         {isAndroid && deferredPrompt && (
           <button
             onClick={handleInstallClick}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition shrink-0 active:scale-95"
+            className="bg-primary hover:bg-primary-active text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition shrink-0 active:scale-95"
           >
             설치
           </button>
@@ -133,11 +133,11 @@ export default function PwaInstallPrompt() {
 
         {/* 안드로이드인데 HTTP 환경이거나 개발 모드라서 설치 이벤트가 발생 안 한 경우 수동 가이드 제공 */}
         {isAndroid && !deferredPrompt && (
-          <div className="text-[10px] text-gray-500 text-right bg-gray-50 p-2 rounded-lg border border-gray-100 shrink-0">
+          <div className="text-[10px] text-muted text-right bg-table-header p-2 rounded-lg border border-line-soft shrink-0">
             우측 상단 <span className="font-bold text-gray-800">메뉴(⋮)</span>{" "}
             누르고
             <br />
-            <span className="font-bold text-blue-600">홈 화면에 추가</span>
+            <span className="font-bold text-primary">홈 화면에 추가</span>
           </div>
         )}
       </div>

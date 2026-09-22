@@ -32,17 +32,17 @@ export default function TodayReservationWidget({
   className,
 }: Props) {
   return (
-    <div className={`bg-white p-4 rounded-xl border border-gray-200 flex flex-col ${className ?? "max-h-[300px] 2xl:max-h-[320px] min-h-[200px]"}`}>
-      <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
-        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <span className="p-2 bg-blue-50 rounded-lg text-blue-600">
+    <div className={`bg-white p-4 rounded-xl border border-line flex flex-col ${className ?? "max-h-[300px] 2xl:max-h-[320px] min-h-[200px]"}`}>
+      <div className="flex justify-between items-center mb-4 pb-2 border-b border-line-soft">
+        <h3 className="text-lg font-bold text-heading flex items-center gap-2">
+          <span className="p-2 bg-primary-wash rounded-lg text-primary">
             {icon}
           </span>
           {title}
         </h3>
         <Link
           href={href}
-          className="text-sm text-gray-400 hover:text-blue-600 font-medium flex items-center gap-1 transition-colors"
+          className="text-sm text-gray-400 hover:text-primary font-medium flex items-center gap-1 transition-colors"
         >
           전체보기
           <svg
@@ -67,19 +67,19 @@ export default function TodayReservationWidget({
             {reservations.map((res) => (
               <li
                 key={res.id}
-                className="group p-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default"
+                className="group p-3 rounded-xl border border-line-soft bg-table-header hover:bg-primary-wash hover:border-primary-soft transition-all cursor-default"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0 mr-3">
                     <div className="font-bold text-gray-800 text-sm mb-0.5 truncate">
                       {res.resources.name}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">
+                    <div className="text-xs text-muted truncate">
                       {res.profiles?.full_name} · {res.purpose}
                     </div>
                   </div>
                   <div className="text-right whitespace-nowrap">
-                    <span className="block font-bold text-blue-600 text-sm">
+                    <span className="block font-bold text-primary text-sm">
                       {format(new Date(res.start_at), "HH:mm")}
                     </span>
                     <span className="text-xs text-gray-400">

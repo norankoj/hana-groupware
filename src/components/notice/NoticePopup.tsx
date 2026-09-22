@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { CATEGORY_STYLE } from "@/components/notice/shared";
 
 type NoticeAttachment = { name: string; url: string; type: "image" | "file" };
 type PopupNotice = {
@@ -14,11 +15,6 @@ type PopupNotice = {
   attachments: NoticeAttachment[];
 };
 
-const CATEGORY_STYLE: Record<string, string> = {
-  공지: "bg-blue-50 text-blue-700 border-blue-200",
-  중요: "bg-red-50 text-red-700 border-red-200",
-  일반: "bg-gray-50 text-gray-600 border-gray-200",
-};
 
 export default function NoticePopup() {
   const supabase = createClient();
@@ -73,7 +69,7 @@ export default function NoticePopup() {
 
   return (
     <div className="fixed top-2 left-2 z-[99999]">
-      <div className="bg-white border border-gray-200 shadow-2xl overflow-hidden w-96">
+      <div className="bg-white border border-line shadow-2xl overflow-hidden w-96">
 
         {/* 클릭 시 공지 상세로 이동 */}
         <div
@@ -95,9 +91,9 @@ export default function NoticePopup() {
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${CATEGORY_STYLE[notice.category] || CATEGORY_STYLE["일반"]}`}>
                 {notice.category}
               </span>
-              <p className="text-base font-bold text-gray-900 mt-2 leading-snug">{notice.title}</p>
+              <p className="text-base font-bold text-heading mt-2 leading-snug">{notice.title}</p>
               {notice.content?.trim() && (
-                <p className="text-sm text-gray-500 leading-relaxed line-clamp-5 mt-2"
+                <p className="text-sm text-muted leading-relaxed line-clamp-5 mt-2"
                    dangerouslySetInnerHTML={{ __html: notice.content }} />
               )}
             </div>
@@ -123,7 +119,7 @@ export default function NoticePopup() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <span className="text-[10px] text-gray-500">{currentIdx + 1}/{total}</span>
+                <span className="text-[10px] text-muted">{currentIdx + 1}/{total}</span>
                 <button
                   onClick={() => setCurrentIdx((i) => (i + 1) % total)}
                   className="text-gray-400 hover:text-white transition"
@@ -137,7 +133,7 @@ export default function NoticePopup() {
           </div>
           <button
             onClick={close}
-            className="flex items-center gap-1 text-xs text-gray-300 hover:text-white transition"
+            className="flex items-center gap-1 text-xs text-disabled-text hover:text-white transition"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

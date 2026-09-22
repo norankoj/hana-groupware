@@ -132,18 +132,18 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
           {CATEGORIES.map((c) => (
             <button key={c} onClick={() => setFilterCat(c)}
               className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                filterCat === c ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                filterCat === c ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}>{c}</button>
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted">
             <b className="text-green-600">{done}</b> / {items.length} 완료
           </span>
           {isAdmin && (
             <button
               onClick={() => setShowAdd(!showAdd)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -168,7 +168,7 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
 
       {/* 추가 폼 */}
       {showAdd && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+        <div className="bg-primary-wash border border-primary-soft rounded-xl p-4 mb-4">
           <div className="grid sm:grid-cols-4 gap-3">
             <input
               type="text"
@@ -177,19 +177,19 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               placeholder="새 항목 이름..."
               autoFocus
-              className="sm:col-span-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="sm:col-span-2 border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <Select
               value={newCategory}
               onChange={(v) => setNewCategory(v)}
               options={CATEGORIES.slice(1).map((c) => ({ value: c, label: c }))}
-              className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+              className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
             />
             <input
               type="date"
               value={newDueDate}
               onChange={(e) => setNewDueDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+              className="border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none"
             />
           </div>
           <div className="flex justify-end gap-2 mt-3">
@@ -202,7 +202,7 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
             <button
               onClick={handleAdd}
               disabled={adding}
-              className="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-1.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50"
             >
               {adding ? "추가 중..." : "추가"}
             </button>
@@ -219,7 +219,7 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
             <div
               key={item.id}
               className={`flex items-center gap-3 bg-white rounded-lg border px-4 py-3 transition group ${
-                item.is_completed ? "border-green-100 bg-green-50/30" : "border-gray-200"
+                item.is_completed ? "border-green-100 bg-green-50/30" : "border-line"
               }`}
             >
               {/* 체크박스 */}
@@ -227,7 +227,7 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
                 type="checkbox"
                 checked={item.is_completed}
                 onChange={() => handleToggle(item)}
-                className="w-4 h-4 rounded accent-green-500 cursor-pointer shrink-0"
+                className="w-4 h-4 rounded accent-primary cursor-pointer shrink-0"
               />
 
               {/* 제목 — 수정 모드이면 input, 아니면 텍스트 */}
@@ -242,17 +242,17 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
                       if (e.key === "Escape") setEditId(null);
                     }}
                     autoFocus
-                    className="flex-1 border border-blue-400 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 border border-primary rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <button
                     onClick={() => handleSave(item)}
-                    className="px-2.5 py-1 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition shrink-0"
+                    className="px-2.5 py-1 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-active transition shrink-0"
                   >
                     저장
                   </button>
                   <button
                     onClick={() => setEditId(null)}
-                    className="px-2.5 py-1 text-gray-500 text-xs font-semibold rounded-lg hover:bg-gray-100 transition shrink-0"
+                    className="px-2.5 py-1 text-muted text-xs font-semibold rounded-lg hover:bg-gray-100 transition shrink-0"
                   >
                     취소
                   </button>
@@ -267,9 +267,9 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
               {editId !== item.id && (
                 <>
                   {item.source_type && (
-                    <span className="text-xs bg-blue-50 text-blue-400 border border-blue-100 px-1.5 py-0.5 rounded shrink-0">자동</span>
+                    <span className="text-xs bg-primary-soft text-primary/60 border border-primary-soft px-1.5 py-0.5 rounded shrink-0">자동</span>
                   )}
-                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">{item.category}</span>
+                  <span className="text-xs bg-gray-100 text-muted px-1.5 py-0.5 rounded shrink-0">{item.category}</span>
                   {item.due_date && (
                     <span className={`text-xs shrink-0 ${new Date(item.due_date) < new Date() && !item.is_completed ? "text-red-500 font-semibold" : "text-gray-400"}`}>
                       {item.due_date}
@@ -284,7 +284,7 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
                   <button
                     onClick={() => { setEditId(item.id); setEditTitle(item.title); }}
                     title="수정"
-                    className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-blue-500 transition rounded"
+                    className="w-6 h-6 flex items-center justify-center text-disabled-text hover:text-primary transition rounded"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -294,7 +294,7 @@ export default function ChecklistTab({ projectId, myUserId, isMember, isAdmin, i
                   <button
                     onClick={() => handleDelete(item.id)}
                     title="삭제"
-                    className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-400 transition rounded"
+                    className="w-6 h-6 flex items-center justify-center text-disabled-text hover:text-red-400 transition rounded"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import dynamic from "next/dynamic";
 import { toProxyUrl } from "@/utils/minio-url";
+import { CATEGORY_STYLE, NOTICE_PROSE } from "@/components/notice/shared";
 
 const NoticeEditor = dynamic(() => import("@/components/notice/NoticeEditor"), { ssr: false });
 
@@ -31,11 +32,6 @@ type Notice = {
 };
 
 const CATEGORIES = ["공지", "일반", "중요"];
-const CATEGORY_STYLE: Record<string, string> = {
-  공지: "bg-blue-50 text-blue-700 border-blue-200",
-  중요: "bg-red-50 text-red-700 border-red-200",
-  일반: "bg-gray-50 text-gray-600 border-gray-200",
-};
 const MINIO_BUCKET = "notice";
 const WRITE_ROLES = ["admin", "director", "staff"];
 
@@ -310,10 +306,10 @@ export default function NoticeDetailPage() {
 
   if (!notice) {
     return (
-      <div className="w-full max-w-4xl mx-auto px-4 py-10 text-center text-gray-500">
+      <div className="w-full max-w-4xl mx-auto px-4 py-10 text-center text-muted">
         공지사항을 찾을 수 없습니다.
         <br />
-        <button onClick={() => router.push("/notice")} className="mt-4 text-blue-600 underline text-sm">
+        <button onClick={() => router.push("/notice")} className="mt-4 text-primary underline text-sm">
           목록으로 돌아가기
         </button>
       </div>
@@ -328,7 +324,7 @@ export default function NoticeDetailPage() {
       {/* 뒤로가기 */}
       <button
         onClick={() => router.push("/notice")}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-800 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -337,14 +333,14 @@ export default function NoticeDetailPage() {
       </button>
 
       {/* 본문 카드 */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div className="bg-white border border-line rounded-2xl overflow-hidden">
         {/* 헤더 */}
-        <div className="px-6 py-5 border-b border-gray-100">
+        <div className="px-6 py-5 border-b border-line-soft">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 {notice.is_pinned && (
-                  <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                  <span className="text-[11px] font-bold text-primary bg-primary-wash px-2 py-0.5 rounded">
                     📌 고정
                   </span>
                 )}
@@ -357,7 +353,7 @@ export default function NoticeDetailPage() {
                   {notice.category}
                 </span>
               </div>
-              <h1 className="text-xl font-bold text-gray-900 leading-snug">{notice.title}</h1>
+              <h1 className="text-xl font-bold text-heading leading-snug">{notice.title}</h1>
               <div className="flex items-center gap-3 mt-2.5 text-xs text-gray-400 flex-wrap">
                 <span>{notice.profiles?.full_name} · {notice.profiles?.position}</span>
                 <span>{format(new Date(notice.created_at), "yyyy.MM.dd HH:mm", { locale: ko })}</span>
@@ -368,7 +364,7 @@ export default function NoticeDetailPage() {
             <button
               onClick={shareToKakao}
               title="카카오톡으로 공유"
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FEE500] hover:bg-[#FFD700] text-gray-900 transition-colors mt-0.5"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FEE500] hover:bg-[#FFD700] text-heading transition-colors mt-0.5"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 3C6.477 3 2 6.954 2 11.647c0 2.955 1.696 5.565 4.293 7.14-.19.73-.572 1.98-.676 2.455-.098.484.178.474.373.341.15-.103 2.016-1.368 2.828-1.921.66.096 1.337.147 2.032.147 5.523 0 10-4.08 10-8.162C22 6.954 17.523 3 12 3z" />
@@ -381,7 +377,7 @@ export default function NoticeDetailPage() {
         {/* 본문 */}
         <div className="px-6 py-6">
           <div
-            className="prose prose-sm max-w-none text-gray-800 leading-relaxed break-words [&_a]:break-all"
+            className={NOTICE_PROSE}
             dangerouslySetInnerHTML={{ __html: notice.content }}
           />
         </div>
@@ -396,7 +392,7 @@ export default function NoticeDetailPage() {
                   <img
                     src={toProxyUrl(att.url)}
                     alt={att.name}
-                    className="w-full rounded-xl object-cover max-h-48 border border-gray-100 cursor-zoom-in"
+                    className="w-full rounded-xl object-cover max-h-48 border border-line-soft cursor-zoom-in"
                     onClick={() => setLightboxImg(toProxyUrl(att.url))}
                   />
                   {canEdit && (
@@ -421,16 +417,16 @@ export default function NoticeDetailPage() {
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">첨부 파일</p>
             <div className="space-y-1.5">
               {files.map((att) => (
-                <div key={att.url} className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 rounded-xl border border-gray-100">
+                <div key={att.url} className="flex items-center justify-between gap-2 px-3 py-2 bg-table-header rounded-xl border border-line-soft">
                   <div className="flex items-center gap-2 min-w-0">
-                    <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-primary/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                     <span className="text-sm text-gray-700 truncate">{att.name}</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <a href={att.url} download={att.name} target="_blank" rel="noopener noreferrer"
-                      className="px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                      className="px-2 py-1 text-xs font-semibold text-primary bg-primary-wash rounded-lg hover:bg-primary-soft transition">
                       다운로드
                     </a>
                     {canEdit && (
@@ -447,15 +443,15 @@ export default function NoticeDetailPage() {
         )}
 
         {/* 읽음 현황 */}
-        <div className="border-t border-gray-100">
+        <div className="border-t border-line-soft">
           {/* 토글 버튼 */}
           <button
             onClick={() => setShowViewersModal((v) => !v)}
             className="w-full px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <span>읽음 <strong className="text-gray-700">{viewers.length}</strong>명</span>
-              <span className="text-blue-500 font-semibold underline underline-offset-2">보기</span>
+              <span className="text-primary font-semibold underline underline-offset-2">보기</span>
             </div>
             <svg
               className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showViewersModal ? "rotate-180" : ""}`}
@@ -495,7 +491,7 @@ export default function NoticeDetailPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0" />
                         <span className="text-xs font-bold text-gray-600">안읽은 사람</span>
-                        <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">{unreadList.length}명</span>
+                        <span className="text-[11px] font-semibold text-muted bg-gray-100 px-1.5 py-0.5 rounded-full">{unreadList.length}명</span>
                       </div>
                       {unreadList.length === 0 ? (
                         <p className="text-xs text-gray-400 pl-3">모두 읽었습니다! 🎉</p>
@@ -514,9 +510,9 @@ export default function NoticeDetailPage() {
 
         {/* 수정/삭제 버튼 */}
         {canEdit && (
-          <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-2">
             <button onClick={openEdit}
-              className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-50 rounded-xl hover:bg-gray-100 transition border border-gray-200">
+              className="px-4 py-2 text-sm font-semibold text-gray-600 bg-table-header rounded-xl hover:bg-gray-100 transition border border-line">
               수정
             </button>
             <button onClick={handleDelete}
@@ -541,7 +537,7 @@ export default function NoticeDetailPage() {
       {(uploadingFiles || saving) && (
         <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
           <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl min-w-[220px]">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             {uploadingFiles && uploadProgress.total > 0 ? (
               <>
                 <p className="text-gray-800 font-bold text-base">파일 업로드 중...</p>
@@ -552,7 +548,7 @@ export default function NoticeDetailPage() {
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
                       style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                     />
                   </div>
@@ -570,10 +566,10 @@ export default function NoticeDetailPage() {
       {isEditing && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4"
           onClick={() => setIsEditing(false)}>
-          <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-2xl max-h-[92vh] flex flex-col"
+          <div className="bg-white rounded-2xl border border-line w-full max-w-2xl max-h-[92vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-900">공지 수정</h2>
+            <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="text-base font-bold text-heading">공지 수정</h2>
               <button onClick={() => setIsEditing(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -584,7 +580,7 @@ export default function NoticeDetailPage() {
             <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
               {/* 제목 */}
               <input
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="제목"
                 value={form.title}
                 onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
@@ -596,7 +592,7 @@ export default function NoticeDetailPage() {
                   <button key={c} type="button"
                     onClick={() => setForm((p) => ({ ...p, category: c }))}
                     className={`px-3 py-1 rounded-full text-xs font-semibold border transition
-                      ${form.category === c ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-400"}`}>
+                      ${form.category === c ? "bg-primary text-white border-primary" : "bg-white text-gray-600 border-line hover:border-primary"}`}>
                     {c}
                   </button>
                 ))}
@@ -613,19 +609,19 @@ export default function NoticeDetailPage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.is_pinned}
                     onChange={(e) => setForm((p) => ({ ...p, is_pinned: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-blue-600" />
+                    className="w-4 h-4 rounded accent-primary" />
                   <span className="text-sm text-gray-700">상단 고정</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.popup_enabled}
                     onChange={(e) => setForm((p) => ({ ...p, popup_enabled: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-blue-600" />
+                    className="w-4 h-4 rounded accent-primary" />
                   <span className="text-sm text-gray-700">팝업 공지</span>
                 </label>
                 {form.popup_enabled && (
                   <select value={form.popup_days}
                     onChange={(e) => setForm((p) => ({ ...p, popup_days: Number(e.target.value) }))}
-                    className="border border-gray-200 rounded-lg px-2 py-1 text-sm">
+                    className="border border-line rounded-lg px-2 py-1 text-sm">
                     {[1, 2, 3, 7].map((d) => <option key={d} value={d}>{d}일간</option>)}
                   </select>
                 )}
@@ -637,20 +633,20 @@ export default function NoticeDetailPage() {
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">기존 첨부파일</p>
                   <div className="space-y-1.5">
                     {existingAttachments.map((att) => (
-                      <div key={att.url} className="flex items-center justify-between gap-2 px-3 py-2 bg-blue-50 rounded-xl border border-blue-100">
+                      <div key={att.url} className="flex items-center justify-between gap-2 px-3 py-2 bg-primary-wash rounded-xl border border-primary-soft">
                         <div className="flex items-center gap-2 min-w-0">
                           {att.type === "image" ? (
-                            <img src={toProxyUrl(att.url)} alt={att.name} className="w-8 h-8 rounded object-cover shrink-0 border border-blue-200" />
+                            <img src={toProxyUrl(att.url)} alt={att.name} className="w-8 h-8 rounded object-cover shrink-0 border border-primary-soft" />
                           ) : (
-                            <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="w-4 h-4 text-primary/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                           )}
-                          <span className="text-sm text-blue-700 truncate">{att.name}</span>
+                          <span className="text-sm text-primary-active truncate">{att.name}</span>
                         </div>
                         <button
                           onClick={() => removeExistingAttachment(att)}
-                          className="text-blue-300 hover:text-red-500 shrink-0 transition"
+                          className="text-primary/60 hover:text-red-500 shrink-0 transition"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -665,7 +661,7 @@ export default function NoticeDetailPage() {
               {/* 새 파일 첨부 */}
               <div>
                 <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  className="flex items-center gap-1.5 text-sm text-primary hover:text-primary-active font-medium">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
@@ -676,7 +672,7 @@ export default function NoticeDetailPage() {
                 {pendingFiles.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {pendingFiles.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
+                      <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-table-header rounded-lg text-sm">
                         <span className="truncate text-gray-700">{f.name}</span>
                         <button onClick={() => setPendingFiles((p) => p.filter((_, j) => j !== i))}
                           className="text-gray-400 hover:text-red-500 ml-2">✕</button>
@@ -687,14 +683,14 @@ export default function NoticeDetailPage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+            <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-2">
               <button onClick={() => setIsEditing(false)}
-                className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-50 rounded-xl hover:bg-gray-100 border border-gray-200 transition">
+                className="px-4 py-2 text-sm font-semibold text-gray-600 bg-table-header rounded-xl hover:bg-gray-100 border border-line transition">
                 취소
               </button>
               <button onClick={handleSave}
                 disabled={!form.title.trim() || saving || uploadingFiles}
-                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition">
+                className="px-5 py-2 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-primary-active disabled:opacity-50 transition">
                 {uploadingFiles ? "파일 업로드 중..." : saving ? "저장 중..." : "수정 완료"}
               </button>
             </div>

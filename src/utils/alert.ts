@@ -3,13 +3,13 @@ import Swal from "sweetalert2";
 // 여백 균형잡힌 디자인 + Pretendard 폰트
 const swalCustomClasses = {
   popup: "rounded-2xl shadow-lg !w-[340px] !p-7 font-pretendard",
-  title: "!text-lg !font-bold !text-gray-900 !mb-4 !mt-0", // ! 추가로 우선순위 높임
+  title: "!text-lg !font-bold !text-heading !mb-4 !mt-0", // ! 추가로 우선순위 높임
   htmlContainer: "!text-sm !text-gray-600 !mt-0 !pt-0 !mb-0 !leading-relaxed",
   actions: "gap-3 !mt-6 !mb-0 w-full flex justify-center",
   confirmButton:
-    "bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-6 py-2.5 text-sm w-[100px] transition-colors shadow-sm",
+    "bg-primary hover:bg-primary-active text-white font-semibold rounded-lg px-6 py-2.5 text-sm w-[100px] transition-colors shadow-sm",
   cancelButton:
-    "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-lg px-6 py-2.5 text-sm w-[100px] transition-colors",
+    "bg-white border border-line-strong text-gray-700 hover:bg-gray-50 font-semibold rounded-lg px-6 py-2.5 text-sm w-[100px] transition-colors",
 };
 /**
  * 예쁜 Confirm 창을 띄우는 공통 함수

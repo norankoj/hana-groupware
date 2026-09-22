@@ -12,6 +12,8 @@ import * as XLSX from "xlsx";
 import Select from "@/components/Select";
 import FundCorrectModal from "./FundCorrectModal";
 import FundEntryDetailModal from "./FundEntryDetailModal";
+import { empty, num, table, td, th, thead, trHover } from "@/components/ui/table";
+import SortTh from "@/components/ui/SortTh";
 import {
   ENTRY_TYPE_LABEL,
   formatWon,
@@ -74,42 +76,9 @@ const DETAIL_COLUMNS: {
   { key: "amount", label: "금액", align: "right" },
 ];
 
-const SortHeader = ({
-  label,
-  active,
-  dir,
-  onClick,
-  align = "left",
-}: {
-  label: string;
-  active: boolean;
-  dir: "asc" | "desc";
-  onClick: () => void;
-  align?: "left" | "right";
-}) => (
-  <th
-    className={`px-4 py-3 font-bold ${align === "right" ? "text-right" : "text-left"}`}
-  >
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 cursor-pointer transition hover:text-gray-800 ${
-        active ? "text-gray-900" : ""
-      }`}
-    >
-      {label}
-      <span
-        aria-hidden="true"
-        className={`text-[10px] leading-none ${active ? "text-blue-600" : "text-gray-300"}`}
-      >
-        {active ? (dir === "asc" ? "▲" : "▼") : "▲"}
-      </span>
-    </button>
-  </th>
-);
 
 const pagerBtn =
-  "px-4 py-2 text-sm font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+  "px-4 py-2 text-sm font-bold bg-white border border-line-strong rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
 export default function FundLedgerList({
   payees,
@@ -384,7 +353,7 @@ export default function FundLedgerList({
     <div className="space-y-4">
       {/* 보기 전환 + 연도 + 필터 */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-stretch">
-        <div className="inline-flex bg-white border border-gray-300 rounded-lg overflow-hidden shrink-0">
+        <div className="inline-flex bg-white border border-line-strong rounded-lg overflow-hidden shrink-0">
           {(
             [
               ["summary", "집계"],
@@ -396,7 +365,7 @@ export default function FundLedgerList({
               onClick={() => setView(key)}
               className={`px-6 py-2.5 text-sm font-bold transition cursor-pointer ${
                 view === key
-                  ? "bg-[#2151EC] text-white"
+                  ? "bg-primary text-white"
                   : "text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -450,13 +419,13 @@ export default function FundLedgerList({
                 className={selectClass}
               />
             </div>
-            <div className="flex items-center justify-center bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-500 whitespace-nowrap">
+            <div className="flex items-center justify-center bg-white border border-line-strong rounded-lg px-4 py-2.5 text-sm text-muted whitespace-nowrap">
               총&nbsp;<b className="text-gray-700">{total}</b>건
             </div>
             <button
               onClick={handleExport}
               disabled={exporting || total === 0}
-              className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-line-strong rounded-lg hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {exporting ? "만드는 중..." : "엑셀 받기"}
             </button>
@@ -465,7 +434,7 @@ export default function FundLedgerList({
       </div>
 
       {/* 그 해 요약 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 border border-gray-200 rounded-xl overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 border border-line rounded-xl overflow-hidden">
         <TotalCell label={`${year}년 적립`} value={summary.depositTotal} />
         <TotalCell
           label={`${year}년 사용`}
@@ -477,10 +446,10 @@ export default function FundLedgerList({
           value={summary.depositTotal - summary.withdrawTotal}
         />
         <div className="bg-white px-4 py-4">
-          <p className="text-xs font-medium text-gray-500">
+          <p className="text-xs font-medium text-muted">
             {month}월 적립한 사람
           </p>
-          <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">
+          <p className="mt-1 text-lg font-bold tabular-nums text-heading">
             {summary.done.length}
             <span className="ml-0.5 text-sm font-semibold text-gray-400">
               / {summary.done.length + summary.missing.length}명
@@ -493,40 +462,40 @@ export default function FundLedgerList({
         /* ── 월별 점검 + 사람별 합계 ── */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* 그 달에 적립한 사람 — 적립은 선택이므로 없는 쪽은 문제가 아니다 */}
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
-            <div className="px-4 sm:px-5 py-3 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between gap-2 shrink-0">
+          <div className="bg-white border border-line rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
+            <div className="px-4 sm:px-5 py-3 border-b border-line bg-table-header flex items-center justify-between gap-2 shrink-0">
               <h3 className="text-base font-bold text-gray-800">
                 {year}년 {month}월 적립
               </h3>
-              <span className="text-sm text-gray-500 tabular-nums">
+              <span className="text-sm text-muted tabular-nums">
                 {formatWon(summary.monthTotal)}원
               </span>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               {loadingSummary ? (
-                <div className="py-16 text-center text-sm text-gray-400">
+                <div className={empty}>
                   불러오는 중...
                 </div>
               ) : summary.done.length + summary.missing.length === 0 ? (
-                <div className="py-16 text-center text-sm text-gray-400">
+                <div className={empty}>
                   해당하는 대상자가 없습니다.
                 </div>
               ) : (
                 <>
                   {summary.done.length > 0 && (
                     <>
-                      <div className="px-4 sm:px-5 py-2 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600">
+                      <div className="px-4 sm:px-5 py-2 bg-table-header border-b border-line text-xs font-bold text-gray-600">
                         적립함 {summary.done.length}명
                       </div>
                       {summary.done.map(({ payee, amount }) => (
                         <div
                           key={payee.id}
-                          className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-b border-gray-100"
+                          className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-b border-line-soft"
                         >
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-heading">
                             {payee.name}
                           </span>
-                          <span className="text-sm tabular-nums font-medium text-gray-900">
+                          <span className="text-sm tabular-nums font-medium text-heading">
                             {formatWon(amount)}
                           </span>
                         </div>
@@ -535,18 +504,18 @@ export default function FundLedgerList({
                   )}
                   {summary.missing.length > 0 && (
                     <>
-                      <div className="px-4 sm:px-5 py-2 bg-gray-50 border-y border-gray-200 text-xs font-bold text-gray-400">
+                      <div className="px-4 sm:px-5 py-2 bg-table-header border-y border-line text-xs font-bold text-gray-400">
                         이 달 내역 없음 {summary.missing.length}명
                       </div>
                       {summary.missing.map(({ payee }) => (
                         <div
                           key={payee.id}
-                          className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-b border-gray-100 last:border-0"
+                          className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-b border-line-soft last:border-0"
                         >
                           <span className="text-sm text-gray-400">
                             {payee.name}
                           </span>
-                          <span className="text-sm text-gray-300">·</span>
+                          <span className="text-sm text-disabled-text">·</span>
                         </div>
                       ))}
                     </>
@@ -557,54 +526,49 @@ export default function FundLedgerList({
           </div>
 
           {/* 그 해 사람별 합계 */}
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
-            <div className="px-4 sm:px-5 py-3 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between gap-2 shrink-0">
+          <div className="bg-white border border-line rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
+            <div className="px-4 sm:px-5 py-3 border-b border-line bg-table-header flex items-center justify-between gap-2 shrink-0">
               <h3 className="text-base font-bold text-gray-800">
                 {year}년 사람별 합계
               </h3>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-muted">
                 {summary.yearly.length}명
               </span>
             </div>
             <div className="flex-1 overflow-auto custom-scrollbar">
               {summary.yearly.length === 0 ? (
-                <div className="py-16 text-center text-sm text-gray-400">
+                <div className={empty}>
                   {year}년 내역이 없습니다.
                 </div>
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
-                      <th className="text-left px-4 py-2.5 font-bold">
-                        대상자
-                      </th>
-                      <th className="text-right px-4 py-2.5 font-bold">적립</th>
-                      <th className="text-right px-4 py-2.5 font-bold">사용</th>
+                <table className={table}>
+                  <thead className={thead}>
+                    <tr>
+                      <th scope="col" className={`${th} px-4`}>대상자</th>
+                      <th scope="col" className={`${th} px-4 text-right`}>적립</th>
+                      <th scope="col" className={`${th} px-4 text-right`}>사용</th>
                     </tr>
                   </thead>
                   <tbody>
                     {summary.yearly.map(({ payee, deposit, withdraw }) => (
-                      <tr
-                        key={payee.id}
-                        className="border-b border-gray-100 last:border-0"
-                      >
+                      <tr key={payee.id} className={trHover}>
                         <td
-                          className={`px-4 py-2.5 font-medium whitespace-nowrap ${
-                            payee.is_active ? "text-gray-900" : "text-gray-400"
+                          className={`${td} px-4 font-medium whitespace-nowrap ${
+                            payee.is_active ? "" : "text-disabled-text!"
                           }`}
                         >
                           {payee.name}
                           {!payee.is_active && (
-                            <span className="ml-1.5 text-[11px] text-gray-400">
+                            <span className="ml-1.5 text-[11px] text-muted">
                               (사용 안 함)
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-bold text-gray-900">
-                          {deposit ? formatWon(deposit) : "·"}
+                        <td className={`${td} ${num} px-4 font-bold`}>
+                          {deposit ? formatWon(deposit) : <span className="text-disabled-text">-</span>}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-orange-700">
-                          {withdraw ? formatWon(withdraw) : "·"}
+                        <td className={`${td} ${num} px-4 text-warning-active`}>
+                          {withdraw ? formatWon(withdraw) : <span className="text-disabled-text">-</span>}
                         </td>
                       </tr>
                     ))}
@@ -620,15 +584,15 @@ export default function FundLedgerList({
           {/* 대상자를 고르면 그 사람의 현재 잔액을 표 바로 위에 띄운다.
               연도 필터와 무관한 '지금' 기준 금액이라 따로 구분해 보여준다. */}
           {selected && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="bg-primary-wash border border-primary-soft rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-baseline gap-3">
-                <span className="text-base font-bold text-gray-900">
+                <span className="text-base font-bold text-heading">
                   {selected.name}
                 </span>
-                <span className="text-sm text-blue-700">현재 잔액</span>
-                <span className="text-2xl font-bold text-blue-800 tabular-nums">
+                <span className="text-sm text-primary-active">현재 잔액</span>
+                <span className="text-2xl font-bold text-primary-active tabular-nums">
                   {formatWon(selected.balance)}
-                  <span className="ml-1 text-base font-semibold text-blue-500">
+                  <span className="ml-1 text-base font-semibold text-primary">
                     원
                   </span>
                 </span>
@@ -636,18 +600,18 @@ export default function FundLedgerList({
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-600">
                 <span>
                   적립{" "}
-                  <b className="tabular-nums text-gray-900">
+                  <b className="tabular-nums text-heading">
                     {formatWon(selected.deposit_total)}
                   </b>
                 </span>
                 <span>
                   사용{" "}
-                  <b className="tabular-nums text-gray-900">
+                  <b className="tabular-nums text-heading">
                     {formatWon(selected.withdraw_total)}
                   </b>
                 </span>
                 {selected.pending_total > 0 && (
-                  <span className="text-amber-700">
+                  <span className="text-warning-active">
                     처리대기{" "}
                     <b className="tabular-nums">
                       {formatWon(selected.pending_total)}
@@ -658,22 +622,22 @@ export default function FundLedgerList({
             </div>
           )}
 
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
+          <div className="bg-white border border-line rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
             <div className="flex-1 overflow-auto custom-scrollbar">
               {loadingDetail ? (
-                <div className="py-16 text-center text-sm text-gray-400">
+                <div className={empty}>
                   불러오는 중...
                 </div>
               ) : rows.length === 0 ? (
-                <div className="py-16 text-center text-sm text-gray-400">
+                <div className={empty}>
                   해당하는 내역이 없습니다.
                 </div>
               ) : (
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
+                <table className={`min-w-[760px] ${table}`}>
+                  <thead className={thead}>
+                    <tr>
                       {DETAIL_COLUMNS.map((c) => (
-                        <SortHeader
+                        <SortTh
                           key={c.key}
                           label={c.label}
                           align={c.align}
@@ -682,7 +646,7 @@ export default function FundLedgerList({
                           onClick={() => toggleSort(c.key)}
                         />
                       ))}
-                      <th className="text-right px-4 py-3 font-bold">관리</th>
+                      <th scope="col" className={`${th} px-4 text-right`}>관리</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -694,61 +658,61 @@ export default function FundLedgerList({
                         <tr
                           key={row.id}
                           onClick={() => setDetailTarget(row)}
-                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50/40 ${
-                            isCorrection ? "bg-amber-50/50" : ""
+                          className={`${trHover} cursor-pointer ${
+                            isCorrection ? "bg-warning/5" : ""
                           }`}
                         >
-                          <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                          <td className={`${td} px-4 whitespace-nowrap font-mono text-[13px] text-muted`}>
                             {row.entry_date}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
+                          <td className={`${td} px-4 whitespace-nowrap font-medium`}>
                             {row.payee_name ?? "-"}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className={`${td} px-4 whitespace-nowrap`}>
                             <span
                               className={`px-2 py-0.5 text-[11px] font-bold rounded border ${
                                 row.entry_type === "withdraw"
-                                  ? "bg-orange-50 text-orange-700 border-orange-200"
-                                  : "bg-blue-50 text-blue-700 border-blue-200"
+                                  ? "bg-warning-soft text-warning-active border-warning/30"
+                                  : "bg-primary-soft text-primary-active border-primary/30"
                               }`}
                             >
                               {ENTRY_TYPE_LABEL[row.entry_type]}
                             </span>
                           </td>
-                          <td className="px-4 py-3 max-w-[180px]">
-                            <span className="block truncate text-gray-700">
+                          <td className={`${td} px-4 max-w-[180px]`}>
+                            <span className="block truncate">
                               {row.note || "-"}
                             </span>
                           </td>
-                          <td className="px-4 py-3 max-w-[280px]">
-                            <span className="block truncate text-gray-800">
+                          <td className={`${td} px-4 max-w-[280px]`}>
+                            <span className="block truncate">
                               {row.description || "-"}
                             </span>
                             {isCorrection && (
-                              <span className="text-[11px] font-bold text-amber-700">
+                              <span className="text-[11px] font-bold text-warning-active">
                                 정정 내역
                               </span>
                             )}
                             {alreadyCorrected && (
-                              <span className="text-[11px] font-bold text-gray-400">
+                              <span className="text-[11px] font-bold text-muted">
                                 정정됨
                               </span>
                             )}
                           </td>
                           <td
-                            className={`px-4 py-3 text-right tabular-nums font-bold whitespace-nowrap ${
-                              row.amount < 0 ? "text-red-600" : "text-gray-900"
+                            className={`${td} ${num} px-4 font-bold whitespace-nowrap ${
+                              row.amount < 0 ? "text-danger!" : ""
                             }`}
                           >
                             {row.amount < 0 ? "−" : ""}
                             {formatWon(Math.abs(row.amount))}
                           </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <td className={`${td} px-4 text-right whitespace-nowrap`}>
                             {isCorrection || alreadyCorrected ? (
-                              <span className="text-xs text-gray-400">-</span>
+                              <span className="text-xs text-disabled-text">-</span>
                             ) : fromRequest ? (
                               <span
-                                className="text-xs text-gray-400"
+                                className="text-xs text-muted"
                                 title="신청을 거쳐 이체된 내역입니다."
                               >
                                 신청 건
@@ -760,7 +724,7 @@ export default function FundLedgerList({
                                   setCorrectTarget(row);
                                 }}
                                 disabled={busyId === row.id}
-                                className="px-3 py-1.5 text-xs font-bold text-red-600 bg-white border border-red-200 rounded hover:bg-red-50 disabled:opacity-60 cursor-pointer"
+                                className="px-2.5 py-1 text-xs font-bold rounded-md border border-danger/30 bg-danger-soft text-danger-active hover:bg-danger/20 disabled:opacity-60 cursor-pointer"
                               >
                                 정정
                               </button>
@@ -824,9 +788,9 @@ const TotalCell = ({
   muted?: boolean;
 }) => (
   <div className="bg-white px-4 py-4">
-    <p className="text-xs font-medium text-gray-500">{label}</p>
+    <p className="text-xs font-medium text-muted">{label}</p>
     <p
-      className={`mt-1 text-lg font-bold tabular-nums ${muted ? "text-gray-500" : "text-gray-900"}`}
+      className={`mt-1 text-lg font-bold tabular-nums ${muted ? "text-muted" : "text-heading"}`}
     >
       {formatWon(value)}
     </p>

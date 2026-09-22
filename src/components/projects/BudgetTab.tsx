@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import { uploadFile, deleteFile } from "@/utils/upload";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import { table, td, th, trHover } from "@/components/ui/table";
 
 /* ── Props & Types ─────────────────────────────────────────────────── */
 
@@ -50,7 +51,7 @@ const PAY_METHODS  = ["카드", "현금", "계좌이체", "기타"];
 
 const STATUS_MAP: Record<string, { label: string; cls: string; dot: string }> = {
   pending:    { label: "대기중",   cls: "bg-yellow-100 text-yellow-700", dot: "#f59e0b" },
-  approved:   { label: "승인됨",   cls: "bg-blue-100  text-blue-700",   dot: "#3b82f6" },
+  approved:   { label: "승인됨",   cls: "bg-primary-soft  text-primary-active",   dot: "#3b82f6" },
   reimbursed: { label: "정산완료", cls: "bg-green-100 text-green-700",  dot: "#10b981" },
 };
 
@@ -405,7 +406,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                 <p className="text-gray-600 text-sm">PDF 파일입니다.</p>
                 <a
                   href={receiptViewer} target="_blank" rel="noopener noreferrer"
-                  className="inline-block px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+                  className="inline-block px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-active"
                 >
                   새 탭에서 열기
                 </a>
@@ -439,7 +440,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
               key={v}
               onClick={() => setView(v)}
               className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${
-                view === v ? "bg-white shadow text-gray-800" : "text-gray-500 hover:text-gray-700"
+                view === v ? "bg-white shadow text-gray-800" : "text-muted hover:text-gray-700"
               }`}
             >
               {v === "expenses" ? "💸 지출 내역" : "📊 예산 현황"}
@@ -472,7 +473,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
           {isMember && (
             <button
               onClick={openAddExp}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -487,15 +488,15 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
           지출 내역 뷰
       ══════════════════════════════════════════════════════════════ */}
       {view === "expenses" && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
           {/* 필터 바 */}
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 flex-wrap">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line-soft flex-wrap">
             <div className="flex gap-1 flex-wrap">
               {["전체", ...CATS].map((c) => (
                 <button
                   key={c} onClick={() => setFilterCat(c)}
                   className={`px-2.5 py-1 text-xs font-semibold rounded-full transition ${
-                    filterCat === c ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    filterCat === c ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   {c}
@@ -524,45 +525,45 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] text-sm">
+              <table className={`${table} w-full min-w-[680px]`}>
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
+                  <tr>
                     {["날짜","항목","카테고리","금액","지출자","결제","상태","영수증"].map((h, i) => (
                       <th
                         key={h}
-                        className={`px-4 py-2.5 text-xs font-semibold text-gray-500 ${
+                        className={`px-4 py-2.5 text-xs font-semibold text-muted ${
                           i === 3 ? "text-right" : "text-left"
                         } ${h === "날짜" ? "w-16" : h === "카테고리" ? "w-24" : h === "금액" ? "w-28" : h === "지출자" || h === "결제" ? "w-20" : h === "상태" ? "w-24" : h === "영수증" ? "w-14" : ""}`}
                       >
                         {h}
                       </th>
                     ))}
-                    {isAdmin && <th className="w-14" />}
+                    {isAdmin && <th className={`${th} w-14`} />}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                   {filtered.map((e) => (
-                    <tr key={e.id} className="hover:bg-gray-50/60 transition group">
-                      <td className="px-4 py-3 text-xs text-gray-400 tabular-nums whitespace-nowrap">
+                    <tr key={e.id} className={`${trHover} group`}>
+                      <td className={`${td} tabular-nums whitespace-nowrap`}>
                         {fmtD(e.paid_at)}
                       </td>
-                      <td className="px-4 py-3 max-w-[180px]">
+                      <td className={`${td} max-w-[180px]`}>
                         <p className="font-medium text-gray-800 truncate">{e.title}</p>
                         {e.notes && (
                           <p className="text-xs text-gray-400 truncate mt-0.5">{e.notes}</p>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={`${td}`}>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CAT_COLORS[e.category] ?? "bg-gray-100 text-gray-600"}`}>
                           {e.category}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-800 tabular-nums whitespace-nowrap">
+                      <td className={`${td} text-right font-semibold tabular-nums whitespace-nowrap`}>
                         {krw(e.amount)}<span className="text-xs font-normal text-gray-400 ml-0.5">원</span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{e.paid_by ?? "—"}</td>
-                      <td className="px-4 py-3 text-xs text-gray-400">{e.payment_method}</td>
-                      <td className="px-4 py-3">
+                      <td className={`${td} whitespace-nowrap`}>{e.paid_by ?? "—"}</td>
+                      <td className={`${td}`}>{e.payment_method}</td>
+                      <td className={`${td}`}>
                         {isAdmin ? (
                           <select
                             value={e.status}
@@ -574,17 +575,17 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                             ))}
                           </select>
                         ) : (
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_MAP[e.status]?.cls ?? "bg-gray-100 text-gray-500"}`}>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_MAP[e.status]?.cls ?? "bg-gray-100 text-muted"}`}>
                             {STATUS_MAP[e.status]?.label ?? e.status}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className={`${td} text-center`}>
                         {e.receipt_url ? (
                           <button
                             onClick={() => setReceiptViewer(e.receipt_url!)}
                             title={e.receipt_filename ?? "영수증 보기"}
-                            className="text-blue-400 hover:text-blue-600 transition text-base"
+                            className="text-primary/60 hover:text-primary transition text-base"
                           >
                             📎
                           </button>
@@ -593,12 +594,12 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                         )}
                       </td>
                       {isAdmin && (
-                        <td className="px-4 py-3">
+                        <td className={`${td}`}>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => openEditExp(e)}
                               title="수정"
-                              className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-blue-500 transition rounded"
+                              className="w-6 h-6 flex items-center justify-center text-disabled-text hover:text-primary transition rounded"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -607,7 +608,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                             <button
                               onClick={() => handleDeleteExp(e.id)}
                               title="삭제"
-                              className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-400 transition rounded"
+                              className="w-6 h-6 flex items-center justify-center text-disabled-text hover:text-red-400 transition rounded"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -620,15 +621,15 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-gray-200 bg-gray-50">
-                    <td colSpan={3} className="px-4 py-2.5 text-xs text-gray-500 font-semibold">
+                  <tr>
+                    <td colSpan={3} className={`${td} font-semibold`}>
                       {filtered.length}건
                       {(filterCat !== "전체" || filterStatus !== "전체") && " (필터 적용됨)"}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-bold text-gray-900 tabular-nums text-sm">
+                    <td className={`${td} text-right font-bold text-heading tabular-nums`}>
                       {krw(filteredTotal)}<span className="text-xs font-normal text-gray-400 ml-0.5">원</span>
                     </td>
-                    <td colSpan={isAdmin ? 5 : 4} />
+                    <td className={td} colSpan={isAdmin ? 5 : 4} />
                   </tr>
                 </tfoot>
               </table>
@@ -644,7 +645,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
         <div className="space-y-4">
           {/* 전체 진행 바 */}
           {totalBudget > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-white rounded-xl border border-line p-5">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-gray-700">전체 예산 사용률</span>
                 <span className={`text-sm font-bold tabular-nums ${balance < 0 ? "text-red-600" : "text-gray-700"}`}>
@@ -653,7 +654,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
               </div>
               <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${balance < 0 ? "bg-red-400" : "bg-blue-500"}`}
+                  className={`h-full rounded-full transition-all ${balance < 0 ? "bg-red-400" : "bg-primary"}`}
                   style={{ width: `${Math.min((totalSpent / totalBudget) * 100, 100)}%` }}
                 />
               </div>
@@ -672,14 +673,14 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                 const pct        = catBudget > 0 ? Math.min((catSpent / catBudget) * 100, 100) : 0;
                 const over       = catBudget > 0 && catSpent > catBudget;
                 return (
-                  <div key={cat} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div key={cat} className="bg-white rounded-xl border border-line p-4">
                     <div className="flex items-center justify-between mb-3">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${CAT_COLORS[cat] ?? "bg-gray-100 text-gray-600"}`}>
                         {cat}
                       </span>
                       {over && <span className="text-xs text-red-500 font-bold">초과!</span>}
                     </div>
-                    <div className="text-2xl font-bold text-gray-900 tabular-nums leading-tight mb-0.5">
+                    <div className="text-2xl font-bold text-heading tabular-nums leading-tight mb-0.5">
                       {krw(catSpent)}<span className="text-sm font-normal text-gray-400 ml-0.5">원</span>
                     </div>
                     <div className="text-xs text-gray-400 mb-3">
@@ -689,7 +690,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                       <>
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
                           <div
-                            className={`h-full rounded-full transition-all ${over ? "bg-red-400" : "bg-blue-400"}`}
+                            className={`h-full rounded-full transition-all ${over ? "bg-red-400" : "bg-primary-soft"}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -706,7 +707,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
               })}
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 py-14 text-center text-gray-400 text-sm">
+            <div className="bg-white rounded-xl border border-line py-14 text-center text-gray-400 text-sm">
               <p className="mb-1">등록된 예산 항목이 없습니다.</p>
               {isAdmin && (
                 <p className="text-xs">위의 "예산 항목" 버튼으로 카테고리별 예산을 설정하세요.</p>
@@ -716,8 +717,8 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
 
           {/* 예산 항목 목록 */}
           {budgets.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-100">
+            <div className="bg-white rounded-xl border border-line overflow-hidden">
+              <div className="px-5 py-3 border-b border-line-soft">
                 <h3 className="text-sm font-semibold text-gray-800">예산 항목 목록</h3>
               </div>
               <div className="divide-y divide-gray-50">
@@ -734,7 +735,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                       {/* mini progress bar */}
                       <div className="hidden sm:flex items-center gap-2 w-32 shrink-0">
                         <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${budBalance < 0 ? "bg-red-400" : "bg-blue-400"}`} style={{ width: `${pct}%` }} />
+                          <div className={`h-full rounded-full ${budBalance < 0 ? "bg-red-400" : "bg-primary-soft"}`} style={{ width: `${pct}%` }} />
                         </div>
                         <span className="text-xs text-gray-400 tabular-nums w-8 text-right">{Math.round(pct)}%</span>
                       </div>
@@ -749,7 +750,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                           <button
                             onClick={() => openEditBud(b)}
                             title="수정"
-                            className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-blue-500 transition rounded"
+                            className="w-6 h-6 flex items-center justify-center text-disabled-text hover:text-primary transition rounded"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -758,7 +759,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                           <button
                             onClick={() => handleDeleteBud(b.id)}
                             title="삭제"
-                            className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-400 transition rounded"
+                            className="w-6 h-6 flex items-center justify-center text-disabled-text hover:text-red-400 transition rounded"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -788,8 +789,8 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-              <h2 className="font-bold text-gray-900 text-base">{editExp ? "지출 수정" : "지출 추가"}</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line-soft shrink-0">
+              <h2 className="font-bold text-heading text-base">{editExp ? "지출 수정" : "지출 추가"}</h2>
               <button
                 onClick={() => setExpModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-lg leading-none"
@@ -811,7 +812,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   onChange={(e) => setExpForm({ ...expForm, title: e.target.value })}
                   placeholder="예: 선교사 선물 구매"
                   autoFocus
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -822,7 +823,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   <select
                     value={expForm.category}
                     onChange={(e) => setExpForm({ ...expForm, category: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -837,7 +838,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                     onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })}
                     placeholder="0"
                     min="0"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   {expForm.amount && !isNaN(Number(expForm.amount)) && Number(expForm.amount) > 0 && (
                     <p className="text-xs text-gray-400 mt-1 tabular-nums">{krw(Number(expForm.amount))}원</p>
@@ -853,7 +854,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                     type="date"
                     value={expForm.paid_at}
                     onChange={(e) => setExpForm({ ...expForm, paid_at: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
@@ -863,7 +864,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                     value={expForm.paid_by}
                     onChange={(e) => setExpForm({ ...expForm, paid_by: e.target.value })}
                     placeholder="이름"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -875,7 +876,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   <select
                     value={expForm.payment_method}
                     onChange={(e) => setExpForm({ ...expForm, payment_method: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
@@ -885,7 +886,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   <select
                     value={expForm.budget_id}
                     onChange={(e) => setExpForm({ ...expForm, budget_id: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">— 연결 안함 —</option>
                     {budgets.map((b) => (
@@ -907,7 +908,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                       className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition ${
                         expForm.status === k
                           ? `${v.cls} border-current shadow-sm`
-                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                          : "bg-white border-line text-muted hover:bg-gray-50"
                       }`}
                     >
                       {v.label}
@@ -927,12 +928,12 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadReceipt(f); e.target.value = ""; }}
                 />
                 {expForm.receipt_url ? (
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex items-center gap-3 p-3 bg-table-header rounded-xl border border-line">
                     {/\.(jpg|jpeg|png|gif|webp)/i.test(expForm.receipt_url) ? (
                       <img
                         src={expForm.receipt_url}
                         alt="영수증 미리보기"
-                        className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition"
+                        className="w-16 h-16 object-cover rounded-lg border border-line cursor-pointer hover:opacity-80 transition"
                         onClick={() => setReceiptViewer(expForm.receipt_url!)}
                       />
                     ) : (
@@ -949,7 +950,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                         <button
                           type="button"
                           onClick={() => fileRef.current?.click()}
-                          className="text-xs text-blue-500 hover:text-blue-700"
+                          className="text-xs text-primary hover:text-primary-active"
                         >
                           교체
                         </button>
@@ -973,7 +974,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                     type="button"
                     onClick={() => fileRef.current?.click()}
                     disabled={uploading}
-                    className="w-full border-2 border-dashed border-gray-200 rounded-xl py-6 text-sm text-gray-400 hover:border-blue-300 hover:text-blue-500 transition text-center disabled:opacity-50"
+                    className="w-full border-2 border-dashed border-line rounded-xl py-6 text-sm text-gray-400 hover:border-primary-soft hover:text-primary transition text-center disabled:opacity-50"
                   >
                     {uploading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -987,7 +988,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                       <>
                         <span className="block text-2xl mb-1">📷</span>
                         클릭하여 영수증 첨부
-                        <span className="block text-xs text-gray-300 mt-0.5">이미지 또는 PDF</span>
+                        <span className="block text-xs text-disabled-text mt-0.5">이미지 또는 PDF</span>
                       </>
                     )}
                   </button>
@@ -1002,13 +1003,13 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   onChange={(e) => setExpForm({ ...expForm, notes: e.target.value })}
                   rows={2}
                   placeholder="비고 사항..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
             </div>
 
             {/* 푸터 */}
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 shrink-0">
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-line-soft shrink-0">
               <button
                 onClick={() => setExpModal(false)}
                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
@@ -1018,7 +1019,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
               <button
                 onClick={handleSaveExp}
                 disabled={saving || uploading}
-                className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50 transition"
               >
                 {saving ? "저장 중..." : editExp ? "수정" : "추가"}
               </button>
@@ -1039,8 +1040,8 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900">{editBud ? "예산 항목 수정" : "예산 항목 추가"}</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line-soft">
+              <h2 className="font-bold text-heading">{editBud ? "예산 항목 수정" : "예산 항목 추가"}</h2>
               <button
                 onClick={() => setBudModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-lg leading-none"
@@ -1060,7 +1061,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   onChange={(e) => setBudForm({ ...budForm, label: e.target.value })}
                   placeholder="예: 선교사 숙소 제공비"
                   autoFocus
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1069,7 +1070,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   <select
                     value={budForm.category}
                     onChange={(e) => setBudForm({ ...budForm, category: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -1084,7 +1085,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                     onChange={(e) => setBudForm({ ...budForm, budgeted_amount: e.target.value })}
                     placeholder="0"
                     min="0"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   {budForm.budgeted_amount && !isNaN(Number(budForm.budgeted_amount)) && Number(budForm.budgeted_amount) > 0 && (
                     <p className="text-xs text-gray-400 mt-1 tabular-nums">{krw(Number(budForm.budgeted_amount))}원</p>
@@ -1098,12 +1099,12 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
                   onChange={(e) => setBudForm({ ...budForm, notes: e.target.value })}
                   rows={2}
                   placeholder="비고 사항..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-line-soft">
               <button
                 onClick={() => setBudModal(false)}
                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
@@ -1112,7 +1113,7 @@ export default function BudgetTab({ projectId, myUserId, isMember, isAdmin, isMa
               </button>
               <button
                 onClick={handleSaveBud}
-                className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+                className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition"
               >
                 {editBud ? "수정" : "추가"}
               </button>
@@ -1129,16 +1130,16 @@ function BudCard({ label, value, unit, color }: {
   label: string; value: string; unit: string; color: string;
 }) {
   const CLS: Record<string, string> = {
-    blue:    "border-blue-100   bg-blue-50",
+    blue:    "border-primary-soft   bg-primary-wash",
     green:   "border-green-100  bg-green-50",
     yellow:  "border-yellow-100 bg-yellow-50",
     red:     "border-red-100    bg-red-50",
-    default: "border-gray-200   bg-white",
+    default: "border-line   bg-white",
   };
   return (
     <div className={`rounded-xl border p-4 ${CLS[color] ?? CLS.default}`}>
-      <div className="text-xs text-gray-500 font-medium mb-1">{label}</div>
-      <div className="text-lg font-bold text-gray-900 tabular-nums leading-tight">
+      <div className="text-xs text-muted font-medium mb-1">{label}</div>
+      <div className="text-lg font-bold text-heading tabular-nums leading-tight">
         {value}
         <span className="text-xs font-normal text-gray-400 ml-1">{unit}</span>
       </div>

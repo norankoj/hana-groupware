@@ -50,7 +50,7 @@ function Thumb({
       }}
       title={name}
       aria-label={`영수증 ${name} 크게 보기`}
-      className="relative w-14 h-10 shrink-0 rounded-md border border-gray-200 bg-gray-50 overflow-hidden hover:ring-2 hover:ring-blue-300 transition cursor-pointer"
+      className="relative w-14 h-10 shrink-0 rounded-md border border-line bg-table-header overflow-hidden hover:ring-2 hover:ring-primary-soft transition cursor-pointer"
     >
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -62,7 +62,7 @@ function Thumb({
           className="w-full h-full object-cover"
         />
       ) : (
-        <span className="flex h-full items-center justify-center font-mono text-[10px] font-bold uppercase text-gray-500">
+        <span className="flex h-full items-center justify-center font-mono text-[10px] font-bold uppercase text-muted">
           {ext || "파일"}
         </span>
       )}

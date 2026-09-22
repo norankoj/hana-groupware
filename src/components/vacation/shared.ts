@@ -29,12 +29,16 @@ export const TYPE_OPTIONS = [
 ];
 
 // --- 공통 스타일 ---
-export const btnStyles = {
-  save: "px-5 py-2.5 bg-[#2151EC] text-white font-medium rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md flex-1 sm:flex-none justify-center cursor-pointer",
-  delete:
-    "px-5 py-2.5 bg-[#EA5455] text-white font-medium rounded-lg hover:bg-[#d34647] transition text-sm shadow-md flex-1 sm:flex-none justify-center cursor-pointer",
-  cancel:
-    "px-5 py-2.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition text-sm flex-1 sm:flex-none sm:min-w-[80px] justify-center cursor-pointer",
+// 버튼은 그룹웨어 공용 것을 쓴다. 예전엔 여기 따로 복사본이 있어서
+// 버튼 크기 고정 · focus 링 · 비활성 색이 휴가 화면에만 빠져 있었다.
+export { btnStyles } from "@/components/fund/shared";
+
+/** 결재 상태 배지 — 휴가 승인 · 휴가 내역이 같이 쓴다 (디자인 시스템 색 규칙) */
+export const VACATION_STATUS: Record<string, { label: string; className: string }> = {
+  pending: { label: "대기중", className: "bg-warning-soft text-warning-active border-warning/30" },
+  approved: { label: "승인", className: "bg-success-soft text-success-active border-success/30" },
+  rejected: { label: "반려", className: "bg-danger-soft text-danger-active border-danger/30" },
+  cancelled: { label: "취소", className: "bg-secondary-soft text-dark border-secondary/30" },
 };
 
 // --- 타입 정의 ---

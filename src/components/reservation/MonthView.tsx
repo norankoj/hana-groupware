@@ -57,14 +57,14 @@ export default function MonthView({
   const MAX_PILLS = 3;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="bg-white border border-line rounded-xl overflow-hidden">
       {/* 요일 헤더 */}
-      <div className="grid grid-cols-7 border-b border-gray-200">
+      <div className="grid grid-cols-7 border-b border-line">
         {DAY_LABELS.map((d, i) => (
           <div
             key={d}
             className={`py-2 text-center text-xs font-bold ${
-              i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-500"
+              i === 0 ? "text-red-500" : i === 6 ? "text-primary" : "text-muted"
             }`}
           >
             {d}
@@ -95,9 +95,9 @@ export default function MonthView({
             <div
               key={dayStr}
               onClick={() => onDayClick(day)}
-              className={`min-h-[90px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition-colors ${
-                inMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50/50 hover:bg-gray-100/50"
-              } ${todayFlag ? "ring-2 ring-inset ring-blue-400" : ""}`}
+              className={`min-h-[90px] border-b border-r border-line-soft p-1.5 cursor-pointer transition-colors ${
+                inMonth ? "bg-white hover:bg-gray-50" : "bg-table-header hover:bg-gray-100/50"
+              } ${todayFlag ? "ring-2 ring-inset ring-primary" : ""}`}
               style={{ borderRight: (idx + 1) % 7 === 0 ? "none" : undefined }}
             >
               {/* 날짜 숫자 */}
@@ -105,14 +105,14 @@ export default function MonthView({
                 <span
                   className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
                     todayFlag
-                      ? "bg-blue-600 text-white"
+                      ? "bg-primary text-white"
                       : isSun || holidayName
                         ? "text-red-500"
                         : isSat
-                          ? "text-blue-500"
+                          ? "text-primary"
                           : inMonth
                             ? "text-gray-800"
-                            : "text-gray-300"
+                            : "text-disabled-text"
                   }`}
                 >
                   {format(day, "d")}

@@ -9,6 +9,7 @@ import "react-calendar/dist/Calendar.css";
 import "@/styles/calendar.css";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
+import { btnStyles } from "@/components/fund/shared";
 
 type Profile = {
   id: string;
@@ -226,7 +227,7 @@ export default function ScheduleAddModal({
         <>
           <div className="fixed inset-0 z-[9998]" onClick={() => setShowDatePicker(false)} />
           <div
-            className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+            className="fixed z-[9999] bg-white border border-line rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
             style={{ top: pickerPos.top, left: pickerPos.left, width: pickerPos.width, maxWidth: "90vw", maxHeight: pickerPos.maxH, overflowY: "auto" }}
           >
             <style>{`
@@ -268,21 +269,16 @@ export default function ScheduleAddModal({
         onClose={handleClose}
         title={isEditMode ? "사역 일정 수정" : "새로운 사역 일정 추가"}
         footer={
-          <div className="flex gap-2 w-full">
+          <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
+            <button onClick={handleClose} className={btnStyles.cancel}>
+              취소
+            </button>
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className={`flex-1 text-white py-3 rounded-lg font-bold transition shadow-sm disabled:opacity-50 ${
-                isEditMode ? "bg-blue-600 hover:bg-blue-700" : "bg-indigo-600 hover:bg-indigo-700"
-              }`}
+              className={btnStyles.save}
             >
               {loading ? (isEditMode ? "수정 중..." : "등록 중...") : isEditMode ? "수정 완료" : "일정 등록"}
-            </button>
-            <button
-              onClick={handleClose}
-              className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
-            >
-              취소
             </button>
           </div>
         }
@@ -297,7 +293,7 @@ export default function ScheduleAddModal({
               placeholder="예: 기도사역, 인터뷰 촬영"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border p-3 rounded-lg border-gray-300 focus:border-indigo-500 outline-none text-gray-900 bg-white"
+              className="w-full border p-3 rounded-lg border-line-strong focus:border-indigo-500 outline-none text-heading bg-white"
               required
             />
           </div>
@@ -310,11 +306,11 @@ export default function ScheduleAddModal({
               placeholder="예: 여주 선교관"
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
-              className="w-full border p-3 rounded-lg border-gray-300 focus:border-indigo-500 outline-none text-gray-900 bg-white"
+              className="w-full border p-3 rounded-lg border-line-strong focus:border-indigo-500 outline-none text-heading bg-white"
             />
           </div>
 
-          <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-100 space-y-3 sm:space-y-4 w-full">
+          <div className="bg-table-header p-3 sm:p-4 rounded-xl border border-line-soft space-y-3 sm:space-y-4 w-full">
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-gray-700">기간 및 시간</label>
               <label className="flex items-center gap-2 cursor-pointer shrink-0">
@@ -322,7 +318,7 @@ export default function ScheduleAddModal({
                   type="checkbox"
                   checked={form.isAllDay}
                   onChange={(e) => setForm({ ...form, isAllDay: e.target.checked })}
-                  className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                  className="w-4 h-4 text-indigo-600 rounded border-line-strong focus:ring-indigo-500 cursor-pointer"
                 />
                 <span className="text-[13px] sm:text-sm font-bold text-indigo-700">하루 종일 (기간 전체)</span>
               </label>
@@ -333,9 +329,9 @@ export default function ScheduleAddModal({
                 <button
                   type="button"
                   onClick={openRangePicker}
-                  className="w-full flex items-center justify-between p-2.5 sm:p-3 border border-gray-300 rounded-md text-sm text-left hover:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition bg-white"
+                  className="w-full flex items-center justify-between p-2.5 sm:p-3 border border-line-strong rounded-md text-sm text-left hover:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition bg-white"
                 >
-                  <span className="font-bold text-gray-900 text-sm sm:text-base tracking-tight truncate mr-2">
+                  <span className="font-bold text-heading text-sm sm:text-base tracking-tight truncate mr-2">
                     {form.startDate === form.endDate
                       ? form.startDate
                       : `${form.startDate} ~ ${form.endDate}`}
@@ -352,7 +348,7 @@ export default function ScheduleAddModal({
                     type="time"
                     value={form.startTime}
                     onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-                    className="flex-1 min-w-0 w-full border p-2.5 sm:p-3 rounded-md border-gray-300 focus:border-indigo-500 outline-none text-gray-900 bg-white font-bold text-[13px] sm:text-base text-center tracking-tighter"
+                    className="flex-1 min-w-0 w-full border p-2.5 sm:p-3 rounded-md border-line-strong focus:border-indigo-500 outline-none text-heading bg-white font-bold text-[13px] sm:text-base text-center tracking-tighter"
                     required
                   />
                   <span className="text-gray-400 font-bold shrink-0">~</span>
@@ -360,7 +356,7 @@ export default function ScheduleAddModal({
                     type="time"
                     value={form.endTime}
                     onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-                    className="flex-1 min-w-0 w-full border p-2.5 sm:p-3 rounded-md border-gray-300 focus:border-indigo-500 outline-none text-gray-900 bg-white font-bold text-[13px] sm:text-base text-center tracking-tighter"
+                    className="flex-1 min-w-0 w-full border p-2.5 sm:p-3 rounded-md border-line-strong focus:border-indigo-500 outline-none text-heading bg-white font-bold text-[13px] sm:text-base text-center tracking-tighter"
                     required
                   />
                 </div>
@@ -368,7 +364,7 @@ export default function ScheduleAddModal({
             </div>
           </div>
 
-          <div className="pt-2 border-t border-gray-100">
+          <div className="pt-2 border-t border-line-soft">
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-bold text-gray-700">동행자 선택 (선택사항)</label>
               <button

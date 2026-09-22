@@ -18,7 +18,7 @@ export const StickyTh = ({
 }) => (
   <th
     scope="col"
-    className={`sticky top-0 z-10 bg-gray-100 py-2 px-3 font-semibold whitespace-nowrap shadow-[inset_0_-1px_0_#e5e7eb] ${
+    className={`sticky top-0 z-10 bg-table-header py-2.5 px-3 text-[13px] font-bold text-heading tracking-[0.2px] whitespace-nowrap shadow-[inset_0_-1px_0_var(--color-table-line)] ${
       align === "left" ? "text-left" : "text-right"
     } ${className}`}
   >
@@ -42,7 +42,7 @@ export const NumCell = ({
 }) => (
   <td
     className={`py-1.5 px-3 text-right font-mono tabular-nums whitespace-nowrap ${size} ${
-      tone || (muted ? "text-gray-300" : "")
+      tone || (muted ? "text-disabled-text" : "")
     }`}
   >
     {children}

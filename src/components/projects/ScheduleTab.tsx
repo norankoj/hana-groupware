@@ -79,7 +79,7 @@ type VehicleBrief = {
 
 /* ── Constants ─────────────────────────────────────────────────── */
 const CATEGORIES: Record<string, { label: string; color: string; dot: string }> = {
-  arrival:   { label: "도착",   color: "bg-blue-100 text-blue-700",   dot: "bg-blue-500" },
+  arrival:   { label: "도착",   color: "bg-primary-soft text-primary-active",   dot: "bg-primary" },
   event:     { label: "행사",   color: "bg-purple-100 text-purple-700", dot: "bg-purple-500" },
   meeting:   { label: "모임",   color: "bg-green-100 text-green-700",  dot: "bg-green-500" },
   departure: { label: "출발",   color: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },
@@ -279,13 +279,13 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
     const cat = CATEGORIES[s.category] ?? CATEGORIES.general;
     return (
       <div
-        className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-start gap-3 hover:shadow-sm hover:border-blue-200 transition cursor-pointer"
+        className="bg-white rounded-lg border border-line px-4 py-3 flex items-start gap-3 hover:shadow-sm hover:border-primary-soft transition cursor-pointer"
         onClick={() => openDetail(s)}
       >
         <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5 ${cat.color}`}>{cat.label}</span>
         <div className="flex-1 min-w-0">
           {showDate && <div className="text-xs text-gray-400 mb-0.5">{s.event_date}</div>}
-          <div className="font-medium text-gray-900">{s.title}</div>
+          <div className="font-medium text-heading">{s.title}</div>
           <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-3">
             {(s.start_time || s.end_time) && (
               <span>{s.start_time?.slice(0, 5)}{s.end_time ? ` ~ ${s.end_time.slice(0, 5)}` : ""}</span>
@@ -293,7 +293,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
             {s.location && <span>📍 {s.location}</span>}
             {s.responsible_name && <span>👤 {s.responsible_name}</span>}
           </div>
-          {s.description && <p className="text-xs text-gray-500 mt-1 line-clamp-1">{s.description}</p>}
+          {s.description && <p className="text-xs text-muted mt-1 line-clamp-1">{s.description}</p>}
         </div>
         {isAdmin && (
           <button
@@ -311,22 +311,22 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
     <div>
       {/* ── 헤더 ── */}
       <div className="flex justify-between items-center mb-4">
-        <p className="text-sm text-gray-500">전체 일정 {schedules.length}건</p>
+        <p className="text-sm text-muted">전체 일정 {schedules.length}건</p>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+          <div className="flex rounded-lg border border-line overflow-hidden text-xs">
             <button
               onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 font-medium transition ${viewMode === "list" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+              className={`px-3 py-1.5 font-medium transition ${viewMode === "list" ? "bg-primary text-white" : "bg-white text-muted hover:bg-gray-50"}`}
             >목록</button>
             <button
               onClick={() => setViewMode("calendar")}
-              className={`px-3 py-1.5 font-medium transition ${viewMode === "calendar" ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+              className={`px-3 py-1.5 font-medium transition ${viewMode === "calendar" ? "bg-primary text-white" : "bg-white text-muted hover:bg-gray-50"}`}
             >달력</button>
           </div>
           {isAdmin && (
             <button
               onClick={() => openCreate()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -354,10 +354,10 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                 ref={(el) => { if (el) dateRefs.current.set(date, el); else dateRefs.current.delete(date); }}
               >
                 <div className="flex items-center gap-3 mb-2">
-                  <span className={`font-bold ${isDateToday ? "text-blue-600" : "text-gray-800"}`}>
+                  <span className={`font-bold ${isDateToday ? "text-primary" : "text-gray-800"}`}>
                     {date}
                     {isDateToday && (
-                      <span className="ml-2 text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-semibold">오늘</span>
+                      <span className="ml-2 text-xs bg-primary text-white px-1.5 py-0.5 rounded-full font-semibold">오늘</span>
                     )}
                   </span>
                   <span className="text-xs text-gray-400">{format(parseISO(date), "EEEE", { locale: ko })}</span>
@@ -400,10 +400,10 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
           </div>
 
           {/* 달력 그리드 */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="grid grid-cols-7 border-b border-gray-200">
+          <div className="bg-white rounded-xl border border-line overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-line">
               {["일", "월", "화", "수", "목", "금", "토"].map((d, i) => (
-                <div key={d} className={`text-center text-xs font-semibold py-2 ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-500"}`}>
+                <div key={d} className={`text-center text-xs font-semibold py-2 ${i === 0 ? "text-red-400" : i === 6 ? "text-primary/60" : "text-muted"}`}>
                   {d}
                 </div>
               ))}
@@ -420,21 +420,21 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                   <div
                     key={i}
                     onClick={() => setCalSelectedDate(isSelected ? null : dateStr)}
-                    className={`min-h-[72px] p-1.5 border-b border-r border-gray-100 cursor-pointer transition
-                      ${!inMonth ? "bg-gray-50" : "bg-white"}
-                      ${isSelected ? "bg-blue-50 ring-2 ring-inset ring-blue-400" : "hover:bg-gray-50"}
+                    className={`min-h-[72px] p-1.5 border-b border-r border-line-soft cursor-pointer transition
+                      ${!inMonth ? "bg-table-header" : "bg-white"}
+                      ${isSelected ? "bg-primary-wash ring-2 ring-inset ring-primary" : "hover:bg-gray-50"}
                     `}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full
-                        ${!inMonth ? "text-gray-300" : todayFlag ? "bg-blue-600 text-white" : dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : "text-gray-700"}
+                        ${!inMonth ? "text-disabled-text" : todayFlag ? "bg-primary text-white" : dow === 0 ? "text-red-500" : dow === 6 ? "text-primary" : "text-gray-700"}
                       `}>
                         {format(day, "d")}
                       </span>
                       {isAdmin && inMonth && (
                         <button
                           onClick={(e) => { e.stopPropagation(); openCreate(dateStr); }}
-                          className="text-gray-300 hover:text-blue-500 transition"
+                          className="text-disabled-text hover:text-primary transition"
                           title="일정 추가"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -471,7 +471,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                 {isAdmin && (
                   <button
                     onClick={() => openCreate(calSelectedDate)}
-                    className="ml-auto flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                    className="ml-auto flex items-center gap-1 text-xs text-primary hover:text-primary-active font-semibold"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -481,7 +481,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                 )}
               </div>
               {calSelectedItems.length === 0 ? (
-                <div className="text-center py-6 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
+                <div className="text-center py-6 text-gray-400 text-sm bg-white rounded-xl border border-line">
                   이 날 일정이 없습니다.
                 </div>
               ) : (
@@ -515,7 +515,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
             isAdmin ? (
               <button
                 onClick={() => openEdit(detailSchedule)}
-                className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700"
+                className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active"
               >
                 수정하기
               </button>
@@ -524,12 +524,12 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
         >
           <div className="space-y-4">
             {/* ── 일정 기본 정보 ── */}
-            <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+            <div className="bg-table-header rounded-xl p-4 space-y-2 text-sm">
               <div className="flex items-center gap-2 text-gray-700">
                 <span className="text-gray-400 w-12 shrink-0">날짜</span>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-heading">
                   {detailSchedule.event_date}
-                  <span className="ml-2 font-normal text-gray-500">
+                  <span className="ml-2 font-normal text-muted">
                     {format(parseISO(detailSchedule.event_date), "EEEE", { locale: ko })}
                   </span>
                 </span>
@@ -590,7 +590,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                   <div key={m.id} className="text-sm space-y-1.5">
                     {/* 입출국 표시 */}
                     {isArrival && (
-                      <div className="flex items-center gap-1.5 text-blue-700 text-xs font-medium">
+                      <div className="flex items-center gap-1.5 text-primary-active text-xs font-medium">
                         <span>✈️ 입국</span>
                         {m.arrival_time && <span>{m.arrival_time}</span>}
                         {m.arrival_terminal && <span>· {m.arrival_terminal}</span>}
@@ -646,10 +646,10 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                     )}
                     {/* 특이사항 / 메모 */}
                     {m.dietary_notes && (
-                      <div className="text-xs text-gray-500">🍽️ {m.dietary_notes}</div>
+                      <div className="text-xs text-muted">🍽️ {m.dietary_notes}</div>
                     )}
                     {m.notes && (
-                      <div className="text-xs text-gray-500 bg-yellow-50 px-2 py-1 rounded border border-yellow-100">
+                      <div className="text-xs text-muted bg-yellow-50 px-2 py-1 rounded border border-yellow-100">
                         📝 {m.notes}
                       </div>
                     )}
@@ -666,7 +666,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                   <div className="space-y-3">
                     {/* 가족 그룹 */}
                     {[...groupMap.entries()].map(([groupName, members]) => (
-                      <div key={groupName} className="bg-white rounded-xl border border-gray-200 p-3">
+                      <div key={groupName} className="bg-white rounded-xl border border-line p-3">
                         <div className="font-semibold text-gray-800 text-sm mb-2">
                           👨‍👩‍👧 {groupName}
                           <span className="ml-1.5 text-xs text-gray-400 font-normal">{members.length}명</span>
@@ -674,7 +674,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                         {/* 멤버별 세부 (대표 1명으로 리소스 조회) */}
                         {renderMissionary(members[0])}
                         {members.length > 1 && (
-                          <div className="mt-1.5 pt-1.5 border-t border-gray-100 text-xs text-gray-400">
+                          <div className="mt-1.5 pt-1.5 border-t border-line-soft text-xs text-gray-400">
                             동반: {members.slice(1).map((m) => m.name).join(", ")}
                           </div>
                         )}
@@ -682,7 +682,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                     ))}
                     {/* 개인 */}
                     {solos.map((m) => (
-                      <div key={m.id} className="bg-white rounded-xl border border-gray-200 p-3">
+                      <div key={m.id} className="bg-white rounded-xl border border-line p-3">
                         <div className="font-semibold text-gray-800 text-sm mb-2">👤 {m.name}</div>
                         {renderMissionary(m)}
                       </div>
@@ -713,7 +713,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50"
             >
               {saving ? "저장 중..." : "저장"}
             </button>
@@ -727,7 +727,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
               <input
                 type="date" value={form.event_date}
                 onChange={(e) => setForm({ ...form, event_date: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
@@ -736,7 +736,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
                 value={form.category}
                 onChange={(v) => setForm({ ...form, category: v })}
                 options={Object.entries(CATEGORIES).map(([k, v]) => ({ value: k, label: v.label }))}
-                className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+                className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
               />
             </div>
             <div>
@@ -744,7 +744,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
               <input
                 type="time" value={form.start_time}
                 onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
@@ -752,7 +752,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
               <input
                 type="time" value={form.end_time}
                 onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
@@ -761,7 +761,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
             <input
               type="text" value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -770,7 +770,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
               <input
                 type="text" value={form.location}
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
@@ -778,7 +778,7 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
               <input
                 type="text" value={form.responsible_name}
                 onChange={(e) => setForm({ ...form, responsible_name: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
@@ -788,11 +788,11 @@ export default function ScheduleTab({ projectId, isMember, isAdmin, isMarf }: Pr
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
           </div>
           {isAdmin && selected && (
-            <div className="pt-2 border-t border-gray-100">
+            <div className="pt-2 border-t border-line-soft">
               <button
                 onClick={() => { setShowModal(false); handleDelete(selected.id); }}
                 className="text-sm text-red-500 hover:text-red-700 transition"

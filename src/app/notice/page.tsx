@@ -7,6 +7,12 @@ import dynamic from "next/dynamic";
 import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import Modal from "@/components/Modal";
+import { btnStyles, inputClass } from "@/components/fund/shared";
+import { CATEGORY_STYLE, NOTICE_PROSE } from "@/components/notice/shared";
+import { Eye } from "lucide-react";
+import toast from "react-hot-toast";
+import { toProxyUrl } from "@/utils/minio-url";
 
 const NoticeEditor = dynamic(() => import("@/components/notice/NoticeEditor"), { ssr: false });
 
@@ -38,11 +44,10 @@ type Notice = {
 };
 
 const CATEGORIES = ["전체", "공지", "일반", "중요"];
-const CATEGORY_STYLE: Record<string, string> = {
-  공지: "bg-blue-50 text-blue-700 border-blue-200",
-  중요: "bg-red-50 text-red-700 border-red-200",
-  일반: "bg-gray-50 text-gray-600 border-gray-200",
-};
+
+/** 에디터는 비어 있어도 "<p></p>" 를 준다 — 글자가 하나도 없으면 빈 것으로 본다 */
+const isEmptyHtml = (html: string) =>
+  !html || (!html.replace(/<[^>]*>/g, "").trim() && !/<img/i.test(html));
 const WRITE_ROLES = ["admin", "director", "staff"];
 const MINIO_BUCKET = "notice";
 
@@ -104,6 +109,12 @@ export default function NoticePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeCategory, setActiveCategory] = useState("전체");
   const [search, setSearch] = useState("");
+  /** 입력칸 글자 — 칠 때마다 조회하지 않게, 멈추고 0.3초 뒤에 search 로 넘긴다 */
+  const [searchInput, setSearchInput] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const PAGE_SIZE = 15;
@@ -111,6 +122,7 @@ export default function NoticePage() {
   // 작성 모달
   const [isWriteOpen, setIsWriteOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Notice | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // 폼
   const [form, setForm] = useState({
@@ -147,9 +159,14 @@ export default function NoticePage() {
 
   const fetchNotices = useCallback(async () => {
     setLoading(true);
+    // 목록에 보이는 칸만 받는다. 예전엔 "*" 라서 공지 15개의 본문(content) HTML 을
+    // 통째로 받았다 — 목록은 본문을 쓰지 않는데 가장 무거운 칸이다. 본문은 상세 화면에서 받는다.
     let query = supabase
       .from("notices")
-      .select("*, profiles:author_id(full_name, position), notice_views(count)", { count: "exact" });
+      .select(
+        "id, title, category, is_pinned, popup_enabled, popup_until, attachments, view_count, created_at, author_id, profiles:author_id(full_name, position), notice_views(count)",
+        { count: "exact" },
+      );
     if (activeCategory !== "전체") query = query.eq("category", activeCategory);
     if (search.trim()) query = query.ilike("title", `%${search.trim()}%`);
     query = query
@@ -176,6 +193,32 @@ export default function NoticePage() {
 
 
   // ── 파일 업로드 (서버 경유 — HTTPS 호환, 진행 표시) ─────────────────────
+  /**
+   * 본문에 넣는 이미지 — 첨부와 같은 규칙으로 줄여서(WebP 1200px) 공지 버킷에 올린다.
+   * NAS 가 http 라 주소를 그대로 넣으면 https 화면에서 막힌다 → 같은 도메인 프록시 주소로 넣는다.
+   * 공지 id 가 생기기 전에 쓰므로 inline/ 폴더에 모은다.
+   */
+  const uploadInlineImage = async (raw: File): Promise<string | null> => {
+    try {
+      const file = await compressImage(raw);
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("bucket", MINIO_BUCKET);
+      fd.append("folder", "inline");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "" }));
+        toast.error(error || "이미지를 올리지 못했습니다.");
+        return null;
+      }
+      const { url } = await res.json();
+      return url ? toProxyUrl(url) : null;
+    } catch {
+      toast.error("이미지를 올리지 못했습니다.");
+      return null;
+    }
+  };
+
   const uploadFiles = async (
     noticeId: number,
     files: File[],
@@ -333,10 +376,10 @@ export default function NoticePage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-heading tracking-tight">
             공지사항
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted">
             교회 및 사역 관련 공지를 확인하세요
           </p>
         </div>
@@ -356,7 +399,7 @@ export default function NoticePage() {
               });
               setIsWriteOpen(true);
             }}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer"
+            className={`${btnStyles.cta} px-5 py-2.5 text-sm`}
           >
             <svg
               className="w-4 h-4"
@@ -377,13 +420,13 @@ export default function NoticePage() {
       </div>
 
       {/* 필터 + 검색 */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+      <div className="bg-white rounded-2xl border border-line p-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-1.5 flex-wrap">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${activeCategory === cat ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-500 hover:bg-gray-100"}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${activeCategory === cat ? "bg-primary text-white" : "bg-table-header text-muted hover:bg-gray-100"}`}
             >
               {cat}
             </button>
@@ -391,7 +434,7 @@ export default function NoticePage() {
         </div>
         <div className="relative w-full sm:w-56">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-disabled-text"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -405,17 +448,17 @@ export default function NoticePage() {
           </svg>
           <input
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="제목 검색..."
-            className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+            className="w-full pl-9 pr-3 py-1.5 text-sm border border-line rounded-lg focus:outline-none focus:border-primary"
           />
         </div>
       </div>
 
       {/* 목록 */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="hidden sm:grid grid-cols-[60px_1fr_80px_100px_60px_80px_80px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+      <div className="bg-white rounded-2xl border border-line overflow-hidden">
+        <div className="hidden sm:grid grid-cols-[60px_1fr_80px_100px_60px_80px_80px] gap-4 px-6 py-3 bg-table-header border-b border-line-soft text-xs font-semibold text-gray-400 uppercase tracking-wide">
           <span>구분</span>
           <span>제목</span>
           <span className="text-center">카테고리</span>
@@ -427,10 +470,10 @@ export default function NoticePage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500" />
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary" />
           </div>
         ) : notices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
+          <div className="flex flex-col items-center justify-center py-16 text-disabled-text gap-3">
             <svg
               className="w-12 h-12"
               fill="none"
@@ -452,11 +495,11 @@ export default function NoticePage() {
               <li
                 key={notice.id}
                 onClick={() => router.push(`/notice/${notice.id}`)}
-                className={`grid grid-cols-1 sm:grid-cols-[60px_1fr_80px_100px_60px_80px_80px] gap-2 sm:gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors ${notice.is_pinned ? "bg-blue-50/40" : ""}`}
+                className={`grid grid-cols-1 sm:grid-cols-[60px_1fr_80px_100px_60px_80px_80px] gap-2 sm:gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors ${notice.is_pinned ? "bg-primary-wash/40" : ""}`}
               >
                 <div className="hidden sm:flex items-center">
                   {notice.is_pinned ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary">
                       <svg
                         className="w-3 h-3"
                         fill="currentColor"
@@ -467,7 +510,7 @@ export default function NoticePage() {
                       고정
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-300">
+                    <span className="text-xs text-disabled-text">
                       {(page - 1) * PAGE_SIZE + idx + 1}
                     </span>
                   )}
@@ -475,7 +518,7 @@ export default function NoticePage() {
                 <div className="flex items-center gap-2 min-w-0">
                   {notice.is_pinned && (
                     <svg
-                      className="w-3 h-3 text-blue-500 shrink-0 sm:hidden"
+                      className="w-3 h-3 text-primary shrink-0 sm:hidden"
                       fill="currentColor"
                       viewBox="0 0 24 24"
                     >
@@ -483,7 +526,7 @@ export default function NoticePage() {
                     </svg>
                   )}
                   <span
-                    className={`text-sm font-semibold truncate ${notice.is_pinned ? "text-blue-700" : "text-gray-800"}`}
+                    className={`text-sm font-semibold truncate ${notice.is_pinned ? "text-primary-active" : "text-gray-800"}`}
                   >
                     {notice.title}
                   </span>
@@ -505,12 +548,12 @@ export default function NoticePage() {
                     {notice.category}
                   </span>
                 </div>
-                <div className="hidden sm:flex items-center justify-center text-xs text-gray-500">
+                <div className="hidden sm:flex items-center justify-center text-xs text-muted">
                   {notice.profiles?.full_name || "—"}
                 </div>
                 <div className="hidden sm:flex items-center justify-center text-xs text-gray-400">
                   {(notice.attachments || []).length > 0 ? (
-                    <span className="flex items-center gap-0.5 text-blue-400">
+                    <span className="flex items-center gap-0.5 text-primary/60">
                       <svg
                         className="w-3.5 h-3.5"
                         fill="none"
@@ -542,7 +585,7 @@ export default function NoticePage() {
         )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1 py-4 border-t border-gray-100">
+          <div className="flex items-center justify-center gap-1 py-4 border-t border-line-soft">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
@@ -568,7 +611,7 @@ export default function NoticePage() {
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`w-8 h-8 rounded-lg text-sm font-semibold transition ${p === page ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100"}`}
+                  className={`w-8 h-8 rounded-lg text-sm font-semibold transition ${p === page ? "bg-primary text-white" : "text-muted hover:bg-gray-100"}`}
                 >
                   {p}
                 </button>
@@ -600,7 +643,7 @@ export default function NoticePage() {
       {(uploadingFiles || saving) && (
         <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
           <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl min-w-[220px]">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             {uploadingFiles && uploadProgress.total > 0 ? (
               <>
                 <p className="text-gray-800 font-bold text-base">파일 업로드 중...</p>
@@ -611,7 +654,7 @@ export default function NoticePage() {
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
                       style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                     />
                   </div>
@@ -625,41 +668,49 @@ export default function NoticePage() {
         </div>
       )}
 
-      {/* ── 글쓰기/수정 모달 ── */}
+      {/* ── 글쓰기/수정 모달 — 그룹웨어 공용 Modal 을 쓴다 ── */}
       {isWriteOpen && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4"
-          onClick={() => setIsWriteOpen(false)}
-        >
-          <div
-            className="bg-white rounded-2xl border border-gray-200 w-full max-w-2xl max-h-[92vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-900">
-                {editTarget ? "공지 수정" : "공지 작성"}
-              </h2>
+        <Modal
+          isOpen
+          onClose={() => setIsWriteOpen(false)}
+          title={editTarget ? "공지 수정" : "공지 작성"}
+          className="sm:max-w-[680px]"
+          footer={
+            <div className="flex items-center gap-2 w-full">
+              {/* 올리기 전에 상세 화면 모양 그대로 확인 */}
               <button
-                onClick={() => setIsWriteOpen(false)}
-                className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"
+                type="button"
+                onClick={() => setPreviewOpen(true)}
+                disabled={!form.title.trim() && isEmptyHtml(form.content)}
+                className="flex items-center gap-1.5 px-2 py-2 text-sm font-medium text-primary rounded-lg hover:bg-primary-wash transition cursor-pointer disabled:text-disabled-text disabled:hover:bg-transparent disabled:cursor-not-allowed"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <Eye size={16} /> 미리보기
               </button>
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={() => setIsWriteOpen(false)}
+                  className={btnStyles.cancel}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!form.title.trim() || saving || uploadingFiles}
+                  className={btnStyles.save}
+                >
+                {uploadingFiles
+                  ? "파일 업로드 중..."
+                  : saving
+                    ? "저장 중..."
+                    : editTarget
+                      ? "수정 완료"
+                      : "등록"}
+                </button>
+              </div>
             </div>
-
-            <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+          }
+        >
+          <div className="space-y-4">
               {/* 카테고리 + 고정 + 전체 알림 */}
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex gap-1.5">
@@ -667,7 +718,7 @@ export default function NoticePage() {
                     <button
                       key={cat}
                       onClick={() => setForm((f) => ({ ...f, category: cat }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${form.category === cat ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-500 hover:bg-gray-100"}`}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${form.category === cat ? "bg-primary text-white" : "bg-table-header text-muted hover:bg-gray-100"}`}
                     >
                       {cat}
                     </button>
@@ -683,7 +734,7 @@ export default function NoticePage() {
                           onChange={(e) =>
                             setForm((f) => ({ ...f, send_notification: e.target.checked }))
                           }
-                          className="w-4 h-4 rounded accent-blue-600"
+                          className="w-4 h-4 rounded accent-primary"
                         />
                         <span className="text-sm font-semibold text-gray-600">
                           전체 알림 발송
@@ -697,7 +748,7 @@ export default function NoticePage() {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, is_pinned: e.target.checked }))
                         }
-                        className="w-4 h-4 rounded accent-blue-600"
+                        className="w-4 h-4 rounded accent-primary"
                       />
                       <span className="text-sm font-semibold text-gray-600">
                         상단 고정
@@ -709,7 +760,7 @@ export default function NoticePage() {
 
               {/* 팝업 설정 (관리자만) */}
               {canAdmin && (
-                <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+                <div className="rounded-xl border border-line p-4 space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -720,7 +771,7 @@ export default function NoticePage() {
                           popup_enabled: e.target.checked,
                         }))
                       }
-                      className="w-4 h-4 rounded accent-orange-500"
+                      className="w-4 h-4 rounded accent-primary"
                     />
                     <span className="text-sm font-semibold text-gray-700">
                       메인 화면 팝업 공지
@@ -728,7 +779,7 @@ export default function NoticePage() {
                   </label>
                   {form.popup_enabled && (
                     <div className="flex items-center gap-2 pl-6">
-                      <span className="text-sm text-gray-500">팝업 유지</span>
+                      <span className="text-sm text-muted">팝업 유지</span>
                       <div className="flex gap-1.5">
                         {[1, 2, 3, 7].map((d) => (
                           <button
@@ -736,7 +787,7 @@ export default function NoticePage() {
                             onClick={() =>
                               setForm((f) => ({ ...f, popup_days: d }))
                             }
-                            className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition ${form.popup_days === d ? "bg-orange-500 text-white" : "bg-gray-50 text-gray-500 hover:bg-gray-100"}`}
+                            className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition ${form.popup_days === d ? "bg-primary text-white" : "bg-table-header text-muted hover:bg-gray-100"}`}
                           >
                             {d}일
                           </button>
@@ -755,13 +806,14 @@ export default function NoticePage() {
                   setForm((f) => ({ ...f, title: e.target.value }))
                 }
                 placeholder="제목을 입력하세요"
-                className="w-full px-4 py-3 text-sm font-semibold border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 placeholder:font-normal"
+                className={`${inputClass} font-semibold placeholder:font-normal`}
               />
 
               {/* 내용 */}
               <NoticeEditor
                 content={form.content}
                 onChange={(html) => setForm((f) => ({ ...f, content: html }))}
+                uploadImage={uploadInlineImage}
               />
 
               {/* 파일 첨부 */}
@@ -785,7 +837,7 @@ export default function NoticePage() {
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-blue-300 hover:text-blue-500 transition w-full justify-center"
+                  className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-line rounded-xl text-sm text-gray-400 hover:border-primary-soft hover:text-primary transition w-full justify-center"
                 >
                   <svg
                     className="w-5 h-5"
@@ -809,7 +861,7 @@ export default function NoticePage() {
                     {pendingFiles.map((f, i) => (
                       <li
                         key={i}
-                        className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm"
+                        className="flex items-center justify-between gap-2 px-3 py-2 bg-table-header rounded-lg text-sm"
                       >
                         <span className="truncate text-gray-700">{f.name}</span>
                         <button
@@ -849,7 +901,7 @@ export default function NoticePage() {
                       {editTarget.attachments.map((att) => (
                         <li
                           key={att.url}
-                          className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg text-sm text-blue-700"
+                          className="flex items-center gap-2 px-3 py-2 bg-primary-wash rounded-lg text-sm text-primary-active"
                         >
                           <svg
                             className="w-4 h-4 shrink-0"
@@ -871,31 +923,88 @@ export default function NoticePage() {
                   </div>
                 )}
               </div>
-            </div>
+          </div>
+        </Modal>
+      )}
 
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
-              <button
-                onClick={() => setIsWriteOpen(false)}
-                className="px-5 py-2 text-sm font-semibold text-gray-600 bg-gray-50 rounded-xl hover:bg-gray-100"
+      {/* ── 미리보기 — 상세 화면과 같은 틀(NOTICE_PROSE)로 그린다 ── */}
+      {previewOpen && (
+        <Modal
+          isOpen
+          onClose={() => setPreviewOpen(false)}
+          title="미리보기"
+          className="sm:max-w-[760px]"
+          bodyClassName="p-0"
+          footer={
+            <button
+              onClick={() => setPreviewOpen(false)}
+              className={btnStyles.cancel}
+            >
+              닫기
+            </button>
+          }
+        >
+          <div className="px-6 py-5 border-b border-line-soft">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {form.is_pinned && (
+                <span className="text-[11px] font-bold text-primary bg-primary-wash px-2 py-0.5 rounded">
+                  📌 고정
+                </span>
+              )}
+              {form.popup_enabled && (
+                <span className="text-[11px] font-bold text-warning-active bg-warning-soft border border-warning/30 px-2 py-0.5 rounded">
+                  팝업 공지
+                </span>
+              )}
+              <span
+                className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${CATEGORY_STYLE[form.category] || CATEGORY_STYLE["일반"]}`}
               >
-                취소
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!form.title.trim() || saving || uploadingFiles}
-                className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition"
-              >
-                {uploadingFiles
-                  ? "파일 업로드 중..."
-                  : saving
-                    ? "저장 중..."
-                    : editTarget
-                      ? "수정 완료"
-                      : "등록"}
-              </button>
+                {form.category}
+              </span>
+            </div>
+            <h1 className="text-xl font-bold text-heading leading-snug">
+              {form.title.trim() || (
+                <span className="text-disabled-text">제목 없음</span>
+              )}
+            </h1>
+            <div className="flex items-center gap-3 mt-2.5 text-xs text-gray-400 flex-wrap">
+              <span>
+                {profile?.full_name} · {profile?.position}
+              </span>
+              <span>{format(new Date(), "yyyy.MM.dd HH:mm", { locale: ko })}</span>
             </div>
           </div>
-        </div>
+
+          <div className="px-6 py-6">
+            {isEmptyHtml(form.content) ? (
+              <p className="text-sm text-disabled-text">내용이 비어 있습니다.</p>
+            ) : (
+              <div
+                className={NOTICE_PROSE}
+                // 작성 중인 본인 글을 본인 화면에만 그린다 — 상세 화면과 같은 방식
+                dangerouslySetInnerHTML={{ __html: form.content }}
+              />
+            )}
+
+            {/* 첨부 — 아직 올리기 전이라 이름만 보여준다 */}
+            {(pendingFiles.length > 0 ||
+              (editTarget?.attachments ?? []).length > 0) && (
+              <div className="mt-6 pt-4 border-t border-line-soft">
+                <p className="text-xs font-bold text-muted mb-2">첨부파일</p>
+                <ul className="space-y-1">
+                  {[
+                    ...(editTarget?.attachments ?? []).map((a) => a.name),
+                    ...pendingFiles.map((f) => f.name),
+                  ].map((name, i) => (
+                    <li key={i} className="text-sm text-gray-700 truncate">
+                      📎 {name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   );

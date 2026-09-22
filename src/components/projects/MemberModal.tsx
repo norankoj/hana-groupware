@@ -83,7 +83,7 @@ export default function MemberModal({ projectId, onClose }: Props) {
             ) : (
               <div className="space-y-2">
                 {members.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                  <div key={m.id} className="flex items-center gap-3 bg-table-header rounded-lg px-3 py-2">
                     <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
                       {(m.profiles as any)?.full_name ?? "알 수 없음"}
                       {(m.profiles as any)?.position && <span className="text-gray-400 ml-1 font-normal">({(m.profiles as any).position})</span>}
@@ -96,7 +96,7 @@ export default function MemberModal({ projectId, onClose }: Props) {
                           { value: "admin",  label: "관리자" },
                           { value: "member", label: "멤버" },
                         ]}
-                        className="w-full py-1 px-2 bg-white border border-gray-300 rounded text-xs"
+                        className="w-full py-1 px-2 bg-white border border-line-strong rounded text-xs"
                       />
                     </div>
                     <button onClick={() => handleRemove(m.id)} className="shrink-0 text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 transition">제거</button>
@@ -122,7 +122,7 @@ export default function MemberModal({ projectId, onClose }: Props) {
                       label: `${p.full_name}${p.position ? ` (${p.position})` : ""}`,
                     })),
                   ]}
-                  className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+                  className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
                 />
               </div>
               <div className="w-24 shrink-0">
@@ -133,11 +133,11 @@ export default function MemberModal({ projectId, onClose }: Props) {
                     { value: "member", label: "멤버" },
                     { value: "admin",  label: "관리자" },
                   ]}
-                  className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+                  className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
                 />
               </div>
               <button onClick={handleAdd} disabled={saving || !addUserId}
-                className="shrink-0 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
+                className="shrink-0 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50 transition">
                 추가
               </button>
             </div>

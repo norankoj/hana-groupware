@@ -59,11 +59,11 @@ const TABS: TabDef[] = [
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   planning: { label: "기획중", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   active:   { label: "진행중", color: "bg-green-100 text-green-700 border-green-200" },
-  completed:{ label: "완료",   color: "bg-gray-100 text-gray-500 border-gray-200" },
+  completed:{ label: "완료",   color: "bg-gray-100 text-muted border-line" },
 };
 
 const PROJECT_TYPE_LABEL: Record<string, { label: string; color: string }> = {
-  marf:          { label: "MARF",    color: "bg-blue-100 text-blue-700" },
+  marf:          { label: "MARF",    color: "bg-primary-soft text-primary-active" },
   ride_schedule: { label: "라이드",  color: "bg-purple-100 text-purple-700" },
   general:       { label: "일반",    color: "bg-gray-100 text-gray-600" },
 };
@@ -159,7 +159,7 @@ export default function ProjectDashboard() {
     ? activeTab
     : visibleTabs[0]?.key ?? "overview";
 
-  const status = STATUS_LABEL[project.status] ?? { label: project.status, color: "bg-gray-100 text-gray-500 border-gray-200" };
+  const status = STATUS_LABEL[project.status] ?? { label: project.status, color: "bg-gray-100 text-muted border-line" };
   const typeTag = PROJECT_TYPE_LABEL[project.project_type];
 
   const props = { projectId: id, myUserId: myUserId!, isMember, isAdmin };
@@ -199,7 +199,7 @@ export default function ProjectDashboard() {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
+                <h1 className="text-xl font-bold text-heading">{project.name}</h1>
                 <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${status.color}`}>
                   {status.label}
                 </span>
@@ -210,14 +210,14 @@ export default function ProjectDashboard() {
                 )}
               </div>
               {project.description && (
-                <p className="text-sm text-gray-500 mt-0.5">{project.description}</p>
+                <p className="text-sm text-muted mt-0.5">{project.description}</p>
               )}
             </div>
             {isAdmin && (
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => router.push(`/projects/${id}/settings`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-white border border-line-strong rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
                   title="프로젝트 설정"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -228,7 +228,7 @@ export default function ProjectDashboard() {
                 </button>
                 <button
                   onClick={() => setShowMemberModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 bg-white border border-line-strong rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -242,15 +242,15 @@ export default function ProjectDashboard() {
       </div>
 
       {/* 탭 네비게이션 */}
-      <div className="flex gap-1 overflow-x-auto pb-1 mb-6 border-b border-gray-200">
+      <div className="flex gap-1 overflow-x-auto pb-1 mb-6 border-b border-line">
         {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`shrink-0 px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors whitespace-nowrap
               ${activeTabKey === tab.key
-                ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                ? "text-primary border-b-2 border-primary bg-primary-wash"
+                : "text-muted hover:text-gray-700 hover:bg-gray-50"
               }`}
           >
             {tab.label}

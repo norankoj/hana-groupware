@@ -88,7 +88,7 @@ export default function VehicleManageTab({
 
   const inspBadge =
     daysLeft === null
-      ? { label: "미등록", cls: "bg-gray-100 text-gray-500" }
+      ? { label: "미등록", cls: "bg-gray-100 text-muted" }
       : daysLeft < 0
         ? { label: `${Math.abs(daysLeft)}일 초과`, cls: "bg-red-100 text-red-600" }
         : daysLeft <= 30
@@ -207,7 +207,7 @@ export default function VehicleManageTab({
   return (
     <div className="flex gap-5 min-h-[560px]">
       {/* ── 좌측: 차량 목록 패널 ── */}
-      <div className="w-52 shrink-0 bg-white rounded-xl border border-gray-200 overflow-y-auto">
+      <div className="w-52 shrink-0 bg-white rounded-xl border border-line overflow-y-auto">
         {vehicles.map((v) => {
           const img = VEHICLE_IMAGES[v.name];
           const isSelected = v.id === selectedId;
@@ -215,9 +215,9 @@ export default function VehicleManageTab({
             <button
               key={v.id}
               onClick={() => setSelectedId(v.id)}
-              className={`w-full flex items-center gap-3 px-3 py-3 border-b border-gray-100 hover:bg-gray-50 transition text-left ${
+              className={`w-full flex items-center gap-3 px-3 py-3 border-b border-line-soft hover:bg-gray-50 transition text-left ${
                 isSelected
-                  ? "bg-blue-50 border-l-4 border-l-blue-500"
+                  ? "bg-primary-wash border-l-4 border-l-blue-500"
                   : "border-l-4 border-l-transparent"
               }`}
             >
@@ -230,7 +230,7 @@ export default function VehicleManageTab({
                   className="object-contain shrink-0"
                 />
               ) : (
-                <div className="w-[52px] h-8 bg-gray-100 rounded flex items-center justify-center text-[10px] text-gray-300 shrink-0 font-bold">
+                <div className="w-[52px] h-8 bg-gray-100 rounded flex items-center justify-center text-[10px] text-disabled-text shrink-0 font-bold">
                   CAR
                 </div>
               )}
@@ -249,10 +249,10 @@ export default function VehicleManageTab({
       {vehicle ? (
         <div className="flex-1 space-y-4 overflow-y-auto">
           {/* QR 연락처 URL 카드 */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-500 mb-1.5">QR 연락처 URL</p>
+          <div className="bg-white rounded-xl border border-line p-4">
+            <p className="text-xs font-bold text-muted mb-1.5">QR 연락처 URL</p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-blue-700 break-all select-all">
+              <code className="flex-1 text-xs bg-table-header border border-line rounded-lg px-3 py-2 text-primary-active break-all select-all">
                 /vehicle/contact/{vehicle.id}
               </code>
               <button
@@ -260,7 +260,7 @@ export default function VehicleManageTab({
                   const url = `${window.location.origin}/vehicle/contact/${vehicle.id}`;
                   navigator.clipboard.writeText(url);
                 }}
-                className="shrink-0 text-xs px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-medium transition"
+                className="shrink-0 text-xs px-3 py-2 bg-primary-wash text-primary hover:bg-primary-soft rounded-lg font-medium transition"
               >
                 복사
               </button>
@@ -270,7 +270,7 @@ export default function VehicleManageTab({
 
           {/* 예약 알림 담당자 카드 */}
           {isAdmin && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-white rounded-xl border border-line p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-gray-700">예약 알림 담당자</h3>
                 {!editingNotify && (
@@ -279,7 +279,7 @@ export default function VehicleManageTab({
                       setNotifyUserId(vehicle?.notify_user_id ?? "");
                       setEditingNotify(true);
                     }}
-                    className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 transition"
+                    className="text-xs text-primary hover:text-primary-active flex items-center gap-1 transition"
                   >
                     ✎ 수정
                   </button>
@@ -290,7 +290,7 @@ export default function VehicleManageTab({
                   <select
                     value={notifyUserId}
                     onChange={(e) => setNotifyUserId(e.target.value)}
-                    className="flex-1 min-w-[160px] px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-400 transition bg-white"
+                    className="flex-1 min-w-[160px] px-3 py-2 border border-line rounded-lg text-sm outline-none focus:border-primary transition bg-white"
                   >
                     <option value="">없음 (알림 안 받음)</option>
                     {staffList.map((s) => (
@@ -303,7 +303,7 @@ export default function VehicleManageTab({
                     <button
                       onClick={saveNotifyUser}
                       disabled={saving}
-                      className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition disabled:opacity-50"
+                      className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary transition disabled:opacity-50"
                     >
                       저장
                     </button>
@@ -319,7 +319,7 @@ export default function VehicleManageTab({
                 <div className="flex items-center gap-2">
                   {vehicle?.notify_user_id ? (
                     <>
-                      <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold shrink-0">
                         {(staffList.find((s) => s.id === vehicle.notify_user_id)?.full_name ?? "?").slice(0, 1)}
                       </div>
                       <span className="text-sm font-semibold text-gray-800">
@@ -339,7 +339,7 @@ export default function VehicleManageTab({
           )}
 
           {/* 정기검사 카드 */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white rounded-xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-gray-700">차량 정기 검사</h3>
               {isAdmin && !editingInspection && (
@@ -348,7 +348,7 @@ export default function VehicleManageTab({
                     setInspectionDate(vehicle.inspection_due_date ?? "");
                     setEditingInspection(true);
                   }}
-                  className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 transition"
+                  className="text-xs text-primary hover:text-primary-active flex items-center gap-1 transition"
                 >
                   ✎ 수정
                 </button>
@@ -365,14 +365,14 @@ export default function VehicleManageTab({
                     type="date"
                     value={inspectionDate}
                     onChange={(e) => setInspectionDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-400 transition"
+                    className="px-3 py-2 border border-line rounded-lg text-sm outline-none focus:border-primary transition"
                   />
                 </div>
                 <div className="flex gap-2 self-end">
                   <button
                     onClick={saveInspection}
                     disabled={saving || !inspectionDate}
-                    className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition disabled:opacity-50"
+                    className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary transition disabled:opacity-50"
                   >
                     저장
                   </button>
@@ -418,14 +418,14 @@ export default function VehicleManageTab({
                           onChange={(e) =>
                             setMileageValue(e.target.value === "" ? "" : Number(e.target.value))
                           }
-                          className="w-32 px-2 py-1 border border-gray-200 rounded-lg text-sm font-mono outline-none focus:border-blue-400 transition"
+                          className="w-32 px-2 py-1 border border-line rounded-lg text-sm font-mono outline-none focus:border-primary transition"
                           placeholder="km 입력"
                           autoFocus
                         />
                         <button
                           onClick={saveMileage}
                           disabled={saving || mileageValue === ""}
-                          className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition disabled:opacity-50"
+                          className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary transition disabled:opacity-50"
                         >
                           저장
                         </button>
@@ -447,7 +447,7 @@ export default function VehicleManageTab({
                               setMileageValue(vehicle.current_mileage);
                               setEditingMileage(true);
                             }}
-                            className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5 transition"
+                            className="text-xs text-primary hover:text-primary-active flex items-center gap-0.5 transition"
                           >
                             ✎ 수정
                           </button>
@@ -464,7 +464,7 @@ export default function VehicleManageTab({
                         ? "bg-red-50 text-red-600 border border-red-100"
                         : daysLeft <= 30
                           ? "bg-amber-50 text-amber-700 border border-amber-100"
-                          : "bg-blue-50 text-blue-700 border border-blue-100"
+                          : "bg-primary-wash text-primary-active border border-primary-soft"
                     }`}
                   >
                     {daysLeft < 0 ? (
@@ -494,13 +494,13 @@ export default function VehicleManageTab({
           </div>
 
           {/* 소모품 관리 카드 */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white rounded-xl border border-line p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-gray-700">소모품 관리</h3>
               {isAdmin && (
                 <button
                   onClick={() => setAddingConsumable((v) => !v)}
-                  className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 transition"
+                  className="text-xs text-primary hover:text-primary-active flex items-center gap-1 transition"
                 >
                   + 소모품 추가
                 </button>
@@ -510,7 +510,7 @@ export default function VehicleManageTab({
             {/* 소모품 없을 때 — 프리셋 버튼 */}
             {vConsumables.length === 0 && !addingConsumable ? (
               <div className="py-6 text-center">
-                <p className="text-sm text-gray-300 mb-4">
+                <p className="text-sm text-disabled-text mb-4">
                   등록된 소모품이 없습니다
                 </p>
                 {isAdmin && (
@@ -520,7 +520,7 @@ export default function VehicleManageTab({
                         key={d.name}
                         onClick={() => addConsumable(d.name, d.cycle_km)}
                         disabled={saving}
-                        className="text-xs px-3 py-1.5 border border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition disabled:opacity-50"
+                        className="text-xs px-3 py-1.5 border border-dashed border-line-strong text-muted rounded-lg hover:border-primary hover:text-primary hover:bg-primary-wash transition disabled:opacity-50"
                       >
                         + {d.name}
                       </button>
@@ -536,7 +536,7 @@ export default function VehicleManageTab({
                     ? "bg-red-500"
                     : soon
                       ? "bg-amber-400"
-                      : "bg-blue-500";
+                      : "bg-primary";
                   const remainText = overdue
                     ? `${Math.abs(remaining).toLocaleString()} km 초과`
                     : `${remaining.toLocaleString()} km 남음`;
@@ -544,7 +544,7 @@ export default function VehicleManageTab({
                     ? "text-red-600 font-bold"
                     : soon
                       ? "text-amber-600 font-bold"
-                      : "text-blue-600";
+                      : "text-primary";
 
                   return (
                     <div key={c.id} className="group">
@@ -604,7 +604,7 @@ export default function VehicleManageTab({
 
             {/* 소모품 직접 추가 폼 */}
             {addingConsumable && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 space-y-3">
+              <div className="mt-4 p-4 bg-table-header rounded-xl border border-dashed border-line space-y-3">
                 <p className="text-xs font-bold text-gray-600">소모품 직접 추가</p>
                 <div className="flex gap-2 flex-wrap">
                   <input
@@ -615,7 +615,7 @@ export default function VehicleManageTab({
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && newName.trim()) addConsumable(newName.trim(), newCycle);
                     }}
-                    className="flex-1 min-w-[160px] px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-400 bg-white transition"
+                    className="flex-1 min-w-[160px] px-3 py-2 border border-line rounded-lg text-sm outline-none focus:border-primary bg-white transition"
                     autoFocus
                   />
                   <div className="flex items-center gap-1.5">
@@ -625,7 +625,7 @@ export default function VehicleManageTab({
                       onChange={(e) => setNewCycle(Number(e.target.value))}
                       min={1000}
                       step={1000}
-                      className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-400 bg-white transition"
+                      className="w-32 px-3 py-2 border border-line rounded-lg text-sm outline-none focus:border-primary bg-white transition"
                     />
                     <span className="text-xs text-gray-400 shrink-0">km마다</span>
                   </div>
@@ -639,7 +639,7 @@ export default function VehicleManageTab({
                       key={d.name}
                       onClick={() => addConsumable(d.name, d.cycle_km)}
                       disabled={saving}
-                      className="text-[11px] px-2.5 py-1 bg-white border border-gray-200 text-gray-600 rounded-lg hover:border-blue-400 hover:text-blue-500 transition disabled:opacity-50"
+                      className="text-[11px] px-2.5 py-1 bg-white border border-line text-gray-600 rounded-lg hover:border-primary hover:text-primary transition disabled:opacity-50"
                     >
                       {d.name}
                     </button>
@@ -651,7 +651,7 @@ export default function VehicleManageTab({
                       if (newName.trim()) addConsumable(newName.trim(), newCycle);
                     }}
                     disabled={saving || !newName.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 disabled:opacity-50 transition"
+                    className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary disabled:opacity-50 transition"
                   >
                     추가
                   </button>
@@ -670,7 +670,7 @@ export default function VehicleManageTab({
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-gray-300 text-sm">
+        <div className="flex-1 flex items-center justify-center text-disabled-text text-sm">
           좌측에서 차량을 선택해주세요
         </div>
       )}

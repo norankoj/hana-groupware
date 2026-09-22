@@ -47,11 +47,20 @@ type Props = {
 
 type ViewMode = "week" | "month";
 
+// 지금 움직이는 것(예약·운행중)은 채워서 눈에 띄게, 끝난 것(반납)은 옅게 물러나게.
+// 노쇼는 문제라서 옅은 경고색 + 진한 글자로 — 흰 글자를 얹으면 노랑 위에서 안 읽힌다.
 const STATUS_BG: Record<string, string> = {
-  reserved: "bg-blue-500",
-  in_use: "bg-green-500",
-  returned: "bg-gray-400",
-  noshow: "bg-orange-400",
+  reserved: "bg-primary text-white",
+  in_use: "bg-success-fill text-white",
+  returned: "bg-secondary-soft text-dark",
+  noshow: "bg-warning-soft text-warning-active ring-1 ring-inset ring-warning/40",
+};
+/** 범례의 네모 — 블록과 같은 색 */
+const STATUS_DOT: Record<string, string> = {
+  reserved: "bg-primary",
+  in_use: "bg-success-fill",
+  returned: "bg-secondary/40",
+  noshow: "bg-warning",
 };
 const STATUS_LABEL: Record<string, string> = {
   reserved: "예약",
@@ -89,7 +98,7 @@ function NavHeader({
   setViewMode: (v: ViewMode) => void;
 }) {
   return (
-    <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between gap-4 flex-wrap">
+    <div className="p-4 border-b border-line bg-table-header flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-1.5">
         <button
           onClick={onPrev}
@@ -110,7 +119,7 @@ function NavHeader({
         </button>
         <button
           onClick={onToday}
-          className="px-2.5 py-1 text-xs font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition ml-1"
+          className="px-2.5 py-1 text-xs font-bold bg-white border border-line-strong rounded-lg hover:bg-gray-50 transition ml-1"
         >
           오늘
         </button>
@@ -119,7 +128,7 @@ function NavHeader({
         <button
           onClick={() => setViewMode("week")}
           className={`px-3 py-1 text-xs font-bold rounded-md transition ${
-            viewMode === "week" ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:bg-gray-100"
+            viewMode === "week" ? "bg-white shadow-sm text-primary" : "text-muted hover:bg-gray-100"
           }`}
         >
           주간
@@ -127,7 +136,7 @@ function NavHeader({
         <button
           onClick={() => setViewMode("month")}
           className={`px-3 py-1 text-xs font-bold rounded-md transition ${
-            viewMode === "month" ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:bg-gray-100"
+            viewMode === "month" ? "bg-white shadow-sm text-primary" : "text-muted hover:bg-gray-100"
           }`}
         >
           월간
@@ -139,10 +148,10 @@ function NavHeader({
 
 function Legend() {
   return (
-    <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap gap-4 text-xs text-gray-500 bg-white">
+    <div className="px-4 py-3 border-t border-line-soft flex flex-wrap gap-4 text-xs text-muted bg-white">
       {Object.entries(STATUS_LABEL).map(([key, label]) => (
         <div key={key} className="flex items-center gap-1.5">
-          <span className={`w-2.5 h-2.5 rounded-sm ${STATUS_BG[key]}`} />
+          <span className={`w-2.5 h-2.5 rounded-sm ${STATUS_DOT[key]}`} />
           <span>{label}</span>
         </div>
       ))}
@@ -163,7 +172,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
     // ── vehicle-rows: 행=차량, 열=날짜(7일) ─────────────────────────────────
     if (weekLayout === "vehicle-rows") {
       return (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-line shadow-sm overflow-hidden">
           <NavHeader
             label={weekLabel}
             onPrev={() => setCurrentDate(subWeeks(currentDate, 1))}
@@ -177,9 +186,9 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
+                <tr className="border-b border-table-line bg-table-header">
                   {/* 차량 헤더 */}
-                  <th className="w-[72px] min-w-[72px] px-2 py-2.5 text-left text-xs font-bold text-gray-500 sticky left-0 z-10 bg-gray-50 border-r border-gray-200">
+                  <th className="w-[72px] min-w-[72px] px-2 py-2.5 text-left text-xs font-bold text-muted sticky left-0 z-10 bg-table-header border-r border-table-line">
                     차량
                   </th>
                   {weekDays.map((day, i) => {
@@ -189,19 +198,19 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                     return (
                       <th
                         key={i}
-                        className={`px-1 py-2 text-center min-w-[52px] border-l border-gray-100 ${
-                          today ? "bg-blue-50" : isSat || isSun ? "bg-slate-50" : "bg-gray-50"
+                        className={`px-1 py-2 text-center min-w-[52px] border-l border-table-line ${
+                          today ? "bg-primary-wash" : isSat || isSun ? "bg-slate-50" : "bg-table-header"
                         }`}
                       >
                         <div className={`text-[10px] font-bold ${
-                          isSat ? "text-blue-400" : isSun ? "text-red-400" : "text-gray-400"
+                          isSat ? "text-primary/60" : isSun ? "text-red-400" : "text-gray-400"
                         }`}>
                           {DAY_KO[i]}
                         </div>
                         <div className={`text-sm font-bold leading-none mt-0.5 mx-auto ${
                           today
-                            ? "w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"
-                            : isSat ? "text-blue-500" : isSun ? "text-red-500" : "text-gray-800"
+                            ? "w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center"
+                            : isSat ? "text-primary" : isSun ? "text-red-500" : "text-gray-800"
                         }`}>
                           {format(day, "d")}
                         </div>
@@ -214,7 +223,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                 {vehicles.map((vehicle) => (
                   <tr key={vehicle.id} className="hover:bg-gray-50/30 transition">
                     {/* 차량명 — sticky */}
-                    <td className="px-2 py-2 sticky left-0 z-10 bg-white border-r border-gray-200 align-middle">
+                    <td className="px-2 py-2 sticky left-0 z-10 bg-white border-r border-table-line align-middle">
                       <span className="text-xs font-bold text-gray-700 leading-tight block whitespace-nowrap">
                         {vehicle.name}
                       </span>
@@ -230,8 +239,8 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                       return (
                         <td
                           key={i}
-                          className={`px-1 py-1.5 align-top border-l border-gray-100 ${
-                            today ? "bg-blue-50/30" : isSat || isSun ? "bg-slate-50/40" : ""
+                          className={`px-1 py-1.5 align-top border-l border-table-line ${
+                            today ? "bg-primary-wash/30" : isSat || isSun ? "bg-slate-50/40" : ""
                           }`}
                           style={{ minWidth: 52 }}
                         >
@@ -241,7 +250,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                                 key={log.id}
                                 onClick={() => onSelectLog(log)}
                                 title={`${log.driver_name} · ${format(new Date(log.start_at), "HH:mm")}~${format(new Date(log.end_at), "HH:mm")} · ${log.destination}`}
-                                className={`w-full text-left px-1 py-1 rounded text-[9px] font-bold leading-tight cursor-pointer hover:opacity-80 active:opacity-60 transition text-white ${STATUS_BG[log.vehicle_status]}`}
+                                className={`w-full text-left px-1 py-1 rounded text-[9px] font-bold leading-tight cursor-pointer hover:opacity-80 active:opacity-60 transition ${STATUS_BG[log.vehicle_status]}`}
                               >
                                 <div className="truncate">{log.driver_name}</div>
                                 <div className="opacity-80 font-normal text-[8px] mt-0.5">
@@ -273,7 +282,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
 
     // ── date-rows(기본): 행=날짜, 열=차량 ────────────────────────────────────
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-line shadow-sm overflow-hidden">
         <NavHeader
           label={weekLabel}
           onPrev={() => setCurrentDate(subWeeks(currentDate, 1))}
@@ -287,20 +296,20 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="w-[72px] min-w-[72px] px-3 py-2.5 text-left text-xs font-bold text-gray-500 bg-gray-50 sticky left-0 z-10 border-r border-gray-200">
+              <tr className="border-b border-table-line">
+                <th className="w-[72px] min-w-[72px] px-3 py-2.5 text-left text-xs font-bold text-muted bg-table-header sticky left-0 z-10 border-r border-table-line">
                   날짜
                 </th>
                 {vehicles.map((vehicle) => (
                   <th
                     key={vehicle.id}
-                    className="px-2 py-2.5 text-center text-xs font-bold text-gray-600 bg-gray-50 border-l border-gray-100 min-w-[120px]"
+                    className="px-2 py-2.5 text-center text-xs font-bold text-gray-600 bg-table-header border-l border-table-line min-w-[120px]"
                   >
                     {vehicle.name}
                   </th>
                 ))}
                 {vehicles.length === 0 && (
-                  <th className="px-2 py-2.5 bg-gray-50" />
+                  <th className="px-2 py-2.5 bg-table-header" />
                 )}
               </tr>
             </thead>
@@ -312,21 +321,21 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                 return (
                   <tr
                     key={i}
-                    className={today ? "bg-blue-50/40" : isSat || isSun ? "bg-slate-50/60" : "hover:bg-gray-50/30 transition"}
+                    className={today ? "bg-primary-wash/40" : isSat || isSun ? "bg-slate-50/60" : "hover:bg-gray-50/30 transition"}
                   >
                     {/* 날짜 셀 */}
-                    <td className={`px-3 py-2 sticky left-0 z-10 border-r border-gray-200 align-middle ${
-                      today ? "bg-blue-50" : isSat || isSun ? "bg-slate-50" : "bg-white"
+                    <td className={`px-3 py-2 sticky left-0 z-10 border-r border-table-line align-middle ${
+                      today ? "bg-primary-wash" : isSat || isSun ? "bg-slate-50" : "bg-white"
                     }`}>
                       <div className={`text-xs font-bold ${
-                        isSat ? "text-blue-400" : isSun ? "text-red-400" : "text-gray-500"
+                        isSat ? "text-primary/60" : isSun ? "text-red-400" : "text-muted"
                       }`}>
                         {DAY_KO[i]}
                       </div>
                       <div className={`text-base font-bold leading-none mt-0.5 ${
                         today
-                          ? "w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center"
-                          : isSat ? "text-blue-500" : isSun ? "text-red-500" : "text-gray-800"
+                          ? "w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center"
+                          : isSat ? "text-primary" : isSun ? "text-red-500" : "text-gray-800"
                       }`}>
                         {format(day, "d")}
                       </div>
@@ -339,7 +348,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                       return (
                         <td
                           key={vehicle.id}
-                          className="px-1.5 py-1.5 align-top border-l border-gray-100"
+                          className="px-1.5 py-1.5 align-top border-l border-table-line"
                           style={{ minHeight: 56 }}
                         >
                           <div className="flex flex-col gap-0.5 min-h-[44px]">
@@ -348,7 +357,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                                 key={log.id}
                                 onClick={() => onSelectLog(log)}
                                 title={`${log.driver_name}(${log.department}) · ${format(new Date(log.start_at), "HH:mm")}~${format(new Date(log.end_at), "HH:mm")} · ${log.destination}`}
-                                className={`w-full text-left px-1.5 py-1 rounded text-[10px] font-bold leading-tight cursor-pointer hover:opacity-80 transition text-white ${STATUS_BG[log.vehicle_status]}`}
+                                className={`w-full text-left px-1.5 py-1 rounded text-[10px] font-bold leading-tight cursor-pointer hover:opacity-80 transition ${STATUS_BG[log.vehicle_status]}`}
                               >
                                 <div className="truncate">{log.driver_name}</div>
                                 <div className="opacity-80 font-normal text-[9px]">
@@ -383,7 +392,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
   const startPad = monthStart.getDay(); // 0=Sun 시작
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-line shadow-sm overflow-hidden">
       <NavHeader
         label={format(currentDate, "yyyy년 M월", { locale: ko })}
         onPrev={() => setCurrentDate(subMonths(currentDate, 1))}
@@ -400,7 +409,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
             <div
               key={d}
               className={`text-center text-xs font-bold py-1 ${
-                i === 6 ? "text-blue-400" : i === 0 ? "text-red-400" : "text-gray-500"
+                i === 6 ? "text-primary/60" : i === 0 ? "text-red-400" : "text-muted"
               }`}
             >
               {d}
@@ -426,16 +435,16 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                 key={day.toISOString()}
                 className={`min-h-[80px] border rounded-lg p-1 transition ${
                   today
-                    ? "border-blue-400 bg-blue-50/50"
-                    : "border-gray-100 hover:border-gray-300"
+                    ? "border-primary bg-primary-wash/50"
+                    : "border-line-soft hover:border-line-strong"
                 }`}
               >
                 <div
                   className={`text-xs font-bold mb-1 ${
                     today
-                      ? "text-blue-600"
+                      ? "text-primary"
                       : isSat
-                      ? "text-blue-400"
+                      ? "text-primary/60"
                       : isSun
                       ? "text-red-400"
                       : "text-gray-700"
@@ -449,7 +458,7 @@ export default function ScheduleTab({ vehicles, logs, onSelectLog, defaultView, 
                       key={log.id}
                       onClick={() => onSelectLog(log)}
                       title={`${log.resources?.name} · ${log.driver_name}(${log.department}) · ${format(new Date(log.start_at), "HH:mm")}~${format(new Date(log.end_at), "HH:mm")}`}
-                      className={`w-full text-left px-1 py-0.5 rounded text-[9px] font-bold truncate cursor-pointer hover:opacity-80 transition text-white ${STATUS_BG[log.vehicle_status]}`}
+                      className={`w-full text-left px-1 py-0.5 rounded text-[9px] font-bold truncate cursor-pointer hover:opacity-80 transition ${STATUS_BG[log.vehicle_status]}`}
                     >
                       {log.resources?.name} · {log.driver_name}
                     </button>

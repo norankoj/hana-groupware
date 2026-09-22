@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Modal from "@/components/Modal";
 import type { CalendarEvent } from "@/components/dashboard/CalendarSection";
+import { btnStyles } from "@/components/fund/shared";
 
 type Profile = {
   id: string;
@@ -48,49 +49,42 @@ export default function ScheduleDetailModal({
     setConfirming(false);
   };
 
+  // 공용 버튼. 삭제는 옅은 빨강으로 왼쪽에 따로 두고, 닫기(중립) · 수정(주 동작) 순.
+  // 예전엔 '닫기'가 파란 주 버튼이라 눈이 엉뚱한 곳으로 갔다.
   const footer = confirming ? (
-    <div className="flex gap-2 w-full">
+    <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
       <button
         onClick={() => setConfirming(false)}
         disabled={deleting}
-        className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition"
+        className={btnStyles.cancel}
       >
         취소
       </button>
       <button
         onClick={handleConfirmDelete}
         disabled={deleting}
-        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-red-700 transition disabled:opacity-60 shadow-sm"
+        className={btnStyles.delete}
       >
         {deleting ? "삭제 중..." : "정말 삭제"}
       </button>
     </div>
   ) : canManage ? (
-    <div className="flex gap-2">
-      <button
-        onClick={() => onEdit?.(event)}
-        className="py-2 px-5 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-100 transition border border-blue-100"
-      >
-        수정
-      </button>
+    <div className="flex gap-2 w-full">
       <button
         onClick={handleDeleteClick}
-        className="py-2 px-5 bg-gray-100 text-red-500 rounded-lg font-bold text-sm hover:bg-red-50 transition"
+        className={`${btnStyles.dangerSoft} sm:mr-auto`}
       >
         삭제
       </button>
-      <button
-        onClick={onClose}
-        className="py-2 px-5 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white"
-      >
+      <button onClick={onClose} className={btnStyles.cancel}>
         닫기
+      </button>
+      <button onClick={() => onEdit?.(event)} className={btnStyles.save}>
+        수정
       </button>
     </div>
   ) : (
-    <button
-      onClick={onClose}
-      className="py-2 px-5 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm bg-blue-600 text-white"
-    >
+    <button onClick={onClose} className={btnStyles.cancel}>
       닫기
     </button>
   );
@@ -105,23 +99,23 @@ export default function ScheduleDetailModal({
     >
       <div className="space-y-5 pt-2">
         {confirming && (
-          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-3">
-            <span className="text-red-500 mt-0.5 shrink-0">
+          <div className="flex items-start gap-3 bg-danger-soft border border-danger/30 rounded-lg px-3 py-3">
+            <span className="text-danger mt-0.5 shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
             </span>
-            <p className="text-sm text-red-700 font-medium leading-relaxed">
+            <p className="text-sm text-danger-active font-medium leading-relaxed">
               이 일정을 삭제하시겠습니까?<br />
-              <span className="text-red-500">삭제 후에는 복구할 수 없습니다.</span>
+              <span className="text-danger">삭제 후에는 복구할 수 없습니다.</span>
             </p>
           </div>
         )}
 
-        <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+        <div className="flex items-center gap-3 pb-4 border-b border-line-soft">
           <div>
-            <h3 className="text-xl font-extrabold text-gray-900">{event.title}</h3>
-            <p className="text-sm text-gray-500 font-medium mt-1">
+            <h3 className="text-xl font-extrabold text-heading">{event.title}</h3>
+            <p className="text-sm text-muted font-medium mt-1">
               {event.time_label}{event.location && ` · ${event.location}`}
             </p>
           </div>
@@ -134,14 +128,14 @@ export default function ScheduleDetailModal({
           </div>
 
           {event.type === "vacation" && isApprover && event.reason && (
-            <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
+            <div className="flex items-start gap-4 border-t border-line-soft pt-4">
               <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">사유</span>
               <p className="text-sm text-gray-700 leading-relaxed">{event.reason}</p>
             </div>
           )}
 
           {event.type === "schedule" && event.attendees && event.attendees.length > 0 && (
-            <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
+            <div className="flex items-start gap-4 border-t border-line-soft pt-4">
               <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">동행자</span>
               <div className="flex flex-wrap gap-1.5">
                 {event.attendees.map((a) => (

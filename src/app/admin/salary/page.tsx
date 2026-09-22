@@ -91,12 +91,12 @@ export default function AdminUploadPage() {
     }
   };
 
-  const borderColor = "border-blue-400";
-  const bgColor = "bg-blue-50";
-  const textColor = "text-blue-600";
-  const btnHoverColor = "hover:bg-blue-700";
-  const btnBgColor = "bg-blue-600";
-  const dotColor = "bg-blue-500";
+  const borderColor = "border-primary";
+  const bgColor = "bg-primary-wash";
+  const textColor = "text-primary";
+  const btnHoverColor = "hover:bg-primary-active";
+  const btnBgColor = "bg-primary";
+  const dotColor = "bg-primary";
 
   const filteredUsers = users.filter(
     (u) => u.full_name.includes(searchTerm) || u.position.includes(searchTerm),
@@ -106,13 +106,13 @@ export default function AdminUploadPage() {
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-8 pb-32">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+        <h1 className="text-xl sm:text-2xl font-bold text-heading">
           문서 개별 업로드
         </h1>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-visible">
-        <div className="px-5 py-4 sm:px-8 sm:py-5 border-b border-gray-100">
+      <div className="bg-white border border-line rounded-xl shadow-sm overflow-visible">
+        <div className="px-5 py-4 sm:px-8 sm:py-5 border-b border-line-soft">
           <h2 className="text-base sm:text-lg font-bold text-gray-800">
             업로드 정보 입력
           </h2>
@@ -131,11 +131,11 @@ export default function AdminUploadPage() {
 
               <div
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`w-full border rounded-lg py-3 px-4 text-sm bg-white flex justify-between items-center cursor-pointer ${isDropdownOpen ? "ring-2 ring-blue-500 border-blue-500" : "border-gray-300"}`}
+                className={`w-full border rounded-lg py-3 px-4 text-sm bg-white flex justify-between items-center cursor-pointer ${isDropdownOpen ? "ring-2 ring-primary border-primary" : "border-line-strong"}`}
               >
                 <span
                   className={
-                    selectedUser ? "text-gray-900 font-bold" : "text-gray-400"
+                    selectedUser ? "text-heading font-bold" : "text-gray-400"
                   }
                 >
                   {selectedUser
@@ -158,13 +158,13 @@ export default function AdminUploadPage() {
               </div>
 
               {isDropdownOpen && (
-                <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-64 overflow-hidden flex flex-col">
-                  <div className="p-2 border-b border-gray-100 bg-gray-50">
+                <div className="absolute top-full left-0 w-full mt-2 bg-white border border-line rounded-xl shadow-xl z-50 max-h-64 overflow-hidden flex flex-col">
+                  <div className="p-2 border-b border-line-soft bg-table-header">
                     <input
                       autoFocus
                       type="text"
                       placeholder="이름 검색..."
-                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500"
+                      className="w-full border border-line-strong rounded p-2 text-sm focus:outline-none focus:border-primary"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -183,10 +183,10 @@ export default function AdminUploadPage() {
                             setIsDropdownOpen(false);
                             setSearchTerm("");
                           }}
-                          className={`px-4 py-3 text-sm cursor-pointer hover:bg-blue-50 transition flex justify-between items-center ${selectedUser === u.id ? "bg-blue-50 text-blue-600 font-bold" : "text-gray-700"}`}
+                          className={`px-4 py-3 text-sm cursor-pointer hover:bg-primary-wash transition flex justify-between items-center ${selectedUser === u.id ? "bg-primary-wash text-primary font-bold" : "text-gray-700"}`}
                         >
                           <span>{u.full_name}</span>
-                          <span className="text-xs text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
+                          <span className="text-xs text-gray-400 border border-line rounded px-1.5 py-0.5">
                             {u.position}
                           </span>
                         </div>
@@ -204,7 +204,7 @@ export default function AdminUploadPage() {
               </label>
               <input
                 type="month"
-                className="w-full border border-gray-300 rounded-lg py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full border border-line-strong rounded-lg py-3 px-4 text-sm focus:ring-2 focus:ring-primary outline-none"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
               />
@@ -242,7 +242,7 @@ export default function AdminUploadPage() {
                       />
                     </svg>
                   </div>
-                  <p className="text-gray-900 font-bold text-lg mb-1">
+                  <p className="text-heading font-bold text-lg mb-1">
                     {file.name}
                   </p>
                   <p className={`text-sm ${textColor} font-medium mb-4`}>
@@ -283,7 +283,7 @@ export default function AdminUploadPage() {
                   </p>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm transition-all flex items-center gap-2 mx-auto"
+                    className="px-5 py-2.5 bg-white border border-line-strong rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm transition-all flex items-center gap-2 mx-auto"
                   >
                     <svg
                       className="w-4 h-4"
@@ -313,7 +313,7 @@ export default function AdminUploadPage() {
           </div>
 
           {/* 3. 최종 업로드 버튼 */}
-          <div className="pt-6 border-t border-gray-100 flex justify-end">
+          <div className="pt-6 border-t border-line-soft flex justify-end">
             <button
               onClick={handleUpload}
               disabled={uploading}

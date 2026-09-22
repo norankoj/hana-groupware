@@ -130,11 +130,12 @@ export const STATUS_LABEL: Record<FundStatus, string> = {
   rejected: "반려됨",
 };
 
+// 지출결의서와 같은 규칙 — 배경은 원색 12% 틴트, 글자는 -active, 선은 원색 30%
 export const STATUS_STYLE: Record<FundStatus, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  cancelled: "bg-gray-100 text-gray-500 border-gray-200",
-  rejected: "bg-red-50 text-red-600 border-red-200",
+  pending: "bg-warning-soft text-warning-active border-warning/30",
+  completed: "bg-success-soft text-success-active border-success/30",
+  cancelled: "bg-secondary-soft text-dark border-secondary/30",
+  rejected: "bg-danger-soft text-danger-active border-danger/30",
 };
 
 export const STATUS_OPTIONS = [
@@ -188,19 +189,41 @@ export const FUND_USAGE_DENIED = [
 ];
 
 // --- 공통 스타일 ---
+// 색은 globals.css 의 디자인 시스템 토큰을 쓴다 (bg-primary, border-line …).
+// 상태 규칙: hover 는 색을 바꾸지 않고 그림자로, active·focus 는 -active 색으로,
+// disabled 는 원색 18% 틴트. focus 는 focus-visible 로만 링을 띄운다
+// (마우스로 눌렀을 때 링이 남지 않게).
+//
 // 입력칸과 Select 버튼의 높이를 맞추기 위해 같은 padding·font-size를 쓴다.
 export const inputClass =
-  "w-full bg-white border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500";
+  "w-full bg-white border border-line-strong rounded-lg px-3.5 py-2.5 text-sm text-heading placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary-soft disabled:bg-disabled-input disabled:text-disabled-text";
 
 export const selectClass =
-  "w-full bg-white border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm";
+  "w-full bg-white border border-line-strong rounded-lg px-3.5 py-2.5 text-sm text-heading";
+
+// 크기가 달라지지 않도록 두 가지를 모든 버튼에 똑같이 준다.
+//  · border — 테두리 있는 취소 버튼만 1px 씩 커지지 않게, 나머지는 투명 테두리
+//  · 최소 너비 — '취소'와 '등록'처럼 글자 수가 같아도 폭이 어긋나지 않게
+const btnBase =
+  "px-5 py-2.5 border font-medium rounded-lg text-sm transition flex-1 sm:flex-none sm:min-w-[80px] justify-center cursor-pointer outline-none focus-visible:ring-2";
 
 export const btnStyles = {
-  save: "px-5 py-2.5 bg-[#2151EC] text-white font-medium rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md flex-1 sm:flex-none justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed",
-  delete:
-    "px-5 py-2.5 bg-[#EA5455] text-white font-medium rounded-lg hover:bg-[#d34647] transition text-sm shadow-md flex-1 sm:flex-none justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed",
-  cancel:
-    "px-5 py-2.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition text-sm flex-1 sm:flex-none sm:min-w-[80px] justify-center cursor-pointer",
+  save: `${btnBase} border-transparent bg-primary text-white shadow-md hover:shadow-lg active:bg-primary-active focus-visible:bg-primary-active focus-visible:ring-primary-soft disabled:bg-primary-faint disabled:shadow-none disabled:cursor-not-allowed`,
+  delete: `${btnBase} border-transparent bg-danger text-white shadow-md hover:shadow-lg active:bg-danger-active focus-visible:bg-danger-active focus-visible:ring-danger-soft disabled:bg-danger-faint disabled:shadow-none disabled:cursor-not-allowed`,
+  cancel: `${btnBase} border-line-strong bg-white text-muted hover:bg-secondary-soft active:bg-secondary-soft focus-visible:ring-secondary-soft disabled:text-disabled-text disabled:cursor-not-allowed`,
+  /** 옅은 주색 — 수정처럼 주 버튼 옆에 나란히 서는 보조 동작 */
+  soft: `${btnBase} border-primary/20 bg-primary-soft text-primary hover:bg-primary/20 active:bg-primary/25 focus-visible:ring-primary-soft disabled:opacity-50 disabled:cursor-not-allowed`,
+  /**
+   * 화면의 대표 버튼 — 공지 작성 · 차량 예약하기 · 경비지급 요청 · 펀드 신청하기 · 일정 추가.
+   * 올리면 살짝 떠오르고(그림자↑) 누르면 내려앉는다. 크기는 자리마다 달라서 쓰는 쪽에서 붙인다:
+   *   className={`${btnStyles.cta} px-5 py-2.5 text-sm`}
+   */
+  cta: "inline-flex items-center justify-center gap-2 bg-primary text-white font-bold tracking-tight rounded-lg shadow-md transition-all cursor-pointer whitespace-nowrap outline-none hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md active:bg-primary-active focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-1 disabled:bg-primary-faint disabled:shadow-none disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none",
+  /** 작은 주 버튼 — 표 윗줄 같은 툴바 안의 동작 (선택 승인 · 이체 목록 만들기) */
+  small:
+    "inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold rounded-lg bg-primary text-white whitespace-nowrap transition cursor-pointer outline-none hover:bg-primary-active active:bg-primary-active focus-visible:ring-2 focus-visible:ring-primary-soft disabled:bg-primary-faint disabled:cursor-not-allowed",
+  /** 옅은 빨강 — 반려·삭제처럼 되돌리기 어려운 보조 동작. 확인창의 최종 버튼은 delete */
+  dangerSoft: `${btnBase} border-danger/30 bg-danger-soft text-danger-active hover:bg-danger/20 active:bg-danger/25 focus-visible:ring-danger-soft disabled:opacity-50 disabled:cursor-not-allowed`,
 };
 
 // --- 헬퍼 ---

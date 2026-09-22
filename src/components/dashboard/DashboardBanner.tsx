@@ -71,8 +71,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 const ALARM_BADGE_STYLE: Record<string, string> = {
   중요: "bg-red-50 text-red-600",
-  공지: "bg-blue-50 text-blue-600",
-  일반: "bg-gray-100 text-gray-500",
+  공지: "bg-primary-wash text-primary",
+  일반: "bg-gray-100 text-muted",
   차량: "bg-green-50 text-green-700",
   시설: "bg-purple-50 text-purple-600",
 };
@@ -193,13 +193,13 @@ function AlarmDetailPopup({
 
   const empty = (msg: string) => (
     <div className="flex items-center justify-center h-full min-h-[80px]">
-      <p className="text-xs text-gray-300 font-medium">{msg}</p>
+      <p className="text-xs text-disabled-text font-medium">{msg}</p>
     </div>
   );
 
   // 카드 공통 — 고정 높이 100px
   const cardCls =
-    "bg-white border border-gray-200 rounded-xl p-4 shadow-sm cursor-pointer hover:border-gray-300 hover:shadow-md transition-all flex flex-col justify-between h-[100px]";
+    "bg-white border border-line rounded-xl p-4 shadow-sm cursor-pointer hover:border-line-strong hover:shadow-md transition-all flex flex-col justify-between h-[100px]";
 
   const facilityCards = loading ? (
     skeletons
@@ -225,7 +225,7 @@ function AlarmDetailPopup({
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 truncate max-w-[120px]">
                 {r.resources?.name ?? "시설"}
               </span>
-              <span className="text-[10px] font-bold text-gray-500 tabular-nums shrink-0">
+              <span className="text-[10px] font-bold text-muted tabular-nums shrink-0">
                 {format(start, "M/d (EEE)", { locale: ko })}
               </span>
             </div>
@@ -308,7 +308,7 @@ function AlarmDetailPopup({
           }}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-wash text-primary">
               {n.category}
             </span>
             <span className="text-[10px] text-gray-400 shrink-0">
@@ -318,7 +318,7 @@ function AlarmDetailPopup({
           <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-1">
             {n.title}
           </p>
-          <p className="text-xs text-gray-300">공지사항</p>
+          <p className="text-xs text-disabled-text">공지사항</p>
         </div>
       ))}
     </div>
@@ -342,12 +342,12 @@ function AlarmDetailPopup({
   const headerBg = isVehicle
     ? "bg-green-50"
     : n
-      ? "bg-blue-50"
+      ? "bg-primary-wash"
       : "bg-purple-50";
   const labelCls = isVehicle
     ? "text-green-600"
     : n
-      ? "text-blue-600"
+      ? "text-primary"
       : "text-purple-600";
   const typeLabel = isVehicle ? "차량 예약" : n ? "최근 공지" : "시설 예약";
 
@@ -399,7 +399,7 @@ function AlarmDetailPopup({
               {colHeader(
                 "최근 공지",
                 data?.notices.length ?? 0,
-                "bg-blue-50 text-blue-600",
+                "bg-primary-wash text-primary",
               )}
               <div
                 className="flex-1 overflow-y-auto pr-1.5"
@@ -426,7 +426,7 @@ function AlarmDetailPopup({
             />
             {/* 팝오버 카드 */}
             <div
-              className="fixed z-[10002] bg-white rounded-2xl shadow-2xl w-[340px] overflow-hidden border border-gray-100"
+              className="fixed z-[10002] bg-white rounded-2xl shadow-2xl w-[340px] overflow-hidden border border-line-soft"
               style={{
                 top: Math.max(
                   16,
@@ -447,13 +447,13 @@ function AlarmDetailPopup({
                   <span className={`text-xs font-bold ${labelCls}`}>
                     {typeLabel}
                   </span>
-                  <p className="text-base font-extrabold text-gray-900 mt-0.5 leading-snug">
+                  <p className="text-base font-extrabold text-heading mt-0.5 leading-snug">
                     {r ? (r.resources?.name ?? "—") : n?.title}
                   </p>
                 </div>
                 <button
                   onClick={() => setPopover(null)}
-                  className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-black/10 transition text-gray-500"
+                  className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-black/10 transition text-muted"
                 >
                   <svg
                     className="w-4 h-4"
@@ -488,7 +488,7 @@ function AlarmDetailPopup({
                         value={r.purpose}
                       />
                     )}
-                    <div className="border-t border-gray-100 pt-1" />
+                    <div className="border-t border-line-soft pt-1" />
                     {isVehicle ? (
                       <>
                         <InfoRow
@@ -520,11 +520,11 @@ function AlarmDetailPopup({
                         { locale: ko },
                       )}
                     />
-                    <div className="border-t border-gray-100 pt-1" />
+                    <div className="border-t border-line-soft pt-1" />
                     <Link
                       href="/notice"
                       onClick={onClose}
-                      className="block w-full text-center text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 py-2.5 rounded-lg transition"
+                      className="block w-full text-center text-xs font-bold text-primary bg-primary-wash hover:bg-primary-soft py-2.5 rounded-lg transition"
                     >
                       공지 페이지로 이동
                     </Link>
@@ -620,14 +620,14 @@ function AlarmCard() {
 
   return (
     <>
-      <div className="lg:w-2/5 min-w-0 bg-white rounded-2xl border border-gray-200 p-5 flex flex-col h-[260px] sm:h-[168px] overflow-hidden">
+      <div className="lg:w-2/5 min-w-0 bg-white rounded-2xl border border-line p-5 flex flex-col h-[260px] sm:h-[168px] overflow-hidden">
         <div className="flex items-center justify-between mb-2 shrink-0">
           <p className="text-xs font-semibold text-gray-400 tracking-wide">
             🔔 최근 알림
           </p>
           <button
             onClick={() => setPopupOpen(true)}
-            className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded-md transition"
+            className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-active hover:bg-primary-wash px-2 py-0.5 rounded-md transition"
           >
             오늘 현황
             <svg
@@ -656,7 +656,7 @@ function AlarmCard() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <p className="text-sm text-gray-300 flex-1 flex items-center">
+          <p className="text-sm text-disabled-text flex-1 flex items-center">
             최근 활동이 없습니다.
           </p>
         ) : (
@@ -769,7 +769,7 @@ export default function DashboardBanner({
       {/* ── 우측 카드 영역 ── */}
       <div className="lg:flex-1 min-w-0 flex flex-col sm:flex-row gap-4">
         {/* 날씨 + 미세먼지 통합 카드 */}
-        <div className="w-full sm:flex-[2] min-w-0 bg-white rounded-2xl border border-gray-200 min-h-[140px] sm:min-h-[168px] flex overflow-hidden">
+        <div className="w-full sm:flex-[2] min-w-0 bg-white rounded-2xl border border-line min-h-[140px] sm:min-h-[168px] flex overflow-hidden">
           {/* 날씨 — 왼쪽 */}
           <div className="flex-1 min-w-0 p-5 flex flex-col justify-between">
             <p className="text-xs font-semibold text-gray-400 tracking-wide truncate">
@@ -785,7 +785,7 @@ export default function DashboardBanner({
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-4xl leading-none">{weather.emoji}</span>
                   <div>
-                    <p className="text-3xl font-extrabold text-gray-900 leading-tight">
+                    <p className="text-3xl font-extrabold text-heading leading-tight">
                       {weather.temp}°
                       <span className="text-base font-bold text-gray-400">
                         C
@@ -836,7 +836,7 @@ export default function DashboardBanner({
                 {/* PM10 / PM2.5 수치 + 색상 뱃지 */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 font-medium">미세먼지</span>
+                    <span className="text-muted font-medium">미세먼지</span>
                     <div className="flex items-center gap-1.5">
                       {weather.pm10 != null && (
                         <span
@@ -852,7 +852,7 @@ export default function DashboardBanner({
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 font-medium">
+                    <span className="text-muted font-medium">
                       초미세먼지
                     </span>
                     <div className="flex items-center gap-1.5">

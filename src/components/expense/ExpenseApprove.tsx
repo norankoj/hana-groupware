@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
-import { ChevronDown, ChevronRight, Download } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Search, X } from "lucide-react";
 import ConfirmModal, { ConfirmRow } from "@/components/fund/ConfirmModal";
 import { AmountField, DateField } from "@/components/fund/FundFields";
 import AdjustmentHistory from "./AdjustmentHistory";
@@ -15,6 +15,8 @@ import ReceiptThumbs from "./ReceiptThumbs";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
 import BudgetItemPicker from "./BudgetItemPicker";
+import ExpenseRequestTable from "./ExpenseRequestTable";
+import { DetailRow, DetailTable } from "@/components/ui/DetailTable";
 import ReceiptViewer, {
   collectReceipts,
   type ReceiptRef,
@@ -32,6 +34,7 @@ import {
   btnStyles,
   flattenBudget,
   formatWon,
+  inputClass,
   itemLabel,
   majorLabels,
   netPaid,
@@ -79,6 +82,15 @@ export default function ExpenseApprove({
   const supabase = createClient();
 
   const [filter, setFilter] = useState<Filter>("pending");
+  /** 걸러보기 — 건이 쌓이면 상태만으로는 못 찾는다 (전체 내역과 같은 기준) */
+  const [query, setQuery] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  /** 처리대기에서 골라 한꺼번에 승인할 건 */
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  /** 표 보기가 기본 — 카드 보기는 한 건을 자세히 볼 때 */
+  const [view, setView] = useState<"table" | "card">("table");
   // 청구는 한 건씩 오므로 기본으로 펴둔다 — 담은 것을 보려고 매번 누르지 않게
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -121,14 +133,41 @@ export default function ExpenseApprove({
   const EMPTY_YEAR = { items: [], usage: [], options: [] };
 
   const shown = useMemo(() => {
-    const list = requests.filter((r) => r.status === filter);
+    const q = query.trim().toLowerCase();
+    const qDigits = q.replace(/\D/g, "");
+    const list = requests.filter((r) => {
+      if (r.status !== filter) return false;
+      // 기간은 청구일자 기준. 지급완료만 이체일자 — 그 탭은 이체일로 묶여 있다
+      const day = (filter === "paid" ? r.paid_at : r.request_date) ?? "";
+      if (from && (!day || day < from)) return false;
+      if (to && (!day || day > to)) return false;
+      if (!q) return true;
+
+      const accounts = (r.items ?? []).map((it) => resolveAccount(it, r));
+      const hay = [
+        r.title,
+        r.requester?.full_name ?? "",
+        ...(r.items ?? []).flatMap((it) => [it.item_name, it.purpose ?? ""]),
+        ...accounts.flatMap((a) => [a.account_holder ?? "", a.account_no ?? ""]),
+      ]
+        .join(" ")
+        .toLowerCase();
+      // 계좌번호는 하이픈을 넣든 빼든 찾히게 숫자만으로도 비교한다
+      return (
+        hay.includes(q) ||
+        (qDigits.length >= 4 &&
+          accounts.some((a) =>
+            (a.account_no ?? "").replace(/\D/g, "").includes(qDigits),
+          ))
+      );
+    });
     // 처리대기가 늘 위로
     return [...list].sort((a, b) => {
       if (a.status === "pending" && b.status !== "pending") return -1;
       if (a.status !== "pending" && b.status === "pending") return 1;
       return (b.request_date ?? "").localeCompare(a.request_date ?? "");
     });
-  }, [requests, filter]);
+  }, [requests, filter, query, from, to]);
 
 /** 정정까지 반영한 청구 한 건의 지급액 — 예산 확정지출과 같은 기준 */
   const requestNet = (r: ExpenseRequest) =>
@@ -315,6 +354,25 @@ export default function ExpenseApprove({
     );
   };
 
+  /** 표에서 이 페이지 전체를 고르거나 푼다 */
+  const pickMany = (ids: string[], on: boolean) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+
+  const togglePick = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   const toggle = (id: string) =>
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -400,6 +458,60 @@ export default function ExpenseApprove({
       return onRefresh();
     }
     toast.success("승인했습니다.");
+    onRefresh();
+  };
+
+  /** 고른 건을 한꺼번에 승인 — 비목이 다 배정된 건만 넘어간다 */
+  const approveMany = async () => {
+    const targets = shown.filter((r) => picked.has(r.id));
+    if (targets.length === 0) return;
+
+    const notReady = targets.filter(
+      (r) =>
+        (r.items ?? []).length === 0 ||
+        (r.items ?? []).some((i) => !i.budget_item_id),
+    );
+    if (notReady.length > 0)
+      return toast.error(
+        `비목이 배정되지 않은 청구가 ${notReady.length}건 있습니다. 먼저 배정해주세요.`,
+      );
+
+    const over = targets.filter((r) => overBudgetOf(r).length > 0).length;
+    const total = targets.reduce((s, r) => s + requestTotal(r.items ?? []), 0);
+    const ok = await showConfirm(
+      `${targets.length}건을 승인할까요?`,
+      `합계 ${formatWon(total)}원` +
+        (over > 0 ? ` · 그중 ${over}건은 예산 가용 잔액을 넘깁니다.` : ""),
+      "승인",
+    );
+    if (!ok) return;
+
+    setBulkBusy(true);
+    const { data, error } = await supabase
+      .from("expense_requests")
+      .update({
+        status: "approved",
+        handler_id: user.id,
+        decided_at: new Date().toISOString(),
+        result_seen: false,
+      })
+      .in(
+        "id",
+        targets.map((r) => r.id),
+      )
+      .eq("status", "pending")
+      .select("id");
+    setBulkBusy(false);
+    setPicked(new Set());
+
+    if (error) return toast.error("승인 실패: " + error.message);
+    // 그 사이 다른 담당자가 처리한 건은 조건에 걸려 빠진다
+    const done = data?.length ?? 0;
+    if (done < targets.length)
+      toast.error(
+        `${targets.length}건 중 ${done}건만 승인됐습니다. 나머지는 이미 처리된 청구입니다.`,
+      );
+    else toast.success(`${done}건을 승인했습니다.`);
     onRefresh();
   };
 
@@ -545,13 +657,25 @@ export default function ExpenseApprove({
             return (
               <div
                 key={req.id}
-                className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden"
+                className="border border-line rounded-xl bg-white shadow-sm overflow-hidden"
               >
                 {/* 헤더 */}
+                <div className="flex items-center">
+                {req.status === "pending" && (
+                  <label className="pl-4 sm:pl-5 py-3.5 flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={picked.has(req.id)}
+                      onChange={() => togglePick(req.id)}
+                      aria-label={`${req.title} 고르기`}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                    />
+                  </label>
+                )}
                 <button
                   onClick={() => toggle(req.id)}
                   aria-expanded={isOpen}
-                  className="w-full px-4 sm:px-5 py-3.5 flex items-center gap-3 text-left hover:bg-gray-50 transition cursor-pointer"
+                  className={`flex-1 min-w-0 ${req.status === "pending" ? "pl-3 pr-4 sm:pr-5" : "px-4 sm:px-5"} py-3.5 flex items-center gap-3 text-left hover:bg-gray-50 transition cursor-pointer`}
                 >
                   <span className="shrink-0 text-gray-400">
                     {isOpen ? (
@@ -566,10 +690,10 @@ export default function ExpenseApprove({
                     {STATUS_LABEL[req.status]}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
+                    <p className="text-sm font-semibold text-heading truncate">
                       {req.title}
                     </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
+                    <p className="mt-0.5 text-xs text-muted">
                       {req.requester?.full_name ?? "-"} · 청구{" "}
                       {req.request_date}
                       {" · "}
@@ -589,7 +713,7 @@ export default function ExpenseApprove({
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-sm font-bold text-gray-900 tabular-nums">
+                    <p className="text-sm font-bold text-heading tabular-nums">
                       {formatWon(total)}
                     </p>
                     {req.status === "pending" && assigned < items.length && (
@@ -600,9 +724,10 @@ export default function ExpenseApprove({
                     )}
                   </div>
                 </button>
+                </div>
 
                 {isOpen && (
-                  <div className="border-t border-gray-200">
+                  <div className="border-t border-line">
                     {/* 청구 줄 */}
                     <ul className="divide-y divide-gray-100">
                       {items.map((it) => {
@@ -611,17 +736,17 @@ export default function ExpenseApprove({
                         return (
                           <li
                             key={it.id}
-                            className="px-4 sm:px-5 py-3 bg-gray-50/40"
+                            className="px-4 sm:px-5 py-3 bg-table-header"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="text-sm font-semibold text-gray-900">
+                                <p className="text-sm font-semibold text-heading">
                                   <span className="mr-2 text-xs text-gray-400 tabular-nums">
                                     {it.sort_order}
                                   </span>
                                   {it.item_name}
                                 </p>
-                                <p className="mt-0.5 font-mono text-xs text-gray-500">
+                                <p className="mt-0.5 font-mono text-xs text-muted">
                                   {it.qty > 1 &&
                                     `${it.qty} × ${formatWon(it.unit_price)} · `}
                                   {accountText(acc)}
@@ -636,7 +761,7 @@ export default function ExpenseApprove({
                                   </p>
                                 )}
                               </div>
-                              <span className="shrink-0 text-sm font-bold text-gray-900 tabular-nums">
+                              <span className="shrink-0 text-sm font-bold text-heading tabular-nums">
                                 {formatWon(it.amount)}
                               </span>
                             </div>
@@ -671,7 +796,7 @@ export default function ExpenseApprove({
                                 <button
                                   type="button"
                                   onClick={() => openAdjust(it)}
-                                  className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                  className="px-2 py-1 rounded-md border border-line-strong bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
                                 >
                                   지급 정정
                                 </button>
@@ -686,8 +811,8 @@ export default function ExpenseApprove({
                     </ul>
 
                     {/* 처리 */}
-                    <div className="px-4 sm:px-5 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-xs text-gray-500">
+                    <div className="px-4 sm:px-5 py-3 border-t border-line flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-muted">
                         {req.status === "pending" &&
                           "모든 줄에 비목을 배정하면 승인할 수 있습니다."}
                         {req.status === "approved" &&
@@ -709,7 +834,7 @@ export default function ExpenseApprove({
                                   value={String(req.fiscal_year)}
                                   onChange={(v) => moveYear(req, Number(v))}
                                   options={yearOptions}
-                                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+                                  className="w-full bg-white border border-line-strong rounded-lg px-3 py-2.5 text-sm"
                                 />
                               </div>
                             )}
@@ -767,18 +892,98 @@ export default function ExpenseApprove({
             );
   };
 
+  /**
+   * 이 탭의 동작 — 표 보기는 표 윗줄 안에, 카드 보기는 카드 위에 한 줄로.
+   * 표 위에 따로 줄을 두면 탭마다 표 시작 위치가 달라져 아래가 빈다.
+   */
+  const tabActions: React.ReactNode =
+    filter === "pending" && shown.length > 0 ? (
+      <>
+        <span className="text-sm text-muted">
+          {picked.size > 0 ? (
+            <>
+              <b className="text-heading">{picked.size}건</b> 선택{" "}
+              <b className="font-mono tabular-nums text-heading">
+                {formatWon(shown
+                  .filter((r) => picked.has(r.id))
+                  .reduce((t, r) => t + requestTotal(r.items ?? []), 0))}
+              </b>
+              원
+            </>
+          ) : (
+            "골라서 한꺼번에 승인"
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={approveMany}
+          disabled={picked.size === 0 || bulkBusy}
+          className={btnStyles.small}
+        >
+          {bulkBusy ? "승인 중..." : `선택 ${picked.size}건 승인`}
+        </button>
+      </>
+    ) : filter === "approved" && approvedCount > 0 ? (
+      <>
+        <span className="text-sm text-muted">
+          승인된 <b className="text-heading">{approvedCount}건</b>을 은행에 들고 갈 목록으로 확정
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            setListDate(todayString());
+            setListOpen(true);
+          }}
+          disabled={listing}
+          className={btnStyles.small}
+        >
+          {listing ? "만드는 중..." : "이체 목록 만들기"}
+        </button>
+      </>
+    ) : filter === "paying" && payingCount > 0 ? (
+      <>
+        <span className="text-sm text-muted">이체를 마친 목록을 기록하세요</span>
+        {payingBatches.map(([key, list]) => (
+          <span
+            key={key}
+            className="inline-flex items-center gap-2 pl-2.5 pr-1 py-1 border border-line-strong rounded-lg text-xs"
+          >
+            <span className="font-mono text-heading">{batchLabel(key)}</span>
+            <span className="text-muted tabular-nums">{list.length}건</span>
+            <b className="font-mono tabular-nums text-heading">
+              {formatWon(list.reduce((t, r) => t + requestTotal(r.items ?? []), 0))}
+            </b>
+            <button
+              type="button"
+              onClick={() => {
+                setPayDate(todayString());
+                setPayBatch(key);
+              }}
+              className={btnStyles.small}
+            >
+              지급완료 기록
+            </button>
+          </span>
+        ))}
+      </>
+    ) : null;
+
   return (
     <div className="space-y-4">
-      {/* 상태 필터 · 엑셀 */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* 상태 · 합계 · 엑셀 · 검색 · 기간 — 한 툴바 (전체 내역과 같은 구조) */}
+      <div className="border border-line bg-white rounded-xl overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.key}
-            onClick={() => setFilter(f.key)}
+            onClick={() => {
+              setFilter(f.key);
+              setPicked(new Set());
+            }}
             className={`px-3.5 py-1.5 text-sm rounded-lg border transition cursor-pointer ${
               filter === f.key
-                ? "border-blue-500 bg-blue-50 text-blue-700 font-bold"
-                : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                ? "border-primary bg-primary-wash text-primary font-bold"
+                : "border-line-strong bg-white text-gray-600 hover:bg-gray-50"
             }`}
           >
             {f.label}
@@ -792,89 +997,98 @@ export default function ExpenseApprove({
 
         <div className="ml-auto flex items-center gap-3">
           {shown.length > 0 && (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted">
               {shown.length}건{" "}
-              <b className="font-mono tabular-nums text-gray-900">
+              <b className="font-mono tabular-nums text-heading">
                 {formatWon(shownTotal)}
               </b>
               원
             </span>
           )}
+          {/* 표 · 카드 — 표는 훑고 고르는 데, 카드는 한 건을 펴놓고 보는 데 */}
+          <div className="flex rounded-lg border border-line overflow-hidden">
+            {(
+              [
+                ["table", "표"],
+                ["card", "카드"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={`px-3 py-1.5 text-sm transition cursor-pointer ${
+                  view === v
+                    ? "bg-primary-wash text-primary font-bold"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={exportExcel}
             disabled={shown.length === 0}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium bg-white border border-line-strong rounded-lg text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
             <Download size={15} /> 엑셀
           </button>
         </div>
       </div>
 
-      {/* 이체 흐름 — 승인됨에서 목록을 확정하고, 이체중에서 일괄 지급 처리한다 */}
-      {filter === "approved" && approvedCount > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 border border-blue-200 bg-blue-50/60 rounded-xl px-4 py-3">
-          <div className="flex-1">
-            <p className="text-sm font-bold text-gray-900">
-              승인된 {approvedCount}건을 은행에 들고 갈 목록으로 확정
-            </p>
-            <p className="mt-0.5 text-xs text-gray-600">
-              엑셀이 함께 내려가고 이 건들은 <b>이체중</b>으로 넘어갑니다.
-              이후 승인되는 건은 여기 섞이지 않습니다.
-            </p>
+      {/* 걸러보기 — 기간(청구일자, 지급완료는 이체일자) · 검색 */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 border-t border-line bg-table-header">
+        <div className="relative flex-1">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="신청자 · 품명 · 용도 · 예금주 · 계좌번호로 검색"
+            className={`${inputClass} py-2 pl-9 pr-9`}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="검색 지우기"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-heading cursor-pointer"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-xs font-bold text-muted">
+            {filter === "paid" ? "이체일" : "청구일"}
+          </span>
+          <div className="w-[140px]">
+            <DateField value={from} onChange={setFrom} />
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setListDate(todayString());
-              setListOpen(true);
-            }}
-            disabled={listing}
-            className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            {listing ? "만드는 중..." : "이체 목록 만들기"}
-          </button>
+          <span className="text-gray-400">~</span>
+          <div className="w-[140px]">
+            <DateField value={to} onChange={setTo} />
+          </div>
+          {(from || to) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFrom("");
+                setTo("");
+              }}
+              className="px-2.5 py-1.5 text-xs font-medium text-muted hover:text-heading cursor-pointer whitespace-nowrap"
+            >
+              기간 해제
+            </button>
+          )}
         </div>
-      )}
-
-      {filter === "paying" && payingCount > 0 && (
-        <div className="border border-indigo-200 bg-indigo-50/60 rounded-xl px-4 py-3">
-          <p className="text-sm font-bold text-gray-900">
-            은행 이체를 마친 목록을 지급완료로 기록하세요
-          </p>
-          <p className="mt-0.5 text-xs text-gray-600">
-            목록마다 따로 기록합니다. 못 보낸 건은 그 건만 아래에서 <b>승인됨으로 되돌리기</b> 하세요.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {payingBatches.map(([key, list]) => (
-              <li
-                key={key}
-                className="flex flex-wrap items-center gap-3 bg-white border border-indigo-100 rounded-lg px-3 py-2"
-              >
-                <span className="text-sm font-bold text-gray-900">
-                  이체 목록 <span className="font-mono">{batchLabel(key)}</span>
-                </span>
-                <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-bold text-gray-600 tabular-nums">
-                  {list.length}건
-                </span>
-                <span className="font-mono text-sm font-bold tabular-nums text-gray-900">
-                  {formatWon(list.reduce((t, r) => t + requestTotal(r.items ?? []), 0))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPayDate(todayString());
-                    setPayBatch(key);
-                  }}
-                  className="ml-auto px-4 py-2 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm cursor-pointer whitespace-nowrap"
-                >
-                  지급완료 기록
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      </div>
+      </div>
 
       {budgetItems.length === 0 && (
         <div className="border-l-4 border-amber-400 bg-amber-50 rounded-r-lg px-5 py-4">
@@ -885,9 +1099,31 @@ export default function ExpenseApprove({
         </div>
       )}
 
-      {shown.length === 0 ? (
-        <div className="border border-gray-200 rounded-xl bg-white py-14 text-center">
-          <p className="text-sm text-gray-500">
+      {/* 표 보기는 0건이어도 표를 그린다 — 빈 카드로 바뀌면 탭을 누를 때마다 화면이 줄어든다 */}
+      {view === "table" ? (
+        <ExpenseRequestTable
+          requests={shown}
+          emptyText={filter === "pending" ? "처리할 청구가 없습니다." : "해당하는 청구가 없습니다."}
+          actions={tabActions}
+          picked={picked}
+          onTogglePick={togglePick}
+          onPickMany={pickMany}
+          onOpenDetail={(r) => setDetailId(r.id)}
+          onViewReceipts={(r) =>
+            setViewer({ receipts: collectReceipts(r.items ?? []), at: 0 })
+          }
+        />
+      ) : null}
+
+      {view === "card" && tabActions && (
+        <div className="flex flex-wrap items-center gap-2 border border-line bg-white rounded-xl px-3 py-2.5">
+          {tabActions}
+        </div>
+      )}
+
+      {view === "table" ? null : shown.length === 0 ? (
+        <div className="border border-line rounded-xl bg-white py-14 text-center">
+          <p className="text-sm text-muted">
             {filter === "pending"
               ? "처리할 청구가 없습니다."
               : "해당하는 청구가 없습니다."}
@@ -903,7 +1139,7 @@ export default function ExpenseApprove({
                 return (
                   <section
                     key={date}
-                    className="border border-gray-200 rounded-xl bg-white overflow-hidden"
+                    className="border border-line rounded-xl bg-white overflow-hidden"
                   >
                     {/* 이체일 한 줄 — 날짜 · 건수 · 합계 */}
                     <button
@@ -911,13 +1147,13 @@ export default function ExpenseApprove({
                       onClick={() => toggleDate(date)}
                       aria-expanded={isOpen}
                       className={`w-full flex items-center gap-3 px-4 sm:px-5 py-3 text-left transition cursor-pointer ${
-                        isOpen ? "bg-gray-50 border-b border-gray-200" : "hover:bg-gray-50"
+                        isOpen ? "bg-table-header border-b border-line" : "hover:bg-gray-50"
                       }`}
                     >
                       <span className="shrink-0 text-gray-400">
                         {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                       </span>
-                      <span className="font-mono text-sm font-bold tabular-nums text-gray-900">
+                      <span className="font-mono text-sm font-bold tabular-nums text-heading">
                         {date}
                       </span>
                       {weekdayOf(date) && (
@@ -931,7 +1167,7 @@ export default function ExpenseApprove({
                           정정 {adjustedCount}건
                         </span>
                       )}
-                      <span className="ml-auto font-mono text-sm font-bold tabular-nums text-gray-900">
+                      <span className="ml-auto font-mono text-sm font-bold tabular-nums text-heading">
                         {formatWon(sum)}
                       </span>
                     </button>
@@ -941,7 +1177,7 @@ export default function ExpenseApprove({
                       <div className="overflow-x-auto">
                         <table className="w-full min-w-[980px] border-collapse text-sm">
                           <thead>
-                            <tr className="text-[11px] font-semibold text-gray-500 border-b border-gray-200">
+                            <tr className="text-[11px] font-semibold text-muted border-b border-table-line">
                               <th className="py-2 pl-5 pr-3 text-left">신청자</th>
                               <th className="py-2 px-3 text-left">품명 / 용도</th>
                               <th className="py-2 px-3 text-left">비목</th>
@@ -959,12 +1195,12 @@ export default function ExpenseApprove({
                               const reqReceipts = collectReceipts(req.items ?? []);
                               return (
                                 <Fragment key={req.id}>
-                                  <tr className="border-b border-gray-100 align-top hover:bg-gray-50">
+                                  <tr className="border-b border-table-line align-top hover:bg-gray-50">
                                     <td className="py-2.5 pl-5 pr-3 whitespace-nowrap text-gray-800">
                                       {req.requester?.full_name ?? "-"}
                                     </td>
                                     <td className="py-2.5 px-3">
-                                      <p className="font-medium text-gray-900">{req.title}</p>
+                                      <p className="font-medium text-heading">{req.title}</p>
                                       {it?.purpose && (
                                         <p className="mt-0.5 text-xs text-gray-400">{it.purpose}</p>
                                       )}
@@ -983,14 +1219,14 @@ export default function ExpenseApprove({
                                     </td>
                                     <td className="py-2.5 px-3 whitespace-nowrap">
                                       {it?.withdraw_code ? (
-                                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded border border-gray-300 font-mono text-[11px] font-bold text-gray-600">
+                                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded border border-line-strong font-mono text-[11px] font-bold text-gray-600">
                                           {it.withdraw_code}
                                         </span>
                                       ) : (
-                                        <span className="text-xs text-gray-300">-</span>
+                                        <span className="text-xs text-disabled-text">-</span>
                                       )}
                                     </td>
-                                    <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-gray-500">
+                                    <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-muted">
                                       {it ? accountText(resolveAccount(it, req)) : "-"}
                                     </td>
                                     <td className="py-2 px-3">
@@ -1013,11 +1249,11 @@ export default function ExpenseApprove({
                                           ))}
                                         </div>
                                       ) : (
-                                        <span className="text-xs text-gray-300">없음</span>
+                                        <span className="text-xs text-disabled-text">없음</span>
                                       )}
                                     </td>
                                     <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                                      <span className="font-mono font-semibold tabular-nums text-gray-900">
+                                      <span className="font-mono font-semibold tabular-nums text-heading">
                                         {formatWon(requestNet(req))}
                                       </span>
                                       {adjusted && (
@@ -1037,7 +1273,7 @@ export default function ExpenseApprove({
                                           <button
                                             type="button"
                                             onClick={() => openAdjust(it)}
-                                            className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                            className="px-2 py-1 rounded-md border border-line-strong bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
                                           >
                                             지급 정정
                                           </button>
@@ -1045,7 +1281,7 @@ export default function ExpenseApprove({
                                         <button
                                           type="button"
                                           onClick={() => setDetailId(req.id)}
-                                          className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                          className="px-2 py-1 rounded-md border border-line-strong bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
                                         >
                                           상세
                                         </button>
@@ -1099,12 +1335,12 @@ export default function ExpenseApprove({
             }
           />
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1.5">
+            <label className="block text-xs font-bold text-muted mb-1.5">
               처리예정일자
             </label>
             <DateField value={listDate} onChange={setListDate} />
           </div>
-          <p className="pt-1 text-xs text-gray-500">
+          <p className="pt-1 text-xs text-muted">
             이 건들은 <b>이체중</b>으로 넘어가고 엑셀이 내려갑니다. 이후 승인되는
             건은 여기 섞이지 않습니다.
           </p>
@@ -1118,108 +1354,204 @@ export default function ExpenseApprove({
           title={detailReq.title}
           className="sm:max-w-[680px]"
           footer={
-            <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
-              <button onClick={() => setDetailId(null)} className={btnStyles.cancel}>
+            // 반려(되돌리기 어려움)는 옅은 빨강으로 왼쪽, 닫기 · 주 동작은 오른쪽
+            <div className="flex gap-2 w-full">
+              {detailReq.status === "pending" && (
+                <button
+                  onClick={() => {
+                    setDetailId(null);
+                    setRejectTarget(detailReq);
+                  }}
+                  disabled={busyId === detailReq.id}
+                  className={`${btnStyles.dangerSoft} sm:mr-auto`}
+                >
+                  반려
+                </button>
+              )}
+              {/* 되돌리기 — 카드 보기에만 있던 것을 표 보기에서도 */}
+              {detailReq.status === "approved" && (
+                <button
+                  onClick={async () => {
+                    setDetailId(null);
+                    await unapprove(detailReq);
+                  }}
+                  disabled={busyId === detailReq.id}
+                  className={`${btnStyles.dangerSoft} sm:mr-auto`}
+                >
+                  승인 취소
+                </button>
+              )}
+              {detailReq.status === "paying" && (
+                <button
+                  onClick={async () => {
+                    setDetailId(null);
+                    await undoPaying(detailReq);
+                  }}
+                  disabled={busyId === detailReq.id}
+                  className={`${btnStyles.dangerSoft} sm:mr-auto`}
+                >
+                  승인됨으로 되돌리기
+                </button>
+              )}
+              <button
+                onClick={() => setDetailId(null)}
+                className={`${btnStyles.cancel} ${
+                  ["pending", "approved", "paying"].includes(detailReq.status) ? "" : "sm:ml-auto"
+                }`}
+              >
                 닫기
               </button>
               {detailReq.status === "paid" && (detailReq.items ?? [])[0] && (
                 <button
                   onClick={() => openAdjust((detailReq.items ?? [])[0])}
-                  className={`${btnStyles.save} sm:min-w-[80px]`}
+                  className={btnStyles.save}
                 >
                   지급 정정
+                </button>
+              )}
+              {detailReq.status === "pending" && (
+                <button
+                  onClick={async () => {
+                    setDetailId(null);
+                    await approve(detailReq);
+                  }}
+                  disabled={busyId === detailReq.id}
+                  className={btnStyles.save}
+                >
+                  승인
                 </button>
               )}
             </div>
           }
         >
-          <div className="space-y-5">
-            {/* 상태 · 금액 */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-              <span
-                className={`px-2.5 py-1 text-xs font-bold rounded border ${STATUS_STYLE[detailReq.status]}`}
-              >
-                {STATUS_LABEL[detailReq.status]}
-              </span>
-              <span className="text-sm text-gray-600">
-                {hasAdjustment(detailReq) ? "최종 지급액" : "금액"}{" "}
-                <b className="text-lg text-gray-900 tabular-nums">
-                  {formatWon(requestNet(detailReq))}
-                </b>
-                원
-              </span>
-            </div>
+          {(() => {
+            const items = detailReq.items ?? [];
+            const all = collectReceipts(items);
+            // 청구 한 건 = 줄 한 개가 보통이라 한 표에 모은다. 예전 묶음(여러 줄)은 줄마다 표를 나눈다
+            const single = items.length === 1;
 
-            {/* 기본 정보 */}
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
-              <InfoRow label="신청자" value={detailReq.requester?.full_name ?? "-"} />
-              <InfoRow label="청구일자" value={detailReq.request_date} />
-              {detailReq.paid_at && <InfoRow label="이체일자" value={detailReq.paid_at} />}
-              {detailReq.handler?.full_name && (
-                <InfoRow label="처리" value={detailReq.handler.full_name} />
-              )}
-            </dl>
-
-            {(detailReq.items ?? []).map((it) => {
-              const all = collectReceipts(detailReq.items ?? []);
-              return (
-                <div key={it.id} className="space-y-4 border-t border-gray-200 pt-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-gray-900">{it.item_name}</p>
-                      {it.purpose && (
-                        <p className="mt-1 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap break-words">
-                          <span className="mr-1.5 align-[1px] text-[11px] font-bold text-gray-400">
-                            용도
-                          </span>
-                          {it.purpose}
-                        </p>
-                      )}
-                      <p className="mt-1 font-mono text-xs text-gray-500">
-                        {accountText(resolveAccount(it, detailReq))}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-gray-900">
-                      {formatWon(it.amount)}
+            const itemRows = (it: ExpenseRequestItem) => (
+              <>
+                <DetailRow label="품명">
+                  <span className="font-semibold">{it.item_name}</span>
+                </DetailRow>
+                {!single && (
+                  <DetailRow label="금액">
+                    <b className="font-mono tabular-nums">
+                      {formatWon(it.amount)}원
+                    </b>
+                  </DetailRow>
+                )}
+                {it.purpose && (
+                  <DetailRow label="용도" top>
+                    <span className="whitespace-pre-wrap break-words">
+                      {it.purpose}
                     </span>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 mb-1.5">비목 · 출금계좌</p>
-                    <BudgetItemPicker
-                      {...(byYear.get(detailReq.fiscal_year) ?? EMPTY_YEAR)}
-                      accounts={withdrawAccounts}
-                      value={it.budget_item_id}
-                      withdrawValue={it.withdraw_code}
-                      disabled={
-                        detailReq.status === "rejected" ||
-                        detailReq.status === "cancelled"
+                  </DetailRow>
+                )}
+                <DetailRow label="받을 계좌">
+                  <span className="font-mono text-[13px]">
+                    {accountText(resolveAccount(it, detailReq))}
+                  </span>
+                </DetailRow>
+                <DetailRow label="비목·출금">
+                  <BudgetItemPicker
+                    {...(byYear.get(detailReq.fiscal_year) ?? EMPTY_YEAR)}
+                    accounts={withdrawAccounts}
+                    value={it.budget_item_id}
+                    withdrawValue={it.withdraw_code}
+                    disabled={
+                      detailReq.status === "rejected" ||
+                      detailReq.status === "cancelled"
+                    }
+                    onChange={(id, code) => assign(it.id, id, code)}
+                  />
+                </DetailRow>
+                {(it.receipt_files ?? []).length > 0 && (
+                  <DetailRow label="영수증" top>
+                    <ReceiptThumbs
+                      itemId={it.id}
+                      files={it.receipt_files ?? []}
+                      onOpen={(i) =>
+                        setViewer({
+                          receipts: all,
+                          at: all.findIndex(
+                            (x) => x.itemId === it.id && x.index === i,
+                          ),
+                        })
                       }
-                      onChange={(id, code) => assign(it.id, id, code)}
                     />
-                  </div>
+                  </DetailRow>
+                )}
+              </>
+            );
 
-                  {(it.receipt_files ?? []).length > 0 && (
-                    <div>
-                      <p className="text-xs font-bold text-gray-500 mb-1.5">영수증</p>
-                      <ReceiptThumbs
-                        itemId={it.id}
-                        files={it.receipt_files ?? []}
-                        onOpen={(i) =>
-                          setViewer({
-                            receipts: all,
-                            at: all.findIndex((x) => x.itemId === it.id && x.index === i),
-                          })
-                        }
-                      />
-                    </div>
+            return (
+              <div className="space-y-4">
+                <DetailTable>
+                  <DetailRow label="상태">
+                    <span
+                      className={`px-2 py-0.5 text-xs font-bold rounded border ${STATUS_STYLE[detailReq.status]}`}
+                    >
+                      {STATUS_LABEL[detailReq.status]}
+                    </span>
+                  </DetailRow>
+                  <DetailRow
+                    label={hasAdjustment(detailReq) ? "최종 지급액" : "금액"}
+                  >
+                    <b className="font-mono text-base tabular-nums">
+                      {formatWon(requestNet(detailReq))}원
+                    </b>
+                  </DetailRow>
+                  <DetailRow label="신청자">
+                    {detailReq.requester?.full_name ?? "-"}
+                  </DetailRow>
+                  <DetailRow label="청구일자">
+                    <span className="font-mono">{detailReq.request_date}</span>
+                  </DetailRow>
+                  {detailReq.paid_at && (
+                    <DetailRow label="이체일자">
+                      <span className="font-mono">{detailReq.paid_at}</span>
+                    </DetailRow>
                   )}
+                  {detailReq.handler?.full_name && (
+                    <DetailRow label="처리자">
+                      {detailReq.handler.full_name}
+                    </DetailRow>
+                  )}
+                  {detailReq.status === "rejected" && detailReq.reject_reason && (
+                    <DetailRow
+                      label={<span className="text-danger-active">반려 사유</span>}
+                      top
+                    >
+                      <span className="text-danger-active whitespace-pre-wrap">
+                        {detailReq.reject_reason}
+                      </span>
+                    </DetailRow>
+                  )}
+                  {single && itemRows(items[0])}
+                </DetailTable>
 
-                  <AdjustmentHistory item={it} paidAt={detailReq.paid_at} />
-                </div>
-              );
-            })}
-          </div>
+                {!single &&
+                  items.map((it) => (
+                    <div key={it.id}>
+                      <p className="text-xs font-bold text-muted mb-1.5">
+                        {it.sort_order}. {it.item_name}
+                      </p>
+                      <DetailTable>{itemRows(it)}</DetailTable>
+                    </div>
+                  ))}
+
+                {items.map((it) => (
+                  <AdjustmentHistory
+                    key={`adj-${it.id}`}
+                    item={it}
+                    paidAt={detailReq.paid_at}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </Modal>
       )}
 
@@ -1251,9 +1583,9 @@ export default function ExpenseApprove({
                   className={`py-2 rounded-lg border text-sm font-bold transition cursor-pointer ${
                     adjKind === k
                       ? k === "extra"
-                        ? "border-[#2151EC] bg-blue-50 text-[#2151EC]"
+                        ? "border-primary bg-primary-wash text-primary"
                         : "border-red-400 bg-red-50 text-red-600"
-                      : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                      : "border-line-strong bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
                   {ADJ_LABEL[k]}
@@ -1262,24 +1594,24 @@ export default function ExpenseApprove({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                <label className="block text-xs font-bold text-muted mb-1.5">
                   금액
                 </label>
                 <AmountField value={adjAmount} onChange={setAdjAmount} placeholder="0" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                <label className="block text-xs font-bold text-muted mb-1.5">
                   {adjKind === "extra" ? "이체할 날" : "반환받은 날"}
                 </label>
                 <DateField value={adjDate} onChange={setAdjDate} />
               </div>
             </div>
             {adjKind === "extra" && (
-              <p className="text-xs text-[#2151EC]">
+              <p className="text-xs text-primary">
                 기록하면 이 금액만 담은 이체 양식(엑셀)이 바로 내려받아집니다.
               </p>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               기록은 고치거나 지울 수 없습니다. 잘못 넣었으면 반대 기록을 하나 더 넣어주세요.
             </p>
           </div>
@@ -1314,7 +1646,7 @@ export default function ExpenseApprove({
                 </b>
               }
             />
-            <p className="pt-1 text-xs text-gray-500">
+            <p className="pt-1 text-xs text-muted">
               사유는 신청자에게 그대로 보입니다.
             </p>
           </div>
@@ -1366,7 +1698,7 @@ export default function ExpenseApprove({
             </>
           )}
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1.5">
+            <label className="block text-xs font-bold text-muted mb-1.5">
               이체일자
             </label>
             <DateField value={payDate} onChange={setPayDate} />
@@ -1376,11 +1708,3 @@ export default function ExpenseApprove({
     </div>
   );
 }
-
-/** 상세 팝업의 이름 · 값 한 줄 (결의서 상세 팝업과 같은 모양) */
-const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <div className="flex gap-3">
-    <dt className="w-20 shrink-0 text-xs font-bold text-gray-500 pt-0.5">{label}</dt>
-    <dd className="flex-1 text-sm text-gray-800 break-words">{value}</dd>
-  </div>
-);

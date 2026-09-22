@@ -12,6 +12,11 @@ import { createClient } from "@/utils/supabase/client";
 import imageCompression from "browser-image-compression";
 import { showConfirm } from "@/utils/alert";
 import { toProxyUrl } from "@/utils/minio-url";
+import { DetailRow } from "@/components/ui/DetailTable";
+import { btnStyles } from "@/components/fund/shared";
+import { DateTimeField, TimeField } from "@/components/fund/FundFields";
+import { alertBody, alertInfo, alertInfoText } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 type VehicleLog = {
   id: number;
@@ -60,26 +65,16 @@ interface DetailModalProps {
   onEdit?: (log: VehicleLog) => void; // [신규] 수정 버튼 클릭 시 실행할 함수
 }
 
+// 공용 상세 표 줄 — 휴가·선교펀드·지출결의서 상세와 같은 모양.
+// isLast 는 예전 호출부 호환용으로만 남겼다 (마지막 줄 선은 DetailRow 가 알아서 뺀다).
 const InfoRow = ({
   label,
   children,
-  isLast = false,
 }: {
   label: string;
   children: React.ReactNode;
   isLast?: boolean;
-}) => (
-  <div
-    className={`flex border-b border-gray-100 ${isLast ? "border-b-0" : ""}`}
-  >
-    <div className="w-24 sm:w-28 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-800 flex items-center shrink-0 border-r border-gray-100">
-      {label}
-    </div>
-    <div className="flex-1 px-3 py-2.5 text-sm text-gray-800 flex items-center bg-white min-w-0 break-keep leading-relaxed">
-      {children}
-    </div>
-  </div>
-);
+}) => <DetailRow label={label}>{children}</DetailRow>;
 
 
 export default function DetailModal({
@@ -654,7 +649,7 @@ export default function DetailModal({
                 <a
                   key={partIndex}
                   href={`tel:${part.replace(/-/g, "")}`} // 전화 걸기 링크 (하이픈 제거)
-                  className="inline-flex items-center gap-1 text-blue-600 font-bold hover:text-blue-800 transition bg-blue-50 px-1.5 py-0.5 rounded-md ml-0.5"
+                  className="inline-flex items-center gap-1 text-primary font-bold hover:text-primary-active transition bg-primary-wash px-1.5 py-0.5 rounded-md ml-0.5"
                 >
                   {part}
                   {/* 📞 전화기 아이콘 */}
@@ -712,18 +707,16 @@ export default function DetailModal({
         (isApprover || (String(checkoutForm.parking).trim() !== "" && exteriorFiles.length >= 4));
 
   const ActionSection = isMyTurn ? (
-    <div
-      className={`bg-white border rounded-sm overflow-hidden ${actionType === "checkin" ? "border-green-200" : "border-red-200"}`}
-    >
+    // 카드 테두리·머리는 중립으로 두고, 왼쪽 막대와 글자만 색을 쓴다.
+    // 초록·빨강 틴트를 넓게 깔면 파란 주색 화면에서 따로 논다.
+    <div className="bg-white border border-line rounded-lg overflow-hidden">
       {/* 상단 헤더 바 */}
-      <div
-        className={`px-4 py-2.5 flex items-center gap-2 border-b ${actionType === "checkin" ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}
-      >
+      <div className="px-4 py-2.5 flex items-center gap-2 border-b border-line-soft bg-table-header">
         <span
-          className={`w-1.5 h-4 rounded-full shrink-0 ${actionType === "checkin" ? "bg-green-500" : "bg-red-500"}`}
+          className={`w-1 h-4 rounded-full shrink-0 ${actionType === "checkin" ? "bg-success" : "bg-danger"}`}
         />
         <span
-          className={`text-sm font-bold ${actionType === "checkin" ? "text-green-700" : "text-red-700"}`}
+          className={`text-sm font-bold ${actionType === "checkin" ? "text-success-active" : "text-danger-active"}`}
         >
           {actionType === "checkin" ? "이용 시작" : "반납하기"}
         </span>
@@ -732,9 +725,10 @@ export default function DetailModal({
       <div className="p-4 space-y-5">
         {/* ─── 실제 이용 시간 ──────────────────────────────── */}
         <div className="space-y-3">
-          <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
-            <span className="text-blue-400 shrink-0 mt-0.5">ℹ️</span>
-            <p className="text-xs text-blue-600 leading-relaxed">
+          {/* 안내는 info(시안) — 주색은 누를 것에만 쓴다 */}
+          <div className={`${alertInfo} flex items-start gap-2 py-2.5`}>
+            <Info size={14} className="shrink-0 mt-0.5 text-info-active" />
+            <p className={`${alertBody} ${alertInfoText}`}>
               정확한 이용시간 기록을 위해 추가되었습니다.
               예약 시간과 실제 이용 시간이 다를 때를 위한 항목입니다.
             </p>
@@ -750,11 +744,9 @@ export default function DetailModal({
                 </span>
               )}
             </label>
-            <input
-              type="datetime-local"
+            <DateTimeField
               value={actualStartTime}
-              onChange={(e) => setActualStartTime(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-base bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
+              onChange={setActualStartTime}
             />
           </div>
 
@@ -764,12 +756,7 @@ export default function DetailModal({
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                 운행 반납 시간
               </label>
-              <input
-                type="datetime-local"
-                value={actualEndTime}
-                onChange={(e) => setActualEndTime(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-base bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
-              />
+              <DateTimeField value={actualEndTime} onChange={setActualEndTime} />
             </div>
           )}
         </div>
@@ -783,9 +770,9 @@ export default function DetailModal({
             </span>
           </p>
           {!dashPreview ? (
-            <label className="flex flex-col items-center justify-center h-44 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition active:bg-gray-200">
+            <label className="flex flex-col items-center justify-center h-44 bg-table-header border-2 border-dashed border-line-strong rounded-xl cursor-pointer hover:bg-gray-100 transition active:bg-gray-200">
               <svg
-                className="w-12 h-12 text-gray-300 mb-3"
+                className="w-12 h-12 text-disabled-text mb-3"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -818,7 +805,7 @@ export default function DetailModal({
               />
             </label>
           ) : (
-            <div className="relative rounded-xl overflow-hidden border border-gray-200">
+            <div className="relative rounded-xl overflow-hidden border border-line">
               <img
                 src={dashPreview}
                 className="w-full h-44 object-cover"
@@ -916,8 +903,8 @@ export default function DetailModal({
               value={
                 actionType === "checkin" ? checkinMileage : checkoutForm.mileage
               }
-              className={`w-full px-3 py-2.5 border rounded-sm text-base font-mono bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none placeholder:text-gray-300 transition ${
-                ocrLoading ? "border-blue-300 bg-blue-50/30" : "border-gray-200"
+              className={`w-full px-3 py-2.5 border rounded-sm text-base font-mono bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none placeholder:text-disabled-text transition ${
+                ocrLoading ? "border-primary-soft bg-primary-wash/30" : "border-line"
               }`}
               placeholder={
                 ocrLoading
@@ -941,7 +928,7 @@ export default function DetailModal({
             {ocrLoading && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                 <svg
-                  className="w-4 h-4 text-blue-500 animate-spin"
+                  className="w-4 h-4 text-primary animate-spin"
                   fill="none"
                   viewBox="0 0 24 24"
                 >
@@ -959,7 +946,7 @@ export default function DetailModal({
                     d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
                   />
                 </svg>
-                <span className="text-xs text-blue-500 font-medium">
+                <span className="text-xs text-primary font-medium">
                   인식 중
                 </span>
               </div>
@@ -1042,7 +1029,7 @@ export default function DetailModal({
                     {fuelSegments}칸
                   </button>
                   {showFuelSettings && (
-                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-1.5 flex gap-1">
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-line rounded-lg shadow-lg z-10 p-1.5 flex gap-1">
                       {[8, 10].map((seg) => (
                         <button
                           key={seg}
@@ -1050,7 +1037,7 @@ export default function DetailModal({
                           onClick={() => saveFuelSegments(seg)}
                           className={`px-3 py-1.5 rounded text-xs font-bold transition cursor-pointer ${
                             fuelSegments === seg
-                              ? "bg-blue-600 text-white"
+                              ? "bg-primary text-white"
                               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                           }`}
                         >
@@ -1061,7 +1048,7 @@ export default function DetailModal({
                   )}
                 </div>
               </div>
-              <div className="rounded-xl border border-gray-200 bg-white px-5 pt-3 pb-4 select-none">
+              <div className="rounded-xl border border-line bg-white px-5 pt-3 pb-4 select-none">
                 {/* 현재값 표시 */}
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs text-gray-400 font-medium">
@@ -1169,9 +1156,9 @@ export default function DetailModal({
           )}
           <div className="flex flex-wrap gap-2">
             {exteriorFiles.length < 10 && (
-              <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-gray-50 border border-dashed border-gray-300 rounded-sm cursor-pointer hover:bg-gray-100 transition shrink-0">
+              <label className="w-[88px] h-[88px] flex flex-col items-center justify-center bg-table-header border border-dashed border-line-strong rounded-sm cursor-pointer hover:bg-gray-100 transition shrink-0">
                 <svg
-                  className="w-6 h-6 text-blue-400 mb-1"
+                  className="w-6 h-6 text-primary/60 mb-1"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1207,7 +1194,7 @@ export default function DetailModal({
             {exteriorPreviews.map((src, idx) => (
               <div
                 key={idx}
-                className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-gray-200 shrink-0"
+                className="w-[88px] h-[88px] relative rounded-sm overflow-hidden border border-line shrink-0"
               >
                 <img
                   src={src}
@@ -1237,12 +1224,12 @@ export default function DetailModal({
 
         {/* 반납 추가 정보 */}
         {actionType === "checkout" && (
-          <div className="space-y-4 pt-4 border-t border-gray-100">
+          <div className="space-y-4 pt-4 border-t border-line-soft">
             <div className="flex items-center gap-2.5">
               <input
                 type="checkbox"
                 id="cleanup"
-                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
+                className="w-5 h-5 text-primary rounded focus:ring-primary border-line-strong cursor-pointer"
                 checked={checkoutForm.cleanup}
                 onChange={(e) =>
                   setCheckoutForm({
@@ -1265,7 +1252,7 @@ export default function DetailModal({
               <input
                 type="text"
                 placeholder="예: 교육관"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
+                className="w-full px-3 py-2.5 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
                 value={checkoutForm.parking}
                 onChange={(e) =>
                   setCheckoutForm({ ...checkoutForm, parking: e.target.value })
@@ -1279,7 +1266,7 @@ export default function DetailModal({
               <textarea
                 placeholder="스크래치, 경고등, 기타 이상 사항 등"
                 rows={3}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition resize-none"
+                className="w-full px-3 py-2.5 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition resize-none"
                 value={checkoutForm.condition}
                 onChange={(e) =>
                   setCheckoutForm({
@@ -1309,7 +1296,7 @@ export default function DetailModal({
                         incidentType: p.incidentType === key ? null : key,
                       }))
                     }
-                    className={`px-3 py-1.5 rounded-sm text-sm font-semibold border transition cursor-pointer ${checkoutForm.incidentType === key ? "bg-red-500 text-white border-red-500 hover:bg-red-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300"}`}
+                    className={`px-3 py-1.5 rounded-sm text-sm font-semibold border transition cursor-pointer ${checkoutForm.incidentType === key ? "bg-red-500 text-white border-red-500 hover:bg-red-600" : "bg-table-header text-gray-600 border-line hover:bg-gray-100 hover:border-line-strong"}`}
                   >
                     {label}
                   </button>
@@ -1402,7 +1389,7 @@ export default function DetailModal({
                     : null);
                 if (preview) {
                   return (
-                    <div className="relative rounded-xl overflow-hidden border border-gray-200">
+                    <div className="relative rounded-xl overflow-hidden border border-line">
                       <img
                         src={preview}
                         className="w-full h-36 object-cover"
@@ -1446,9 +1433,9 @@ export default function DetailModal({
                   );
                 } else {
                   return (
-                    <label className="flex flex-col items-center justify-center h-28 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition">
+                    <label className="flex flex-col items-center justify-center h-28 bg-table-header border-2 border-dashed border-line-strong rounded-xl cursor-pointer hover:bg-gray-100 transition">
                       <svg
-                        className="w-8 h-8 text-gray-300 mb-2"
+                        className="w-8 h-8 text-disabled-text mb-2"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -1466,7 +1453,7 @@ export default function DetailModal({
                           d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
                         />
                       </svg>
-                      <span className="text-sm text-gray-500 font-medium">
+                      <span className="text-sm text-muted font-medium">
                         출발 계기판 사진 촬영
                       </span>
                       <input
@@ -1500,7 +1487,7 @@ export default function DetailModal({
                     ? `현재: ${selectedLog.start_mileage.toLocaleString()}`
                     : "km 입력"
                 }
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm font-mono bg-gray-50 focus:bg-white focus:border-green-400 outline-none transition"
+                className="w-full px-3 py-2.5 border border-line rounded-sm text-sm font-mono bg-table-header focus:bg-white focus:border-green-400 outline-none transition"
               />
             </div>
 
@@ -1523,7 +1510,7 @@ export default function DetailModal({
                       className={`px-2.5 py-1.5 rounded text-xs font-bold border transition ${
                         cur === v
                           ? "bg-green-500 text-white border-green-500"
-                          : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                          : "bg-table-header text-gray-600 border-line hover:bg-gray-100"
                       }`}
                     >
                       {v === 0 ? "E" : v === 100 ? "F" : `${v}%`}
@@ -1542,7 +1529,7 @@ export default function DetailModal({
                     <span className="ml-1.5 text-[10px] text-orange-500 font-bold">(수정됨)</span>
                   )}
                 </p>
-                <label className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer transition">
+                <label className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-active cursor-pointer transition">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
@@ -1583,7 +1570,7 @@ export default function DetailModal({
               <div className="grid grid-cols-3 gap-2">
                 {/* 기존 유지 중인 사진 */}
                 {editExtKeepUrls.map((url, i) => (
-                  <div key={`keep_${i}`} className="relative rounded-lg overflow-hidden border border-gray-200 aspect-square">
+                  <div key={`keep_${i}`} className="relative rounded-lg overflow-hidden border border-line aspect-square">
                     <img
                       src={toProxyUrl(url)}
                       className="w-full h-full object-cover cursor-zoom-in"
@@ -1613,7 +1600,7 @@ export default function DetailModal({
                 ))}
                 {/* 새로 추가한 사진 */}
                 {editExtNewPreviews.map((preview, i) => (
-                  <div key={`new_${i}`} className="relative rounded-lg overflow-hidden border border-blue-300 aspect-square">
+                  <div key={`new_${i}`} className="relative rounded-lg overflow-hidden border border-primary-soft aspect-square">
                     <img
                       src={preview}
                       className="w-full h-full object-cover cursor-zoom-in"
@@ -1627,7 +1614,7 @@ export default function DetailModal({
                         setZoomIndex(editExtKeepUrls.length + i);
                       }}
                     />
-                    <span className="absolute top-1 left-1 bg-blue-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">NEW</span>
+                    <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1 py-0.5 rounded">NEW</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -1664,8 +1651,8 @@ export default function DetailModal({
       {ActionSection}
 
       {/* 상세 정보 */}
-      <div className="border border-gray-200 rounded-sm overflow-hidden bg-white">
-        <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-gray-100 bg-gray-50">
+      <div className="border border-line rounded-sm overflow-hidden bg-white">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-line-soft bg-table-header">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
             <span className="text-sm font-bold text-gray-600">상세 정보</span>
@@ -1673,7 +1660,7 @@ export default function DetailModal({
           {isAdmin && onEdit && (
             <button
               onClick={() => onEdit(selectedLog!)}
-              className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition px-2 py-1 rounded hover:bg-blue-50"
+              className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-active transition px-2 py-1 rounded hover:bg-primary-wash"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1683,10 +1670,10 @@ export default function DetailModal({
           )}
         </div>
         <InfoRow label="차량 정보">
-          <span className="font-bold text-gray-900 mr-2 text-base">
+          <span className="font-bold text-heading mr-2 text-base">
             {selectedLog?.resources?.name}
           </span>
-          <span className="text-gray-500">
+          <span className="text-muted">
             ({selectedLog?.resources?.description})
           </span>
         </InfoRow>
@@ -1753,7 +1740,7 @@ export default function DetailModal({
                   : `${format(actualEnd, "MM.dd(EEE)", { locale: ko })} ${format(actualEnd, "HH:mm")}`
                 : "--:--";
               return (
-                <span className="text-blue-700 font-medium">
+                <span className="text-primary-active font-medium">
                   {startLabel} ~ {endLabel}
                 </span>
               );
@@ -1768,8 +1755,8 @@ export default function DetailModal({
 
       {/* 2. 운행 결과 (반납 완료 시) */}
       {selectedLog?.vehicle_status === "returned" && (
-        <div className="border border-gray-200 rounded-sm overflow-hidden bg-white">
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-gray-100 bg-gray-50">
+        <div className="border border-line rounded-sm overflow-hidden bg-white">
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-line-soft bg-table-header">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-4 rounded-full shrink-0 bg-gray-400" />
               <span className="text-sm font-bold text-gray-600">운행 결과</span>
@@ -1790,7 +1777,7 @@ export default function DetailModal({
                   });
                   setAdminResultEdit(true);
                 }}
-                className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
+                className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
               >
                 <svg
                   className="w-3.5 h-3.5"
@@ -1857,13 +1844,13 @@ export default function DetailModal({
                     }
                   }}
                   disabled={adminSaving}
-                  className="text-xs text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1 rounded font-bold disabled:opacity-60"
+                  className="text-xs text-white bg-primary hover:bg-primary-active px-2.5 py-1 rounded font-bold disabled:opacity-60"
                 >
                   {adminSaving ? "저장 중..." : "저장"}
                 </button>
                 <button
                   onClick={() => setAdminResultEdit(false)}
-                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded font-bold"
+                  className="text-xs text-muted hover:text-gray-700 px-2 py-1 rounded font-bold"
                 >
                   취소
                 </button>
@@ -1877,7 +1864,7 @@ export default function DetailModal({
               <>
                 <InfoRow label="주행 거리">
                   {selectedLog.start_mileage?.toLocaleString()} km →{" "}
-                  <span className="font-bold text-blue-600 ml-2 text-base">
+                  <span className="font-bold text-primary ml-2 text-base">
                     {selectedLog.end_mileage?.toLocaleString()} km
                   </span>
                   <span className="ml-2 text-base text-gray-400">
@@ -1896,7 +1883,7 @@ export default function DetailModal({
                     {selectedLog.fuel_level_start != null && (
                       <span className="text-base">
                         출발{" "}
-                        <span className="font-bold text-blue-600">
+                        <span className="font-bold text-primary">
                           {fuelLabel(selectedLog.fuel_level_start)}
                         </span>
                       </span>
@@ -1958,7 +1945,7 @@ export default function DetailModal({
                           url && (
                             <div
                               key={`checkin-${i}`}
-                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition bg-gray-200 animate-pulse"
+                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-line overflow-hidden cursor-pointer hover:opacity-80 transition bg-gray-200 animate-pulse"
                               onClick={() => openZoom(toProxyUrl(url))}
                             >
                               <img
@@ -2005,7 +1992,7 @@ export default function DetailModal({
                           url && (
                             <div
                               key={`checkout-${i}`}
-                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-gray-200 overflow-hidden cursor-pointer hover:opacity-80 transition bg-gray-200 animate-pulse"
+                              className="w-[80px] h-[80px] shrink-0 rounded-sm border border-line overflow-hidden cursor-pointer hover:opacity-80 transition bg-gray-200 animate-pulse"
                               onClick={() => openZoom(toProxyUrl(url))}
                             >
                               <img
@@ -2047,7 +2034,7 @@ export default function DetailModal({
             <div className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                  <label className="block text-xs font-bold text-muted mb-1">
                     출발 거리 (km)
                   </label>
                   <input
@@ -2060,12 +2047,12 @@ export default function DetailModal({
                           e.target.value === "" ? "" : Number(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm font-mono outline-none focus:border-primary"
                     placeholder="출발 거리"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                  <label className="block text-xs font-bold text-muted mb-1">
                     도착 거리 (km)
                   </label>
                   <input
@@ -2078,12 +2065,12 @@ export default function DetailModal({
                           e.target.value === "" ? "" : Number(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm font-mono outline-none focus:border-primary"
                     placeholder="도착 거리"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                  <label className="block text-xs font-bold text-muted mb-1">
                     출발 연료 (%)
                   </label>
                   <input
@@ -2098,12 +2085,12 @@ export default function DetailModal({
                           e.target.value === "" ? null : Number(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm font-mono outline-none focus:border-primary"
                     placeholder="0~100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                  <label className="block text-xs font-bold text-muted mb-1">
                     도착 연료 (%)
                   </label>
                   <input
@@ -2118,13 +2105,13 @@ export default function DetailModal({
                           e.target.value === "" ? null : Number(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400"
+                    className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm font-mono outline-none focus:border-primary"
                     placeholder="0~100"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">
+                <label className="block text-xs font-bold text-muted mb-1">
                   주차 위치
                 </label>
                 <input
@@ -2136,12 +2123,12 @@ export default function DetailModal({
                       parking_location: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400"
+                  className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm outline-none focus:border-primary"
                   placeholder="주차 위치 입력"
                 />
               </div>
               <div className="flex items-center gap-4">
-                <label className="text-xs font-bold text-gray-500">
+                <label className="text-xs font-bold text-muted">
                   청소 상태
                 </label>
                 <button
@@ -2152,11 +2139,11 @@ export default function DetailModal({
                       cleanup_status: !p.cleanup_status,
                     }))
                   }
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${adminFields.cleanup_status ? "bg-gray-100 text-gray-700 border-gray-300" : "bg-red-50 text-red-600 border-red-200"}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${adminFields.cleanup_status ? "bg-gray-100 text-gray-700 border-line-strong" : "bg-red-50 text-red-600 border-red-200"}`}
                 >
                   {adminFields.cleanup_status ? "청소 완료" : "청소 미흡"}
                 </button>
-                <label className="text-xs font-bold text-gray-500 ml-2">
+                <label className="text-xs font-bold text-muted ml-2">
                   사고/이상
                 </label>
                 <select
@@ -2167,7 +2154,7 @@ export default function DetailModal({
                       incident_type: e.target.value || null,
                     }))
                   }
-                  className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:border-blue-400"
+                  className="px-2 py-1.5 border border-line-strong rounded-lg text-xs outline-none focus:border-primary"
                 >
                   <option value="">없음</option>
                   <option value="accident">사고</option>
@@ -2177,7 +2164,7 @@ export default function DetailModal({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">
+                <label className="block text-xs font-bold text-muted mb-1">
                   특이사항
                 </label>
                 <textarea
@@ -2189,7 +2176,7 @@ export default function DetailModal({
                     }))
                   }
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-400 resize-none"
+                  className="w-full px-3 py-2 border border-line-strong rounded-lg text-sm outline-none focus:border-primary resize-none"
                   placeholder="특이사항 입력"
                 />
               </div>
@@ -2204,8 +2191,8 @@ export default function DetailModal({
     <div className="flex flex-col gap-2 w-full">
       {/* 예약 연장 폼 */}
       {showExtendForm && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-sm p-3 space-y-2">
-          <span className="text-sm font-bold text-yellow-700 block">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 space-y-2">
+          <span className="text-sm font-bold text-warning-active block">
             연장 반납 시간 설정
           </span>
           <div className="flex gap-2 items-start">
@@ -2213,12 +2200,12 @@ export default function DetailModal({
             <div className="relative flex-1">
               <div
                 onClick={() => setShowExtendCalendar((v) => !v)}
-                className="cursor-pointer border border-gray-300 rounded-sm p-2 text-sm bg-white text-center font-bold focus:ring-2 focus:ring-yellow-400 select-none"
+                className="cursor-pointer border border-line-strong rounded-lg px-3.5 py-2.5 text-sm bg-white text-heading tabular-nums select-none"
               >
                 {extendDate || "날짜 선택"}
               </div>
               {showExtendCalendar && (
-                <div className="absolute bottom-full left-0 z-50 mb-1 bg-white border border-gray-200 rounded-sm shadow-2xl p-2 animate-fadeIn">
+                <div className="absolute bottom-full left-0 z-50 mb-1 bg-white border border-line rounded-sm shadow-2xl p-2 animate-fadeIn">
                   <Calendar
                     onChange={(val) => {
                       if (val && !Array.isArray(val)) {
@@ -2238,28 +2225,22 @@ export default function DetailModal({
               )}
             </div>
             {/* 시간 */}
-            <input
-              type="time"
-              value={extendTime}
-              onChange={(e) => setExtendTime(e.target.value)}
-              className="w-28 border border-gray-300 rounded-sm p-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
-            />
+            <div className="w-[192px] shrink-0">
+              <TimeField value={extendTime} onChange={setExtendTime} />
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleExtend}
-              className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-sm text-sm font-bold transition"
-            >
-              확인
-            </button>
+          <div className="flex gap-2 sm:justify-end">
             <button
               onClick={() => {
                 setShowExtendForm(false);
                 setShowExtendCalendar(false);
               }}
-              className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-sm text-sm font-bold transition"
+              className={btnStyles.cancel}
             >
               취소
+            </button>
+            <button onClick={handleExtend} className={btnStyles.save}>
+              연장
             </button>
           </div>
         </div>
@@ -2267,21 +2248,41 @@ export default function DetailModal({
 
       {/* 관리자 강제 반납 안내 */}
       {isAdmin && selectedLog?.user_id !== currentUser && isMyTurn && (
-        <p className="text-xs text-center text-orange-500 font-bold">
+        <p className="text-xs text-center text-warning-active font-bold">
           ⚠️ 관리자 강제 처리 모드
         </p>
       )}
 
-      {/* ─── 버튼 영역 ─── */}
-      <div className="flex gap-3 w-full">
-        {/* 닫기 — 항상 표시 (운행중·반납 상태에서 제출 버튼과 함께) */}
+      {/* ─── 버튼 영역 — 공용 버튼 크기 (모바일은 꽉 차게, PC 는 오른쪽 정렬) ───
+          되돌리기 어려운 동작(취소·삭제)은 왼쪽, 주 동작은 맨 오른쪽 */}
+      <div className="flex gap-2 w-full sm:justify-end">
+        {/* 관리자 삭제 버튼 — 운행중·반납완료 상태 */}
+        {isAdmin &&
+          (selectedLog?.vehicle_status === "in_use" || selectedLog?.vehicle_status === "returned") && (
+            <button
+              onClick={handleAdminDelete}
+              disabled={uploading}
+              className={`${btnStyles.dangerSoft} sm:mr-auto`}
+            >
+              {uploading ? "삭제 중..." : "삭제"}
+            </button>
+          )}
+
+        {/* 예약 취소 */}
+        {isMyTurn && actionType === "checkin" && onCancel && (
+          <button
+            onClick={() => onCancel(selectedLog!.id)}
+            className={`${btnStyles.dangerSoft} sm:mr-auto`}
+          >
+            예약 취소
+          </button>
+        )}
+
+        {/* 닫기 — 운행중·반납 상태에서 제출 버튼과 함께 */}
         {(!isMyTurn ||
           selectedLog?.vehicle_status === "returned" ||
           selectedLog?.vehicle_status === "noshow") && (
-          <button
-            onClick={onClose}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 py-4 rounded-sm text-lg font-bold transition cursor-pointer"
-          >
+          <button onClick={onClose} className={btnStyles.cancel}>
             닫기
           </button>
         )}
@@ -2289,34 +2290,18 @@ export default function DetailModal({
         {/* 본인 또는 관리자 — 노쇼 복구 */}
         {(isAdmin || selectedLog?.user_id === currentUser) &&
           effectiveStatus === "noshow" && (
-            <button
-              onClick={handleRestoreNoshow}
-              className="flex-1 bg-orange-50 hover:bg-orange-100 active:bg-orange-200 text-orange-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-orange-200"
-            >
+            <button onClick={handleRestoreNoshow} className={btnStyles.soft}>
               노쇼 복구
             </button>
           )}
 
-        {/* 예약 취소 및 예약 수정 버튼 */}
-        {isMyTurn && actionType === "checkin" && (
-          <>
-            {onCancel && (
-              <button
-                onClick={() => onCancel(selectedLog!.id)}
-                className="flex-1 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-red-200"
-              >
-                예약 취소
-              </button>
-            )}
-            {onEdit && (
-              <button
-                onClick={() => onEdit(selectedLog!)}
-                className="flex-1 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-blue-200"
-              >
-                예약 수정
-              </button>
-            )}
-          </>
+        {isMyTurn && actionType === "checkin" && onEdit && (
+          <button
+            onClick={() => onEdit(selectedLog!)}
+            className={btnStyles.soft}
+          >
+            예약 수정
+          </button>
         )}
 
         {isMyTurn && actionType === "checkout" && !showExtendForm && (
@@ -2327,24 +2312,18 @@ export default function DetailModal({
               setExtendTime(end.toISOString().slice(11, 16));
               setShowExtendForm(true);
             }}
-            className="flex-1 bg-yellow-50 hover:bg-yellow-100 active:bg-yellow-200 text-yellow-700 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-yellow-200"
+            className={btnStyles.soft}
           >
             시간 연장
           </button>
         )}
 
-        {/* 제출 버튼 */}
+        {/* 제출 — 주 동작 */}
         {isMyTurn && selectedLog?.vehicle_status !== "returned" && (
           <button
             onClick={() => handleSubmit(actionType)}
             disabled={uploading || !isFormValid}
-            className={`flex-1 text-white py-4 rounded-sm text-lg font-bold transition ${
-              uploading || !isFormValid
-                ? "bg-gray-300 cursor-not-allowed"
-                : actionType === "checkin"
-                  ? "bg-green-500 hover:bg-green-600 active:bg-green-700 cursor-pointer"
-                  : "bg-red-600 hover:bg-red-700 active:bg-red-800 cursor-pointer"
-            }`}
+            className={btnStyles.save}
           >
             {uploading
               ? "처리 중..."
@@ -2353,18 +2332,6 @@ export default function DetailModal({
                 : "반납 완료"}
           </button>
         )}
-
-        {/* 관리자 삭제 버튼 — 운행중·반납완료 상태 */}
-        {isAdmin &&
-          (selectedLog?.vehicle_status === "in_use" || selectedLog?.vehicle_status === "returned") && (
-            <button
-              onClick={handleAdminDelete}
-              disabled={uploading}
-              className="flex-1 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 py-4 rounded-sm text-lg font-bold transition cursor-pointer border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploading ? "삭제 중..." : "삭제"}
-            </button>
-          )}
       </div>
     </div>
   );
@@ -2375,7 +2342,7 @@ export default function DetailModal({
       {uploading && createPortal(
         <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/60">
           <div className="bg-white rounded-sm px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             <p className="text-gray-800 font-bold text-base">
               {uploadingMessage}
             </p>
@@ -2410,11 +2377,11 @@ export default function DetailModal({
       {isOpen && isMobile && (
         <div className="fixed inset-0 z-[9999] bg-white flex flex-col animate-slideInRight overflow-hidden">
           {/* 모바일 헤더 */}
-          <div className="bg-white px-5 py-5 flex items-center justify-between border-b border-gray-200 shrink-0 sticky top-0 z-10">
-            <h2 className="text-lg font-bold text-gray-900">운행 상세 정보</h2>
+          <div className="bg-white px-5 py-5 flex items-center justify-between border-b border-line shrink-0 sticky top-0 z-10">
+            <h2 className="text-lg font-bold text-heading">운행 상세 정보</h2>
             <button
               onClick={onClose}
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition"
+              className="p-2 text-muted hover:bg-gray-100 rounded-full transition"
             >
               <svg
                 className="w-7 h-7"
@@ -2433,12 +2400,12 @@ export default function DetailModal({
           </div>
 
           {/* 모바일 콘텐츠 영역 (패딩 및 여백 확대) */}
-          <div className="flex-1 overflow-y-auto p-5 sm:p-7 custom-scrollbar bg-gray-50 pb-32">
+          <div className="flex-1 overflow-y-auto p-5 sm:p-7 custom-scrollbar bg-table-header pb-32">
             {ModalContent}
           </div>
 
           {/* 모바일 하단 고정 버튼 영역 */}
-          <div className="bg-white p-5 border-t border-gray-200 shrink-0 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe absolute bottom-0 w-full z-20">
+          <div className="bg-white p-5 border-t border-line shrink-0 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe absolute bottom-0 w-full z-20">
             {ModalFooter}
           </div>
         </div>

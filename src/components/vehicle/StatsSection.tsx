@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { ko } from "date-fns/locale";
 import Select from "@/components/Select";
+import { table, td, th, trHover } from "@/components/ui/table";
 
 type VehicleLog = {
   id: number;
@@ -75,7 +76,7 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
   });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
+    <div className="bg-white rounded-xl border border-line shadow-sm p-6 space-y-6">
       {/* 월 선택 */}
       <div className="flex items-center gap-3">
         <label className="text-sm font-bold text-gray-600 shrink-0">
@@ -89,7 +90,7 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
               value: m,
               label: format(new Date(`${m}-01`), "yyyy년 M월", { locale: ko }),
             }))}
-            className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
+            className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-line-strong rounded-lg"
           />
         </div>
       </div>
@@ -109,10 +110,10 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
         ].map(({ label, value }) => (
           <div
             key={label}
-            className="bg-blue-50 rounded-xl p-4 text-center border border-blue-100"
+            className="bg-primary-wash rounded-xl p-4 text-center border border-primary-soft"
           >
-            <p className="text-xs text-gray-500 font-medium mb-1">{label}</p>
-            <p className="text-xl font-extrabold text-blue-700">{value}</p>
+            <p className="text-xs text-muted font-medium mb-1">{label}</p>
+            <p className="text-xl font-extrabold text-primary-active">{value}</p>
           </div>
         ))}
       </div>
@@ -137,14 +138,14 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
                   </span>
                   <div className="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                      className="h-full bg-primary rounded-full transition-all duration-500"
                       style={{ width: `${barWidth}%` }}
                     />
                   </div>
                   <div className="text-right text-xs w-32 shrink-0">
                     {stat.totalKm > 0 ? (
                       <>
-                        <span className="font-bold text-blue-700">
+                        <span className="font-bold text-primary-active">
                           {stat.totalKm.toLocaleString()} km
                         </span>
                         <span className="text-gray-400 ml-1.5">
@@ -169,30 +170,30 @@ export default function StatsSection({ logs, vehicles }: StatsSectionProps) {
             운행 내역 ({monthLogs.length}건)
           </h3>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-left">
+            <table className={`${table} min-w-full`}>
               <thead>
-                <tr className="border-b border-gray-200 text-xs text-gray-500">
-                  <th className="pb-2 pr-4">날짜</th>
-                  <th className="pb-2 pr-4">차량</th>
-                  <th className="pb-2 pr-4">운전자</th>
-                  <th className="pb-2 pr-4">목적지</th>
-                  <th className="pb-2 text-right">주행거리</th>
+                <tr>
+                  <th className={`${th}`}>날짜</th>
+                  <th className={`${th}`}>차량</th>
+                  <th className={`${th}`}>운전자</th>
+                  <th className={`${th}`}>목적지</th>
+                  <th className={`${th} text-right`}>주행거리</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody>
                 {monthLogs.map((l) => (
-                  <tr key={l.id} className="hover:bg-gray-50 transition">
-                    <td className="py-2 pr-4 text-gray-500 font-mono text-xs">
+                  <tr key={l.id} className={`${trHover}`}>
+                    <td className={`${td} font-mono`}>
                       {format(new Date(l.start_at), "MM.dd")}
                     </td>
-                    <td className="py-2 pr-4 font-medium text-gray-800">
+                    <td className={`${td} font-medium`}>
                       {l.resources?.name}
                     </td>
-                    <td className="py-2 pr-4 text-gray-600">{l.driver_name}</td>
-                    <td className="py-2 pr-4 text-gray-600 max-w-[120px] truncate">
+                    <td className={`${td}`}>{l.driver_name}</td>
+                    <td className={`${td} max-w-[120px] truncate`}>
                       {l.destination}
                     </td>
-                    <td className="py-2 text-right font-mono font-bold text-gray-800">
+                    <td className={`${td} text-right font-mono font-bold`}>
                       {l.start_mileage != null && l.end_mileage != null
                         ? `${(l.end_mileage - l.start_mileage).toLocaleString()} km`
                         : "-"}

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
 import * as XLSX from "xlsx";
+import { table, td, th, trHover } from "@/components/ui/table";
 
 type Props = { projectId: string; myUserId: string; isMember: boolean; isAdmin: boolean };
 
@@ -33,7 +34,7 @@ type Missionary = { id: string; name: string; family_group: string | null };
 type Family     = { key: string; label: string; repId: string; memberCount: number };
 
 const STATUS = {
-  pending:   { label: "준비전",   color: "bg-gray-100 text-gray-500",       icon: "⏸" },
+  pending:   { label: "준비전",   color: "bg-gray-100 text-muted",       icon: "⏸" },
   purchased: { label: "구매완료", color: "bg-sky-100 text-sky-700",         icon: "🛒" },
   prepared:  { label: "준비완료", color: "bg-amber-100 text-amber-700",     icon: "📦" },
   delivered: { label: "전달완료", color: "bg-emerald-100 text-emerald-700", icon: "✅" },
@@ -295,8 +296,8 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
             <span className="text-xs text-gray-400">종류 {giftItems.length}개</span>
             {totalNeeded > 0 && (
               <>
-                <span className="text-xs text-gray-500">필요 <b className="text-gray-800">{totalNeeded}</b>개</span>
-                <span className="text-xs text-blue-600">구매완료 <b>{totalPurchased}</b>개</span>
+                <span className="text-xs text-muted">필요 <b className="text-gray-800">{totalNeeded}</b>개</span>
+                <span className="text-xs text-primary">구매완료 <b>{totalPurchased}</b>개</span>
                 <span className="text-xs text-green-600">전달완료 <b>{totalDelivered}</b>개</span>
               </>
             )}
@@ -316,7 +317,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
             {isAdmin && (
               <button
                 onClick={openCreateItem}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-primary bg-primary-wash hover:bg-primary-soft rounded-lg transition"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -328,25 +329,25 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
         </div>
 
         {giftItems.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 py-8 text-center text-gray-400 text-sm">
+          <div className="rounded-xl border border-dashed border-line-strong py-8 text-center text-gray-400 text-sm">
             <p>등록된 선물이 없습니다.</p>
             {isAdmin && <p className="text-xs mt-1">위 버튼으로 선물을 추가하세요.</p>}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+          <div className="bg-white rounded-xl border border-line overflow-hidden">
+            <table className={`${table} w-full`}>
+              <thead>
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">선물명</th>
-                  <th className="text-left px-3 py-2.5 font-semibold text-gray-600 text-xs hidden sm:table-cell">담당자</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs">필요</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs">구매완료</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-gray-600 text-xs">전달완료</th>
-                  <th className="px-4 py-2.5 text-xs text-gray-600 font-semibold hidden md:table-cell">진행률</th>
-                  {isAdmin && <th className="px-3 py-2.5 w-16" />}
+                  <th className={`${th} text-left font-semibold`}>선물명</th>
+                  <th className={`${th} text-left font-semibold hidden sm:table-cell`}>담당자</th>
+                  <th className={`${th} text-center font-semibold`}>필요</th>
+                  <th className={`${th} text-center font-semibold`}>구매완료</th>
+                  <th className={`${th} text-center font-semibold`}>전달완료</th>
+                  <th className={`${th} font-semibold hidden md:table-cell`}>진행률</th>
+                  {isAdmin && <th className={`${th} w-16`} />}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {giftItems.map((item) => {
                   const itemAssigns = assignments.filter((a) => a.gift_item_id === item.id);
                   const needed    = itemAssigns.length;
@@ -355,53 +356,53 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                   const delivered = itemAssigns.filter((a) => a.status === "delivered").length;
                   const pct = needed > 0 ? Math.round((purchased / needed) * 100) : 0;
                   return (
-                    <tr key={item.id} className="hover:bg-gray-50 group">
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-gray-900">{item.item_name}</div>
+                    <tr key={item.id} className={`${trHover} group`}>
+                      <td className={`${td}`}>
+                        <div className="font-semibold text-heading">{item.item_name}</div>
                         {item.description && <div className="text-xs text-gray-400 mt-0.5">{item.description}</div>}
                         {item.unit_budget && (
                           <div className="text-xs text-gray-400">개당 {item.unit_budget.toLocaleString()}원</div>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-gray-500 text-sm hidden sm:table-cell">
-                        {item.responsible_name || <span className="text-gray-300">-</span>}
+                      <td className={`${td} hidden sm:table-cell`}>
+                        {item.responsible_name || <span className="text-disabled-text">-</span>}
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className={`${td} text-center`}>
                         <span className="font-bold text-gray-800">{needed}</span>
                       </td>
-                      <td className="px-3 py-3 text-center">
-                        <span className={`font-bold ${purchased === needed && needed > 0 ? "text-green-600" : "text-blue-600"}`}>
+                      <td className={`${td} text-center`}>
+                        <span className={`font-bold ${purchased === needed && needed > 0 ? "text-green-600" : "text-primary"}`}>
                           {purchased}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className={`${td} text-center`}>
                         <span className={`font-bold ${delivered === needed && needed > 0 ? "text-green-600" : "text-gray-600"}`}>
                           {delivered}
                         </span>
                       </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
+                      <td className={`${td} hidden md:table-cell`}>
                         {needed > 0 ? (
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all duration-500 ${
-                                  pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-blue-500" : "bg-orange-400"
+                                  pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-primary" : "bg-orange-400"
                                 }`}
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <span className="text-xs text-gray-500 w-8 text-right shrink-0">{pct}%</span>
+                            <span className="text-xs text-muted w-8 text-right shrink-0">{pct}%</span>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-300">배치 없음</span>
+                          <span className="text-xs text-disabled-text">배치 없음</span>
                         )}
                       </td>
                       {isAdmin && (
-                        <td className="px-3 py-3 text-right">
+                        <td className={`${td} text-right`}>
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
                             <button
                               onClick={() => openEditItem(item)}
-                              className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition"
+                              className="text-gray-400 hover:text-primary p-1 rounded hover:bg-primary-wash transition"
                               title="수정"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -443,7 +444,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               {families.length > 0 && (
                 <>
                   <span className="text-xs text-gray-400">전체 <b className="text-gray-700">{families.length}</b>가정</span>
-                  <span className="text-xs text-blue-600">배치 완료 <b>{assignedCount}</b>가정</span>
+                  <span className="text-xs text-primary">배치 완료 <b>{assignedCount}</b>가정</span>
                   {unassignedCount > 0 && (
                     <span className="text-xs text-orange-500">미배치 <b>{unassignedCount}</b>가정</span>
                   )}
@@ -459,26 +460,26 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
             <p className="text-xs mt-1">먼저 명단 탭에서 선교사를 등록하세요.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+          <div className="bg-white rounded-xl border border-line overflow-hidden">
+            <table className={`${table} w-full`}>
+              <thead>
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs w-40">가정</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">배치된 선물</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs hidden md:table-cell">메모</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs hidden sm:table-cell">상태</th>
-                  {isMember && giftItems.length > 0 && <th className="px-4 py-2.5 w-20" />}
+                  <th className={`${th} text-left font-semibold w-40`}>가정</th>
+                  <th className={`${th} text-left font-semibold`}>배치된 선물</th>
+                  <th className={`${th} text-left font-semibold hidden md:table-cell`}>메모</th>
+                  <th className={`${th} text-left font-semibold hidden sm:table-cell`}>상태</th>
+                  {isMember && giftItems.length > 0 && <th className={`${th} w-20`} />}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {families.map((family) => {
                   const familyAssigns = getAssignmentsForFamily(family.repId);
                   return (
-                    <tr key={family.key} className="hover:bg-gray-50 group transition-colors">
+                    <tr key={family.key} className={`${trHover} group`}>
 
                       {/* 가정명 */}
-                      <td className="px-4 py-3 align-top">
-                        <div className="font-semibold text-gray-900">
+                      <td className={`${td} align-top`}>
+                        <div className="font-semibold text-heading">
                           {family.memberCount > 1 ? "👨‍👩‍👧" : "👤"} {family.label}
                         </div>
                         {family.memberCount > 1 && (
@@ -487,7 +488,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                       </td>
 
                       {/* 배치된 선물 (선물명만) */}
-                      <td className="px-4 py-3 align-top">
+                      <td className={`${td} align-top`}>
                         {familyAssigns.length === 0 ? (
                           <span className="text-gray-400">배치 없음</span>
                         ) : (
@@ -500,7 +501,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                                     onClick={() => isMember && openEditAssign(family, assign)}
                                     className={`leading-tight text-left ${
                                       isMember
-                                        ? "text-blue-600 hover:underline cursor-pointer"
+                                        ? "text-primary hover:underline cursor-pointer"
                                         : "text-gray-800 cursor-default"
                                     } transition`}
                                   >
@@ -514,25 +515,25 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                       </td>
 
                       {/* 메모 */}
-                      <td className="px-4 py-3 align-top hidden md:table-cell">
+                      <td className={`${td} align-top hidden md:table-cell`}>
                         <div className="space-y-1.5">
                           {familyAssigns.map((assign) => (
-                            <span key={assign.id} className="text-gray-500 truncate max-w-[200px] block leading-tight">
-                              {assign.notes || <span className="text-gray-300">—</span>}
+                            <span key={assign.id} className="text-muted truncate max-w-[200px] block leading-tight">
+                              {assign.notes || <span className="text-disabled-text">—</span>}
                             </span>
                           ))}
                         </div>
                       </td>
 
                       {/* 상태 (메모 다음 컬럼) */}
-                      <td className="px-4 py-3 align-top hidden sm:table-cell">
+                      <td className={`${td} align-top hidden sm:table-cell`}>
                         <div className="space-y-1.5">
                           {familyAssigns.length === 0 ? (
-                            <span className="text-gray-300">—</span>
+                            <span className="text-disabled-text">—</span>
                           ) : (
                             familyAssigns.map((assign) => {
                               const st = STATUS[assign.status as keyof typeof STATUS]
-                                ?? { label: assign.status, color: "bg-gray-100 text-gray-500", icon: "" };
+                                ?? { label: assign.status, color: "bg-gray-100 text-muted", icon: "" };
                               return (
                                 <span key={assign.id} className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.color}`}>
                                   {st.label}
@@ -545,10 +546,10 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
 
                       {/* 배치 버튼 */}
                       {isMember && giftItems.length > 0 && (
-                        <td className="px-4 py-3 align-top text-right">
+                        <td className={`${td} align-top text-right`}>
                           <button
                             onClick={() => openCreateAssign(family)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition whitespace-nowrap opacity-0 group-hover:opacity-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-primary bg-primary-wash hover:bg-primary-soft rounded-lg transition whitespace-nowrap opacity-0 group-hover:opacity-100"
                           >
                             + 배치
                           </button>
@@ -572,7 +573,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
         footer={
           <>
             <button onClick={() => setShowItemModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSaveItem} disabled={savingItem} className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleSaveItem} disabled={savingItem} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
               {savingItem ? "저장 중..." : "저장"}
             </button>
           </>
@@ -585,7 +586,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               type="text" value={itemForm.item_name} autoFocus
               onChange={(e) => setItemForm({ ...itemForm, item_name: e.target.value })}
               placeholder="예: 특산물 세트, 성경책"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div>
@@ -594,7 +595,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               type="text" value={itemForm.description}
               onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
               placeholder="선물에 대한 간단한 설명"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -603,7 +604,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               <input
                 type="text" value={itemForm.responsible_name}
                 onChange={(e) => setItemForm({ ...itemForm, responsible_name: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
@@ -611,7 +612,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               <input
                 type="number" value={itemForm.unit_budget}
                 onChange={(e) => setItemForm({ ...itemForm, unit_budget: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
@@ -620,11 +621,11 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
             <textarea
               value={itemForm.notes} rows={2}
               onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
           </div>
           {selectedItem && isAdmin && (
-            <div className="pt-2 border-t border-gray-100">
+            <div className="pt-2 border-t border-line-soft">
               <button
                 onClick={() => { setShowItemModal(false); handleDeleteItem(selectedItem.id); }}
                 className="text-sm text-red-500 hover:text-red-700 transition"
@@ -649,7 +650,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
         footer={
           <>
             <button onClick={() => setShowAssignModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSaveAssign} disabled={savingAssign} className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleSaveAssign} disabled={savingAssign} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
               {savingAssign ? "저장 중..." : "저장"}
             </button>
           </>
@@ -662,7 +663,7 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               value={assignForm.gift_item_id}
               onChange={(v) => setAssignForm({ ...assignForm, gift_item_id: v })}
               options={assigningToFamily ? buildGiftOptions(assigningToFamily.repId) : []}
-              className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+              className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
             />
           </div>
           <div>
@@ -672,14 +673,14 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
                 <label
                   key={k}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition ${
-                    assignForm.status === k ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:bg-gray-50"
+                    assignForm.status === k ? "border-primary bg-primary-wash" : "border-line hover:bg-gray-50"
                   }`}
                 >
                   <input
                     type="radio" name="assign_status" value={k}
                     checked={assignForm.status === k}
                     onChange={() => setAssignForm({ ...assignForm, status: k })}
-                    className="w-3.5 h-3.5 accent-blue-600"
+                    className="w-3.5 h-3.5 accent-primary"
                   />
                   <span className="text-sm">{v.icon} {v.label}</span>
                 </label>
@@ -692,11 +693,11 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
               type="text" value={assignForm.notes}
               onChange={(e) => setAssignForm({ ...assignForm, notes: e.target.value })}
               placeholder="특이사항"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           {selectedAssign && (
-            <div className="pt-2 border-t border-gray-100">
+            <div className="pt-2 border-t border-line-soft">
               <button
                 onClick={() => { setShowAssignModal(false); handleDeleteAssign(selectedAssign.id); }}
                 className="text-sm text-red-500 hover:text-red-700 transition"

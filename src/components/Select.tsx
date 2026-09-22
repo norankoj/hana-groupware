@@ -98,8 +98,8 @@ export default function Select({
         style={{ colorScheme: "light" }}
         className={`flex items-center justify-between text-left transition-all duration-200 outline-none
           ${className} 
-          ${isOpen ? "ring-2 ring-blue-200 border-blue-500" : ""}
-          ${!className ? "w-full p-3 bg-white border border-gray-300 rounded-lg" : ""} 
+          ${isOpen ? "ring-2 ring-primary-soft border-primary" : ""}
+          ${!className ? "w-full p-3 bg-white border border-line-strong rounded-lg" : ""} 
         `}
       >
         <span
@@ -109,7 +109,7 @@ export default function Select({
               : className?.includes("text-sm")
                 ? "text-sm"
                 : "text-base"
-          } ${value ? "text-gray-900" : "text-gray-400"}`}
+          } ${value ? "text-heading" : "text-gray-400"}`}
         >
           {selectedLabel || placeholder}
         </span>
@@ -117,7 +117,7 @@ export default function Select({
         {/* 화살표 아이콘 */}
         <svg
           className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-blue-600" : ""
+            isOpen ? "rotate-180 text-primary" : ""
           }`}
           fill="none"
           viewBox="0 0 24 24"
@@ -135,13 +135,13 @@ export default function Select({
       {/* 드롭다운 메뉴 — position:fixed로 overflow:hidden 부모 탈출 */}
       {isOpen && (
         <div
-          className="bg-white border border-gray-100 rounded-xl shadow-lg max-h-[22rem] overflow-y-auto custom-scrollbar animate-fadeIn"
+          className="bg-white border border-line-soft rounded-xl shadow-lg max-h-[22rem] overflow-y-auto custom-scrollbar animate-fadeIn"
           style={dropdownStyle}
         >
           {hasGroups
             ? Object.entries(groupedOptions).map(([group, opts]) => (
                 <div key={group}>
-                  <div className="px-4 py-2 text-xs font-extrabold text-gray-500 bg-gray-50/95 sticky top-0 backdrop-blur-sm border-y border-gray-100 first:border-t-0 z-10">
+                  <div className="px-4 py-2 text-xs font-extrabold text-muted bg-table-header sticky top-0 backdrop-blur-sm border-y border-line-soft first:border-t-0 z-10">
                     {group}
                   </div>
                   {opts.map((opt) => (
@@ -154,14 +154,14 @@ export default function Select({
                       className={`px-4 py-3 text-base cursor-pointer transition-colors
                         ${
                           value === opt.value
-                            ? "bg-blue-50 text-blue-600 font-bold"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-blue-600 font-medium"
+                            ? "bg-primary-wash text-primary font-bold"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-primary font-medium"
                         }
                       `}
                     >
                       <span className="pl-2">{opt.label}</span>
                       {opt.description && (
-                        <div className={`pl-2 text-xs mt-0.5 font-normal ${value === opt.value ? "text-blue-400" : "text-gray-400"}`}>
+                        <div className={`pl-2 text-xs mt-0.5 font-normal ${value === opt.value ? "text-primary/60" : "text-gray-400"}`}>
                           {opt.description}
                         </div>
                       )}
@@ -184,14 +184,14 @@ export default function Select({
                   className={`px-4 py-3 text-base cursor-pointer transition-colors
                     ${
                       value === opt.value
-                        ? "bg-blue-50 text-blue-600 font-bold"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                        ? "bg-primary-wash text-primary font-bold"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-primary"
                     }
                   `}
                 >
                   {opt.label}
                   {opt.description && (
-                    <div className={`text-xs mt-0.5 font-normal ${value === opt.value ? "text-blue-400" : "text-gray-400"}`}>
+                    <div className={`text-xs mt-0.5 font-normal ${value === opt.value ? "text-primary/60" : "text-gray-400"}`}>
                       {opt.description}
                     </div>
                   )}

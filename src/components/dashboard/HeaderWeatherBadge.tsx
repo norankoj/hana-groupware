@@ -38,7 +38,7 @@ export default function HeaderWeatherBadge() {
   const pm25 = getPm25Badge(data.pm25);
 
   return (
-    <div className="hidden sm:flex items-center gap-1.5 text-sm text-gray-500 select-none">
+    <div className="hidden sm:flex items-center gap-1.5 text-sm text-muted select-none">
       <span className="text-base leading-none">{data.emoji}</span>
       <span className="font-semibold text-gray-700">{data.temp}°C</span>
       <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${pm25.cls}`}>

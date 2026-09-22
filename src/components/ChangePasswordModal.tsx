@@ -65,23 +65,23 @@ export default function ChangePasswordModal({
   };
 
   const labelStyle = "block text-sm font-bold text-gray-700 mb-2";
-  const inputStyle = `w-full px-4 py-3.5 rounded-xl text-base transition-all outline-none bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200`;
+  const inputStyle = `w-full px-4 py-3.5 rounded-xl text-base transition-all outline-none bg-table-header border border-line text-heading placeholder-gray-400 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary-soft`;
 
   const ModalContent = (
     <div className="space-y-6 pt-12 md:pt-2">
       <div className="text-center px-2 mb-4">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 mb-4">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary-wash mb-4">
           <span className="text-2xl">🔑</span>
         </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">비밀번호 변경</h3>
-        <p className="text-sm text-gray-500 leading-relaxed">
+        <h3 className="text-xl font-bold text-heading mb-2">비밀번호 변경</h3>
+        <p className="text-sm text-muted leading-relaxed">
           현재 비밀번호를 확인 후 새 비밀번호로 변경합니다.
         </p>
       </div>
 
       <form
         onSubmit={handleChangePassword}
-        className="space-y-4 bg-gray-50/50 border border-gray-100 p-5 sm:p-6 rounded-2xl"
+        className="space-y-4 bg-table-header border border-line-soft p-5 sm:p-6 rounded-2xl"
       >
         <div>
           <label className={labelStyle}>현재 비밀번호</label>
@@ -123,7 +123,7 @@ export default function ChangePasswordModal({
         <button
           type="submit"
           disabled={loading || !currentPassword || !newPassword || !confirmPassword}
-          className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl hover:bg-blue-700 transition shadow-lg mt-2 disabled:bg-gray-300"
+          className="w-full py-4 bg-primary text-white font-bold text-lg rounded-xl hover:bg-primary-active transition shadow-lg mt-2 disabled:bg-gray-300"
         >
           {loading ? "변경 중..." : "비밀번호 변경"}
         </button>
@@ -160,11 +160,11 @@ export default function ChangePasswordModal({
       {/* 모바일 뷰 */}
       {isOpen && (
         <div className="md:hidden fixed inset-0 z-[9999] bg-white flex flex-col animate-slideInRight overflow-hidden">
-          <div className="bg-white px-5 py-5 flex items-center justify-between border-b border-gray-200 shrink-0 sticky top-0 z-10 shadow-sm">
-            <h2 className="text-xl font-extrabold text-gray-900">비밀번호 변경</h2>
+          <div className="bg-white px-5 py-5 flex items-center justify-between border-b border-line shrink-0 sticky top-0 z-10 shadow-sm">
+            <h2 className="text-xl font-extrabold text-heading">비밀번호 변경</h2>
             <button
               onClick={onClose}
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition"
+              className="p-2 text-muted hover:bg-gray-100 rounded-full transition"
             >
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />

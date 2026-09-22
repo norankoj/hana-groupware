@@ -50,13 +50,13 @@ export default function Modal({
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 sm:p-4">
-      <div className={`bg-white w-full overflow-hidden flex flex-col border-0 sm:border border-gray-200 rounded-t-2xl sm:rounded-t-sm ${
+      <div className={`bg-white w-full overflow-hidden flex flex-col border-0 sm:border border-line rounded-t-2xl sm:rounded-t-sm ${
         isSm
           ? "sm:rounded-sm sm:max-w-[400px] h-auto sm:h-auto sm:max-h-[90vh]"
           : "sm:rounded-sm sm:max-w-[600px] h-[92dvh] sm:h-auto sm:max-h-[90vh]"
       } ${className}`}>
-        <div className={`border-b border-gray-200 bg-gray-50 flex justify-between items-center shrink-0 px-6 py-4`}>
-          <h2 className={`font-bold text-gray-900 tracking-tight ${isSm ? "text-base" : "text-lg"}`}>
+        <div className={`border-b border-line bg-table-header flex justify-between items-center shrink-0 px-6 py-4`}>
+          <h2 className={`font-bold text-heading tracking-tight ${isSm ? "text-base" : "text-lg"}`}>
             {title}
           </h2>
           <button
@@ -85,7 +85,7 @@ export default function Modal({
 
         {/* 푸터 */}
         {footer && (
-          <div className={`border-t border-gray-200 bg-gray-50/50 flex justify-end gap-3 shrink-0 px-6 py-4`}>
+          <div className={`border-t border-line bg-table-header flex justify-end gap-3 shrink-0 px-6 py-4`}>
             {footer}
           </div>
         )}

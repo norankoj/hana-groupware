@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import Modal from "@/components/Modal";
+import { table, td, th, thead, trHover } from "@/components/ui/table";
 
 type Vehicle = {
   id: number;
@@ -116,16 +117,16 @@ export default function HistoryModal({
         )}
 
         {/* 헤더 — 이미지1과 동일 스타일 */}
-        <div className="px-5 py-4 flex items-start justify-between gap-3 bg-gray-50">
+        <div className="px-5 py-4 flex items-start justify-between gap-3 bg-table-header">
           <div className="min-w-0">
-            <span className="text-xs font-bold text-gray-500">반납</span>
-            <p className="text-base font-extrabold text-gray-900 mt-0.5 leading-snug truncate">
+            <span className="text-xs font-bold text-muted">반납</span>
+            <p className="text-base font-extrabold text-heading mt-0.5 leading-snug truncate">
               {selectedVehicleHistory?.name ?? log.resources?.name ?? "차량"}
             </p>
           </div>
           <button
             onClick={() => setPopover(null)}
-            className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-black/10 transition text-gray-500"
+            className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-black/10 transition text-muted"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -154,12 +155,12 @@ export default function HistoryModal({
             <span className="line-clamp-2">{log.purpose}</span>
           </InfoLine>
 
-          <div className="border-t border-gray-100 pt-1" />
+          <div className="border-t border-line-soft pt-1" />
 
           <InfoLine label="주행 거리">
             {distance != null ? (
               <>
-                <span className="font-bold text-blue-600">
+                <span className="font-bold text-primary">
                   {distance.toLocaleString()} km
                 </span>
                 {log.start_mileage != null && log.end_mileage != null && (
@@ -226,7 +227,7 @@ export default function HistoryModal({
               <h3 className="text-lg font-bold text-gray-800">
                 {lastDriver.driver_name}
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-muted mt-0.5">
                 {format(new Date(lastDriver.end_at), "yyyy.MM.dd HH:mm")} 반납완료
               </p>
             </div>
@@ -238,7 +239,7 @@ export default function HistoryModal({
             </div>
           </div>
         ) : (
-          <div className="bg-gray-50 p-4 rounded-xl text-center text-sm text-gray-400">
+          <div className="bg-table-header p-4 rounded-xl text-center text-sm text-gray-400">
             아직 반납된 운행 기록이 없습니다.
           </div>
         )}
@@ -246,34 +247,34 @@ export default function HistoryModal({
         {/* 기록 테이블 */}
         <div
           ref={scrollRef}
-          className="max-h-[50vh] overflow-y-auto custom-scrollbar border-t border-gray-100 pt-2"
+          className="max-h-[50vh] overflow-y-auto custom-scrollbar border-t border-line-soft pt-2"
         >
-          <table className="w-full text-sm text-left">
-            <thead className="bg-white sticky top-0 border-b border-gray-200">
+          <table className={`${table} w-full`}>
+            <thead className={thead}>
               <tr>
-                <th className="px-2 py-2 text-gray-400 font-medium">일자</th>
-                <th className="px-2 py-2 text-gray-400 font-medium">운전자</th>
-                <th className="px-2 py-2 text-gray-400 font-medium">목적지</th>
-                <th className="px-2 py-2 text-right text-gray-400 font-medium">주행거리</th>
+                <th className={`${th} font-medium`}>일자</th>
+                <th className={`${th} font-medium`}>운전자</th>
+                <th className={`${th} font-medium`}>목적지</th>
+                <th className={`${th} text-right font-medium`}>주행거리</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {vehicleLogs.map((log) => (
                 <tr
                   key={log.id}
-                  className="hover:bg-blue-50/50 cursor-pointer transition"
+                  className={`${trHover} cursor-pointer`}
                   onClick={(e) => setPopover({ log, x: e.clientX, y: e.clientY })}
                 >
-                  <td className="px-2 py-3 text-gray-600">
+                  <td className={`${td}`}>
                     {format(new Date(log.start_at), "MM.dd")}
                   </td>
-                  <td className="px-2 py-3 font-bold text-gray-800">
+                  <td className={`${td} font-bold`}>
                     {log.driver_name}
                   </td>
-                  <td className="px-2 py-3 text-gray-600 truncate max-w-[80px]">
+                  <td className={`${td} truncate max-w-[80px]`}>
                     {log.destination}
                   </td>
-                  <td className="px-2 py-3 text-right font-mono text-blue-600">
+                  <td className={`${td} text-right font-mono text-primary`}>
                     {log.end_mileage != null && log.start_mileage != null
                       ? `${(log.end_mileage - log.start_mileage).toLocaleString()}km`
                       : "-"}
@@ -300,8 +301,8 @@ export default function HistoryModal({
               <div
                 className={
                   isMobile
-                    ? "fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl overflow-hidden border-t border-gray-100 animate-slideUp"
-                    : "fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-gray-100"
+                    ? "fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl overflow-hidden border-t border-line-soft animate-slideUp"
+                    : "fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-line-soft"
                 }
                 style={
                   isMobile

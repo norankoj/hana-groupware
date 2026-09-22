@@ -20,7 +20,8 @@ import ScheduleAddModal, {
   type EditableSchedule,
 } from "@/components/ScheduleAddModal";
 import ScheduleDetailModal from "@/components/ScheduleDetailModal";
-import Modal from "@/components/Modal";
+import Modal from "@/components/Modal";import { btnStyles } from "@/components/fund/shared";
+
 
 const calendarCustomStyles = `
   .react-calendar { width: 100%; height: 100%; border: none; font-family: inherit; display: flex; flex-direction: column; }
@@ -66,6 +67,10 @@ export type CalendarEvent = {
 
 type TeamInfo = { id: number; name: string };
 
+// 달력 '일정 색'(팀·사역·생일)은 디자인 시스템 토큰을 쓰지 않는다 — 일부러 둔 예외다.
+// 시스템 구분색(cat-*)으로 바꾸고 점+글자 형태로도 만들어 봤는데 둘 다 보기 나빴다.
+// 격자에서는 지금의 색조·명도 조합이 더 잘 읽힌다. 되돌리지 말 것.
+// (버튼 같은 나머지 화면 요소는 공용 스타일을 쓴다)
 const TEAM_STYLES: Record<
   number,
   { bg: string; text: string; border: string }
@@ -304,7 +309,7 @@ export default function CalendarSection({
                 setEditEvent(null);
                 setIsScheduleModalOpen(true);
               }}
-              className="bg-blue-600 text-white px-2.5 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-bold shadow-sm hover:bg-blue-700 transition flex items-center gap-1 whitespace-nowrap"
+              className={`${btnStyles.cta} gap-1 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm`}
             >
               <svg
                 className="w-3.5 h-3.5 sm:w-4 sm:h-4"

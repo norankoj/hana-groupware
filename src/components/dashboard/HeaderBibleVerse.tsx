@@ -16,10 +16,10 @@ export default function HeaderBibleVerse() {
 
   return (
     <div className="flex items-center gap-2 max-w-lg text-center">
-      <p className="text-sm text-gray-500 leading-snug truncate">
-        <span className="text-gray-300 mr-1.5">&ldquo;</span>
+      <p className="text-sm text-muted leading-snug truncate">
+        <span className="text-disabled-text mr-1.5">&ldquo;</span>
         {verse.text}
-        <span className="text-gray-300 ml-1.5">&rdquo;</span>
+        <span className="text-disabled-text ml-1.5">&rdquo;</span>
         <span className="ml-2 text-xs text-gray-400 font-semibold whitespace-nowrap">
           {verse.ref}
         </span>

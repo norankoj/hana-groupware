@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
+import { empty, table, td, th } from "@/components/ui/table";
 
 type Props = {
   projectId: string;
@@ -71,9 +72,9 @@ const COUNTRY_COLORS: Record<
     border: "border-rose-300",
   },
   이스라엘: {
-    bg: "bg-blue-100",
-    text: "text-blue-800",
-    border: "border-blue-300",
+    bg: "bg-primary-soft",
+    text: "text-primary-active",
+    border: "border-primary-soft",
   },
   레바논: { bg: "bg-red-100", text: "text-red-800", border: "border-red-300" },
   사우디: {
@@ -203,7 +204,7 @@ function TransportBadge({
   if (!active)
     return (
       <span
-        className="text-gray-300 text-xs select-none"
+        className="text-disabled-text text-xs select-none"
         title="수양회 O 설정 후 활성화"
       >
         -
@@ -211,7 +212,7 @@ function TransportBadge({
     );
   const color =
     value === "단체버스"
-      ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+      ? "bg-primary-wash text-primary-active hover:bg-primary-soft"
       : value === "개인이동"
         ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
         : "bg-gray-100 text-gray-400 hover:bg-gray-200";
@@ -238,10 +239,10 @@ function RoleBadge({
     r === "spouse"
       ? "bg-pink-100 text-pink-600 hover:bg-pink-200"
       : r === "child"
-        ? "bg-gray-100 text-gray-500 hover:bg-gray-200"
+        ? "bg-gray-100 text-muted hover:bg-gray-200"
         : r === "staff"
           ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-          : "bg-blue-100 text-blue-700 hover:bg-blue-200";
+          : "bg-primary-wash text-primary-active hover:bg-primary-soft";
   return (
     <button
       onClick={onClick}
@@ -277,14 +278,14 @@ function SortTh({
   return (
     <th
       onClick={() => onSort(colKey)}
-      className={`px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 transition-colors bg-gray-50 text-gray-500 text-xs ${center ? "text-center" : "text-left"}`}
+      className={`px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 transition-colors bg-table-header text-muted text-xs ${center ? "text-center" : "text-left"}`}
     >
       <div
         className={`flex items-center gap-0.5 ${center ? "justify-center" : ""}`}
       >
         <span>{label}</span>
         <span
-          className={`text-[9px] ml-0.5 ${active ? "text-blue-500" : "text-gray-300"}`}
+          className={`text-[9px] ml-0.5 ${active ? "text-primary" : "text-disabled-text"}`}
         >
           {active ? (currentDir === "asc" ? "▲" : "▼") : "⇅"}
         </span>
@@ -303,9 +304,9 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-      <div className="text-xs font-semibold text-gray-500">{label}</div>
-      <div className="text-xl font-bold mt-0.5 text-gray-900">{value}</div>
+    <div className="rounded-xl border border-line bg-white p-3 shadow-sm">
+      <div className="text-xs font-semibold text-muted">{label}</div>
+      <div className="text-xl font-bold mt-0.5 text-heading">{value}</div>
       {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
     </div>
   );
@@ -702,13 +703,13 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
       </div>
 
       {retreatCount > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted bg-table-header rounded-lg px-3 py-2 border border-line-soft">
           <span className="font-semibold text-gray-600">
             수양회 → 마프 이동
           </span>
           <span>
             단체버스{" "}
-            <span className="font-bold text-blue-700">{busCount}명</span>
+            <span className="font-bold text-primary-active">{busCount}명</span>
           </span>
           <span>
             개인이동{" "}
@@ -716,7 +717,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
           </span>
           <span>
             미정{" "}
-            <span className="font-bold text-gray-500">
+            <span className="font-bold text-muted">
               {retreatCount - busCount - indivCount}명
             </span>
           </span>
@@ -727,7 +728,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
         {canEdit && (
           <button
             onClick={() => setShowAddModal(true)}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary-active bg-primary-wash border border-primary-soft rounded-lg hover:bg-primary-soft transition"
           >
             <svg
               className="w-3.5 h-3.5"
@@ -764,7 +765,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="이름·소속 검색..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-soft"
           />
         </div>
         <button
@@ -802,7 +803,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
             <button
               type="button"
               onClick={() => setShowAddModal(false)}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              className="px-4 py-2 text-sm text-gray-600 border border-line rounded-lg hover:bg-gray-50 transition"
             >
               취소
             </button>
@@ -810,7 +811,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
               type="submit"
               form="add-person-form"
               disabled={addSaving}
-              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              className="px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-active transition disabled:opacity-50"
             >
               {addSaving ? "저장 중..." : "추가"}
             </button>
@@ -823,7 +824,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
           className="space-y-4"
         >
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">
+            <label className="block text-xs font-semibold text-muted mb-1">
               이름 *
             </label>
             <input
@@ -832,25 +833,25 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
               onChange={(e) =>
                 setAddForm((f) => ({ ...f, name: e.target.value }))
               }
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-soft"
               placeholder="이름 입력"
               autoFocus
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
+              <label className="block text-xs font-semibold text-muted mb-1">
                 파송국가
               </label>
               <Select
                 value={addForm.country}
                 onChange={(v) => setAddForm((f) => ({ ...f, country: v }))}
                 options={COUNTRY_ORDER}
-                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
+                className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
+              <label className="block text-xs font-semibold text-muted mb-1">
                 역할
               </label>
               <Select
@@ -862,12 +863,12 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   { value: "spouse", label: "배우자" },
                   { value: "child", label: "자녀" },
                 ]}
-                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
+                className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">
+            <label className="block text-xs font-semibold text-muted mb-1">
               소속
             </label>
             <input
@@ -876,12 +877,12 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
               onChange={(e) =>
                 setAddForm((f) => ({ ...f, affiliation: e.target.value }))
               }
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-soft"
               placeholder="소속 교회·단체"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">
+            <label className="block text-xs font-semibold text-muted mb-1">
               가족 묶음{" "}
               <span className="font-normal text-gray-400">
                 (같은 가족은 동일하게 입력)
@@ -893,7 +894,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
               onChange={(e) =>
                 setAddForm((f) => ({ ...f, family_group: e.target.value }))
               }
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-soft"
               placeholder="예: 홍길동가정"
             />
           </div>
@@ -901,18 +902,18 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
       </Modal>
 
       {/* 테이블 */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
-        <table className="w-full text-sm border-collapse min-w-[760px]">
+      <div className="overflow-x-auto rounded-xl border border-line shadow-sm bg-white">
+        <table className={`${table} w-full min-w-[760px]`}>
           <thead>
-            <tr className="border-b border-gray-200">
+            <tr>
               <th
                 onClick={() => handleSort("country")}
-                className="px-2 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 transition-colors bg-gray-50 text-gray-500 text-xs text-center w-20"
+                className={`${th} whitespace-nowrap cursor-pointer select-none hover:text-primary text-center w-20`}
               >
                 <div className="flex items-center justify-center gap-0.5">
                   <span>파송국가</span>
                   <span
-                    className={`text-[9px] ml-0.5 ${sortKey === "country" ? "text-blue-500" : "text-gray-300"}`}
+                    className={`text-[9px] ml-0.5 ${sortKey === "country" ? "text-primary" : "text-disabled-text"}`}
                   >
                     {sortKey === "country"
                       ? sortDir === "asc"
@@ -984,7 +985,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                 onSort={handleSort}
                 center
               />
-              <th className="px-2 py-2.5 bg-gray-50 w-8" />
+              <th className={`${th} w-8`} />
             </tr>
           </thead>
           <tbody>
@@ -992,7 +993,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
               <tr>
                 <td
                   colSpan={10}
-                  className="px-4 py-12 text-center text-gray-400 text-sm"
+                  className={empty}
                 >
                   {q
                     ? "검색 결과가 없습니다."
@@ -1021,7 +1022,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
               const borderClass = isCountryBoundary
                 ? "border-t-2 border-gray-400"
                 : isFamilyBoundary
-                  ? "border-t border-gray-200"
+                  ? "border-t border-line"
                   : "border-t border-gray-50";
 
               const { bg, text, border } = countryColor(country);
@@ -1029,10 +1030,10 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
               return (
                 <tr
                   key={row.id}
-                  className={`bg-white hover:bg-blue-50/20 transition-colors ${borderClass}`}
+                  className={`bg-white hover:bg-primary-wash/20 transition-colors ${borderClass}`}
                 >
                   {/* 파송국가 */}
-                  <td className="px-2 py-2 text-center border-r border-gray-100 w-20">
+                  <td className={`${td} text-center w-20`}>
                     <span
                       className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold leading-tight ${bg} ${text} whitespace-nowrap`}
                     >
@@ -1041,20 +1042,20 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* 이름 */}
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className={`${td} whitespace-nowrap`}>
                     <div className="flex items-center gap-1.5">
                       <RoleBadge
                         role={row.family_role}
                         onClick={isAdmin ? () => cycleRole(row) : undefined}
                       />
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-heading">
                         {row.name}
                       </span>
                     </div>
                   </td>
 
                   {/* 소속 — 가족 첫 행 또는 정렬 시 전체 표시 */}
-                  <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">
+                  <td className={`${td} whitespace-nowrap`}>
                     {!sortKey || sortKey === "country"
                       ? isFirstInFamily
                         ? (row.affiliation ?? "-")
@@ -1063,7 +1064,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* 수파선 */}
-                  <td className="px-3 py-2 text-center">
+                  <td className={`${td} text-center`}>
                     <OXBadge
                       value={row.attend_supasun}
                       onClick={
@@ -1080,7 +1081,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* 수양회 */}
-                  <td className="px-3 py-2 text-center">
+                  <td className={`${td} text-center`}>
                     <OXBadge
                       value={row.attend_retreat}
                       onClick={canEdit ? () => toggleRetreat(row) : undefined}
@@ -1088,7 +1089,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* 수양회 숙박 */}
-                  <td className="px-3 py-2 text-center">
+                  <td className={`${td} text-center`}>
                     {row.attend_retreat ? (
                       <OXBadge
                         value={row.overnight_retreat}
@@ -1114,7 +1115,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* 이동방법 */}
-                  <td className="px-3 py-2 text-center">
+                  <td className={`${td} text-center`}>
                     <TransportBadge
                       value={row.retreat_transport}
                       active={row.attend_retreat}
@@ -1127,7 +1128,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* MK */}
-                  <td className="px-3 py-2 text-center">
+                  <td className={`${td} text-center`}>
                     {row.family_role === "child" ? (
                       <MKBadge
                         value={row.mk_program}
@@ -1144,7 +1145,7 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* 마프참석 */}
-                  <td className="px-3 py-2 text-center">
+                  <td className={`${td} text-center`}>
                     <OXBadge
                       value={row.attend_marf}
                       onClick={
@@ -1161,12 +1162,12 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
                   </td>
 
                   {/* 카톡 복사 — 가정 첫 행에만 */}
-                  <td className="px-1 py-2 text-center w-8">
+                  <td className={`${td} text-center w-8`}>
                     {isFirstInFamily && (
                       <button
                         onClick={() => copyFamilyMessage(fk)}
                         title="카톡 메시지 복사"
-                        className="p-1 rounded text-gray-300 hover:text-yellow-500 hover:bg-yellow-50 transition"
+                        className="p-1 rounded text-disabled-text hover:text-yellow-500 hover:bg-yellow-50 transition"
                       >
                         <svg
                           className="w-4 h-4"

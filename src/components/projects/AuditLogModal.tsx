@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Modal from "@/components/Modal";
 import { createClient } from "@/utils/supabase/client";
+import { table, td, th, trHover } from "@/components/ui/table";
 
 type AuditLog = {
   id: string;
@@ -85,7 +86,7 @@ function getDiff(before: Record<string, unknown> | null, after: Record<string, u
 // ─── Action 배지 ────────────────────────────────────────────────────
 const ACTION_LABEL: Record<string, { label: string; color: string }> = {
   create:   { label: "추가",    color: "bg-emerald-100 text-emerald-700" },
-  update:   { label: "수정",    color: "bg-blue-100 text-blue-700" },
+  update:   { label: "수정",    color: "bg-primary-soft text-primary-active" },
   delete:   { label: "삭제",    color: "bg-red-100 text-red-700" },
   assign:   { label: "배정",    color: "bg-indigo-100 text-indigo-700" },
   unassign: { label: "배정해제", color: "bg-gray-100 text-gray-600" },
@@ -175,7 +176,7 @@ export default function AuditLogModal({
                   {hasDiff && (
                     <button
                       onClick={() => setExpandId(isExpanded ? null : log.id)}
-                      className="text-blue-500 hover:text-blue-700 font-medium"
+                      className="text-primary hover:text-primary-active font-medium"
                     >
                       {isExpanded ? "▲ 닫기" : `▼ 변경내용 ${diff.length}건`}
                     </button>
@@ -184,28 +185,28 @@ export default function AuditLogModal({
 
                 {/* diff 펼침 */}
                 {isExpanded && hasDiff && (
-                  <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden text-xs">
-                    <table className="w-full">
+                  <div className="mt-2 rounded-lg border border-line overflow-hidden text-xs">
+                    <table className={`${table} w-full`}>
                       <thead>
-                        <tr className="bg-gray-50 text-gray-500 text-[10px]">
-                          <th className="px-3 py-1.5 text-left font-semibold w-24">항목</th>
-                          {log.before_data && <th className="px-3 py-1.5 text-left font-semibold text-red-400">변경 전</th>}
-                          {log.after_data  && <th className="px-3 py-1.5 text-left font-semibold text-blue-500">변경 후</th>}
+                        <tr>
+                          <th className={`${th} text-left font-semibold w-24`}>항목</th>
+                          {log.before_data && <th className={`${th} text-left font-semibold text-red-400`}>변경 전</th>}
+                          {log.after_data  && <th className={`${th} text-left font-semibold text-primary`}>변경 후</th>}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody>
                         {diff.map((row) => (
-                          <tr key={row.key} className="hover:bg-gray-50/50">
-                            <td className="px-3 py-1.5 font-medium text-gray-500 whitespace-nowrap">
+                          <tr key={row.key} className={`${trHover}`}>
+                            <td className={`${td} font-medium whitespace-nowrap`}>
                               {FIELD_KO[row.key] ?? row.key}
                             </td>
                             {log.before_data && (
-                              <td className="px-3 py-1.5 text-gray-500 break-all">
+                              <td className={`${td} break-all`}>
                                 {fmtVal(row.before)}
                               </td>
                             )}
                             {log.after_data && (
-                              <td className="px-3 py-1.5 text-gray-800 break-all font-medium">
+                              <td className={`${td} break-all font-medium`}>
                                 {fmtVal(row.after)}
                               </td>
                             )}

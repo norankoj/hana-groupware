@@ -79,7 +79,7 @@ function LineWithLinks({ text }: { text: string }) {
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 text-blue-600 underline underline-offset-2 break-all"
+            className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2 break-all"
           >
             <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -99,8 +99,8 @@ function NoteBox({ text }: { text: string | null }) {
   if (!text?.trim()) return null;
   const lines = text.split("\n").filter((l) => l.trim());
   return (
-    <div className="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
-      <p className="text-[11px] font-bold text-gray-500 mb-1.5">💡 특이사항</p>
+    <div className="mt-2 bg-table-header border border-line rounded-lg p-3">
+      <p className="text-[11px] font-bold text-muted mb-1.5">💡 특이사항</p>
       <ul className="space-y-1">
         {lines.map((line, i) => (
           <li key={i} className="text-sm flex items-start gap-1.5 text-gray-700">
@@ -146,8 +146,8 @@ export default function MissionarySharePage() {
   }
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 max-w-sm w-full p-6 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-table-header p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-line-soft max-w-sm w-full p-6 text-center">
           <p className="text-2xl mb-2">😔</p>
           <p className="text-sm text-gray-600">{error}</p>
         </div>
@@ -182,21 +182,21 @@ export default function MissionarySharePage() {
       <div className="max-w-lg mx-auto px-5 py-6">
 
         {/* ── 헤더 ── */}
-        <header className="pb-5 mb-1 border-b-2 border-blue-600">
+        <header className="pb-5 mb-1 border-b-2 border-primary">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold text-blue-600 tracking-widest uppercase mb-0.5">
+              <p className="text-[11px] font-semibold text-primary tracking-widest uppercase mb-0.5">
                 {data.project.name}
               </p>
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-heading">
                 {t("welcome")}, {coupleNames}
               </h1>
-              <p className="text-sm text-gray-500 mt-0.5">{t("welcomeSub")}</p>
+              <p className="text-sm text-muted mt-0.5">{t("welcomeSub")}</p>
             </div>
             {/* 언어 전환 */}
-            <div className="flex rounded-md border border-gray-200 overflow-hidden shrink-0 mt-0.5">
-              <button onClick={() => setLang("ko")} className={`px-2.5 py-1 text-xs font-semibold transition ${lang === "ko" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>한국어</button>
-              <button onClick={() => setLang("en")} className={`px-2.5 py-1 text-xs font-semibold border-l border-gray-200 transition ${lang === "en" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>EN</button>
+            <div className="flex rounded-md border border-line overflow-hidden shrink-0 mt-0.5">
+              <button onClick={() => setLang("ko")} className={`px-2.5 py-1 text-xs font-semibold transition ${lang === "ko" ? "bg-primary text-white" : "text-muted hover:bg-gray-50"}`}>한국어</button>
+              <button onClick={() => setLang("en")} className={`px-2.5 py-1 text-xs font-semibold border-l border-line transition ${lang === "en" ? "bg-primary text-white" : "text-muted hover:bg-gray-50"}`}>EN</button>
             </div>
           </div>
         </header>
@@ -212,9 +212,9 @@ export default function MissionarySharePage() {
                     {m.arrival_date ? (
                       <>
                         <div className="font-medium">{fmt(m.arrival_date)}</div>
-                        {m.arrival_time && <div className="text-gray-500">{m.arrival_time.slice(0, 5)}</div>}
+                        {m.arrival_time && <div className="text-muted">{m.arrival_time.slice(0, 5)}</div>}
                         {(m.arrival_flight || m.arrival_terminal) && (
-                          <div className="text-gray-500 text-[11px]">
+                          <div className="text-muted text-[11px]">
                             {m.arrival_flight ?? ""}{m.arrival_terminal ? ` · ${m.arrival_terminal}` : ""}
                           </div>
                         )}
@@ -225,9 +225,9 @@ export default function MissionarySharePage() {
                     {m.departure_date ? (
                       <>
                         <div className="font-medium">{fmt(m.departure_date)}</div>
-                        {m.departure_time && <div className="text-gray-500">{m.departure_time.slice(0, 5)}</div>}
+                        {m.departure_time && <div className="text-muted">{m.departure_time.slice(0, 5)}</div>}
                         {(m.departure_flight || m.departure_terminal) && (
-                          <div className="text-gray-500 text-[11px]">
+                          <div className="text-muted text-[11px]">
                             {m.departure_flight ?? ""}{m.departure_terminal ? ` · ${m.departure_terminal}` : ""}
                           </div>
                         )}
@@ -247,7 +247,7 @@ export default function MissionarySharePage() {
               const periods = myAssigns(a);
               return (
                 <div key={a.id} className="mb-4 last:mb-0">
-                  <p className="font-bold text-gray-900 mb-1.5">{idx + 1}. {a.provider_name}</p>
+                  <p className="font-bold text-heading mb-1.5">{idx + 1}. {a.provider_name}</p>
                   <ul className="ml-4 space-y-0.5 text-sm text-gray-700">
                     {periods.length > 0 && (
                       <li>• 기간 : {periods.map((p) => `${fmtShort(p.from)} ~ ${fmtShort(p.to)}`).join(", ")}</li>
@@ -261,7 +261,7 @@ export default function MissionarySharePage() {
                             href={`https://map.kakao.com/link/search/${encodeURIComponent(a.address)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 underline underline-offset-2"
+                            className="text-primary underline underline-offset-2"
                           >
                             {a.address}
                           </a>
@@ -271,7 +271,7 @@ export default function MissionarySharePage() {
                     {a.provider_contact && (
                       <li>
                         • 연락처 :{" "}
-                        <a href={`tel:${a.provider_contact}`} className="text-blue-600 underline underline-offset-2">
+                        <a href={`tel:${a.provider_contact}`} className="text-primary underline underline-offset-2">
                           {a.provider_contact}
                         </a>
                       </li>
@@ -293,7 +293,7 @@ export default function MissionarySharePage() {
               const periods = myAssigns(v);
               return (
                 <div key={v.id} className="mb-4 last:mb-0">
-                  <p className="font-bold text-gray-900 mb-1.5">{idx + 1}. {v.provider_name}</p>
+                  <p className="font-bold text-heading mb-1.5">{idx + 1}. {v.provider_name}</p>
                   <ul className="ml-4 space-y-0.5 text-sm text-gray-700">
                     {periods.length > 0 && (
                       <li>• 기간 : {periods.map((p) => `${fmtShort(p.from)} ~ ${fmtShort(p.to)}`).join(", ")}</li>
@@ -304,7 +304,7 @@ export default function MissionarySharePage() {
                     {v.provider_contact && (
                       <li>
                         • 연락처 :{" "}
-                        <a href={`tel:${v.provider_contact}`} className="text-blue-600 underline underline-offset-2">
+                        <a href={`tel:${v.provider_contact}`} className="text-primary underline underline-offset-2">
                           {v.provider_contact}
                         </a>
                       </li>
@@ -325,13 +325,13 @@ export default function MissionarySharePage() {
             <ul className="space-y-2">
               {inStaySchedules.map((s) => (
                 <li key={s.id} className="flex items-start gap-3 text-sm">
-                  <span className="shrink-0 text-xs font-semibold text-gray-500 w-20 pt-0.5">{fmt(s.event_date)}</span>
+                  <span className="shrink-0 text-xs font-semibold text-muted w-20 pt-0.5">{fmt(s.event_date)}</span>
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium text-heading">
                       {s.start_time && <span className="text-gray-400 font-normal mr-1.5">{s.start_time.slice(0, 5)}</span>}
                       {s.title}
                     </div>
-                    {s.location && <div className="text-xs text-gray-500 mt-0.5">📍 {s.location}</div>}
+                    {s.location && <div className="text-xs text-muted mt-0.5">📍 {s.location}</div>}
                   </div>
                 </li>
               ))}
@@ -348,7 +348,7 @@ export default function MissionarySharePage() {
 function DocSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-6">
-      <h2 className="text-sm font-extrabold text-gray-800 mb-3 pb-1.5 border-b-2 border-gray-200">
+      <h2 className="text-sm font-extrabold text-gray-800 mb-3 pb-1.5 border-b-2 border-line">
         {title}
       </h2>
       {children}
@@ -358,7 +358,7 @@ function DocSection({ title, children }: { title: string; children: React.ReactN
 
 function TravelBox({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50/50">
+    <div className="border border-line rounded-lg p-2.5 bg-table-header">
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
       <div className="text-sm text-gray-800 space-y-0.5">{children}</div>
     </div>

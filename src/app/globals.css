@@ -13,6 +13,120 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * 디자인 시스템 색 토큰.
+ * 값은 디자인 시스템에서 받은 그대로다 — 눈대중으로 고치지 말 것.
+ * Tailwind v4 가 이 이름으로 유틸리티를 만든다: bg-primary, text-muted,
+ * border-line, ring-primary …
+ *
+ * 상태 규칙 (Filled 버튼 기준)
+ *   default = hover  (색은 그대로, hover 는 그림자로 표시)
+ *   active  = focus  (-active 토큰으로 확실히 어둡게)
+ *   disabled = 원색 18% 틴트
+ */
+@theme {
+  --color-primary: #2151ec;
+  --color-primary-active: #1739a5;
+  /* 12% — 배지·칩처럼 작은 면적용. 넓은 면에 쓰면 너무 진하다 */
+  --color-primary-soft: rgba(33, 81, 236, 0.12);
+  /* 5% — 오늘 날짜 줄, 고른 줄, 안내 박스처럼 넓은 면용 */
+  --color-primary-wash: rgba(33, 81, 236, 0.05);
+  --color-primary-faint: rgba(33, 81, 236, 0.18);
+
+  --color-secondary: #82868b;
+  --color-secondary-active: #75797e;
+  --color-secondary-soft: rgba(130, 134, 139, 0.12);
+
+  /* 테마 색과 Filled 버튼 색이 다르다 — 배지·글자는 success, 버튼은 success-fill */
+  --color-success: #1bc47d;
+  --color-success-fill: #28c76f;
+  --color-success-active: #006d38;
+  --color-success-soft: rgba(39, 194, 129, 0.12);
+
+  --color-danger: #ea5455;
+  --color-danger-active: #b12a30;
+  --color-danger-soft: rgba(234, 59, 59, 0.12);
+  --color-danger-faint: rgba(234, 84, 85, 0.18);
+
+  --color-warning: #f0af23;
+  --color-warning-active: #7d5800;
+  --color-warning-soft: rgba(240, 175, 35, 0.12);
+
+  --color-info: #00cfe8;
+  --color-info-active: #006876;
+  --color-info-soft: rgba(0, 207, 232, 0.12);
+
+  --color-dark: #4c5469;
+  --color-dark-active: #343434;
+  --color-dark-soft: rgba(76, 84, 105, 0.12);
+
+  --color-light: #9ea7b8;
+  --color-light-soft: rgba(158, 167, 184, 0.12);
+
+  /*
+   * 구분용 팔레트 (디자인 시스템 3_bootstrap).
+   * '의미'가 아니라 '서로 다름'을 나타낼 때만 쓴다 — 팀, 분류, 캘린더 색처럼
+   * 여러 색이 동시에 필요한 곳. 상태(성공·경고·실패)에는 위의 7색을 쓴다.
+   *
+   * 글자는 이 색을 그대로 쓰면 대비가 안 나온다. 옅은 배경(/15)에 짙은 글자
+   * (text-heading)를 얹고, 이 색은 배경·테두리·점에만 쓴다.
+   */
+  --color-cat-blue: #0d6efd;
+  --color-cat-purple: #6f42c1;
+  --color-cat-red: #dc3545;
+  --color-cat-pink: #d63384;
+  --color-cat-orange: #fd7e14;
+  --color-cat-yellow: #ffc107;
+  --color-cat-green: #198754;
+  --color-cat-emerald: #2bdac7;
+  --color-cat-teal: #20c997;
+  --color-cat-cyan: #0dcaf0;
+  --color-cat-gray: #adb5bd;
+
+  /*
+   * 구분색의 글자용 — 같은 색조를 어둡게 한 것.
+   * 스펙은 -active 를 의미색 7종에만 줬고 이 팔레트에는 안 줬으므로 파생했다.
+   * 옅은 배경 위에서 WCAG AA 를 넘기면서 색조는 유지한다 —
+   * 글자를 검정으로 바꾸면 색이 하는 일(한눈에 구분)이 없어진다.
+   */
+  --color-cat-blue-ink: #0a4fb8;
+  --color-cat-purple-ink: #4b2d86;
+  --color-cat-red-ink: #a4222f;
+  --color-cat-pink-ink: #8f2059;
+  --color-cat-orange-ink: #a04a00;
+  --color-cat-yellow-ink: #7d5800;
+  --color-cat-green-ink: #0f5132;
+  --color-cat-teal-ink: #0f6b51;
+  --color-cat-cyan-ink: #06697e;
+  --color-cat-gray-ink: #5c646d;
+
+  /* 면 · 선 · 글자 */
+  --color-surface: #ffffff;
+  --color-body: #f2f4f6;
+  --color-table-header: #f1f4f9;
+  /*
+   * 선 3단계. 명도는 이 그룹웨어가 원래 쓰던 gray-100/200/300 에 맞췄다.
+   * 스펙 값(#cfd5e1)을 그대로 쓰니 화면 전체가 무거워졌다 — 색조만 스펙의
+   * 푸른 회색을 따르고, 밝기는 기존 것을 유지한다.
+   */
+  /* 입력칸 · 테두리 버튼 — 눌러야 하는 곳이라 조금 진하게 (원래 gray-300) */
+  --color-line-strong: #d3d9e2;
+  /* 카드·구역을 나누는 선 (원래 gray-200) */
+  --color-line: #e4e8ee;
+  /* 목록 안에서 줄을 나누는 옅은 선 (원래 gray-100) */
+  --color-line-soft: #eff1f5;
+  /*
+   * 표 격자 — 칸을 나누는 선. 표는 선이 보여야 칸이 읽힌다.
+   * line 보다 한 단계 진하고 line-strong 보다 옅다. 표가 흐리거나 무거우면 이것만 조정.
+   */
+  --color-table-line: #dce1e8;
+  --color-input-line: #9ea7b8;
+  --color-heading: #11152a;
+  --color-muted: #626f86;
+  --color-disabled-text: #d1d1d1;
+  --color-disabled-input: #eeeff2;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -24,6 +138,18 @@
   select {
     color: #111827; /* 강제로 진한 회색(#111827 = gray-900) 적용 */
     background-color: #ffffff;
+  }
+}
+
+/*
+ * 표 머리칸 기본 정렬 — 왼쪽.
+ * 공용 th(ui/table.ts)에 text-left 를 넣으면 CSS 안에서 text-left 가 text-center 보다
+ * 뒤에 나와서 가운데 정렬을 덮어썼다(상태·관리 머리칸이 왼쪽에 붙음).
+ * 기본 층(base)에 두면 text-center · text-right 유틸리티가 항상 이긴다.
+ */
+@layer base {
+  th {
+    text-align: left;
   }
 }
 

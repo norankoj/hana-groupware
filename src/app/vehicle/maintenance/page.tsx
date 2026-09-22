@@ -51,7 +51,7 @@ const getBadgeColor = (type: string) => {
   if (["accident", "exterior_repair", "brake_pad"].includes(type))
     return "bg-red-100 text-red-700";
   if (["tire", "tire_rotation", "tire_puncture", "wheel_alignment"].includes(type))
-    return "bg-blue-100 text-blue-700";
+    return "bg-primary-soft text-primary-active";
   if (["warranty", "general_repair"].includes(type))
     return "bg-green-100 text-green-700";
   if (["drive_belt", "timing_belt", "spark_plug", "coolant"].includes(type))
@@ -99,19 +99,19 @@ function MaintenancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-table-header flex flex-col">
       {/* 헤더 */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <div className="bg-white border-b border-line px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <button
           onClick={() => router.back()}
-          className="p-2 -ml-1 rounded-lg hover:bg-gray-100 text-gray-500 transition"
+          className="p-2 -ml-1 rounded-lg hover:bg-gray-100 text-muted transition"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-bold text-gray-900 truncate">정비 이력</h1>
+          <h1 className="text-base font-bold text-heading truncate">정비 이력</h1>
           <p className="text-xs text-gray-400 truncate">{vehicleName}</p>
         </div>
         <button
@@ -120,7 +120,7 @@ function MaintenancePage() {
               `/vehicle/maintenance/add?vehicleId=${vehicleId}&vehicleName=${encodeURIComponent(vehicleName)}`,
             )
           }
-          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition"
+          className="flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary-active text-white text-sm font-bold rounded-lg transition"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -144,7 +144,7 @@ function MaintenancePage() {
           records.map((r) => (
             <div
               key={r.id}
-              className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
+              className="bg-white border border-line rounded-xl p-4 shadow-sm"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -160,7 +160,7 @@ function MaintenancePage() {
                 </div>
                 <button
                   onClick={() => handleDelete(r.id)}
-                  className="shrink-0 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                  className="shrink-0 p-1.5 text-disabled-text hover:text-red-500 hover:bg-red-50 rounded-lg transition"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -179,7 +179,7 @@ function MaintenancePage() {
                     </span>
                   )}
                   {r.cost != null && (
-                    <span className="flex items-center gap-1 text-xs font-bold text-blue-600">
+                    <span className="flex items-center gap-1 text-xs font-bold text-primary">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>

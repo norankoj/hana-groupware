@@ -77,7 +77,7 @@ export default function FundCorrectModal({
       {target && (
         <div className="space-y-5">
           {/* 원래 내역 */}
-          <div className="border border-gray-200 rounded-lg p-4 space-y-2 bg-gray-50/60">
+          <div className="border border-line rounded-lg p-4 space-y-2 bg-table-header">
             <p className="text-sm font-bold text-gray-700 mb-1">원래 내역</p>
             <ConfirmRow label="대상자" value={target.payee?.name ?? "-"} />
             <ConfirmRow
@@ -126,10 +126,10 @@ export default function FundCorrectModal({
               {parsed !== null && parsed > 0 && (
                 <p className="mt-1.5 text-sm text-gray-600">
                   {formatWon(target.amount)}원 →{" "}
-                  <b className="text-gray-900">{formatWon(parsed)}원</b>{" "}
+                  <b className="text-heading">{formatWon(parsed)}원</b>{" "}
                   <span
                     className={
-                      parsed > target.amount ? "text-blue-600" : "text-red-600"
+                      parsed > target.amount ? "text-primary" : "text-red-600"
                     }
                   >
                     ({parsed > target.amount ? "+" : "−"}
@@ -198,11 +198,11 @@ const ModeButton = ({
     onClick={onClick}
     className={`flex-1 text-left border rounded-lg px-4 py-3 transition cursor-pointer ${
       active
-        ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
-        : "border-gray-200 hover:bg-gray-50"
+        ? "border-primary bg-primary-wash ring-1 ring-primary"
+        : "border-line hover:bg-gray-50"
     }`}
   >
     <span className="block text-sm font-bold text-gray-800">{title}</span>
-    <span className="block mt-0.5 text-xs text-gray-500">{desc}</span>
+    <span className="block mt-0.5 text-xs text-muted">{desc}</span>
   </button>
 );

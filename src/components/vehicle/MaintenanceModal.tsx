@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import Modal from "@/components/Modal";
 import toast from "react-hot-toast";
 import { createClient } from "@/utils/supabase/client";
+import { btnStyles } from "@/components/fund/shared";
 
 type Vehicle = {
   id: number;
@@ -203,7 +204,7 @@ export default function MaintenanceModal({
           onChange={(e) =>
             setF((p) => ({ ...p, maintenance_date: e.target.value }))
           }
-          className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition font-mono text-gray-900"
+          className="w-full px-3 py-2.5 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition font-mono text-heading"
         />
       </div>
 
@@ -218,7 +219,7 @@ export default function MaintenanceModal({
           placeholder="예: 엔진오일, 타이어, 배터리, 에어컨필터..."
           value={f.type}
           onChange={(e) => setF((p) => ({ ...p, type: e.target.value }))}
-          className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
+          className="w-full px-3 py-2.5 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
         />
         <datalist id={listId}>
           {TYPE_OPTIONS.map((opt) => (
@@ -238,7 +239,7 @@ export default function MaintenanceModal({
             placeholder="예: SK네트웍스"
             value={f.shop}
             onChange={(e) => setF((p) => ({ ...p, shop: e.target.value }))}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
+            className="w-full px-3 py-2.5 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition"
           />
         </div>
         <div>
@@ -255,7 +256,7 @@ export default function MaintenanceModal({
                 mileage: e.target.value === "" ? "" : Number(e.target.value),
               }))
             }
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition font-mono"
+            className="w-full px-3 py-2.5 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition font-mono"
           />
         </div>
       </div>
@@ -276,14 +277,14 @@ export default function MaintenanceModal({
                 cost: e.target.value === "" ? "" : Number(e.target.value),
               }))
             }
-            className="w-full px-3 py-2.5 pr-8 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition font-mono"
+            className="w-full px-3 py-2.5 pr-8 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition font-mono"
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-bold pointer-events-none">
             원
           </span>
         </div>
         {f.cost !== "" && Number(f.cost) > 0 && (
-          <p className="text-xs text-blue-600 font-bold mt-1">
+          <p className="text-xs text-primary font-bold mt-1">
             {Number(f.cost).toLocaleString()}원
           </p>
         )}
@@ -299,7 +300,7 @@ export default function MaintenanceModal({
           value={f.description}
           onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
           rows={3}
-          className="w-full px-3 py-2.5 border border-gray-200 rounded-sm text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition resize-none"
+          className="w-full px-3 py-2.5 border border-line rounded-sm text-sm bg-table-header focus:bg-white focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none transition resize-none"
         />
       </div>
     </div>
@@ -311,21 +312,18 @@ export default function MaintenanceModal({
       onClose={handleClose}
       title={`정비 이력 — ${vehicle?.name ?? ""}`}
       footer={
-        <div className="flex gap-2 w-full">
+        <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
+          <button onClick={handleClose} className={btnStyles.cancel}>
+            닫기
+          </button>
           {!showForm && !editingId && (
             <button
               onClick={() => setShowForm(true)}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-sm font-bold transition cursor-pointer"
+              className={btnStyles.save}
             >
               + 정비 추가
             </button>
           )}
-          <button
-            onClick={handleClose}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-sm font-bold transition cursor-pointer"
-          >
-            닫기
-          </button>
         </div>
       }
     >
@@ -333,10 +331,10 @@ export default function MaintenanceModal({
 
         {/* ── 등록 폼 ── */}
         {showForm && (
-          <div className="bg-white border border-blue-200 rounded-sm overflow-hidden">
-            <div className="px-4 py-2.5 flex items-center gap-2 border-b bg-blue-50 border-blue-100">
-              <span className="w-1.5 h-4 rounded-full shrink-0 bg-blue-500" />
-              <span className="text-sm font-bold text-blue-700">새 정비 이력 등록</span>
+          <div className="bg-white border border-primary-soft rounded-sm overflow-hidden">
+            <div className="px-4 py-2.5 flex items-center gap-2 border-b bg-primary-wash border-primary-soft">
+              <span className="w-1.5 h-4 rounded-full shrink-0 bg-primary" />
+              <span className="text-sm font-bold text-primary-active">새 정비 이력 등록</span>
             </div>
 
             {renderFormFields(form, setForm, "maintenance-types-add")}
@@ -350,7 +348,7 @@ export default function MaintenanceModal({
               </button>
               <button
                 onClick={handleSubmit}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-sm text-sm font-bold transition cursor-pointer"
+                className="flex-1 bg-primary hover:bg-primary-active text-white py-2.5 rounded-sm text-sm font-bold transition cursor-pointer"
               >
                 저장
               </button>
@@ -370,7 +368,7 @@ export default function MaintenanceModal({
             {records.map((r) => (
               <li
                 key={r.id}
-                className="bg-gray-50 border border-gray-100 rounded-sm overflow-hidden hover:bg-white transition"
+                className="bg-table-header border border-line-soft rounded-sm overflow-hidden hover:bg-white transition"
               >
                 {editingId === r.id ? (
                   /* ── 인라인 수정 폼 ── */
@@ -426,7 +424,7 @@ export default function MaintenanceModal({
                             </span>
                           )}
                           {r.cost != null && (
-                            <span className="flex items-center gap-1 text-xs font-bold text-blue-600">
+                            <span className="flex items-center gap-1 text-xs font-bold text-primary">
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
@@ -466,7 +464,7 @@ export default function MaintenanceModal({
                             setShowForm(false);
                             setEditingId(r.id);
                           }}
-                          className="p-1.5 text-gray-300 hover:text-amber-500 hover:bg-amber-50 rounded-sm transition"
+                          className="p-1.5 text-disabled-text hover:text-amber-500 hover:bg-amber-50 rounded-sm transition"
                           title="수정"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -476,7 +474,7 @@ export default function MaintenanceModal({
                       )}
                       <button
                         onClick={() => handleDelete(r.id)}
-                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-sm transition"
+                        className="p-1.5 text-disabled-text hover:text-red-500 hover:bg-red-50 rounded-sm transition"
                         title="삭제"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

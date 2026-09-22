@@ -69,22 +69,22 @@ export default function CopyMessageModal({
     <Modal isOpen={isOpen} onClose={onClose} title={title} bodyClassName="p-0">
       <div className="flex flex-col h-full">
         {hint && (
-          <div className="px-4 py-2 text-xs text-blue-700 bg-blue-50 border-b border-blue-100">
+          <div className="px-4 py-2 text-xs text-primary-active bg-primary-wash border-b border-primary-soft">
             {hint}
           </div>
         )}
 
         {/* 탭 */}
         {templates.length > 1 && (
-          <div className="flex border-b border-gray-200 bg-gray-50 shrink-0 overflow-x-auto">
+          <div className="flex border-b border-line bg-table-header shrink-0 overflow-x-auto">
             {templates.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setActiveKey(t.key)}
                 className={`px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition ${
                   activeKey === t.key
-                    ? "text-blue-600 border-b-2 border-blue-600 bg-white"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "text-primary border-b-2 border-primary bg-white"
+                    : "text-muted hover:text-gray-700"
                 }`}
               >
                 {t.label}
@@ -100,7 +100,7 @@ export default function CopyMessageModal({
             onChange={(e) =>
               setDrafts((d) => ({ ...d, [activeKey]: e.target.value }))
             }
-            className="flex-1 min-h-[280px] w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg font-mono leading-relaxed resize-none focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+            className="flex-1 min-h-[280px] w-full px-3 py-2.5 text-sm border border-line rounded-lg font-mono leading-relaxed resize-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft"
             placeholder="메시지를 편집하고 복사 버튼을 누르세요"
           />
           <p className="text-xs text-gray-400">
@@ -109,23 +109,23 @@ export default function CopyMessageModal({
         </div>
 
         {/* 액션 */}
-        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-2 shrink-0">
+        <div className="px-4 py-3 border-t border-line bg-table-header flex items-center justify-between gap-2 shrink-0">
           <button
             onClick={reset}
-            className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded hover:bg-gray-200 transition"
+            className="text-xs text-muted hover:text-gray-700 px-3 py-1.5 rounded hover:bg-gray-200 transition"
           >
             ↺ 템플릿 초기화
           </button>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 text-sm text-gray-600 bg-white border border-line-strong rounded-lg hover:bg-gray-50"
             >
               닫기
             </button>
             <button
               onClick={copy}
-              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-1.5"
+              className="px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-active flex items-center gap-1.5"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />

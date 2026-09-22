@@ -73,7 +73,7 @@ export default function BudgetItemPicker({
             title={
               selected.path ? `${selected.path} › ${itemLabel(selected)}` : undefined
             }
-            className="inline-flex items-center gap-1.5 max-w-full px-2 py-1 rounded-md border border-blue-200 bg-blue-50 text-xs font-medium text-[#2151EC] hover:bg-blue-100 transition cursor-pointer disabled:cursor-default disabled:opacity-70"
+            className="inline-flex items-center gap-1.5 max-w-full px-2 py-1 rounded-md border border-primary-soft bg-primary-wash text-xs font-medium text-primary hover:bg-primary-soft transition cursor-pointer disabled:cursor-default disabled:opacity-70"
           >
             <Check size={12} className="shrink-0" />
             <span className="truncate">{itemLabel(selected)}</span>
@@ -87,7 +87,7 @@ export default function BudgetItemPicker({
             title="출금계좌 바꾸기"
             className={`px-2 py-1 rounded-md border text-xs transition cursor-pointer disabled:cursor-default disabled:opacity-70 ${
               account
-                ? "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                ? "border-line-strong bg-white text-gray-600 hover:bg-gray-50"
                 : "border-amber-300 bg-amber-50 text-amber-700 font-medium"
             }`}
           >
@@ -119,7 +119,7 @@ export default function BudgetItemPicker({
                 if (ok) onChange(null, null);
               }}
               aria-label="비목 배정 해제"
-              className="text-gray-300 hover:text-red-500 cursor-pointer"
+              className="text-disabled-text hover:text-red-500 cursor-pointer"
             >
               <X size={13} />
             </button>
@@ -136,7 +136,7 @@ export default function BudgetItemPicker({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-[#2151EC] bg-white text-xs font-bold text-[#2151EC] hover:bg-blue-50 transition cursor-pointer"
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-primary bg-white text-xs font-bold text-primary hover:bg-primary-wash transition cursor-pointer"
       >
         비목 배정
       </button>

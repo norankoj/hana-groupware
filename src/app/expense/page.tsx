@@ -116,8 +116,18 @@ function ExpenseContent() {
       setActiveTab("budget");
     }
 
-    // 청구에 남길 예산 연도. 예산안을 못 보는 사역자도 알 수 있게 함수로 받는다.
-    const [{ data: year }, reqs] = await Promise.all([
+    // 서로 기다릴 필요 없는 조회는 한꺼번에 보낸다.
+    // 예전엔 7번을 차례로 다녀와서(하나 끝나야 다음) 담당자 화면이 1.5~3초 걸렸다.
+    // 이제 로그인 → 프로필 → [나머지 전부] 세 번이면 끝난다.
+    const isManager = profile.is_expense_manager;
+    const [
+      { data: year },
+      reqs,
+      { data: yearRows },
+      budget,
+      all,
+    ] = await Promise.all([
+      // 청구에 남길 예산 연도. 예산안을 못 보는 사역자도 알 수 있게 함수로 받는다.
       supabase.rpc("current_fiscal_year"),
       // 나눠 받으려면 순서가 흔들리지 않아야 한다 — 마지막에 id 로 못 박는다
       fetchAll(() =>
@@ -129,66 +139,61 @@ function ExpenseContent() {
           .order("created_at", { ascending: false })
           .order("id"),
       ),
+      supabase.from("budget_years").select("*").order("fiscal_year"),
+      // 예산안 — 담당자·관리자만
+      canReadBudget
+        ? Promise.all([
+            // 연도를 가리지 않고 받는다 — 청구마다 제 연도 비목에 배정하고,
+            // 예산안 탭에서 연도를 바꿔 본다. 한 해 195행이라 해가 쌓이면 1,000건을 넘는다.
+            fetchAll(() =>
+              supabase
+                .from("budget_items")
+                .select("*")
+                .eq("is_active", true)
+                .order("fiscal_year")
+                .order("sort_order")
+                .order("id"),
+            ),
+            fetchAll(() =>
+              supabase.from("budget_usage").select("*").order("budget_item_id"),
+            ),
+            supabase
+              .from("withdraw_accounts")
+              .select("*")
+              .eq("is_active", true)
+              .order("sort_order"),
+            fetchAll(() =>
+              supabase
+                .from("budget_changes")
+                .select("*")
+                .order("changed_on")
+                .order("created_at")
+                .order("id"),
+            ),
+          ])
+        : null,
+      // 전체 청구 — 담당자만
+      isManager
+        ? fetchAll(() =>
+            supabase
+              .from("expense_requests")
+              .select(REQUEST_SELECT)
+              .order("request_date", { ascending: false })
+              .order("created_at", { ascending: false })
+              .order("id"),
+          )
+        : null,
     ]);
 
     const activeYear = typeof year === "number" ? year : new Date().getFullYear();
     setFiscalYear(activeYear);
-
-    const { data: yearRows } = await supabase
-      .from("budget_years")
-      .select("*")
-      .order("fiscal_year");
     setYears((yearRows as BudgetYear[]) ?? []);
 
     const mine = sortItems(reqs as ExpenseRequest[] | null);
     setMyRequests(mine);
 
-    // 처리 결과를 확인했으므로 대시보드 빨간 점을 끈다
-    const unseen = mine.filter(
-      (r) => !r.result_seen && ["paid", "rejected"].includes(r.status),
-    );
-    if (unseen.length > 0) {
-      await supabase
-        .from("expense_requests")
-        .update({ result_seen: true })
-        .in(
-          "id",
-          unseen.map((r) => r.id),
-        );
-    }
-
-    if (canReadBudget) {
-      const [budgetItems, budgetUsage, { data: accounts }, budgetChanges] =
-        await Promise.all([
-          // 연도를 가리지 않고 받는다 — 청구마다 제 연도 비목에 배정하고,
-          // 예산안 탭에서 연도를 바꿔 본다. 한 해 195행이라 해가 쌓이면 1,000건을 넘는다.
-          fetchAll(() =>
-            supabase
-              .from("budget_items")
-              .select("*")
-              .eq("is_active", true)
-              .order("fiscal_year")
-              .order("sort_order")
-              .order("id"),
-          ),
-          fetchAll(() =>
-            supabase.from("budget_usage").select("*").order("budget_item_id"),
-          ),
-          supabase
-            .from("withdraw_accounts")
-            .select("*")
-            .eq("is_active", true)
-            .order("sort_order"),
-          fetchAll(() =>
-            supabase
-              .from("budget_changes")
-              .select("*")
-              .order("changed_on")
-              .order("created_at")
-              .order("id"),
-          ),
-        ]);
-
+    if (budget) {
+      const [budgetItems, budgetUsage, { data: accounts }, budgetChanges] = budget;
       // 화면 어디서나 같은 금액을 보도록, 예산안은 변경을 반영한 채로 넘긴다
       const changeRows = budgetChanges as BudgetChange[];
       setChanges(changeRows);
@@ -196,21 +201,26 @@ function ExpenseContent() {
       setUsage((budgetUsage as BudgetUsage[]) ?? []);
       setWithdrawAccounts((accounts as WithdrawAccount[]) ?? []);
     }
-
-    if (profile.is_expense_manager) {
-      const all = await fetchAll(() =>
-        supabase
-          .from("expense_requests")
-          .select(REQUEST_SELECT)
-          .order("request_date", { ascending: false })
-          .order("created_at", { ascending: false })
-          .order("id"),
-      );
-
-      setAllRequests(sortItems(all as ExpenseRequest[]));
-    }
+    if (all) setAllRequests(sortItems(all as ExpenseRequest[]));
 
     setLoading(false);
+
+    // 처리 결과를 확인했으므로 대시보드 빨간 점을 끈다.
+    // 화면과 상관없는 저장이라 기다리지 않는다 — 실패해도 다음에 들어오면 다시 끈다.
+    const unseen = mine.filter(
+      (r) => !r.result_seen && ["paid", "rejected"].includes(r.status),
+    );
+    if (unseen.length > 0) {
+      // .then() 이 있어야 실제로 보낸다 — Supabase 쿼리는 기다리기 전까지 출발하지 않는다
+      supabase
+        .from("expense_requests")
+        .update({ result_seen: true })
+        .in(
+          "id",
+          unseen.map((r) => r.id),
+        )
+        .then(() => {});
+    }
   };
 
   useEffect(() => {
@@ -229,7 +239,7 @@ function ExpenseContent() {
 
   if (!user)
     return (
-      <div className="p-10 text-center text-gray-500">
+      <div className="p-10 text-center text-muted">
         사용자 정보를 불러오지 못했습니다.
       </div>
     );
@@ -254,23 +264,23 @@ function ExpenseContent() {
   return (
     <div className="w-full max-w-7xl mx-auto h-full flex flex-col p-1 pb-20">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-2xl font-bold text-heading tracking-tight">
           {menu?.name || "지출결의서"}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted">
           경비지급을 청구하고 예산 집행 현황을 확인합니다.
         </p>
       </div>
 
-      <div className="flex border-b border-gray-200 mb-5 w-full flex-shrink-0 overflow-x-auto">
+      <div className="flex border-b border-line mb-5 w-full flex-shrink-0 overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap cursor-pointer ${
               tab === t.key
-                ? "border-blue-600 text-blue-600 font-bold"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-muted hover:text-gray-700"
             }`}
           >
             {t.label}

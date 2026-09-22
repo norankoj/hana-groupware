@@ -41,7 +41,7 @@ function iconToDescription(icon: string): string {
 /** PM10 수치 → 에어코리아 기준 등급 */
 function pm10Grade(v: number): { label: string; face: string; color: string } {
   if (v <= 30) return { label: "좋음", face: "😊", color: "text-teal-600" };
-  if (v <= 80) return { label: "보통", face: "🙂", color: "text-blue-600" };
+  if (v <= 80) return { label: "보통", face: "🙂", color: "text-primary" };
   if (v <= 150) return { label: "나쁨", face: "😟", color: "text-orange-500" };
   return { label: "매우나쁨", face: "😤", color: "text-red-600" };
 }
@@ -49,7 +49,7 @@ function pm10Grade(v: number): { label: string; face: string; color: string } {
 /** PM2.5 수치 → 에어코리아 기준 등급 */
 function pm25Grade(v: number): { label: string; face: string; color: string } {
   if (v <= 15) return { label: "좋음", face: "😊", color: "text-teal-600" };
-  if (v <= 35) return { label: "보통", face: "🙂", color: "text-blue-600" };
+  if (v <= 35) return { label: "보통", face: "🙂", color: "text-primary" };
   if (v <= 75) return { label: "나쁨", face: "😟", color: "text-orange-500" };
   return { label: "매우나쁨", face: "😤", color: "text-red-600" };
 }
@@ -57,7 +57,7 @@ function pm25Grade(v: number): { label: string; face: string; color: string } {
 /** AQI US 지수 → 등급 (에어코리아 키 없을 때 폴백) */
 function aqiusGrade(aqi: number): { label: string; face: string; color: string } {
   if (aqi <= 50) return { label: "좋음", face: "😊", color: "text-teal-600" };
-  if (aqi <= 100) return { label: "보통", face: "🙂", color: "text-blue-600" };
+  if (aqi <= 100) return { label: "보통", face: "🙂", color: "text-primary" };
   if (aqi <= 150) return { label: "민감군 나쁨", face: "😐", color: "text-yellow-600" };
   if (aqi <= 200) return { label: "나쁨", face: "😟", color: "text-orange-500" };
   if (aqi <= 300) return { label: "매우나쁨", face: "😤", color: "text-red-600" };

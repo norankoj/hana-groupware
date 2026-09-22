@@ -114,15 +114,15 @@ export default function LunchPage() {
     <div className="max-w-xl mx-auto py-8 px-4 flex flex-col items-center min-h-screen pb-32">
       {/* 헤더 */}
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900 mb-1">
+        <h1 className="text-3xl font-extrabold text-heading mb-1">
           🍽️ 오늘 점심 뭐먹지?!🤔
         </h1>
-        <p className="text-gray-500 text-sm">랜덤 선택 도우미</p>
+        <p className="text-muted text-sm">랜덤 선택 도우미</p>
       </div>
 
       {/* ─── 식당 랜덤 ─── */}
       <div className="w-full flex flex-col items-center gap-0">
-          <p className="text-gray-500 text-sm mb-6 text-center">
+          <p className="text-muted text-sm mb-6 text-center">
             예산 <span className="text-indigo-600 font-bold">30분 거리</span>{" "}
             기준&nbsp; 현재{" "}
             <span className="font-bold text-gray-800">'{currentKeyword}'</span>
@@ -156,7 +156,7 @@ export default function LunchPage() {
                   <span className="text-indigo-500 font-bold text-xs bg-indigo-50 px-2 py-1 rounded-full">
                     #{displayMenu.category}
                   </span>
-                  <span className="text-gray-500 font-bold text-xs bg-gray-100 px-2 py-1 rounded-full">
+                  <span className="text-muted font-bold text-xs bg-gray-100 px-2 py-1 rounded-full">
                     {displayMenu.address}
                   </span>
                 </div>
@@ -189,10 +189,10 @@ export default function LunchPage() {
 
           {history.length > 0 && (
             <div className="w-full mt-10">
-              <h3 className="text-sm font-bold text-gray-500 mb-3 ml-1">
+              <h3 className="text-sm font-bold text-muted mb-3 ml-1">
                 오늘의 당첨 기록
               </h3>
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <div className="bg-white border border-line rounded-xl p-4 shadow-sm">
                 <ul className="space-y-2">
                   {history.map((menu, idx) => (
                     <li key={idx}>

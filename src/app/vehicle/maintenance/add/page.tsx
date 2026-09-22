@@ -79,19 +79,19 @@ function AddMaintenancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-table-header flex flex-col">
       {/* 헤더 */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <div className="bg-white border-b border-line px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <button
           onClick={() => router.back()}
-          className="p-2 -ml-1 rounded-lg hover:bg-gray-100 text-gray-500 transition"
+          className="p-2 -ml-1 rounded-lg hover:bg-gray-100 text-muted transition"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-bold text-gray-900">정비 추가</h1>
+          <h1 className="text-base font-bold text-heading">정비 추가</h1>
           <p className="text-xs text-gray-400 truncate">{vehicleName}</p>
         </div>
       </div>
@@ -105,12 +105,12 @@ function AddMaintenancePage() {
           </label>
           <div
             onClick={() => setShowCalendar((v) => !v)}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white cursor-pointer select-none font-mono text-gray-900"
+            className="w-full px-3 py-2.5 border border-line rounded-xl text-sm bg-white cursor-pointer select-none font-mono text-heading"
           >
             {form.maintenance_date}
           </div>
           {showCalendar && (
-            <div className="absolute top-full left-0 z-50 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl p-2">
+            <div className="absolute top-full left-0 z-50 mt-1 bg-white border border-line rounded-xl shadow-2xl p-2">
               <Calendar
                 onChange={(val) => {
                   if (val && !Array.isArray(val)) {
@@ -136,7 +136,7 @@ function AddMaintenancePage() {
             value={form.type}
             onChange={(v) => setForm((p) => ({ ...p, type: v }))}
             options={TYPE_OPTIONS}
-            className="w-full h-[46px] px-3 py-2 text-sm bg-white border border-gray-200 rounded-xl"
+            className="w-full h-[46px] px-3 py-2 text-sm bg-white border border-line rounded-xl"
           />
         </div>
 
@@ -151,7 +151,7 @@ function AddMaintenancePage() {
               placeholder="예: SK네트웍스"
               value={form.shop}
               onChange={(e) => setForm((p) => ({ ...p, shop: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition"
+              className="w-full px-3 py-2.5 border border-line rounded-xl text-sm bg-white focus:border-primary focus:ring-1 focus:ring-primary-soft outline-none transition"
             />
           </div>
           <div>
@@ -168,7 +168,7 @@ function AddMaintenancePage() {
                   mileage: e.target.value === "" ? "" : Number(e.target.value),
                 }))
               }
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition font-mono"
+              className="w-full px-3 py-2.5 border border-line rounded-xl text-sm bg-white focus:border-primary focus:ring-1 focus:ring-primary-soft outline-none transition font-mono"
             />
           </div>
         </div>
@@ -189,14 +189,14 @@ function AddMaintenancePage() {
                   cost: e.target.value === "" ? "" : Number(e.target.value),
                 }))
               }
-              className="w-full px-3 py-2.5 pr-8 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition font-mono"
+              className="w-full px-3 py-2.5 pr-8 border border-line rounded-xl text-sm bg-white focus:border-primary focus:ring-1 focus:ring-primary-soft outline-none transition font-mono"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-bold pointer-events-none">
               원
             </span>
           </div>
           {form.cost !== "" && Number(form.cost) > 0 && (
-            <p className="text-xs text-blue-600 font-bold mt-1">
+            <p className="text-xs text-primary font-bold mt-1">
               {Number(form.cost).toLocaleString()}원
             </p>
           )}
@@ -212,13 +212,13 @@ function AddMaintenancePage() {
             value={form.description}
             onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
             rows={4}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition resize-none"
+            className="w-full px-3 py-2.5 border border-line rounded-xl text-sm bg-white focus:border-primary focus:ring-1 focus:ring-primary-soft outline-none transition resize-none"
           />
         </div>
       </div>
 
       {/* 하단 버튼 */}
-      <div className="p-4 bg-white border-t border-gray-200 flex gap-3">
+      <div className="p-4 bg-white border-t border-line flex gap-3">
         <button
           onClick={() => router.back()}
           className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition"
@@ -228,7 +228,7 @@ function AddMaintenancePage() {
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl font-bold transition"
+          className="flex-1 py-3.5 bg-primary hover:bg-primary-active disabled:opacity-60 text-white rounded-xl font-bold transition"
         >
           {saving ? "저장 중..." : "저장"}
         </button>

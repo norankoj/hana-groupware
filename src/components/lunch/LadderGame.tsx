@@ -109,7 +109,7 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-5">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted">
         {isAnimating
           ? "사다리 타는 중..."
           : allDone
@@ -261,7 +261,7 @@ export default function LadderGame({ names, onFireConfetti }: Props) {
               <div
                 key={pi}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-bold
-                  ${isWinner ? "bg-yellow-50 border-yellow-300 text-yellow-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}
+                  ${isWinner ? "bg-yellow-50 border-yellow-300 text-yellow-700" : "bg-table-header border-line text-gray-400"}`}
               >
                 <span style={{ color: PATH_COLORS[entry.col % PATH_COLORS.length] }}>●</span>
                 <span>{names[entry.col]}</span>

@@ -19,16 +19,18 @@ type Project = {
   my_role?: string;
 };
 
+// 배지는 모두 같은 규칙 — 옅은 틴트(12~15%) + 같은 색의 진한 글자.
+// 한 카드에 여러 색 배지가 붙으니 틴트 진하기가 같아야 서로 어울린다.
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  planning: { label: "기획중", color: "bg-yellow-100 text-yellow-700" },
-  active:   { label: "진행중", color: "bg-green-100 text-green-700" },
-  completed:{ label: "완료",   color: "bg-gray-100 text-gray-500" },
+  planning: { label: "기획중", color: "bg-warning-soft text-warning-active" },
+  active:   { label: "진행중", color: "bg-success-soft text-success-active" },
+  completed:{ label: "완료",   color: "bg-secondary-soft text-dark" },
 };
 
 const TYPE_LABEL: Record<string, { label: string; color: string }> = {
-  marf:          { label: "MARF",   color: "bg-blue-100 text-blue-700" },
-  ride_schedule: { label: "라이드", color: "bg-purple-100 text-purple-700" },
-  general:       { label: "일반",   color: "bg-gray-100 text-gray-600" },
+  marf:          { label: "MARF",   color: "bg-primary-soft text-primary-active" },
+  ride_schedule: { label: "라이드", color: "bg-cat-purple/15 text-cat-purple-ink" },
+  general:       { label: "일반",   color: "bg-secondary-soft text-dark" },
 };
 
 export default function ProjectsPage() {
@@ -147,13 +149,13 @@ export default function ProjectsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">프로젝트</h1>
-          <p className="text-sm text-gray-500 mt-1">전체 프로젝트를 볼 수 있습니다. 수정·삭제는 담당자만 가능합니다.</p>
+          <h1 className="text-2xl font-bold text-heading">프로젝트</h1>
+          <p className="text-sm text-muted mt-1">전체 프로젝트를 볼 수 있습니다. 수정·삭제는 담당자만 가능합니다.</p>
         </div>
         {canCreate && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -177,14 +179,14 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
-            const status = STATUS_LABEL[p.status] ?? { label: p.status, color: "bg-gray-100 text-gray-500" };
-            const type = TYPE_LABEL[p.project_type] ?? { label: p.project_type, color: "bg-gray-100 text-gray-500" };
+            const status = STATUS_LABEL[p.status] ?? { label: p.status, color: "bg-gray-100 text-muted" };
+            const type = TYPE_LABEL[p.project_type] ?? { label: p.project_type, color: "bg-gray-100 text-muted" };
             const canDelete = canCreate || p.my_role === "admin";
             return (
               <div key={p.id} className="relative group">
                 <button
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  className="w-full text-left bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-400 hover:shadow-md transition-all"
+                  className="w-full text-left bg-white rounded-xl border border-line p-5 hover:border-primary hover:shadow-md transition-all"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex gap-2 flex-wrap">
@@ -192,14 +194,14 @@ export default function ProjectsPage() {
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
                     </div>
                     {p.my_role === "admin"
-                      ? <span className="text-xs bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">관리자</span>
+                      ? <span className="text-xs bg-primary-soft text-primary-active font-semibold px-2 py-0.5 rounded-full">관리자</span>
                       : p.my_role === "member"
                       ? <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">담당자</span>
-                      : <span className="text-xs text-gray-300 font-medium">보기</span>
+                      : <span className="text-xs text-disabled-text font-medium">보기</span>
                     }
                   </div>
 
-                  <h2 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors pr-8">
+                  <h2 className="font-bold text-heading text-base group-hover:text-primary transition-colors pr-8">
                     {p.name}
                   </h2>
                   {p.year && <p className="text-sm text-gray-400 mt-0.5">{p.year}년</p>}
@@ -207,7 +209,7 @@ export default function ProjectsPage() {
                     <p className="text-xs text-gray-400 mt-3">{p.recurrence_years}년 주기 반복</p>
                   )}
 
-                  <div className="mt-4 flex items-center justify-end text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium">
+                  <div className="mt-4 flex items-center justify-end text-primary opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium">
                     열기
                     <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -219,7 +221,7 @@ export default function ProjectsPage() {
                 {canDelete && (
                   <button
                     onClick={(e) => handleDelete(p, e)}
-                    className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                    className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-lg text-disabled-text hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                     title="프로젝트 삭제"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -241,7 +243,7 @@ export default function ProjectsPage() {
         footer={
           <>
             <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">취소</button>
-            <button onClick={handleCreate} disabled={saving} className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
+            <button onClick={handleCreate} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50 transition">
               {saving ? "저장 중..." : "만들기"}
             </button>
           </>
@@ -255,7 +257,7 @@ export default function ProjectsPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="예: MARF 2026"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -266,7 +268,7 @@ export default function ProjectsPage() {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={2}
               placeholder="프로젝트 간단 설명"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
           </div>
 
@@ -281,7 +283,7 @@ export default function ProjectsPage() {
                   { value: "ride_schedule", label: "라이드 일정" },
                   { value: "general",       label: "일반" },
                 ]}
-                className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+                className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
               />
             </div>
             <div>
@@ -290,7 +292,7 @@ export default function ProjectsPage() {
                 type="number"
                 value={form.year}
                 onChange={(e) => setForm({ ...form, year: Number(e.target.value) })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
@@ -303,7 +305,7 @@ export default function ProjectsPage() {
                 value={form.recurrence_years}
                 onChange={(e) => setForm({ ...form, recurrence_years: e.target.value })}
                 placeholder="예: 3"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
@@ -316,7 +318,7 @@ export default function ProjectsPage() {
                   { value: "active",   label: "진행중" },
                   { value: "completed",label: "완료" },
                 ]}
-                className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+                className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
               />
             </div>
           </div>

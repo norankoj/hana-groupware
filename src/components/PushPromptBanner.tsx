@@ -66,7 +66,7 @@ export default function PushPromptBanner() {
     <div className="fixed bottom-20 left-0 right-0 z-[9998] px-4 sm:px-0 sm:bottom-6 flex justify-center pointer-events-none">
       <div className="bg-gray-900 text-white rounded-2xl shadow-2xl px-4 py-3.5 flex items-center gap-3 max-w-sm w-full pointer-events-auto">
         {/* 아이콘 */}
-        <div className="shrink-0 w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center">
+        <div className="shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center">
           {state === "ios-install" ? (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
@@ -83,7 +83,7 @@ export default function PushPromptBanner() {
           {state === "ios-install" && (
             <>
               <p className="text-sm font-bold leading-tight">아이폰 알림 받는 방법</p>
-              <p className="text-xs text-gray-300 mt-0.5 leading-snug">
+              <p className="text-xs text-disabled-text mt-0.5 leading-snug">
                 Safari 하단 공유 버튼 → <span className="font-bold text-white">홈 화면에 추가</span> → 앱 아이콘으로 열기
               </p>
             </>
@@ -91,7 +91,7 @@ export default function PushPromptBanner() {
           {(state === "ios-permission" || state === "need-permission") && (
             <>
               <p className="text-sm font-bold leading-tight">알림을 허용하시겠어요?</p>
-              <p className="text-xs text-gray-300 mt-0.5">차량 예약 등 중요 알림을 받을 수 있어요</p>
+              <p className="text-xs text-disabled-text mt-0.5">차량 예약 등 중요 알림을 받을 수 있어요</p>
             </>
           )}
         </div>
@@ -102,7 +102,7 @@ export default function PushPromptBanner() {
             <button
               onClick={handleEnable}
               disabled={loading}
-              className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition disabled:opacity-60 cursor-pointer"
+              className="bg-primary hover:bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg transition disabled:opacity-60 cursor-pointer"
             >
               {loading ? "..." : "허용"}
             </button>

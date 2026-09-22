@@ -56,7 +56,7 @@ export default function FundProofList({
               type="button"
               onClick={() => setZoom(f.i)}
               title={f.name}
-              className="w-24 h-24 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 hover:border-blue-400 transition cursor-pointer"
+              className="w-24 h-24 rounded-lg border border-line overflow-hidden bg-table-header hover:border-primary transition cursor-pointer"
             >
               <img
                 src={proofSrc(request.id, f.i)}
@@ -76,7 +76,7 @@ export default function FundProofList({
               key={f.i}
               type="button"
               onClick={() => openProof(request.id, f.i)}
-              className="px-3.5 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+              className="px-3.5 py-2 text-sm font-bold text-gray-700 bg-white border border-line-strong rounded hover:bg-gray-50 cursor-pointer"
             >
               {f.name}
             </button>

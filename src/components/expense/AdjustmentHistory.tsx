@@ -16,8 +16,8 @@ type Props = {
 };
 
 const TONE = {
-  paid: { dot: "border-gray-400", text: "text-gray-900", amount: "text-gray-900" },
-  extra: { dot: "border-[#2151EC]", text: "text-[#2151EC]", amount: "text-[#2151EC]" },
+  paid: { dot: "border-gray-400", text: "text-heading", amount: "text-heading" },
+  extra: { dot: "border-primary", text: "text-primary", amount: "text-primary" },
   refund: { dot: "border-red-500", text: "text-red-600", amount: "text-red-600" },
 } as const;
 
@@ -49,8 +49,8 @@ export default function AdjustmentHistory({ item, paidAt }: Props) {
   ];
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white px-4 py-3">
-      <h3 className="text-xs font-bold text-gray-500">지급 정정 내역</h3>
+    <section className="rounded-lg border border-line bg-white px-4 py-3">
+      <h3 className="text-xs font-bold text-muted">지급 정정 내역</h3>
 
       <ol className="mt-3">
         {events.map((e, i) => (
@@ -81,7 +81,7 @@ export default function AdjustmentHistory({ item, paidAt }: Props) {
                 </span>
               </div>
               {e.note && (
-                <p className="mt-0.5 text-xs leading-relaxed text-gray-500 break-words">
+                <p className="mt-0.5 text-xs leading-relaxed text-muted break-words">
                   {e.note}
                 </p>
               )}
@@ -90,9 +90,9 @@ export default function AdjustmentHistory({ item, paidAt }: Props) {
         ))}
       </ol>
 
-      <div className="mt-3 pt-3 border-t border-gray-200 flex items-baseline justify-between">
-        <span className="text-sm font-bold text-gray-900">최종 지급액</span>
-        <span className="font-mono text-base font-bold tabular-nums text-gray-900">
+      <div className="mt-3 pt-3 border-t border-line flex items-baseline justify-between">
+        <span className="text-sm font-bold text-heading">최종 지급액</span>
+        <span className="font-mono text-base font-bold tabular-nums text-heading">
           {formatWon(netPaid(item))}
           <span className="ml-0.5 text-xs font-medium text-gray-400">원</span>
         </span>

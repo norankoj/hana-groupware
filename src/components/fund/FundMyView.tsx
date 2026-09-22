@@ -8,19 +8,43 @@ import ConfirmModal, { ConfirmRow } from "./ConfirmModal";
 import FundEntryDetailModal from "./FundEntryDetailModal";
 import FundMyRequestModal from "./FundMyRequestModal";
 import FundRequestModal from "./FundRequestModal";
+import { btnStyles } from "@/components/fund/shared";
+import { center, empty, num, table, td, thead, trHover } from "@/components/ui/table";
+import SortTh from "@/components/ui/SortTh";
 import {
   ENTRY_TYPE_LABEL,
   FUND_ACCOUNT,
   STATUS_LABEL,
   STATUS_STYLE,
   formatWon,
-  joinAccountInfo,
-  openProof,
   type FundBalance,
   type FundLedger,
   type FundRequest,
   type FundUser,
 } from "./shared";
+
+/** 표 한 줄 — 적립(원장) · 사용(신청서 또는 원장) */
+type Row = {
+  key: string;
+  kind: "deposit" | "withdraw";
+  date: string;
+  note: string;
+  desc: string;
+  amount: number;
+  correction: boolean;
+  req: FundRequest | null;
+  entry: FundLedger | null;
+};
+
+type SortKey = "date" | "kind" | "note" | "desc" | "status" | "amount";
+const SORT_COLUMNS: { key: SortKey; label: string; align?: "center" | "right" }[] = [
+  { key: "date", label: "일자" },
+  { key: "kind", label: "구분", align: "center" },
+  { key: "note", label: "적요" },
+  { key: "desc", label: "내용" },
+  { key: "status", label: "상태", align: "center" },
+  { key: "amount", label: "금액", align: "right" },
+];
 
 type Props = {
   user: FundUser;
@@ -44,38 +68,90 @@ export default function FundMyView({
   const [cancelTarget, setCancelTarget] = useState<FundRequest | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  const deposits = ledger.filter((l) => l.entry_type !== "withdraw");
+  // 원장 한 줄 모양으로 모은다 — 적립(원장) · 사용(내 신청서 + 담당자가 직접 넣은 사용)
+  // 신청을 거쳐 이체된 사용은 원장에도 있지만(request_id), 상태·반려 사유가 있는
+  // 신청서 쪽을 보여주려고 원장 줄은 빼고 신청서로 넣는다.
+  const rows = useMemo<Row[]>(() => {
+    const deposits: Row[] = ledger
+      .filter((l) => l.entry_type !== "withdraw")
+      .map((l) => ({
+        key: `l-${l.id}`,
+        kind: "deposit",
+        date: l.entry_date,
+        note: l.note || ENTRY_TYPE_LABEL[l.entry_type],
+        desc: l.description ?? "",
+        amount: l.amount,
+        correction: !!l.corrects_id,
+        req: null,
+        entry: l,
+      }));
 
-  // 사용내역 = 내가 낸 신청서 + 담당자가 신청 없이 직접 넣은 사용 줄
-  const usages = useMemo(() => {
-    const fromRequests = requests.map((r) => ({
+    const fromRequests: Row[] = requests.map((r) => ({
       key: `r-${r.id}`,
-      req: r,
-      entry: null as FundLedger | null,
+      kind: "withdraw",
+      // 이체됐으면 이체일, 아니면 신청일
+      date: r.transfer_date ?? r.requested_at?.substring(0, 10) ?? "",
+      note: "펀드 사용",
+      desc: r.purpose,
       amount: r.amount,
-      title: r.purpose,
-      sub:
-        `신청 ${r.requested_at?.substring(0, 10)}` +
-        (r.transfer_date ? ` · 이체 ${r.transfer_date}` : ""),
-      sortKey: r.transfer_date ?? r.requested_at?.substring(0, 10) ?? "",
+      correction: false,
+      req: r,
+      entry: null,
     }));
 
-    const direct = ledger
+    const direct: Row[] = ledger
       .filter((l) => l.entry_type === "withdraw" && !l.request_id)
       .map((l) => ({
         key: `l-${l.id}`,
-        req: null as FundRequest | null,
-        entry: l,
+        kind: "withdraw",
+        date: l.entry_date,
+        note: l.note || "펀드 사용",
+        desc: l.description ?? "",
         amount: l.amount,
-        title: l.note || l.description || "펀드 사용",
-        sub: `이체 ${l.entry_date}`,
-        sortKey: l.entry_date,
+        correction: !!l.corrects_id,
+        req: null,
+        entry: l,
       }));
 
-    return [...fromRequests, ...direct].sort((a, b) =>
-      b.sortKey.localeCompare(a.sortKey),
+    return [...deposits, ...fromRequests, ...direct].sort((a, b) =>
+      b.date.localeCompare(a.date),
     );
   }, [requests, ledger]);
+
+  const [kind, setKind] = useState<"all" | Row["kind"]>("all");
+  // 정렬 — 기본은 최근 일자부터. 같은 칸을 다시 누르면 방향이 바뀐다
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const toggleSort = (k: SortKey) => {
+    if (k === sortKey) return setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    setSortKey(k);
+    // 글자는 가나다순, 날짜·금액은 큰 것부터
+    setSortDir(k === "note" || k === "desc" || k === "kind" || k === "status" ? "asc" : "desc");
+  };
+  const shown = useMemo(() => {
+    const list = kind === "all" ? rows : rows.filter((r) => r.kind === kind);
+    const dir = sortDir === "asc" ? 1 : -1;
+    const val = (r: Row): string | number =>
+      sortKey === "amount"
+        ? r.amount
+        : sortKey === "status"
+          ? (r.req ? STATUS_LABEL[r.req.status] : "")
+          : sortKey === "kind"
+            ? ENTRY_TYPE_LABEL[r.kind]
+            : r[sortKey];
+    return [...list].sort((a, b) => {
+      const x = val(a);
+      const y = val(b);
+      const c =
+        typeof x === "number" && typeof y === "number"
+          ? x - y
+          : String(x).localeCompare(String(y), "ko");
+      // 같으면 최근 일자부터
+      return c !== 0 ? c * dir : b.date.localeCompare(a.date);
+    });
+  }, [rows, kind, sortKey, sortDir]);
+  const countOf = (k: "all" | Row["kind"]) =>
+    k === "all" ? rows.length : rows.filter((r) => r.kind === k).length;
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -106,11 +182,11 @@ export default function FundMyView({
       )}
 
       {/* ── 잔액 요약 ── */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
         <div className="px-5 py-5 sm:px-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
           <div>
-            <p className="text-sm font-medium text-gray-500">현재 잔액</p>
-            <p className="mt-1.5 text-4xl sm:text-5xl font-bold text-gray-900 tabular-nums tracking-tight">
+            <p className="text-sm font-medium text-muted">현재 잔액</p>
+            <p className="mt-1.5 text-4xl sm:text-5xl font-bold text-heading tabular-nums tracking-tight">
               {formatWon(balance.balance)}
               <span className="ml-1.5 text-2xl font-semibold text-gray-400">
                 원
@@ -126,100 +202,145 @@ export default function FundMyView({
           <button
             onClick={() => setIsRequestOpen(true)}
             disabled={!balance.payee_id}
-            className="px-5 py-3 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`${btnStyles.cta} px-5 py-3 text-sm`}
           >
             펀드 신청하기
           </button>
         </div>
 
-        <div className="grid grid-cols-3 border-t border-gray-200 divide-x divide-gray-200">
+        <div className="grid grid-cols-3 border-t border-line divide-x divide-line-soft">
           <SummaryCell label="적립 합계" value={balance.deposit_total} />
           <SummaryCell label="사용 완료" value={balance.withdraw_total} muted />
           <SummaryCell label="처리대기" value={balance.pending_total} muted />
         </div>
 
-        <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
+        <div className="px-5 py-3 bg-table-header border-t border-line text-sm text-gray-600">
           납입 계좌 · {FUND_ACCOUNT} — 매월 1일~말일 입금분이 그 달 납입으로
           인정됩니다.
         </div>
       </div>
 
-      {/* ── 사용내역 ── */}
-      <Section
-        title="사용내역"
-        count={usages.length}
-        empty="아직 사용한 내역이 없습니다."
-      >
-        {usages.map((u) => (
-          <button
-            key={u.key}
-            onClick={() =>
-              u.req ? setDetailReq(u.req) : setDetailEntry(u.entry!)
-            }
-            className="w-full px-4 sm:px-5 py-3.5 flex items-start gap-3 sm:gap-4 hover:bg-gray-50 transition text-left cursor-pointer border-b border-gray-100 last:border-0"
-          >
-            <span
-              className={`mt-0.5 px-2 py-0.5 text-[11px] font-bold rounded border whitespace-nowrap ${
-                u.req
-                  ? STATUS_STYLE[u.req.status]
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+      {/* ── 내역 — 적립·사용을 한 표로 (원장과 같은 모양) ── */}
+      <div className="bg-white border border-line rounded-xl shadow-sm overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 border-b border-line bg-white">
+          <h2 className="text-base font-bold text-heading mr-1">내역</h2>
+          {(
+            [
+              ["all", "전체"],
+              ["deposit", "적립"],
+              ["withdraw", "사용"],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setKind(k)}
+              className={`px-3 py-1 text-sm rounded-lg border transition cursor-pointer ${
+                kind === k
+                  ? "border-primary bg-primary-wash text-primary font-bold"
+                  : "border-line-strong bg-white text-dark hover:bg-secondary-soft"
               }`}
             >
-              {u.req ? STATUS_LABEL[u.req.status] : "이체완료"}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">
-                {u.title}
-              </p>
-              <p className="mt-0.5 text-xs text-gray-500">{u.sub}</p>
-            </div>
-            <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">
-              −{formatWon(u.amount)}
-            </span>
-          </button>
-        ))}
-      </Section>
+              {label}
+              <span className="ml-1 tabular-nums opacity-70">{countOf(k)}</span>
+            </button>
+          ))}
+        </div>
 
-      {/* ── 적립내역 ── */}
-      <Section
-        title="적립내역"
-        count={deposits.length}
-        empty="아직 적립된 내역이 없습니다."
-      >
-        {deposits.map((row) => {
-          const isCorrection = !!row.corrects_id;
-          return (
-            <div
-              key={row.id}
-              className="px-4 sm:px-5 py-3.5 flex items-center gap-3 sm:gap-4 border-b border-gray-100 last:border-0"
-            >
-              <div className="flex-1 min-w-0">
-                {/* 적요가 사실상 제목이라 앞으로 올리고, 내용은 날짜 옆에 붙인다 */}
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {row.note || ENTRY_TYPE_LABEL[row.entry_type]}
-                  {isCorrection && (
-                    <span className="ml-2 text-[11px] font-bold text-amber-700">
-                      정정
-                    </span>
-                  )}
-                </p>
-                <p className="mt-0.5 text-xs text-gray-500 truncate">
-                  {row.entry_date}
-                  {row.description && ` · ${row.description}`}
-                </p>
-              </div>
-              <span
-                className={`text-sm font-bold tabular-nums whitespace-nowrap ${
-                  row.amount < 0 ? "text-red-600" : "text-gray-900"
-                }`}
-              >
-                {row.amount < 0 ? "−" : "+"}
-                {formatWon(Math.abs(row.amount))}
-              </span>
-            </div>
-          );
-        })}
-      </Section>
+        {/* 높이 고정 — 전체·적립·사용을 바꿔도 화면이 출렁이지 않게 */}
+        <div className="h-[440px] overflow-auto custom-scrollbar">
+            <table className={`${table} min-w-[640px]`}>
+              <thead className={thead}>
+                <tr>
+                  {SORT_COLUMNS.map((c) => (
+                    <SortTh
+                      key={c.key}
+                      label={c.label}
+                      align={c.align}
+                      className={c.key === "date" || c.key === "amount" ? "px-4" : ""}
+                      active={sortKey === c.key}
+                      dir={sortDir}
+                      onClick={() => toggleSort(c.key)}
+                    />
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={SORT_COLUMNS.length} className={`${empty} py-24`}>
+                      {kind === "deposit"
+                        ? "아직 적립된 내역이 없습니다."
+                        : kind === "withdraw"
+                          ? "아직 사용한 내역이 없습니다."
+                          : "아직 내역이 없습니다."}
+                    </td>
+                  </tr>
+                )}
+                {shown.map((r) => {
+                  // 반려·취소된 신청은 돈이 나가지 않았다 — 금액을 흐리게 긋는다
+                  const void_ =
+                    r.req?.status === "rejected" || r.req?.status === "cancelled";
+                  return (
+                    <tr
+                      key={r.key}
+                      onClick={() =>
+                        r.req ? setDetailReq(r.req) : setDetailEntry(r.entry!)
+                      }
+                      className={`${trHover} cursor-pointer`}
+                    >
+                      <td className={`${td} px-4 font-mono text-[13px] text-muted whitespace-nowrap`}>
+                        {r.date}
+                      </td>
+                      <td className={`${td} ${center}`}>
+                        <span
+                          className={`px-2 py-0.5 text-[11px] font-bold rounded border ${
+                            r.kind === "withdraw"
+                              ? "bg-warning-soft text-warning-active border-warning/30"
+                              : "bg-primary-soft text-primary-active border-primary/30"
+                          }`}
+                        >
+                          {ENTRY_TYPE_LABEL[r.kind]}
+                        </span>
+                      </td>
+                      <td className={`${td} max-w-[180px]`}>
+                        <span className="block truncate">
+                          {r.note}
+                          {r.correction && (
+                            <span className="ml-1.5 text-[11px] font-bold text-warning-active">
+                              정정
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className={`${td} max-w-[280px]`}>
+                        <span className="block truncate">{r.desc || "-"}</span>
+                      </td>
+                      <td className={`${td} ${center} whitespace-nowrap`}>
+                        {r.req ? (
+                          <span
+                            className={`px-2 py-0.5 text-[11px] font-bold rounded border ${STATUS_STYLE[r.req.status]}`}
+                          >
+                            {STATUS_LABEL[r.req.status]}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-disabled-text">-</span>
+                        )}
+                      </td>
+                      <td
+                        className={`${td} ${num} px-4 font-bold whitespace-nowrap ${
+                          void_ ? "text-disabled-text! line-through" : r.amount < 0 ? "text-danger!" : ""
+                        }`}
+                      >
+                        {r.amount < 0 ? "−" : ""}
+                        {formatWon(Math.abs(r.amount))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+        </div>
+      </div>
 
       <FundEntryDetailModal
         entry={detailEntry}
@@ -266,7 +387,7 @@ export default function FundMyView({
                 </b>
               }
             />
-            <p className="pt-1 text-xs text-gray-500">
+            <p className="pt-1 text-xs text-muted">
               취소하면 차감됐던 금액이 잔액으로 돌아옵니다.
             </p>
           </div>
@@ -286,58 +407,11 @@ const SummaryCell = ({
   muted?: boolean;
 }) => (
   <div className="px-4 py-3 sm:px-5">
-    <p className="text-xs font-medium text-gray-500">{label}</p>
+    <p className="text-xs font-medium text-muted">{label}</p>
     <p
-      className={`mt-1 text-lg font-bold tabular-nums ${muted ? "text-gray-500" : "text-gray-900"}`}
+      className={`mt-1 text-lg font-bold tabular-nums ${muted ? "text-muted" : "text-heading"}`}
     >
       {formatWon(value)}
     </p>
-  </div>
-);
-
-const Section = ({
-  title,
-  count,
-  empty,
-  children,
-}: {
-  title: string;
-  count: number;
-  empty: string;
-  children: React.ReactNode;
-}) => (
-  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[340px]">
-    <div className="px-4 sm:px-5 py-3 border-b border-gray-200 bg-gray-50/50 flex items-center gap-2 shrink-0">
-      <h2 className="text-base font-bold text-gray-800">{title}</h2>
-      <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
-        {count}
-      </span>
-    </div>
-    {count === 0 ? (
-      <div className="py-10 text-center text-sm text-gray-400">{empty}</div>
-    ) : (
-      <div className="flex-1 overflow-y-auto custom-scrollbar">{children}</div>
-    )}
-  </div>
-);
-
-const DetailRow = ({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  highlight?: boolean;
-}) => (
-  <div className="flex flex-col sm:flex-row sm:gap-4">
-    <span className="w-full sm:w-24 shrink-0 text-xs font-bold text-gray-500 pt-0.5">
-      {label}
-    </span>
-    <span
-      className={`flex-1 text-sm break-words ${highlight ? "text-red-600 font-medium" : "text-gray-800"}`}
-    >
-      {value}
-    </span>
   </div>
 );

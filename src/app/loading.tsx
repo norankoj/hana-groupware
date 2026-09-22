@@ -13,7 +13,7 @@ export default function Loading() {
           className="mb-4 object-contain"
           priority
         />
-        <p className="text-gray-500 font-bold text-lg">수원하나교회 그룹웨어</p>
+        <p className="text-muted font-bold text-lg">수원하나교회 그룹웨어</p>
         <p className="text-gray-400 text-xs mt-1">로딩 중...</p>
       </div>
     </div>

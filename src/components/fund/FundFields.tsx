@@ -9,7 +9,8 @@ import "react-calendar/dist/Calendar.css";
 // 차량·휴가·예약 화면과 같은 그룹웨어 공용 달력 스타일
 import "@/styles/calendar.css";
 import { format } from "date-fns";
-import { inputClass, toCommaInput } from "./shared";
+import Select from "@/components/Select";
+import { inputClass, selectClass, toCommaInput } from "./shared";
 
 export type Member = { id: string; name: string; hint?: string | null };
 
@@ -71,10 +72,10 @@ export function DateField({
         type="button"
         onClick={toggle}
         className={`${inputClass} flex items-center justify-between text-left cursor-pointer ${
-          open ? "ring-2 ring-blue-500" : ""
+          open ? "ring-2 ring-primary" : ""
         }`}
       >
-        <span className="text-gray-900 tabular-nums">{value || "선택"}</span>
+        <span className="text-heading tabular-nums">{value || "선택"}</span>
         <svg
           className="w-4 h-4 text-gray-400 shrink-0"
           fill="none"
@@ -100,7 +101,7 @@ export function DateField({
             />
             {/* range-calendar-wrapper: 공용 스타일이 숨기는 월 이동 버튼을 팝업에서는 되살린다 */}
             <div
-              className="range-calendar-wrapper animate-fadeIn bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-[300px] sm:w-[350px]"
+              className="range-calendar-wrapper animate-fadeIn bg-white border border-line rounded-xl shadow-2xl p-3 w-[300px] sm:w-[350px]"
               style={style}
             >
               <Calendar
@@ -120,6 +121,72 @@ export function DateField({
           document.body,
         )}
     </>
+  );
+}
+
+/* ── 날짜 + 시각 ("yyyy-MM-ddTHH:mm", datetime-local 과 같은 값) ──
+   브라우저 기본 달력·시계는 모양을 바꿀 수 없어서 그룹웨어 달력 + 시·분 목록으로 만든다. */
+const HOURS = Array.from({ length: 24 }, (_, h) => {
+  const v = String(h).padStart(2, "0");
+  return { value: v, label: `${v}시` };
+});
+const MINUTES = Array.from({ length: 60 }, (_, m) => {
+  const v = String(m).padStart(2, "0");
+  return { value: v, label: `${v}분` };
+});
+
+/** 시각만 ("HH:mm") — 시 · 분 목록 두 개 */
+export function TimeField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  // 비어 있으면 지금 시각을 보여주되, 고르기 전까지는 값을 바꾸지 않는다
+  const now = new Date();
+  const hh = value.slice(0, 2) || String(now.getHours()).padStart(2, "0");
+  const mm = value.slice(3, 5) || String(now.getMinutes()).padStart(2, "0");
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Select
+        value={hh}
+        onChange={(h) => onChange(`${h}:${mm}`)}
+        options={HOURS}
+        className={`${selectClass} tabular-nums`}
+      />
+      <Select
+        value={mm}
+        onChange={(m) => onChange(`${hh}:${m}`)}
+        options={MINUTES}
+        className={`${selectClass} tabular-nums`}
+      />
+    </div>
+  );
+}
+
+export function DateTimeField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [date, time = ""] = value ? value.split("T") : ["", ""];
+  const today = format(new Date(), "yyyy-MM-dd");
+  // TimeField 가 빈 값일 때 보여주는 '지금'을 그대로 이어 붙인다
+  const nowTime = format(new Date(), "HH:mm");
+  return (
+    <div className="grid grid-cols-[1fr_192px] gap-2">
+      <DateField
+        value={date}
+        onChange={(d) => onChange(`${d}T${time || nowTime}`)}
+      />
+      <TimeField
+        value={time}
+        onChange={(t) => onChange(`${date || today}T${t}`)}
+      />
+    </div>
   );
 }
 
@@ -251,7 +318,7 @@ export function MemberField({
           id="member-suggestions"
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl"
+          className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-line rounded-lg shadow-xl"
         >
           {suggestions.map((m, i) => (
             <li key={m.id} role="option" aria-selected={i === highlight}>
@@ -261,12 +328,12 @@ export function MemberField({
                 onMouseEnter={() => setHighlight(i)}
                 onClick={() => pick(m)}
                 className={`w-full px-3 py-2 text-left text-sm cursor-pointer ${
-                  i === highlight ? "bg-blue-50 text-blue-700" : "text-gray-800"
+                  i === highlight ? "bg-primary-wash text-primary-active" : "text-gray-800"
                 }`}
               >
                 {m.name}
                 {m.hint && (
-                  <span className="ml-2 text-xs text-gray-500">{m.hint}</span>
+                  <span className="ml-2 text-xs text-muted">{m.hint}</span>
                 )}
               </button>
             </li>

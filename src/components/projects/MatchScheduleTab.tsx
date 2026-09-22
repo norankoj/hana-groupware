@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { checkCoverage, type Coverage } from "@/utils/projectUtils";
 import { type AssignmentEntry } from "@/components/projects/AccommodationTab";
+import { table, td, th } from "@/components/ui/table";
 
 type Props = { projectId: string; myUserId: string; isMember: boolean; isAdmin: boolean };
 
@@ -289,12 +290,12 @@ export default function MatchScheduleTab({ projectId }: Props) {
     color?: string;
   };
   const TYPE_CFG: Record<CalEvent["type"], { chip: string; dot: string }> = {
-    arrival:     { chip: "bg-blue-100 text-blue-700",    dot: "#3b82f6" },
+    arrival:     { chip: "bg-primary-soft text-primary-active",    dot: "#3b82f6" },
     departure:   { chip: "bg-purple-100 text-purple-700", dot: "#8b5cf6" },
     accom_start: { chip: "bg-emerald-100 text-emerald-700", dot: "#10b981" },
-    accom_end:   { chip: "bg-gray-100 text-gray-500",    dot: "#9ca3af" },
+    accom_end:   { chip: "bg-gray-100 text-muted",    dot: "#9ca3af" },
     veh_start:   { chip: "bg-sky-100 text-sky-700",      dot: "#0ea5e9" },
-    veh_end:     { chip: "bg-gray-100 text-gray-500",    dot: "#9ca3af" },
+    veh_end:     { chip: "bg-gray-100 text-muted",    dot: "#9ca3af" },
   };
   const TYPE_LABEL: Record<CalEvent["type"], string> = {
     arrival:     "입국",
@@ -397,7 +398,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
       {popup && (
         <div
           ref={popupRef}
-          className="fixed z-50 bg-white rounded-xl shadow-2xl border border-gray-200"
+          className="fixed z-50 bg-white rounded-xl shadow-2xl border border-line"
           style={{
             width: 280,
             top:  Math.min(popup.y + 12, (typeof window !== "undefined" ? window.innerHeight : 700) - 330),
@@ -407,7 +408,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
           }}
         >
           {/* 팝업 헤더 */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
             <div className="flex items-center gap-2 min-w-0">
               <span
                 className="w-3 h-3 rounded-full shrink-0"
@@ -427,7 +428,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
           <div className="p-4 space-y-3">
             {/* 배정 기간 */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-500">배정 기간</span>
+              <span className="text-xs text-muted">배정 기간</span>
               <span className="text-xs font-semibold text-gray-800">
                 {popup.block.from.slice(5)} ~ {popup.block.to.slice(5)}
               </span>
@@ -437,30 +438,30 @@ export default function MatchScheduleTab({ projectId }: Props) {
             </div>
 
             {/* 자원 정보 테이블 */}
-            <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
-              <tbody className="divide-y divide-gray-100">
+            <table className={`${table} w-full overflow-hidden`}>
+              <tbody>
                 {section === "accommodation" ? (
                   <>
                     <tr>
-                      <th className="w-20 px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">숙소</th>
-                      <td className="px-3 py-2 text-gray-800 font-semibold">{popup.block.resource.provider_name}</td>
+                      <th className={`${th} w-20 font-medium text-left whitespace-nowrap`}>숙소</th>
+                      <td className={`${td} font-semibold`}>{popup.block.resource.provider_name}</td>
                     </tr>
                     {popup.block.resource.address && (
                       <tr>
-                        <th className="px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">주소</th>
-                        <td className="px-3 py-2 text-gray-700">{popup.block.resource.address}</td>
+                        <th className={`${th} font-medium text-left whitespace-nowrap`}>주소</th>
+                        <td className={`${td}`}>{popup.block.resource.address}</td>
                       </tr>
                     )}
                     {popup.block.resource.capacity && (
                       <tr>
-                        <th className="px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">수용 인원</th>
-                        <td className="px-3 py-2 text-gray-700">{popup.block.resource.capacity}명</td>
+                        <th className={`${th} font-medium text-left whitespace-nowrap`}>수용 인원</th>
+                        <td className={`${td}`}>{popup.block.resource.capacity}명</td>
                       </tr>
                     )}
                     {!popup.block.resource.is_church_owned && popup.block.resource.available_from && (
                       <tr>
-                        <th className="px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">제공 기간</th>
-                        <td className="px-3 py-2 text-gray-700">
+                        <th className={`${th} font-medium text-left whitespace-nowrap`}>제공 기간</th>
+                        <td className={`${td}`}>
                           {popup.block.resource.available_from.slice(5)} ~ {popup.block.resource.available_to?.slice(5) ?? "미정"}
                         </td>
                       </tr>
@@ -469,24 +470,24 @@ export default function MatchScheduleTab({ projectId }: Props) {
                 ) : (
                   <>
                     <tr>
-                      <th className="w-20 px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">차량 제공</th>
-                      <td className="px-3 py-2 text-gray-800 font-semibold">{popup.block.resource.provider_name}</td>
+                      <th className={`${th} w-20 font-medium text-left whitespace-nowrap`}>차량 제공</th>
+                      <td className={`${td} font-semibold`}>{popup.block.resource.provider_name}</td>
                     </tr>
                     {popup.block.resource.car_model && (
                       <tr>
-                        <th className="px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">차종</th>
-                        <td className="px-3 py-2 text-gray-700">{popup.block.resource.car_model}</td>
+                        <th className={`${th} font-medium text-left whitespace-nowrap`}>차종</th>
+                        <td className={`${td}`}>{popup.block.resource.car_model}</td>
                       </tr>
                     )}
                     {popup.block.resource.car_number && (
                       <tr>
-                        <th className="px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">차량 번호</th>
-                        <td className="px-3 py-2 text-gray-700">{popup.block.resource.car_number}</td>
+                        <th className={`${th} font-medium text-left whitespace-nowrap`}>차량 번호</th>
+                        <td className={`${td}`}>{popup.block.resource.car_number}</td>
                       </tr>
                     )}
                     <tr>
-                      <th className="px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">보험</th>
-                      <td className="px-3 py-2">
+                      <th className={`${th} font-medium text-left whitespace-nowrap`}>보험</th>
+                      <td className={`${td}`}>
                         {popup.block.resource.insurance_added
                           ? <span className="text-emerald-600 font-semibold">✓ 추가 완료</span>
                           : <span className="text-orange-500">미완료</span>
@@ -495,8 +496,8 @@ export default function MatchScheduleTab({ projectId }: Props) {
                     </tr>
                     {!popup.block.resource.is_church_owned && popup.block.resource.available_from && (
                       <tr>
-                        <th className="px-3 py-2 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">제공 기간</th>
-                        <td className="px-3 py-2 text-gray-700">
+                        <th className={`${th} font-medium text-left whitespace-nowrap`}>제공 기간</th>
+                        <td className={`${td}`}>
                           {popup.block.resource.available_from.slice(5)} ~ {popup.block.resource.available_to?.slice(5) ?? "미정"}
                         </td>
                       </tr>
@@ -513,7 +514,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
       {calOverflowPopup && (
         <div
           ref={calPopupRef}
-          className="fixed z-50 bg-white rounded-xl shadow-2xl border border-gray-200 p-3"
+          className="fixed z-50 bg-white rounded-xl shadow-2xl border border-line p-3"
           style={{
             minWidth: 200,
             maxWidth: 280,
@@ -563,8 +564,8 @@ export default function MatchScheduleTab({ projectId }: Props) {
           onClick={() => setSection("accommodation")}
           className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${
             section === "accommodation"
-              ? "bg-blue-600 text-white"
-              : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+              ? "bg-primary text-white"
+              : "bg-white border border-line text-gray-600 hover:bg-gray-50"
           }`}
         >
           🏠 숙소 배정 ({accommodations.length}개)
@@ -573,8 +574,8 @@ export default function MatchScheduleTab({ projectId }: Props) {
           onClick={() => setSection("vehicle")}
           className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${
             section === "vehicle"
-              ? "bg-blue-600 text-white"
-              : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+              ? "bg-primary text-white"
+              : "bg-white border border-line text-gray-600 hover:bg-gray-50"
           }`}
         >
           🚗 차량 배정 ({vehicles.length}대)
@@ -587,7 +588,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
               viewMode === "timeline"
                 ? "bg-white shadow text-gray-800"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-muted hover:text-gray-700"
             }`}
           >
             📊 타임라인
@@ -597,7 +598,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${
               viewMode === "calendar"
                 ? "bg-white shadow text-gray-800"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-muted hover:text-gray-700"
             }`}
           >
             📅 달력
@@ -612,10 +613,10 @@ export default function MatchScheduleTab({ projectId }: Props) {
       ) : viewMode === "timeline" ? (
 
         /* ── 타임라인 뷰 ───────────────────────────────────────────────────── */
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
           {/* 범례 */}
-          <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs flex-wrap">
-            <span className="font-semibold text-gray-500 shrink-0">가정별 색상</span>
+          <div className="flex items-center gap-3 px-4 py-2 bg-table-header border-b border-line-soft text-xs flex-wrap">
+            <span className="font-semibold text-muted shrink-0">가정별 색상</span>
             {[...familyColorMap.entries()].slice(0, 7).map(([label, color]) => (
               <span key={label} className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -627,7 +628,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
             )}
             <span className="flex items-center gap-1 ml-auto shrink-0">
               <span>⚠️</span>
-              <span className="text-gray-500">기간 불일치</span>
+              <span className="text-muted">기간 불일치</span>
             </span>
           </div>
 
@@ -637,17 +638,17 @@ export default function MatchScheduleTab({ projectId }: Props) {
 
             {/* ── sticky 이름 열 ── */}
             <div
-              className="sticky left-0 z-10 bg-white border-r border-gray-200 shrink-0"
+              className="sticky left-0 z-10 bg-white border-r border-line shrink-0"
               style={{ width: LABEL_W }}
             >
               {/* 헤더 1: 월 자리 (빈 칸) */}
-              <div className="bg-gray-50 border-b border-gray-200" style={{ height: 26 }} />
+              <div className="bg-table-header border-b border-line" style={{ height: 26 }} />
               {/* 헤더 2: 섹션명 */}
               <div
-                className="bg-gray-50 border-b border-gray-300 flex items-center px-3"
+                className="bg-table-header border-b border-line-strong flex items-center px-3"
                 style={{ height: 26 }}
               >
-                <span className="text-xs font-semibold text-gray-500">
+                <span className="text-xs font-semibold text-muted">
                   {section === "accommodation" ? "숙소" : "차량"}
                 </span>
               </div>
@@ -659,7 +660,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
                 return (
                   <div
                     key={resource.id}
-                    className="flex items-center px-3 border-b border-gray-100 last:border-b-0 bg-white"
+                    className="flex items-center px-3 border-b border-line-soft last:border-b-0 bg-white"
                     style={{ height: ROW }}
                   >
                     <div className="min-w-0 flex-1">
@@ -676,7 +677,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
                           {resource.available_from.slice(5)}~{resource.available_to?.slice(5) ?? "?"}
                         </p>
                       ) : (
-                        <p className="text-xs text-gray-300">기간 미입력</p>
+                        <p className="text-xs text-disabled-text">기간 미입력</p>
                       )}
                     </div>
                     {!hasAssigned && (
@@ -691,11 +692,11 @@ export default function MatchScheduleTab({ projectId }: Props) {
             <div className="shrink-0" style={{ width: totalW }}>
 
                 {/* 헤더 1: 월 */}
-                <div className="flex border-b border-gray-200" style={{ height: 26 }}>
+                <div className="flex border-b border-line" style={{ height: 26 }}>
                   {monthGroups.map((mg, i) => (
                     <div
                       key={i}
-                      className="border-r border-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-50"
+                      className="border-r border-line-strong flex items-center justify-center text-xs font-bold text-gray-600 bg-table-header"
                       style={{ width: mg.count * CELL, flexShrink: 0 }}
                     >
                       {mg.month}
@@ -704,14 +705,14 @@ export default function MatchScheduleTab({ projectId }: Props) {
                 </div>
 
                 {/* 헤더 2: 날짜 */}
-                <div className="flex border-b border-gray-300" style={{ height: 26 }}>
+                <div className="flex border-b border-line-strong" style={{ height: 26 }}>
                   {dates.map((date) => (
                     <div
                       key={date}
-                      className={`border-r border-gray-200 flex items-center justify-center text-xs select-none ${
+                      className={`border-r border-line flex items-center justify-center text-xs select-none ${
                         isWeekend(date)
-                          ? "bg-blue-50 text-blue-500 font-semibold"
-                          : "bg-white text-gray-500"
+                          ? "bg-primary-wash text-primary font-semibold"
+                          : "bg-white text-muted"
                       }`}
                       style={{ width: CELL, flexShrink: 0 }}
                     >
@@ -726,7 +727,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
                   return (
                     <div
                       key={resource.id}
-                      className="relative border-b border-gray-100 last:border-b-0"
+                      className="relative border-b border-line-soft last:border-b-0"
                       style={{ width: totalW, height: ROW }}
                     >
                       {/* 제공 가능 기간 배경 */}
@@ -770,7 +771,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
                         isWeekend(date) ? (
                           <div
                             key={date}
-                            className="absolute top-0 bottom-0 bg-blue-100 opacity-30 pointer-events-none"
+                            className="absolute top-0 bottom-0 bg-primary-soft opacity-30 pointer-events-none"
                             style={{ left: di * CELL, width: CELL }}
                           />
                         ) : null,
@@ -826,7 +827,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
           </div>
 
           {/* 타임라인 푸터 요약 */}
-          <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100 flex gap-4 text-xs text-gray-500 flex-wrap">
+          <div className="px-4 py-2.5 bg-table-header border-t border-line-soft flex gap-4 text-xs text-muted flex-wrap">
             <span>총 {resources.length}{section === "accommodation" ? "개 숙소" : "대 차량"}</span>
             <span className="text-green-600">
               배정 완료 {resources.filter((r) => normalizeAssignments(r).length > 0).length}
@@ -843,9 +844,9 @@ export default function MatchScheduleTab({ projectId }: Props) {
       ) : (
 
         /* ── 달력 뷰 (일자별 이벤트) ────────────────────────────────────────── */
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
           {/* 달력 헤더 */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
             <button
               onClick={() => setCalMonth((m) => addMonth(m, -1))}
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl transition"
@@ -867,22 +868,22 @@ export default function MatchScheduleTab({ projectId }: Props) {
           </div>
 
           {/* 이벤트 타입 범례 */}
-          <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 flex-wrap">
+          <div className="flex items-center gap-3 px-4 py-2 bg-table-header border-b border-line-soft flex-wrap">
             {(Object.entries(TYPE_LABEL) as [CalEvent["type"], string][]).map(([type, label]) => (
               <span key={type} className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: TYPE_CFG[type].dot }} />
-                <span className="text-xs text-gray-500">{label}</span>
+                <span className="text-xs text-muted">{label}</span>
               </span>
             ))}
           </div>
 
           {/* 요일 헤더 */}
-          <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-100">
+          <div className="grid grid-cols-7 bg-table-header border-b border-line-soft">
             {["일", "월", "화", "수", "목", "금", "토"].map((dow, i) => (
               <div
                 key={dow}
                 className={`text-center text-xs font-semibold py-2 ${
-                  i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-500"
+                  i === 0 ? "text-red-400" : i === 6 ? "text-primary/60" : "text-muted"
                 }`}
               >
                 {dow}
@@ -908,20 +909,20 @@ export default function MatchScheduleTab({ projectId }: Props) {
                   return (
                     <div
                       key={date}
-                      className={`min-h-[84px] p-1.5 ${!isCurrentMonth ? "bg-gray-50/60" : ""}`}
+                      className={`min-h-[84px] p-1.5 ${!isCurrentMonth ? "bg-table-header" : ""}`}
                     >
                       {/* 날짜 숫자 */}
                       <div
                         className={`text-xs font-semibold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
                           isToday
-                            ? "bg-blue-600 text-white"
+                            ? "bg-primary text-white"
                             : isSun
                             ? "text-red-400"
                             : isSat
-                            ? "text-blue-400"
+                            ? "text-primary/60"
                             : isCurrentMonth
                             ? "text-gray-700"
-                            : "text-gray-300"
+                            : "text-disabled-text"
                         }`}
                       >
                         {dayNum}
@@ -944,7 +945,7 @@ export default function MatchScheduleTab({ projectId }: Props) {
                         ))}
                         {rest > 0 && (
                           <div
-                            className="text-[10px] text-blue-500 hover:text-blue-700 font-semibold px-1 cursor-pointer"
+                            className="text-[10px] text-primary hover:text-primary-active font-semibold px-1 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -971,13 +972,13 @@ export default function MatchScheduleTab({ projectId }: Props) {
               if (evs?.length) monthEvs.push({ date, evs });
             });
             if (monthEvs.length === 0) return (
-              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 text-center">
+              <div className="px-4 py-3 bg-table-header border-t border-line-soft text-xs text-gray-400 text-center">
                 이 달에 예정된 일정이 없습니다.
               </div>
             );
             return (
-              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 mb-2">이번 달 주요 일정</p>
+              <div className="px-4 py-3 bg-table-header border-t border-line-soft">
+                <p className="text-xs font-semibold text-muted mb-2">이번 달 주요 일정</p>
                 <div className="space-y-1">
                   {monthEvs.map(({ date, evs }) => (
                     <div key={date} className="flex items-start gap-2 text-xs">

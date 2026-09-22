@@ -96,7 +96,14 @@ function FundContent() {
         .order("requested_at", { ascending: false }),
     ]);
 
-    setMyLedger((ledger as FundLedger[]) ?? []);
+    // 내 펀드 원장은 전부 내 것이다 — 상세 팝업이 '대상자'를 비워두지 않게 이름을 붙여둔다.
+    // (담당자 원장처럼 대상자 명부를 조인하면 일반 사용자는 명부 조회 권한이 없어 빈 값이 온다)
+    setMyLedger(
+      ((ledger as FundLedger[]) ?? []).map((e) => ({
+        ...e,
+        payee_name: e.payee_name ?? myBalance.name,
+      })),
+    );
     setMyRequests((reqs as FundRequest[]) ?? []);
 
     // 처리 결과를 확인했으므로 대시보드 빨간 점을 끈다
@@ -169,7 +176,7 @@ function FundContent() {
 
   if (!user)
     return (
-      <div className="p-10 text-center text-gray-500">
+      <div className="p-10 text-center text-muted">
         사용자 정보를 불러오지 못했습니다.
       </div>
     );
@@ -195,23 +202,23 @@ function FundContent() {
   return (
     <div className="w-full max-w-7xl mx-auto h-full flex flex-col p-1 pb-20">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-2xl font-bold text-heading tracking-tight">
           {menu?.name || "선교펀드"}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted">
           해외사역매칭펀드의 적립·사용 내역을 관리합니다.
         </p>
       </div>
 
-      <div className="flex border-b border-gray-200 mb-5 w-full flex-shrink-0 overflow-x-auto">
+      <div className="flex border-b border-line mb-5 w-full flex-shrink-0 overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap cursor-pointer ${
               activeTab === t.key
-                ? "border-blue-600 text-blue-600 font-bold"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-muted hover:text-gray-700"
             }`}
           >
             {t.label}

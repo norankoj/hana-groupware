@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { HOLIDAYS } from "@/constants/holidays";
 import { showAlert } from "@/utils/alert";
+import { btnStyles } from "@/components/fund/shared";
 
 type Vehicle = {
   id: number;
@@ -99,7 +100,7 @@ const TimeSelect = ({
       <select
         value={hr}
         onChange={(e) => onChange(`${e.target.value}:${min}`)}
-        className="flex-1 border border-gray-300 rounded-lg px-2 py-3 bg-white text-gray-900 outline-none focus:border-blue-500 text-sm font-semibold"
+        className="flex-1 border border-line-strong rounded-lg px-2 py-3 bg-white text-heading outline-none focus:border-primary text-sm font-semibold"
       >
         {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map(
           (h) => (
@@ -112,7 +113,7 @@ const TimeSelect = ({
       <select
         value={min}
         onChange={(e) => onChange(`${hr}:${e.target.value}`)}
-        className="flex-1 border border-gray-300 rounded-lg px-2 py-3 bg-white text-gray-900 outline-none focus:border-blue-500 text-sm font-semibold"
+        className="flex-1 border border-line-strong rounded-lg px-2 py-3 bg-white text-heading outline-none focus:border-primary text-sm font-semibold"
       >
         {minuteOptions.map((m) => (
           <option key={m} value={m}>
@@ -227,7 +228,7 @@ export default function VehicleReserveModal({
 
   // 날짜 선택 팝업 (react-calendar)
   const calendarPopup = (
-    <div className="absolute top-full left-0 z-50 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-[300px] sm:w-[350px]">
+    <div className="absolute top-full left-0 z-50 mt-2 bg-white border border-line rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-[300px] sm:w-[350px]">
       <Calendar
         onChange={onCalendarChange}
         selectRange={reserveType === "multi" || reserveType === "recurring"}
@@ -277,8 +278,8 @@ export default function VehicleReserveModal({
   }) => (
     <div className={`relative ${className}`}>
       <div onClick={() => setActiveInput(activeInput === which ? null : which)} className="cursor-pointer">
-        <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">{label}</label>
-        <div className="w-full border border-gray-300 rounded-lg p-3 bg-white text-gray-900 text-center font-bold text-sm select-none">
+        <label className="block text-xs font-bold text-muted mb-1 cursor-pointer">{label}</label>
+        <div className="w-full border border-line-strong rounded-lg p-3 bg-white text-heading text-center font-bold text-sm select-none">
           {formatDateDisplay(dateStr)}
         </div>
       </div>
@@ -292,7 +293,11 @@ export default function VehicleReserveModal({
       onClose={onClose}
       title="차량 배차 신청"
       footer={
-        <div className="flex gap-2 w-full">
+        // 공용 버튼 — 취소 왼쪽, 주 동작(예약하기) 오른쪽. 다른 팝업과 같은 순서
+        <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
+          <button onClick={onClose} className={btnStyles.cancel}>
+            취소
+          </button>
           <button
             onClick={async () => {
               if (reserveType === "recurring") {
@@ -313,7 +318,7 @@ export default function VehicleReserveModal({
               }
             }}
             disabled={recurringSubmitting || isReserving}
-            className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold shadow-md hover:bg-blue-700 transition disabled:opacity-60 flex items-center justify-center gap-2"
+            className={`${btnStyles.save} flex items-center gap-2`}
           >
             {(recurringSubmitting || isReserving) && (
               <svg className="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
@@ -323,19 +328,13 @@ export default function VehicleReserveModal({
             )}
             {recurringSubmitting ? "처리 중..." : isReserving ? "저장 중..." : "예약하기"}
           </button>
-          <button
-            onClick={onClose}
-            className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition"
-          >
-            취소
-          </button>
         </div>
       }
     >
       <div className="space-y-5">
         {/* 차량 선택 */}
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">차량 선택</label>
+          <label className="block text-xs font-bold text-muted mb-1">차량 선택</label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
             {vehicles.map((v) => {
               const isVehicleRestricted =
@@ -367,12 +366,12 @@ export default function VehicleReserveModal({
                     v.is_rented
                       ? "border-indigo-200 bg-indigo-50 text-indigo-400 cursor-not-allowed opacity-70"
                       : isSelectedRestricted
-                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 shadow-sm cursor-not-allowed opacity-70"
+                        ? "border-primary bg-primary-wash text-primary-active ring-1 ring-primary shadow-sm cursor-not-allowed opacity-70"
                       : isVehicleRestricted
-                        ? "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-60"
+                        ? "border-line-strong bg-gray-100 text-gray-400 cursor-not-allowed opacity-60"
                         : form.resource_id === v.id
-                          ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 shadow-sm"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          ? "border-primary bg-primary-wash text-primary-active ring-1 ring-primary shadow-sm"
+                          : "border-line text-gray-600 hover:bg-gray-50"
                   }`}
                 >
                   <div className="font-bold text-sm break-keep">{v.name}</div>
@@ -392,15 +391,15 @@ export default function VehicleReserveModal({
         </div>
 
         {/* 예약 타입 탭 */}
-        <div className="bg-blue-50 p-1 rounded-xl flex border border-blue-100">
+        <div className="bg-primary-wash p-1 rounded-xl flex border border-primary-soft">
           {(["single", "multi", "recurring"] as const).map((type) => (
             <button
               key={type}
               onClick={() => setReserveType(type)}
               className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${
                 reserveType === type
-                  ? "bg-white text-blue-600 shadow-sm ring-1 ring-black/5"
-                  : "text-blue-400 hover:text-blue-600"
+                  ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
+                  : "text-primary/60 hover:text-primary"
               }`}
             >
               {type === "single" ? "당일" : type === "multi" ? "기간" : "정기"}
@@ -415,7 +414,7 @@ export default function VehicleReserveModal({
               <DateButton dateStr={form.start_date} which="start" label="사용 날짜" className="col-span-2" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">시작 시간</label>
+                  <label className="block text-xs font-bold text-muted mb-1">시작 시간</label>
                   <TimeSelect
                     value={form.start_time}
                     onChange={(t) => {
@@ -431,7 +430,7 @@ export default function VehicleReserveModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">종료 시간</label>
+                  <label className="block text-xs font-bold text-muted mb-1">종료 시간</label>
                   <TimeSelect
                     value={form.end_time}
                     onChange={(t) => setForm((prev) => ({ ...prev, end_time: t }))}
@@ -447,20 +446,20 @@ export default function VehicleReserveModal({
                   onClick={() => setActiveInput(activeInput === "start" ? null : "start")}
                   className="cursor-pointer"
                 >
-                  <label className="block text-xs font-bold text-gray-500 mb-1 cursor-pointer">
+                  <label className="block text-xs font-bold text-muted mb-1 cursor-pointer">
                     {reserveType === "recurring" ? "반복 기간 선택" : "기간 선택"}
                     <span className="font-normal text-gray-400 ml-1">
                       (시작일·종료일을 눌러 선택해 주세요)
                     </span>
                   </label>
-                  <div className="w-full border border-gray-300 rounded-lg p-3 bg-white select-none flex items-center justify-center gap-2 text-sm font-bold">
-                    <span className={form.start_date ? "text-gray-900" : "text-gray-400"}>
+                  <div className="w-full border border-line-strong rounded-lg p-3 bg-white select-none flex items-center justify-center gap-2 text-sm font-bold">
+                    <span className={form.start_date ? "text-heading" : "text-gray-400"}>
                       {form.start_date
                         ? format(new Date(form.start_date), "MM.dd(EEE)", { locale: ko })
                         : "시작일"}
                     </span>
                     <span className="text-gray-400 font-normal">~</span>
-                    <span className={form.end_date ? "text-gray-900" : "text-gray-400"}>
+                    <span className={form.end_date ? "text-heading" : "text-gray-400"}>
                       {form.end_date
                         ? format(new Date(form.end_date), "MM.dd(EEE)", { locale: ko })
                         : "종료일"}
@@ -473,7 +472,7 @@ export default function VehicleReserveModal({
               {/* 시작 시간 / 종료 시간 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">시작 시간</label>
+                  <label className="block text-xs font-bold text-muted mb-1">시작 시간</label>
                   <TimeSelect
                     value={form.start_time}
                     onChange={(t) => {
@@ -489,7 +488,7 @@ export default function VehicleReserveModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">종료 시간</label>
+                  <label className="block text-xs font-bold text-muted mb-1">종료 시간</label>
                   <TimeSelect
                     value={form.end_time}
                     onChange={(t) => setForm((prev) => ({ ...prev, end_time: t }))}
@@ -532,7 +531,7 @@ export default function VehicleReserveModal({
         {/* 정기 예약 — 요일 선택 */}
         {reserveType === "recurring" && (
           <div className="space-y-3 bg-purple-50 border border-purple-100 rounded-xl p-4">
-            <label className="block text-xs font-bold text-gray-500">반복 요일 선택</label>
+            <label className="block text-xs font-bold text-muted">반복 요일 선택</label>
             <div className="flex gap-2 flex-wrap">
               {DAY_LABELS.map((label, idx) => (
                 <button
@@ -548,9 +547,9 @@ export default function VehicleReserveModal({
                       ? idx === 0
                         ? "bg-red-500 text-white border-red-500"
                         : idx === 6
-                          ? "bg-blue-500 text-white border-blue-500"
+                          ? "bg-primary text-white border-primary"
                           : "bg-purple-600 text-white border-purple-600"
-                      : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                      : "bg-white text-gray-600 border-line-strong hover:bg-gray-50"
                   }`}
                 >
                   {label}
@@ -572,20 +571,20 @@ export default function VehicleReserveModal({
         {/* 부서 / 운전자 / 목적지 / 운행목적 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">사용 부서</label>
+            <label className="block text-xs font-bold text-muted mb-1">사용 부서</label>
             <input
               type="text"
               placeholder="예: 행정실"
-              className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white text-sm"
+              className="w-full border p-3 rounded-lg border-line-strong text-heading outline-none focus:border-primary bg-white text-sm"
               value={form.department}
               onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value }))}
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">운전자</label>
+            <label className="block text-xs font-bold text-muted mb-1">운전자</label>
             {form.driver_user_id ? (
-              <div className="flex items-center gap-2 p-2.5 border border-blue-400 rounded-lg bg-blue-50">
-                <div className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
+              <div className="flex items-center gap-2 p-2.5 border border-primary rounded-lg bg-primary-wash">
+                <div className="w-6 h-6 rounded-full bg-primary-soft text-primary-active flex items-center justify-center text-xs font-bold shrink-0">
                   {form.driver_name.slice(0, 1)}
                 </div>
                 <span className="text-sm font-bold text-gray-800 flex-1">{form.driver_name}</span>
@@ -615,13 +614,13 @@ export default function VehicleReserveModal({
                   }}
                   onFocus={() => setShowDriverList(true)}
                   onBlur={() => setTimeout(() => setShowDriverList(false), 150)}
-                  className="w-full p-2.5 pl-9 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition bg-white"
+                  className="w-full p-2.5 pl-9 border border-line-strong rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-soft focus:border-primary transition bg-white"
                 />
                 <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 {showDriverList && filteredDrivers.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-44 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg shadow-lg z-50 max-h-44 overflow-y-auto">
                     {filteredDrivers.map((s) => (
                       <button
                         key={s.id}
@@ -635,7 +634,7 @@ export default function VehicleReserveModal({
                           }));
                           setShowDriverList(false);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 text-left transition border-b border-gray-50 last:border-b-0"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary-wash text-left transition border-b border-gray-50 last:border-b-0"
                       >
                         <div className="w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
                           {s.full_name.slice(0, 1)}
@@ -653,7 +652,7 @@ export default function VehicleReserveModal({
           </div>
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">
+          <label className="block text-xs font-bold text-muted mb-1">
             운전자 연락처
             <span className="ml-1 text-gray-400 font-normal">(QR 연락처 표시용)</span>
           </label>
@@ -661,36 +660,36 @@ export default function VehicleReserveModal({
             <input
               type="tel"
               placeholder={form.driver_user_id ? "연락처 미등록 — 직접 입력" : "예: 010-1234-5678"}
-              className={`w-full border p-3 rounded-lg text-gray-900 outline-none focus:border-blue-500 bg-white text-sm pr-10 ${
+              className={`w-full border p-3 rounded-lg text-heading outline-none focus:border-primary bg-white text-sm pr-10 ${
                 form.driver_user_id && form.driver_phone
-                  ? "border-blue-300 bg-blue-50"
-                  : "border-gray-300"
+                  ? "border-primary-soft bg-primary-wash"
+                  : "border-line-strong"
               }`}
               value={form.driver_phone}
               onChange={(e) => setForm((prev) => ({ ...prev, driver_phone: e.target.value }))}
             />
             {form.driver_user_id && form.driver_phone && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-blue-500 font-medium pointer-events-none">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-primary font-medium pointer-events-none">
                 연동됨
               </span>
             )}
           </div>
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">목적지</label>
+          <label className="block text-xs font-bold text-muted mb-1">목적지</label>
           <input
             type="text"
             placeholder="예: 영통 홈플러스"
-            className="w-full border p-3 rounded-lg border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white text-sm"
+            className="w-full border p-3 rounded-lg border-line-strong text-heading outline-none focus:border-primary bg-white text-sm"
             value={form.destination}
             onChange={(e) => setForm((prev) => ({ ...prev, destination: e.target.value }))}
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">운행 목적</label>
+          <label className="block text-xs font-bold text-muted mb-1">운행 목적</label>
           <textarea
             placeholder="구체적인 목적 입력"
-            className="w-full h-24 border p-3 rounded-lg resize-none border-gray-300 text-gray-900 outline-none focus:border-blue-500 bg-white text-sm"
+            className="w-full h-24 border p-3 rounded-lg resize-none border-line-strong text-heading outline-none focus:border-primary bg-white text-sm"
             value={form.purpose}
             onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))}
           />

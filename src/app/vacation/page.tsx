@@ -92,19 +92,19 @@ function VacationContent() {
   return (
     <div className="w-full max-w-7xl mx-auto h-full flex flex-col p-1">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-2xl font-bold text-heading tracking-tight">
           {menu?.name || "휴가/연차 관리"}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted">
           휴가 신청 및 승인 현황을 관리합니다.
         </p>
       </div>
 
-      <div className="flex border-b border-gray-200 mb-6 w-full flex-shrink-0 overflow-x-auto">
+      <div className="flex border-b border-line mb-6 w-full flex-shrink-0 overflow-x-auto">
         {user?.is_approver && (
           <button
             onClick={() => setActiveTab("approve")}
-            className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "approve" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+            className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "approve" ? "border-primary text-primary font-bold" : "border-transparent text-muted hover:text-gray-700"}`}
           >
             결재함{" "}
             {approvalList.filter((r) => r.status === "pending").length > 0 && (
@@ -116,13 +116,13 @@ function VacationContent() {
         )}
         <button
           onClick={() => setActiveTab("calendar")}
-          className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "calendar" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "calendar" ? "border-primary text-primary font-bold" : "border-transparent text-muted hover:text-gray-700"}`}
         >
           내 일정 관리
         </button>
         <button
           onClick={() => setActiveTab("history")}
-          className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "history" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          className={`pb-3 px-6 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === "history" ? "border-primary text-primary font-bold" : "border-transparent text-muted hover:text-gray-700"}`}
         >
           내 연차 히스토리
         </button>

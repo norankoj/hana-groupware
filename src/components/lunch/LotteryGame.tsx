@@ -43,7 +43,7 @@ export default function LotteryGame({ names, onFireConfetti }: Props) {
         </button>
       ) : (
         <>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted">
             카드를 클릭해 뽑아보세요!{" "}
             <span className="text-indigo-500 font-bold">
               ({revealed.filter(Boolean).length}/{n})
@@ -86,7 +86,7 @@ export default function LotteryGame({ names, onFireConfetti }: Props) {
                       className={`absolute inset-0 rounded-xl flex flex-col items-center justify-center shadow-md border-2 transition-all
                         ${isWinner
                           ? "bg-yellow-400 border-yellow-500 scale-105"
-                          : "bg-gray-100 border-gray-200"
+                          : "bg-gray-100 border-line"
                         }`}
                       style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                     >
@@ -94,7 +94,7 @@ export default function LotteryGame({ names, onFireConfetti }: Props) {
                       <span className={`text-sm font-extrabold ${isWinner ? "text-yellow-800" : "text-gray-400"}`}>
                         {isWinner ? "당첨!" : "꽝"}
                       </span>
-                      <span className="text-xs mt-0.5 text-gray-500">{name}</span>
+                      <span className="text-xs mt-0.5 text-muted">{name}</span>
                     </div>
                   </div>
                 </button>

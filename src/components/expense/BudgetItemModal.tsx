@@ -255,11 +255,11 @@ export default function BudgetItemModal({
                 <p className="text-[11px] text-gray-400 truncate">
                   {flat.find((o) => o.id === selected.id)?.path || "대항목"}
                 </p>
-                <p className="text-sm font-bold text-gray-900 truncate">
+                <p className="text-sm font-bold text-heading truncate">
                   {itemLabel(selected)}
                   <LevelTag level={selected.level} />
                 </p>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-[11px] text-muted">
                   가용{" "}
                   <b
                     className={`font-mono tabular-nums ${
@@ -270,14 +270,14 @@ export default function BudgetItemModal({
                   >
                     {formatWon(availableAmount(selected))}
                   </b>
-                  <span className="mx-1.5 text-gray-300">·</span>
+                  <span className="mx-1.5 text-disabled-text">·</span>
                   확정{" "}
                   <b className="font-mono tabular-nums text-gray-700">
                     {formatWon(selected.spent)}
                   </b>
                   {selected.pending > 0 && (
                     <>
-                      <span className="mx-1.5 text-gray-300">·</span>
+                      <span className="mx-1.5 text-disabled-text">·</span>
                       <span className="text-amber-600">
                         대기{" "}
                         <b className="font-mono tabular-nums">
@@ -286,7 +286,7 @@ export default function BudgetItemModal({
                       </span>
                     </>
                   )}
-                  <span className="mx-1.5 text-gray-300">·</span>
+                  <span className="mx-1.5 text-disabled-text">·</span>
                   계획{" "}
                   <b className="font-mono tabular-nums text-gray-700">
                     {formatWon(selected.planned_amount)}
@@ -314,7 +314,7 @@ export default function BudgetItemModal({
       }
     >
       {/* 검색 */}
-      <div className="px-4 py-3 border-b border-gray-200 shrink-0">
+      <div className="px-4 py-3 border-b border-line shrink-0">
         <div className="relative">
           <Search
             size={15}
@@ -337,7 +337,7 @@ export default function BudgetItemModal({
               type="button"
               onClick={() => setQuery("")}
               aria-label="검색 지우기"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-heading cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -362,9 +362,9 @@ export default function BudgetItemModal({
                 type="button"
                 onMouseEnter={() => setSearchAt(i)}
                 onClick={() => confirm(o.id)}
-                className={`w-full pl-3 pr-4 py-2.5 text-left border-b border-gray-100 border-l-2 cursor-pointer ${
+                className={`w-full pl-3 pr-4 py-2.5 text-left border-b border-line-soft border-l-2 cursor-pointer ${
                   i === searchAt
-                    ? "border-l-[#2151EC] bg-blue-50"
+                    ? "border-l-primary bg-primary-wash"
                     : "border-l-transparent hover:bg-gray-50"
                 }`}
               >
@@ -372,8 +372,8 @@ export default function BudgetItemModal({
                   <span
                     className={`min-w-0 text-sm break-keep ${
                       i === searchAt
-                        ? "font-bold text-[#1a43c9]"
-                        : "font-medium text-gray-900"
+                        ? "font-bold text-primary-active"
+                        : "font-medium text-heading"
                     }`}
                   >
                     {o.code && (
@@ -402,12 +402,12 @@ export default function BudgetItemModal({
       ) : (
         <>
           {/* ── 작은 화면: 한 열씩 + 되돌아가기 ── */}
-          <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-gray-50">
+          <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-b border-line bg-table-header">
             {mobileCol > 0 && (
               <button
                 type="button"
                 onClick={() => setMobileCol((c) => Math.max(c - 1, 0))}
-                className="flex items-center gap-1 text-xs font-medium text-[#2151EC] cursor-pointer"
+                className="flex items-center gap-1 text-xs font-medium text-primary cursor-pointer"
               >
                 <CornerDownLeft size={13} /> 상위로
               </button>
@@ -418,7 +418,7 @@ export default function BudgetItemModal({
           </div>
 
           {/* ── 3단 열 ── */}
-          <div className="flex-1 min-h-0 grid sm:grid-cols-3 divide-x divide-gray-200">
+          <div className="flex-1 min-h-0 grid sm:grid-cols-3 divide-x divide-line-soft">
             {columns.map((list, col) => (
               <div
                 key={col}
@@ -428,8 +428,8 @@ export default function BudgetItemModal({
                 <div
                   className={`hidden sm:flex items-center justify-between px-3 py-2 border-b shrink-0 text-[11px] font-bold ${
                     focusCol === col
-                      ? "border-blue-200 bg-blue-50 text-[#2151EC]"
-                      : "border-gray-200 bg-gray-50 text-gray-500"
+                      ? "border-primary-soft bg-primary-wash text-primary"
+                      : "border-line bg-table-header text-muted"
                   }`}
                 >
                   <span>{LEVEL_TITLE[col]}</span>
@@ -441,7 +441,7 @@ export default function BudgetItemModal({
                 </div>
                 <ul className="h-[clamp(300px,50vh,460px)] overflow-y-auto">
                   {list.length === 0 ? (
-                    <li className="px-3 py-8 text-center text-xs text-gray-300">
+                    <li className="px-3 py-8 text-center text-xs text-disabled-text">
                       {col === 0 ? "예산안이 없습니다" : "하위 항목이 없습니다"}
                     </li>
                   ) : (
@@ -455,9 +455,9 @@ export default function BudgetItemModal({
                             onClick={() => pickInColumn(col, n)}
                             onDoubleClick={() => confirm(n.id)}
                             aria-current={picked}
-                            className={`w-full pl-2.5 pr-3 py-2.5 text-left border-b border-gray-100 border-l-2 cursor-pointer transition ${
+                            className={`w-full pl-2.5 pr-3 py-2.5 text-left border-b border-line-soft border-l-2 cursor-pointer transition ${
                               picked
-                                ? "border-l-[#2151EC] bg-blue-50"
+                                ? "border-l-primary bg-primary-wash"
                                 : "border-l-transparent hover:bg-gray-50"
                             }`}
                           >
@@ -465,8 +465,8 @@ export default function BudgetItemModal({
                               <span
                                 className={`min-w-0 flex-1 text-[13px] leading-snug break-keep ${
                                   picked
-                                    ? "font-bold text-[#1a43c9]"
-                                    : "font-medium text-gray-900"
+                                    ? "font-bold text-primary-active"
+                                    : "font-medium text-heading"
                                 }`}
                               >
                                 {n.code && (
@@ -480,7 +480,7 @@ export default function BudgetItemModal({
                               {n.children.length > 0 && (
                                 <ChevronRight
                                   size={14}
-                                  className={`shrink-0 ${picked ? "text-[#2151EC]" : "text-gray-300"}`}
+                                  className={`shrink-0 ${picked ? "text-primary" : "text-disabled-text"}`}
                                 />
                               )}
                             </div>
@@ -515,14 +515,14 @@ const WithdrawTag = ({
   code ? (
     <span
       title={`출금계좌 ${code} (자동)`}
-      className={`${inline ? "ml-1.5 align-middle" : "shrink-0"} inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded border border-gray-300 bg-white font-mono text-[10px] font-bold text-gray-600`}
+      className={`${inline ? "ml-1.5 align-middle" : "shrink-0"} inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded border border-line-strong bg-white font-mono text-[10px] font-bold text-gray-600`}
     >
       {code}
     </span>
   ) : null;
 
 const LevelTag = ({ level }: { level: number }) => (
-  <span className="ml-1.5 text-[10px] text-gray-400 border border-gray-200 rounded px-1">
+  <span className="ml-1.5 text-[10px] text-gray-400 border border-line rounded px-1">
     {LEVEL_TITLE[level - 1]}
   </span>
 );
@@ -564,7 +564,7 @@ const SpentPct = ({ pct }: { pct: number }) => (
         ? "text-red-600 font-bold"
         : pct >= WARN_AT
           ? "text-amber-700 font-semibold"
-          : "text-gray-300"
+          : "text-disabled-text"
     }`}
   >
     {Math.round(pct)}%
@@ -613,7 +613,7 @@ function WithdrawField({
       <div className="flex items-center justify-between mb-1">
         <label
           htmlFor="withdraw-select"
-          className="text-[11px] font-bold text-gray-500"
+          className="text-[11px] font-bold text-muted"
         >
           출금계좌
         </label>
@@ -621,7 +621,7 @@ function WithdrawField({
           <button
             type="button"
             onClick={onReset}
-            className="text-[11px] text-[#2151EC] hover:underline cursor-pointer"
+            className="text-[11px] text-primary hover:underline cursor-pointer"
           >
             자동({auto})으로
           </button>
@@ -632,11 +632,11 @@ function WithdrawField({
         <p className="py-2 text-sm text-gray-400">항목을 고르면 자동으로</p>
       ) : !showSelect ? (
         <div className="flex items-center gap-2 py-1">
-          <b className="text-sm text-gray-900">{labelOf(value)}</b>
+          <b className="text-sm text-heading">{labelOf(value)}</b>
           <button
             type="button"
             onClick={onEdit}
-            className="px-2 py-0.5 rounded-md border border-[#2151EC] bg-white text-xs font-bold text-[#2151EC] hover:bg-blue-50 transition cursor-pointer"
+            className="px-2 py-0.5 rounded-md border border-primary bg-white text-xs font-bold text-primary hover:bg-primary-soft transition cursor-pointer"
           >
             변경
           </button>
@@ -649,7 +649,7 @@ function WithdrawField({
             onChange={(e) => onChange(e.target.value || null)}
             className={`w-full bg-white border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer ${
               value
-                ? "border-gray-300"
+                ? "border-line-strong"
                 : "border-amber-300 bg-amber-50 text-amber-800"
             }`}
           >

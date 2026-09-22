@@ -19,6 +19,8 @@ import ScheduleTab from "@/components/vehicle/ScheduleTab";
 import VehicleManageTab from "@/components/vehicle/VehicleManageTab";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
+import { center, empty, num, sub, table, tdWide, thWide, thead, trHover } from "@/components/ui/table";
+import { btnStyles } from "@/components/fund/shared";
 
 // --- [이미지 설정] 차량별 이미지 매핑 ---
 const VEHICLE_IMAGES: Record<string, string> = {
@@ -900,7 +902,7 @@ export default function VehicleReservationPage() {
               ? "border-red-300"
               : oilSoon
                 ? "border-amber-300"
-                : "border-gray-200"
+                : "border-line"
         }`}
       >
         <div
@@ -924,7 +926,7 @@ export default function VehicleReservationPage() {
             className={`w-full py-3.5 text-sm font-bold rounded-xl transition-all active:scale-[0.98] ${
               v.is_rented || (v.id === RESTRICTED_VEHICLE_ID && !canReserveRestricted)
                 ? "bg-white/10 text-white/40 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-lg shadow-blue-900/40"
+                : "bg-primary hover:bg-primary text-white cursor-pointer shadow-lg shadow-blue-900/40"
             }`}
           >
             {v.is_rented
@@ -1069,7 +1071,7 @@ export default function VehicleReservationPage() {
               ? "bg-indigo-100 text-indigo-700"
               : currentUsage
                 ? "bg-green-100 text-green-700 animate-pulse"
-                : "bg-gray-100 text-gray-500"
+                : "bg-gray-100 text-muted"
           }`}
         >
           {v.is_rented ? (
@@ -1090,7 +1092,7 @@ export default function VehicleReservationPage() {
 
         <div className="z-10 relative pointer-events-none">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[17px] font-semibold text-gray-900 tracking-tight leading-tight">
+            <h3 className="text-[17px] font-semibold text-heading tracking-tight leading-tight">
               {v.name}
             </h3>
             {(oilConfirmPending || oilOverdue || oilSoon) && (
@@ -1130,7 +1132,7 @@ export default function VehicleReservationPage() {
             className="absolute right-[-10px] bottom-1 w-36 h-24 object-contain opacity-90 transition-transform duration-500 ease-out group-hover:scale-105 origin-bottom-right"
           />
         ) : (
-          <div className="absolute right-4 bottom-4 opacity-5 text-gray-900">
+          <div className="absolute right-4 bottom-4 opacity-5 text-heading">
             <span className="text-4xl font-black">CAR</span>
           </div>
         )}
@@ -1144,7 +1146,7 @@ export default function VehicleReservationPage() {
               <span className="text-[18px] font-semibold text-slate-800 tracking-tight">
                 {(v.current_mileage || 0).toLocaleString()}
               </span>
-              <span className="text-[12px] font-medium text-gray-500">km</span>
+              <span className="text-[12px] font-medium text-muted">km</span>
               {v.current_mileage > 0 && lastFuel != null && (
                 <div className="pb-[1px] ">
                   <div
@@ -1168,7 +1170,7 @@ export default function VehicleReservationPage() {
           onClick={() => setMobileTab("reserve")}
           className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
             mobileTab === "reserve"
-              ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50"
+              ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/50"
               : "text-slate-500"
           }`}
         >
@@ -1178,7 +1180,7 @@ export default function VehicleReservationPage() {
           onClick={() => setMobileTab("log")}
           className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
             mobileTab === "log"
-              ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50"
+              ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/50"
               : "text-slate-500"
           }`}
         >
@@ -1189,7 +1191,7 @@ export default function VehicleReservationPage() {
       <div
         className={`md:hidden flex flex-col gap-4 mb-4 ${mobileTab === "log" ? "hidden" : ""}`}
       >
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-2xl font-bold text-heading tracking-tight">
           차량 운행 관리
         </h1>
         <button
@@ -1197,7 +1199,7 @@ export default function VehicleReservationPage() {
             setEditingLogId(null);
             setIsReserveModalOpen(true);
           }}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-lg font-bold text-sm tracking-tight transition-all shadow-md hover:shadow-lg cursor-pointer"
+          className={`${btnStyles.cta} w-full px-5 py-3 text-sm`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1219,7 +1221,7 @@ export default function VehicleReservationPage() {
         {/* 스케줄 보기 버튼 */}
         <a
           href="/vehicle/schedule"
-          className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 active:bg-gray-100 text-slate-700 px-5 py-3 rounded-lg font-bold text-sm tracking-tight transition-all border border-gray-200 shadow-sm cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 active:bg-gray-100 text-slate-700 px-5 py-3 rounded-lg font-bold text-sm tracking-tight transition-all border border-line shadow-sm cursor-pointer"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1246,9 +1248,9 @@ export default function VehicleReservationPage() {
       </div>
 
       <div
-        className={`md:hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden ${mobileTab === "log" ? "block" : "hidden"}`}
+        className={`md:hidden bg-white rounded-xl border border-line shadow-sm overflow-hidden ${mobileTab === "log" ? "block" : "hidden"}`}
       >
-        <div className="px-3 pt-3 pb-2.5 border-b border-gray-200 bg-gray-50 flex flex-col gap-2">
+        <div className="px-3 pt-3 pb-2.5 border-b border-line bg-table-header flex flex-col gap-2">
           {/* 1행: 상태 필터 + 내 예약 토글 */}
           <div className="flex gap-2 items-center">
             <div className="w-32 shrink-0">
@@ -1262,17 +1264,17 @@ export default function VehicleReservationPage() {
                   { value: "returned", label: "반납완료" },
                   { value: "noshow", label: "노쇼" },
                 ]}
-                className="w-full h-[38px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
+                className="w-full h-[38px] px-3 py-2 text-sm bg-white border border-line-strong rounded-lg"
               />
             </div>
             <button
               onClick={() => { setMobileMyOnly((v) => !v); setMobilePage(1); }}
               className="flex items-center gap-2 shrink-0 px-1 py-1 rounded-lg transition active:scale-95"
             >
-              <span className={`text-sm font-bold transition-colors ${mobileMyOnly ? "text-blue-600" : "text-gray-400"}`}>
+              <span className={`text-sm font-bold transition-colors ${mobileMyOnly ? "text-primary" : "text-gray-400"}`}>
                 {mobileMyOnly ? "내 예약" : "전체"}
               </span>
-              <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${mobileMyOnly ? "bg-blue-600" : "bg-gray-300"}`}>
+              <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${mobileMyOnly ? "bg-primary" : "bg-gray-300"}`}>
                 <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${mobileMyOnly ? "translate-x-6" : "translate-x-1"}`} />
               </div>
             </button>
@@ -1287,7 +1289,7 @@ export default function VehicleReservationPage() {
               value={mobileDriverSearch}
               onChange={(e) => { setMobileDriverSearch(e.target.value); setMobilePage(1); }}
               placeholder="운전자 이름 검색"
-              className="w-full h-[38px] pl-9 pr-8 text-sm bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 transition"
+              className="w-full h-[38px] pl-9 pr-8 text-sm bg-white border border-line-strong rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary-soft transition"
             />
             {mobileDriverSearch && (
               <button
@@ -1310,7 +1312,7 @@ export default function VehicleReservationPage() {
             mobileCurrentLogs.map((log) => (
               <div
                 key={log.id}
-                className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
+                className="bg-white border border-line rounded-xl p-4 shadow-sm"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span
@@ -1318,10 +1320,10 @@ export default function VehicleReservationPage() {
                       log.vehicle_status === "in_use"
                         ? "bg-green-100 text-green-700"
                         : log.vehicle_status === "returned"
-                          ? "bg-gray-100 text-gray-500"
+                          ? "bg-gray-100 text-muted"
                           : log.vehicle_status === "noshow"
                             ? "bg-orange-100 text-orange-600"
-                            : "bg-blue-100 text-blue-700"
+                            : "bg-primary-soft text-primary-active"
                     }`}
                   >
                     {log.vehicle_status === "in_use"
@@ -1332,7 +1334,7 @@ export default function VehicleReservationPage() {
                           ? "노쇼"
                           : "예약"}
                   </span>
-                  <span className="font-bold text-gray-900">
+                  <span className="font-bold text-heading">
                     {log.resources?.name}
                   </span>
                 </div>
@@ -1382,12 +1384,12 @@ export default function VehicleReservationPage() {
           )}
         </div>
         {mobileTotalPages > 1 && (
-          <div className="flex items-center gap-2 py-3 px-3 border-t border-gray-200 bg-white">
+          <div className="flex items-center gap-2 py-3 px-3 border-t border-line bg-white">
             {/* 이전 — shrink-0 으로 항상 고정 */}
             <button
               onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
               disabled={mobilePage === 1}
-              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 disabled:opacity-30 text-lg leading-none"
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-line-strong text-muted disabled:opacity-30 text-lg leading-none"
             >
               ‹
             </button>
@@ -1405,7 +1407,7 @@ export default function VehicleReservationPage() {
                       className={`shrink-0 w-9 h-9 rounded-lg border text-sm font-medium ${
                         mobilePage === item
                           ? "bg-slate-800 text-white border-slate-800"
-                          : "border-gray-300 text-gray-600 bg-white"
+                          : "border-line-strong text-gray-600 bg-white"
                       }`}
                     >
                       {item}
@@ -1419,7 +1421,7 @@ export default function VehicleReservationPage() {
             <button
               onClick={() => setMobilePage((p) => Math.min(mobileTotalPages, p + 1))}
               disabled={mobilePage === mobileTotalPages || mobileTotalPages === 0}
-              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 disabled:opacity-30 text-lg leading-none"
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-line-strong text-muted disabled:opacity-30 text-lg leading-none"
             >
               ›
             </button>
@@ -1429,10 +1431,10 @@ export default function VehicleReservationPage() {
 
       <div className="hidden md:flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-heading tracking-tight">
             차량 운행 관리
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-muted mt-0.5">
             차량 예약 및 운행 일지를 관리합니다.
           </p>
         </div>
@@ -1441,7 +1443,7 @@ export default function VehicleReservationPage() {
             setEditingLogId(null);
             setIsReserveModalOpen(true);
           }}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold text-sm transition shadow-sm"
+          className="flex items-center gap-2 bg-primary hover:bg-primary text-white px-4 py-2.5 rounded-lg font-bold text-sm transition shadow-sm"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1514,7 +1516,7 @@ export default function VehicleReservationPage() {
 
         const statusBadge = (status: VehicleLog["vehicle_status"]) => (
           <span
-            className={`px-2 py-1 rounded text-xs font-bold ${status === "in_use" ? "bg-green-100 text-green-700" : status === "returned" ? "bg-gray-100 text-gray-500" : status === "noshow" ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-700"}`}
+            className={`inline-block px-2 py-0.5 rounded border text-[11px] font-bold ${status === "in_use" ? "bg-success-soft text-success-active border-success/30" : status === "returned" ? "bg-secondary-soft text-dark border-secondary/30" : status === "noshow" ? "bg-warning-soft text-warning-active border-warning/30" : "bg-primary-soft text-primary-active border-primary/30"}`}
           >
             {status === "in_use"
               ? "운행중"
@@ -1529,67 +1531,63 @@ export default function VehicleReservationPage() {
         const colSpan = pcSelectedVehicleId ? 6 : 7;
 
         const LogTable = ({ rows }: { rows: VehicleLog[] }) => (
-          <table className="min-w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200 sticky top-0 z-10">
+          <table className={`${table} whitespace-nowrap`}>
+            <thead className={thead}>
               <tr>
-                <th className="px-4 py-3">상태</th>
-                {!pcSelectedVehicleId && <th className="px-4 py-3">차량</th>}
-                <th className="px-4 py-3">사용시간</th>
-                <th className="px-4 py-3">운전자 / 부서</th>
-                <th className="px-4 py-3">목적지 / 용도</th>
-                <th className="px-4 py-3 text-right">주행거리</th>
-                <th className="px-4 py-3 text-center">관리</th>
+                <th scope="col" className={`${thWide} ${center}`}>상태</th>
+                {!pcSelectedVehicleId && <th scope="col" className={thWide}>차량</th>}
+                <th scope="col" className={thWide}>사용시간</th>
+                <th scope="col" className={thWide}>운전자 / 부서</th>
+                <th scope="col" className={thWide}>목적지 / 용도</th>
+                <th scope="col" className={`${thWide} text-right`}>주행거리</th>
+                <th scope="col" className={`${thWide} ${center}`}>관리</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {rows.map((log) => (
                 <tr
                   key={log.id}
-                  className="hover:bg-blue-50/40 transition cursor-pointer"
+                  className={`${trHover} cursor-pointer`}
                   onClick={(e) =>
                     setLogPopover({ log, x: e.clientX, y: e.clientY })
                   }
                 >
-                  <td className="px-4 py-3">
+                  <td className={`${tdWide} ${center}`}>
                     {statusBadge(log.vehicle_status)}
                   </td>
                   {!pcSelectedVehicleId && (
-                    <td className="px-4 py-3 font-medium text-gray-900">
+                    <td className={`${tdWide} font-medium`}>
                       {log.resources?.name}
                     </td>
                   )}
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className={`${tdWide} font-mono text-[13px] tabular-nums`}>
                     <div>{format(new Date(log.start_at), "MM.dd HH:mm")}</div>
-                    <div className="text-xs text-gray-400">
+                    <div className={sub}>
                       ~ {format(new Date(log.end_at), "MM.dd HH:mm")}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className={tdWide}>
                     <div>{log.driver_name}</div>
-                    <div className="text-xs text-gray-400">
-                      {log.department}
-                    </div>
+                    <div className={sub}>{log.department}</div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-800">
-                      {log.destination}
-                    </div>
-                    <div className="text-xs text-gray-500 truncate max-w-[160px]">
+                  <td className={tdWide}>
+                    <div className="font-medium">{log.destination}</div>
+                    <div className={`${sub} truncate max-w-[160px]`}>
                       {log.purpose}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono">
+                  <td className={`${tdWide} ${num}`}>
                     {log.end_mileage && log.start_mileage ? (
-                      <span className="font-bold text-gray-900">
+                      <span className="font-bold text-heading">
                         {(log.end_mileage - log.start_mileage).toLocaleString()}{" "}
                         km
                       </span>
                     ) : (
-                      "-"
+                      <span className="text-disabled-text">-</span>
                     )}
                   </td>
                   <td
-                    className="px-4 py-3 text-center"
+                    className={`${tdWide} ${center}`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
@@ -1597,7 +1595,7 @@ export default function VehicleReservationPage() {
                         setSelectedLog(log);
                         setIsDetailModalOpen(true);
                       }}
-                      className="text-slate-600 border border-slate-300 px-3 py-1 rounded hover:bg-slate-50 text-xs font-bold transition"
+                      className="px-2.5 py-1 text-xs font-medium rounded-md border border-line-strong bg-white text-dark hover:bg-secondary-soft transition cursor-pointer"
                     >
                       관리
                     </button>
@@ -1606,10 +1604,7 @@ export default function VehicleReservationPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={colSpan}
-                    className="px-4 py-10 text-center text-gray-400"
-                  >
+                  <td colSpan={colSpan} className={empty}>
                     운행 기록이 없습니다.
                   </td>
                 </tr>
@@ -1621,12 +1616,12 @@ export default function VehicleReservationPage() {
         const PcPagination = () => {
           const safeTotal = Math.max(1, pcTotalPages);
           return (
-            <div className="flex justify-center py-3 border-t border-gray-200 shrink-0">
+            <div className="flex justify-center py-3 border-t border-line shrink-0">
               <div className="flex gap-1 items-center">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50 text-sm"
+                  className="px-3 py-1 rounded border border-line-strong text-gray-600 disabled:opacity-50 text-sm"
                 >
                   이전
                 </button>
@@ -1637,7 +1632,7 @@ export default function VehicleReservationPage() {
                     <button
                       key={item}
                       onClick={() => setCurrentPage(item as number)}
-                      className={`px-3 py-1 rounded border text-sm ${currentPage === item ? "bg-slate-800 text-white border-slate-800" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                      className={`px-3 py-1 rounded border text-sm ${currentPage === item ? "bg-slate-800 text-white border-slate-800" : "border-line-strong text-gray-600 hover:bg-gray-50"}`}
                     >
                       {item}
                     </button>
@@ -1646,7 +1641,7 @@ export default function VehicleReservationPage() {
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(safeTotal, p + 1))}
                   disabled={currentPage >= safeTotal}
-                  className="px-3 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50 text-sm"
+                  className="px-3 py-1 rounded border border-line-strong text-gray-600 disabled:opacity-50 text-sm"
                 >
                   다음
                 </button>
@@ -1657,8 +1652,8 @@ export default function VehicleReservationPage() {
 
         return (
           <div className="hidden md:flex h-[calc(100vh-190px)] gap-4">
-            <div className="w-80 shrink-0 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="p-3 border-b border-gray-100">
+            <div className="w-80 shrink-0 flex flex-col bg-white rounded-xl border border-line shadow-sm overflow-hidden">
+              <div className="p-3 border-b border-line-soft">
                 <button
                   onClick={() => {
                     setPcSelectedVehicleId(null);
@@ -1667,7 +1662,7 @@ export default function VehicleReservationPage() {
                   className={`w-full py-2.5 px-3 rounded-lg text-sm font-bold transition ${
                     pcSelectedVehicleId === null
                       ? "bg-slate-800 text-white shadow"
-                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                      : "bg-white text-gray-700 border border-line-strong hover:bg-gray-50"
                   }`}
                 >
                   전체 차량
@@ -1688,7 +1683,7 @@ export default function VehicleReservationPage() {
                         setPcSelectedVehicleId(v.id);
                         setCurrentPage(1);
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-3.5 text-left transition border-b border-gray-100 ${isSelected ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+                      className={`w-full flex items-center gap-3 px-3 py-3.5 text-left transition border-b border-line-soft ${isSelected ? "bg-primary-wash" : "bg-white hover:bg-gray-50"}`}
                     >
                       {/* --- [수정됨] 통일된 사이즈의 리스트 차량 이미지 --- */}
                       <div className="w-20 h-14 shrink-0 flex items-center justify-center overflow-hidden">
@@ -1711,7 +1706,7 @@ export default function VehicleReservationPage() {
                           />
                         ) : (
                           <svg
-                            className="w-8 h-8 text-gray-300"
+                            className="w-8 h-8 text-disabled-text"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -1727,7 +1722,7 @@ export default function VehicleReservationPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div
-                          className={`text-sm font-bold truncate ${isSelected ? "text-blue-700" : "text-gray-800"}`}
+                          className={`text-sm font-bold truncate ${isSelected ? "text-primary-active" : "text-gray-800"}`}
                         >
                           {v.name}
                         </div>
@@ -1759,7 +1754,7 @@ export default function VehicleReservationPage() {
             <div className="flex-1 flex flex-col overflow-hidden gap-4">
               {pcVehicle ? (
                 <>
-                  <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm shrink-0">
+                  <div className="p-5 bg-white rounded-xl border border-line shadow-sm shrink-0">
                     <div className="flex items-start gap-5 mb-4">
                       {/* --- [수정됨] 통일된 사이즈의 상세 정보 차량 이미지 --- */}
                       <div className="w-36 h-24 shrink-0 flex items-center justify-center overflow-hidden">
@@ -1781,7 +1776,7 @@ export default function VehicleReservationPage() {
                           />
                         ) : (
                           <svg
-                            className="w-12 h-12 text-gray-300"
+                            className="w-12 h-12 text-disabled-text"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -1797,7 +1792,7 @@ export default function VehicleReservationPage() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h2 className="text-xl font-bold text-gray-900">
+                          <h2 className="text-xl font-bold text-heading">
                             {pcVehicle.name}
                           </h2>
                           {pcVehicle.is_rented && (
@@ -1806,7 +1801,7 @@ export default function VehicleReservationPage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted">
                           {pcVehicle.description}
                         </div>
                       </div>
@@ -1814,7 +1809,7 @@ export default function VehicleReservationPage() {
                         <button
                           onClick={() => handleReserveWithCar(pcVehicle.id)}
                           disabled={!!pcVehicle.is_rented}
-                          className={`px-4 py-2 rounded-lg text-sm font-bold transition ${pcVehicle.is_rented ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 text-white"}`}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition ${pcVehicle.is_rented ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-primary hover:bg-primary text-white"}`}
                         >
                           예약하기
                         </button>
@@ -1823,34 +1818,34 @@ export default function VehicleReservationPage() {
                             setSelectedVehicleMaintenance(pcVehicle);
                             setIsMaintenanceModalOpen(true);
                           }}
-                          className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
+                          className="px-4 py-2 border border-line-strong text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
                         >
                           정비
                         </button>
                         {/* {currentProfile?.is_vehicle_notify && (
                           <button
                             onClick={() => setIsVehicleManageModalOpen(true)}
-                            className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
+                            className="px-4 py-2 border border-line-strong text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
                           >
                             관리
                           </button>
                         )} */}
                         <button
                           onClick={() => handleOpenHistory(pcVehicle)}
-                          className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
+                          className="px-4 py-2 border border-line-strong text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
                         >
                           기록
                         </button>
                         <button
                           onClick={() => setScheduleVehicle(pcVehicle)}
-                          className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
+                          className="px-4 py-2 border border-line-strong text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-bold transition"
                         >
                           스케줄
                         </button>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-3">
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                      <div className="bg-table-header rounded-xl p-3 border border-line-soft">
                         <div className="flex items-center justify-between mb-1">
                           <div className="text-xs text-gray-400">누적 주행거리</div>
                           {currentProfile?.is_vehicle_notify && editingMileageVehicleId !== pcVehicle.id && (
@@ -1859,7 +1854,7 @@ export default function VehicleReservationPage() {
                                 setPcMileageValue(pcVehicle.current_mileage ?? "");
                                 setEditingMileageVehicleId(pcVehicle.id);
                               }}
-                              className="text-[11px] text-blue-500 hover:text-blue-700 transition"
+                              className="text-[11px] text-primary hover:text-primary-active transition"
                             >
                               ✎ 수정
                             </button>
@@ -1871,7 +1866,7 @@ export default function VehicleReservationPage() {
                               type="number"
                               value={pcMileageValue}
                               onChange={(e) => setPcMileageValue(e.target.value === "" ? "" : Number(e.target.value))}
-                              className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-400 transition"
+                              className="w-full px-2 py-1 border border-line-strong rounded-lg text-sm font-mono outline-none focus:border-primary transition"
                               placeholder="km 입력"
                               autoFocus
                             />
@@ -1879,7 +1874,7 @@ export default function VehicleReservationPage() {
                               <button
                                 onClick={() => savePcMileage(pcVehicle.id)}
                                 disabled={pcMileageValue === ""}
-                                className="flex-1 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition disabled:opacity-50"
+                                className="flex-1 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary transition disabled:opacity-50"
                               >
                                 저장
                               </button>
@@ -1892,13 +1887,13 @@ export default function VehicleReservationPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-lg font-bold text-gray-900">
+                          <div className="text-lg font-bold text-heading">
                             {pcVehicle.current_mileage?.toLocaleString() ?? "-"}
-                            <span className="text-xs font-normal text-gray-500 ml-0.5">km</span>
+                            <span className="text-xs font-normal text-muted ml-0.5">km</span>
                           </div>
                         )}
                       </div>
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                      <div className="bg-table-header rounded-xl p-3 border border-line-soft">
                         <div className="text-xs text-gray-400 mb-1">주유량</div>
                         {(() => {
                           const fuel = getLastFuel(pcVehicle.id);
@@ -1921,7 +1916,7 @@ export default function VehicleReservationPage() {
                           );
                         })()}
                       </div>
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                      <div className="bg-table-header rounded-xl p-3 border border-line-soft">
                         <div className="text-xs text-gray-400 mb-1">
                           보험 정보
                         </div>
@@ -1932,7 +1927,7 @@ export default function VehicleReservationPage() {
                             ))}
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                      <div className="bg-table-header rounded-xl p-3 border border-line-soft">
                         <div className="text-xs text-gray-400 mb-1 flex items-center justify-between">
                           <span>엔진오일 교체</span>
                           <span className="text-gray-600 font-medium">{((pcVehicle.oil_change_interval_km ?? 7000) / 1000).toLocaleString()}천km 주기</span>
@@ -1945,7 +1940,7 @@ export default function VehicleReservationPage() {
                           const pendingPc =
                             !!latestOilMaintPc &&
                             (!pcVehicle.oil_changed_date || latestOilMaintPc > pcVehicle.oil_changed_date);
-                          const color = pendingPc || overdue ? "text-red-500" : soon ? "text-amber-500" : "text-gray-900";
+                          const color = pendingPc || overdue ? "text-red-500" : soon ? "text-amber-500" : "text-heading";
                           return (
                             <div className="flex items-center justify-between gap-2">
                               <div className={`text-base font-bold ${color}`}>
@@ -2006,7 +2001,7 @@ export default function VehicleReservationPage() {
                                 <span className="text-amber-500 font-mono shrink-0">
                                   {format(new Date(n.end_at), "M.d")}
                                 </span>
-                                <span className="text-gray-500 shrink-0">{n.driver_name}</span>
+                                <span className="text-muted shrink-0">{n.driver_name}</span>
                                 <span className="text-amber-800 flex-1">{n.vehicle_condition}</span>
                               </div>
                             ))}
@@ -2015,8 +2010,8 @@ export default function VehicleReservationPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
-                    <div className="p-3 border-b border-gray-200 bg-gray-50 flex gap-2 items-center shrink-0">
+                  <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-line shadow-sm">
+                    <div className="p-3 border-b border-line bg-table-header flex gap-2 items-center shrink-0">
                       <div className="w-32 shrink-0">
                         <Select
                           value={statusFilter}
@@ -2031,7 +2026,7 @@ export default function VehicleReservationPage() {
                             { value: "returned", label: "반납완료" },
                             { value: "noshow", label: "노쇼" },
                           ]}
-                          className="w-full h-[36px] px-2 py-1 text-sm bg-white border border-gray-300 rounded-lg"
+                          className="w-full h-[36px] px-2 py-1 text-sm bg-white border border-line-strong rounded-lg"
                         />
                       </div>
                       <input
@@ -2041,11 +2036,11 @@ export default function VehicleReservationPage() {
                           setCurrentPage(1);
                         }}
                         placeholder="운전자 · 목적지 검색"
-                        className="flex-1 h-[36px] px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        className="flex-1 h-[36px] px-3 py-1 text-sm border border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-soft"
                       />
                       <button
                         onClick={() => { setMyReservationsOnly((v) => !v); setCurrentPage(1); }}
-                        className={`px-3 py-1 rounded-lg text-sm font-bold border transition shrink-0 h-[36px] ${myReservationsOnly ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}`}
+                        className={`px-3 py-1 rounded-lg text-sm font-bold border transition shrink-0 h-[36px] ${myReservationsOnly ? "bg-primary text-white border-primary" : "bg-white text-gray-600 border-line-strong hover:bg-gray-50"}`}
                       >
                         내 예약
                       </button>
@@ -2099,7 +2094,7 @@ export default function VehicleReservationPage() {
                           a.click();
                           URL.revokeObjectURL(url);
                         }}
-                        className="flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-bold border border-gray-300 text-gray-600 hover:bg-gray-50 transition shrink-0 h-[36px]"
+                        className="flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-bold border border-line-strong text-gray-600 hover:bg-gray-50 transition shrink-0 h-[36px]"
                         title="엑셀 다운로드"
                       >
                         <svg
@@ -2129,18 +2124,18 @@ export default function VehicleReservationPage() {
                 </>
               ) : (
                 <>
-                  <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-sm flex gap-2 items-center shrink-0 flex-wrap">
+                  <div className="p-3 bg-white rounded-xl border border-line shadow-sm flex gap-2 items-center shrink-0 flex-wrap">
                     {/* 탭 토글 */}
                     <div className="flex gap-1 bg-gray-100 p-1 rounded-lg shrink-0">
                       <button
                         onClick={() => setAllViewMode("log")}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${allViewMode === "log" ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:bg-gray-100"}`}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${allViewMode === "log" ? "bg-white shadow-sm text-primary" : "text-muted hover:bg-gray-100"}`}
                       >
                         운행기록
                       </button>
                       <button
                         onClick={() => setAllViewMode("schedule")}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${allViewMode === "schedule" ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:bg-gray-100"}`}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${allViewMode === "schedule" ? "bg-white shadow-sm text-primary" : "text-muted hover:bg-gray-100"}`}
                       >
                         스케줄
                       </button>
@@ -2161,7 +2156,7 @@ export default function VehicleReservationPage() {
                               { value: "returned", label: "반납완료" },
                               { value: "noshow", label: "노쇼" },
                             ]}
-                            className="w-full h-[38px] px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg"
+                            className="w-full h-[38px] px-3 py-1.5 text-sm bg-white border border-line-strong rounded-lg"
                           />
                         </div>
                         <input
@@ -2171,11 +2166,11 @@ export default function VehicleReservationPage() {
                             setCurrentPage(1);
                           }}
                           placeholder="차량 · 운전자 · 목적지 검색"
-                          className="flex-1 h-[38px] px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          className="flex-1 h-[38px] px-3 py-1.5 text-sm border border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-soft"
                         />
                         <button
                           onClick={() => { setMyReservationsOnly((v) => !v); setCurrentPage(1); }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition shrink-0 h-[38px] ${myReservationsOnly ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}`}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition shrink-0 h-[38px] ${myReservationsOnly ? "bg-primary text-white border-primary" : "bg-white text-gray-600 border-line-strong hover:bg-gray-50"}`}
                         >
                           내 예약
                         </button>
@@ -2224,7 +2219,7 @@ export default function VehicleReservationPage() {
                         a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-300 text-gray-600 hover:bg-gray-50 transition shrink-0 h-[38px]"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold border border-line-strong text-gray-600 hover:bg-gray-50 transition shrink-0 h-[38px]"
                       title="엑셀 다운로드"
                     >
                       <svg
@@ -2246,7 +2241,7 @@ export default function VehicleReservationPage() {
                   )}
                   </div>
                   {allViewMode === "log" ? (
-                    <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-line shadow-sm">
                       <div className="flex-1 overflow-y-auto custom-scrollbar">
                         <LogTable rows={pcCurrentLogs} />
                       </div>
@@ -2318,7 +2313,7 @@ export default function VehicleReservationPage() {
       >
         {rentalVehicle && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-500 font-medium">
+            <p className="text-sm text-muted font-medium">
               {rentalVehicle.name}
             </p>
             {!rentalVehicle.is_rented ? (
@@ -2334,7 +2329,7 @@ export default function VehicleReservationPage() {
                     if (e.key === "Enter") handleSaveRental();
                   }}
                   placeholder="예: 홍길동 선교사님"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 outline-none transition"
+                  className="w-full px-3 py-2.5 border border-line rounded-lg text-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 outline-none transition"
                   autoFocus
                 />
                 <p className="text-xs text-gray-400 mt-1.5">
@@ -2459,9 +2454,9 @@ export default function VehicleReservationPage() {
               className={
                 isMobileView
                   ? // 모바일: 하단 바텀시트
-                    "fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl overflow-hidden border-t border-gray-100 animate-slideUp"
+                    "fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl overflow-hidden border-t border-line-soft animate-slideUp"
                   : // PC: 기존 플로팅 팝오버
-                    "fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-gray-100"
+                    "fixed bg-white rounded-2xl shadow-2xl w-[300px] overflow-hidden border border-line-soft"
               }
               style={
                 isMobileView
@@ -2490,13 +2485,13 @@ export default function VehicleReservationPage() {
                   },
                   reserved: {
                     label: "예약",
-                    headerBg: "bg-blue-50",
-                    textCls: "text-blue-700",
+                    headerBg: "bg-primary-wash",
+                    textCls: "text-primary-active",
                   },
                   returned: {
                     label: "반납",
-                    headerBg: "bg-gray-50",
-                    textCls: "text-gray-500",
+                    headerBg: "bg-table-header",
+                    textCls: "text-muted",
                   },
                   noshow: {
                     label: "노쇼",
@@ -2543,13 +2538,13 @@ export default function VehicleReservationPage() {
                         <span className={`text-xs font-bold ${cfg.textCls}`}>
                           {cfg.label}
                         </span>
-                        <p className="text-base font-extrabold text-gray-900 mt-0.5 leading-snug truncate">
+                        <p className="text-base font-extrabold text-heading mt-0.5 leading-snug truncate">
                           {log.resources?.name ?? "차량"}
                         </p>
                       </div>
                       <button
                         onClick={() => setLogPopover(null)}
-                        className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-black/10 transition text-gray-500"
+                        className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-black/10 transition text-muted"
                       >
                         <svg
                           className="w-4 h-4"
@@ -2595,7 +2590,7 @@ export default function VehicleReservationPage() {
                           : "--:--";
                         return (
                           <InfoLine label="운행시간">
-                            <span className="text-blue-700 font-semibold">
+                            <span className="text-primary-active font-semibold">
                               {startLabel} ~ {endLabel}
                             </span>
                           </InfoLine>
@@ -2622,9 +2617,9 @@ export default function VehicleReservationPage() {
                         log.start_mileage != null &&
                         log.end_mileage != null && (
                           <>
-                            <div className="border-t border-gray-100 pt-1" />
+                            <div className="border-t border-line-soft pt-1" />
                             <InfoLine label="주행 거리">
-                              <span className="font-bold text-blue-600">
+                              <span className="font-bold text-primary">
                                 {(
                                   log.end_mileage - log.start_mileage
                                 ).toLocaleString()}{" "}

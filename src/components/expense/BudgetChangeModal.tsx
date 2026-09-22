@@ -126,14 +126,14 @@ export default function BudgetChangeModal({
                 onClick={() => setKind(k)}
                 className={`rounded-lg border px-3 py-2.5 text-left transition cursor-pointer ${
                   kind === k
-                    ? "border-[#2151EC] bg-blue-50"
-                    : "border-gray-300 bg-white hover:bg-gray-50"
+                    ? "border-primary bg-primary-wash"
+                    : "border-line-strong bg-white hover:bg-gray-50"
                 }`}
               >
-                <p className={`text-sm font-bold ${kind === k ? "text-[#2151EC]" : "text-gray-800"}`}>
+                <p className={`text-sm font-bold ${kind === k ? "text-primary" : "text-gray-800"}`}>
                   {title}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-500">{hint}</p>
+                <p className="mt-0.5 text-xs text-muted">{hint}</p>
               </button>
             ))}
           </div>
@@ -158,8 +158,8 @@ export default function BudgetChangeModal({
                       down === d
                         ? d
                           ? "border-red-400 bg-red-50 text-red-600"
-                          : "border-[#2151EC] bg-blue-50 text-[#2151EC]"
-                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                          : "border-primary bg-primary-wash text-primary"
+                        : "border-line-strong bg-white text-gray-600 hover:bg-gray-50"
                     }`}
                   >
                     {d ? "감액" : "증액"}
@@ -189,17 +189,17 @@ export default function BudgetChangeModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <p className="text-xs font-bold text-gray-500 mb-1.5">금액</p>
+              <p className="text-xs font-bold text-muted mb-1.5">금액</p>
               <AmountField value={amount} onChange={setAmount} placeholder="0" />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-500 mb-1.5">변경일</p>
+              <p className="text-xs font-bold text-muted mb-1.5">변경일</p>
               <DateField value={date} onChange={setDate} />
             </div>
           </div>
 
           <div>
-            <label htmlFor="budget-change-memo" className="block text-xs font-bold text-gray-500 mb-1.5">
+            <label htmlFor="budget-change-memo" className="block text-xs font-bold text-muted mb-1.5">
               사유
             </label>
             <textarea
@@ -212,7 +212,7 @@ export default function BudgetChangeModal({
             />
           </div>
 
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted">
             원안은 그대로 두고 변경을 기록으로 쌓습니다. 기록은 고치거나 지울 수 없어요.
             잘못 넣었으면 반대 변경을 하나 더 넣어주세요.
           </p>
@@ -258,28 +258,28 @@ function Slot({
   }) {
   return (
     <div className="flex-1 min-w-0">
-      <p className="text-xs font-bold text-gray-500 mb-1.5">{label}</p>
+      <p className="text-xs font-bold text-muted mb-1.5">{label}</p>
       <button
         type="button"
         onClick={onPick}
         className={`w-full text-left rounded-lg border px-3 py-2.5 transition cursor-pointer ${
-          item ? "border-gray-300 bg-white hover:bg-gray-50" : "border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100"
+          item ? "border-line-strong bg-white hover:bg-gray-50" : "border-dashed border-line-strong bg-table-header hover:bg-gray-100"
         }`}
       >
         {item ? (
           <>
-            <p className="text-sm font-bold text-gray-900 truncate">{itemLabel(item)}</p>
-            <p className="mt-0.5 text-xs text-gray-500 tabular-nums">
+            <p className="text-sm font-bold text-heading truncate">{itemLabel(item)}</p>
+            <p className="mt-0.5 text-xs text-muted tabular-nums">
               예산 <span className="font-mono">{formatWon(item.planned_amount)}</span>
               {after !== undefined && amt > 0 && (
                 <>
                   {" → "}
-                  <b className={`font-mono ${after < item.planned_amount ? "text-red-600" : "text-[#2151EC]"}`}>
+                  <b className={`font-mono ${after < item.planned_amount ? "text-red-600" : "text-primary"}`}>
                     {formatWon(after)}
                   </b>
                 </>
               )}
-              <span className="mx-1.5 text-gray-300">·</span>
+              <span className="mx-1.5 text-disabled-text">·</span>
               가용 <span className="font-mono">{formatWon(availableAmount(item))}</span>
             </p>
           </>

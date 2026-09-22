@@ -52,8 +52,8 @@ export default function PushSettingCard() {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+    <div className="bg-white border border-line rounded-lg overflow-hidden shadow-sm">
+      <div className="px-6 py-4 border-b border-line bg-table-header flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-800">알림 설정</h2>
         <StatusBadge status={status} />
       </div>
@@ -74,7 +74,7 @@ export default function PushSettingCard() {
             <button
               onClick={handleEnable}
               disabled={working}
-              className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer disabled:opacity-60"
+              className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-active transition text-sm shadow-md cursor-pointer disabled:opacity-60"
             >
               {working ? "설정 중..." : "알림 켜기"}
             </button>
@@ -125,16 +125,16 @@ export default function PushSettingCard() {
 
 const StatusBadge = ({ status }: { status: Status }) => {
   const map: Record<Status, { label: string; className: string }> = {
-    loading: { label: "확인 중", className: "bg-gray-100 text-gray-500" },
+    loading: { label: "확인 중", className: "bg-gray-100 text-muted" },
     granted: { label: "켜짐", className: "bg-emerald-50 text-emerald-700" },
     default: { label: "꺼짐", className: "bg-gray-100 text-gray-600" },
     denied: { label: "차단됨", className: "bg-red-50 text-red-600" },
-    unsupported: { label: "사용 불가", className: "bg-gray-100 text-gray-500" },
+    unsupported: { label: "사용 불가", className: "bg-gray-100 text-muted" },
   };
   const { label, className } = map[status];
   return (
     <span
-      className={`text-xs font-bold px-2.5 py-1 rounded border border-gray-200 ${className}`}
+      className={`text-xs font-bold px-2.5 py-1 rounded border border-line ${className}`}
     >
       {label}
     </span>

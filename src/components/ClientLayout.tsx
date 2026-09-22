@@ -286,7 +286,7 @@ export default function ClientLayout({
   // 가입 승인 대기 중인 사용자 전용 화면
   if (profile && profile.role === "pending") {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+      <div className="min-h-screen bg-table-header flex flex-col items-center justify-center px-4">
         <Toaster />
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-10 text-center">
           <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -304,10 +304,10 @@ export default function ClientLayout({
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-heading mb-2">
             승인 대기 중입니다
           </h2>
-          <p className="text-gray-500 text-sm mb-1">
+          <p className="text-muted text-sm mb-1">
             <span className="font-bold text-gray-700">{profile.full_name}</span>
             님, 가입을 환영합니다!
           </p>
@@ -354,14 +354,14 @@ export default function ClientLayout({
         {/* ★ 사이드바 (모바일 & PC 통합) */}
         <aside
           className={`
-            fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 flex flex-col duration-300 ease-in-out
+            fixed inset-y-0 left-0 z-40 bg-white border-r border-line flex flex-col duration-300 ease-in-out
             md:translate-x-0 md:static md:inset-auto md:flex
             transition-all z-[100]
             ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
             w-64 ${isCollapsed ? "md:w-20" : "md:w-64"}
           `}
         >
-          <div className="h-16 relative flex items-center justify-end px-4 border-b border-gray-100 flex-shrink-0 overflow-hidden">
+          <div className="h-16 relative flex items-center justify-end px-4 border-b border-line-soft flex-shrink-0 overflow-hidden">
             {/* 로고 */}
             {(!isCollapsed || isMobileMenuOpen) && (
               <Link
@@ -423,7 +423,7 @@ export default function ClientLayout({
                 />
               ))}
             {visibleMenus.some((m) => m.is_admin_only) && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="mt-4 pt-4 border-t border-line-soft">
                 {visibleMenus
                   .filter((m) => m.is_admin_only)
                   .map((menu) => (
@@ -453,12 +453,12 @@ export default function ClientLayout({
 
         {/* 메인 컨텐츠 영역 */}
         <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">
-          <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
+          <header className="h-16 bg-white border-b border-line flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
             <div className="flex items-center gap-3">
               {/* ★ [모바일용] 햄버거 버튼 (md:hidden) */}
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 -ml-2 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none"
+                className="md:hidden p-2 -ml-2 rounded-md text-muted hover:bg-gray-100 focus:outline-none"
               >
                 <svg
                   className="w-6 h-6"
@@ -485,10 +485,10 @@ export default function ClientLayout({
                   className="flex items-center gap-4 focus:outline-none group"
                 >
                   <div className="text-right hidden sm:flex flex-col items-end justify-center">
-                    <span className="text-base font-bold text-gray-900 leading-none mb-1">
+                    <span className="text-base font-bold text-heading leading-none mb-1">
                       {profile?.full_name || "로딩중..."} 님
                     </span>
-                    <span className="text-sm text-gray-500 font-normal leading-none">
+                    <span className="text-sm text-muted font-normal leading-none">
                       {teamName} · {profile?.position || "직분미정"}
                     </span>
                   </div>
@@ -497,12 +497,12 @@ export default function ClientLayout({
                   </div>
                 </button>
                 {isDropdownOpen && (
-                  <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-fadeIn z-50">
-                    <div className="px-4 py-3 border-b border-gray-100 sm:hidden">
-                      <p className="text-sm font-bold text-gray-900">
+                  <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-xl border border-line-soft py-2 animate-fadeIn z-50">
+                    <div className="px-4 py-3 border-b border-line-soft sm:hidden">
+                      <p className="text-sm font-bold text-heading">
                         {profile?.full_name}
                       </p>
-                      <p className="text-xs text-gray-500">{teamName}</p>
+                      <p className="text-xs text-muted">{teamName}</p>
                     </div>
 
                     <button
@@ -584,10 +584,10 @@ function MenuItem({
   return (
     <Link
       href={href}
-      className={`flex items-center px-4 py-3 rounded-lg transition-colors mb-1 ${active ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      className={`flex items-center px-4 py-3 rounded-lg transition-colors mb-1 ${active ? "bg-primary-wash text-primary" : "text-muted hover:bg-gray-50 hover:text-heading"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       <svg
-        className={`w-5 h-5 flex-shrink-0 ${active ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"}`}
+        className={`w-5 h-5 flex-shrink-0 ${active ? "text-primary" : "text-gray-400 group-hover:text-gray-600"}`}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useCurrentMenu } from "@/components/ClientLayout";
 import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
+import { table, tdWide, thWide, trHover } from "@/components/ui/table";
 
 type Profile = {
   id: string;
@@ -21,7 +22,7 @@ type Profile = {
 };
 
 function formatLastSeen(lastSeenAt: string | null): { text: string; color: string } {
-  if (!lastSeenAt) return { text: "기록 없음", color: "text-gray-300" };
+  if (!lastSeenAt) return { text: "기록 없음", color: "text-disabled-text" };
   const now = new Date();
   const last = new Date(lastSeenAt);
   const diffMs = now.getTime() - last.getTime();
@@ -31,8 +32,8 @@ function formatLastSeen(lastSeenAt: string | null): { text: string; color: strin
 
   if (diffMin < 5)   return { text: "방금 전",          color: "text-green-600" };
   if (diffMin < 60)  return { text: `${diffMin}분 전`,  color: "text-green-500" };
-  if (diffHour < 24) return { text: `${diffHour}시간 전`, color: "text-blue-500" };
-  if (diffDay < 7)   return { text: `${diffDay}일 전`,  color: "text-gray-500" };
+  if (diffHour < 24) return { text: `${diffHour}시간 전`, color: "text-primary" };
+  if (diffDay < 7)   return { text: `${diffDay}일 전`,  color: "text-muted" };
   return {
     text: last.toLocaleDateString("ko-KR", { month: "short", day: "numeric" }),
     color: "text-gray-400",
@@ -336,7 +337,7 @@ export default function AdminTeamsPage() {
   if (loading)
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
       </div>
     );
 
@@ -344,10 +345,10 @@ export default function AdminTeamsPage() {
     <div className="w-full">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-heading tracking-tight">
             {menu?.name || "사용자 관리"}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted">
             결재가능 - 시스템권한: 관리자/디렉터 & 결재권한ON
           </p>
         </div>
@@ -378,8 +379,8 @@ export default function AdminTeamsPage() {
           onClick={() => setActiveTab("members")}
           className={`px-4 py-2 text-sm font-bold rounded-lg transition ${
             activeTab === "members"
-              ? "bg-blue-600 text-white"
-              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              ? "bg-primary text-white"
+              : "bg-white text-gray-600 border border-line hover:bg-gray-50"
           }`}
         >
           구성원 관리
@@ -392,7 +393,7 @@ export default function AdminTeamsPage() {
           className={`px-4 py-2 text-sm font-bold rounded-lg transition flex items-center gap-1.5 ${
             activeTab === "pending"
               ? "bg-orange-500 text-white"
-              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              : "bg-white text-gray-600 border border-line hover:bg-gray-50"
           }`}
         >
           가입 승인
@@ -412,8 +413,8 @@ export default function AdminTeamsPage() {
 
       {/* ── 가입 승인 탭 ── */}
       {activeTab === "pending" && (
-        <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-orange-50/60 flex items-center gap-2">
+        <div className="bg-white rounded-md shadow-sm border border-line overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-line-soft bg-orange-50/60 flex items-center gap-2">
             <span className="text-sm font-bold text-orange-700">
               가입 대기 중인 계정
             </span>
@@ -437,7 +438,7 @@ export default function AdminTeamsPage() {
                       {person.full_name.slice(0, 1)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-gray-900">
+                      <p className="text-sm font-bold text-heading">
                         {person.full_name}
                       </p>
                       <p className="text-xs text-gray-400 truncate">
@@ -447,7 +448,7 @@ export default function AdminTeamsPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <select
-                      className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+                      className="text-sm border border-line rounded-lg px-2 py-1.5 bg-white"
                       value={pendingRole[person.id] || "staff"}
                       onChange={(e) =>
                         setPendingRole((prev) => ({
@@ -466,7 +467,7 @@ export default function AdminTeamsPage() {
                       onClick={() =>
                         approvePending(person.id, person.full_name)
                       }
-                      className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition"
+                      className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-active transition"
                     >
                       승인
                     </button>
@@ -488,8 +489,8 @@ export default function AdminTeamsPage() {
 
       {/* ── 구성원 관리 탭 ── */}
       {activeTab === "members" && (
-      <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center gap-3">
+      <div className="bg-white rounded-md shadow-sm border border-line overflow-hidden">
+        <div className="px-4 sm:px-6 py-4 border-b border-line bg-table-header flex justify-between items-center gap-3">
           <h2 className="text-sm sm:text-base font-bold text-gray-800 shrink-0">
             전체 구성원 ({activeProfiles.length}명)
           </h2>
@@ -499,34 +500,34 @@ export default function AdminTeamsPage() {
               placeholder="이름 / 이메일 검색"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full text-sm border border-line rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <button
             onClick={fetchData}
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-primary hover:underline"
           >
             목록 새로고침
           </button>
         </div>
 
         {/* --- [모바일용] 카드 리스트 뷰 --- */}
-        <div className="block md:hidden bg-gray-50 divide-y divide-gray-200">
+        <div className="block md:hidden bg-table-header divide-y divide-line-soft">
           {activeProfiles.map((person) => (
             <div key={person.id} className="p-4 bg-white space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-sm border border-gray-200">
+                  <div className="flex-shrink-0 h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-sm border border-line">
                     {person.full_name.slice(0, 1)}
                   </div>
                   <div className="ml-3">
-                    <div className="text-base font-bold text-gray-900">
+                    <div className="text-base font-bold text-heading">
                       {person.full_name}
                     </div>
                     <div className="text-xs text-gray-400">
                       {person.email || "이메일 없음"}
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-xs text-muted mt-0.5">
                       {person.position}
                     </div>
                     {(() => {
@@ -544,13 +545,13 @@ export default function AdminTeamsPage() {
               </div>
 
               {/* 설정 컨트롤 영역 */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100 mt-2">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-line-soft mt-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                  <label className="block text-xs font-medium text-muted mb-1">
                     소속 팀
                   </label>
                   <select
-                    className="block w-full py-2 px-2 text-sm border-gray-300 rounded-md bg-white"
+                    className="block w-full py-2 px-2 text-sm border-line-strong rounded-md bg-white"
                     value={person.team_id || "none"}
                     onChange={(e) =>
                       updateMemberTeam(person.id, e.target.value)
@@ -565,11 +566,11 @@ export default function AdminTeamsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                  <label className="block text-xs font-medium text-muted mb-1">
                     시스템 권한
                   </label>
                   <select
-                    className="block w-full py-2 px-2 text-sm border-gray-300 rounded-md bg-white"
+                    className="block w-full py-2 px-2 text-sm border-line-strong rounded-md bg-white"
                     value={person.role}
                     onChange={(e) =>
                       updateMemberRole(person.id, e.target.value)
@@ -585,14 +586,14 @@ export default function AdminTeamsPage() {
 
               <div className="flex justify-between items-center pt-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">
+                  <span className="text-xs font-medium text-muted">
                     결재 권한
                   </span>
                   <button
                     onClick={() =>
                       toggleApprover(person.id, person.is_approver)
                     }
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.is_approver ? "bg-blue-600" : "bg-gray-200"}`}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.is_approver ? "bg-primary" : "bg-gray-200"}`}
                   >
                     <span
                       aria-hidden="true"
@@ -603,12 +604,12 @@ export default function AdminTeamsPage() {
 
                 {/* 연차 관리 */}
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-gray-500 mr-1">
+                  <span className="text-xs text-muted mr-1">
                     연차(총/사용)
                   </span>
                   <input
                     type="number"
-                    className="w-10 text-center border-gray-300 rounded-md text-xs py-1"
+                    className="w-10 text-center border-line-strong rounded-md text-xs py-1"
                     value={person.total_leave_days}
                     onFocus={() => handleFocus(person.total_leave_days)}
                     onChange={(e) =>
@@ -626,10 +627,10 @@ export default function AdminTeamsPage() {
                       )
                     }
                   />
-                  <span className="text-gray-300">/</span>
+                  <span className="text-disabled-text">/</span>
                   <input
                     type="number"
-                    className="w-10 text-center border-gray-300 rounded-md text-xs py-1 bg-gray-50 text-gray-500"
+                    className="w-10 text-center border-line-strong rounded-md text-xs py-1 bg-table-header text-muted"
                     value={person.used_leave_days}
                     onFocus={() => handleFocus(person.used_leave_days)}
                     onChange={(e) =>
@@ -655,65 +656,65 @@ export default function AdminTeamsPage() {
 
         {/* --- [PC용] 테이블 뷰 --- */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className={`${table} min-w-full`}>
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className={`${thWide} text-left font-bold`}>
                   이름 / 직분
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className={`${thWide} text-left font-bold`}>
                   ID (이메일)
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className={`${thWide} text-left font-bold`}>
                   소속 팀
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className={`${thWide} text-left font-bold`}>
                   시스템 권한
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className={`${thWide} text-center font-bold`}>
                   결재 권한
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">
+                <th className={`${thWide} text-center font-bold w-32`}>
                   연차 (총/사용)
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className={`${thWide} text-center font-bold`}>
                   마지막 활동
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className={`${thWide} text-center font-bold`}>
                   관리
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white">
               {activeProfiles.map((person) => (
                 <tr
                   key={person.id}
-                  className="hover:bg-gray-50 transition-colors"
+                  className={`${trHover}`}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className={`${tdWide} whitespace-nowrap`}>
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-9 w-9 rounded bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-sm border border-gray-200">
+                      <div className="flex-shrink-0 h-9 w-9 rounded bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-sm border border-line">
                         {person.full_name.slice(0, 1)}
                       </div>
                       <div className="ml-3">
-                        <div className="text-sm font-bold text-gray-900">
+                        <div className="text-sm font-bold text-heading">
                           {person.full_name}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted">
                           {person.position}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-500">
+                  <td className={`${tdWide} whitespace-nowrap`}>
+                    <span className="text-sm text-muted">
                       {person.email || "-"}
                     </span>
                   </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className={`${tdWide} whitespace-nowrap`}>
                     <select
-                      className="block w-full py-1.5 pl-2 pr-8 text-sm border-gray-300 rounded-md bg-white cursor-pointer"
+                      className="block w-full py-1.5 pl-2 pr-8 text-sm border-line-strong rounded-md bg-white cursor-pointer"
                       value={person.team_id || "none"}
                       onChange={(e) =>
                         updateMemberTeam(person.id, e.target.value)
@@ -726,14 +727,14 @@ export default function AdminTeamsPage() {
                         <option
                           key={team.id}
                           value={team.id}
-                          className="text-gray-900"
+                          className="text-heading"
                         >
                           {team.name}
                         </option>
                       ))}
                     </select>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className={`${tdWide} whitespace-nowrap`}>
                     <select
                       className={`block w-full py-1.5 pl-2 pr-8 text-sm font-medium rounded-md cursor-pointer border-0 ring-1 ring-inset ${person.role === "admin" ? "bg-purple-50 text-purple-700 ring-purple-200" : person.role === "pastor" ? "bg-amber-50 text-amber-700 ring-amber-200" : person.role === "staff" || person.role === "director" ? "bg-green-50 text-green-700 ring-green-200" : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-50"}`}
                       value={person.role}
@@ -750,12 +751,12 @@ export default function AdminTeamsPage() {
                       <option value="admin">관리자</option>
                     </select>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <td className={`${tdWide} whitespace-nowrap text-center`}>
                     <button
                       onClick={() =>
                         toggleApprover(person.id, person.is_approver)
                       }
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.is_approver ? "bg-blue-600" : "bg-gray-200"}`}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.is_approver ? "bg-primary" : "bg-gray-200"}`}
                     >
                       <span
                         aria-hidden="true"
@@ -763,11 +764,11 @@ export default function AdminTeamsPage() {
                       />
                     </button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <td className={`${tdWide} whitespace-nowrap text-center`}>
                     <div className="flex items-center justify-center gap-2">
                       <input
                         type="number"
-                        className="w-12 text-center border-gray-300 rounded-md text-sm py-1 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-12 text-center border-line-strong rounded-md text-sm py-1 focus:ring-primary focus:border-primary"
                         value={person.total_leave_days}
                         onFocus={() => handleFocus(person.total_leave_days)}
                         onChange={(e) =>
@@ -788,7 +789,7 @@ export default function AdminTeamsPage() {
                       <span className="text-gray-400">/</span>
                       <input
                         type="number"
-                        className="w-12 text-center border-gray-300 rounded-md text-sm py-1 bg-gray-50 text-gray-500"
+                        className="w-12 text-center border-line-strong rounded-md text-sm py-1 bg-table-header text-muted"
                         value={person.used_leave_days}
                         onFocus={() => handleFocus(person.used_leave_days)}
                         onChange={(e) =>
@@ -808,13 +809,13 @@ export default function AdminTeamsPage() {
                       />
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <td className={`${tdWide} whitespace-nowrap text-center`}>
                     {(() => {
                       const { text, color } = formatLastSeen(person.last_seen_at ?? null);
                       return <span className={`text-xs font-medium ${color}`}>{text}</span>;
                     })()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <td className={`${tdWide} whitespace-nowrap text-center`}>
                     <button
                       onClick={() =>
                         handleDeleteUser(person.id, person.full_name)

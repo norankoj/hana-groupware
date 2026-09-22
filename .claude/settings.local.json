@@ -38,7 +38,11 @@
       "Bash(node scripts/seed-withdraw-accounts.js)",
       "Bash(npm view *)",
       "Bash(node \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/batch7.js\")",
-      "Bash(node \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/detail.js\")"
+      "Bash(node \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/detail.js\")",
+      "Bash(node \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/css-check.js\")",
+      "Bash(sed -i 's|\"\\\\.border-primary-soft\",|\"\\\\.border-primary-soft\", \".bg-warning-soft\", \".text-warning-active\", \".border-warning\\\\\\\\\\\\\\\\/30\", \".bg-info-soft\", \".text-info-active\", \".bg-success-soft\", \".text-success-active\", \".text-danger-active\", \".text-dark\", \".border-secondary\\\\\\\\\\\\\\\\/30\",|' \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/css-check.js\" && node \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/css-check.js\" 2>&1 | tail -18)",
+      "Bash(node \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/opacity-check.js\")",
+      "Bash(sed -i 's/bg-red-50 border border-red-200 rounded-lg px-3 py-3/bg-danger-soft border border-danger\\\\/30 rounded-lg px-3 py-3/; s/<span className=\"text-red-500 mt-0.5 shrink-0\">/<span className=\"text-danger mt-0.5 shrink-0\">/; s/text-sm text-red-700 font-medium leading-relaxed/text-sm text-danger-active font-medium leading-relaxed/; s/<span className=\"text-red-500\">삭제 후에는/<span className=\"text-danger\">삭제 후에는/' src/components/ScheduleDetailModal.tsx)"
     ],
     "deny": [
       "Read(.env*)",

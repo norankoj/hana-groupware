@@ -112,7 +112,7 @@ export default function PushBellButton() {
         onClick={() => setOpen((v) => !v)}
         title={on ? "알림 켜짐" : "알림 꺼짐"}
         aria-label={on ? "알림 켜짐" : "알림 꺼짐"}
-        className="relative w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition cursor-pointer"
+        className="relative w-10 h-10 rounded-full flex items-center justify-center text-muted hover:text-gray-800 hover:bg-gray-100 transition cursor-pointer"
       >
         <svg
           className="w-6 h-6"
@@ -136,11 +136,11 @@ export default function PushBellButton() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-3 w-72 bg-white rounded-xl shadow-xl border border-gray-100 p-4 animate-fadeIn z-50 space-y-3">
+        <div className="absolute right-0 mt-3 w-72 bg-white rounded-xl shadow-xl border border-line-soft p-4 animate-fadeIn z-50 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-bold text-gray-900">알림</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-sm font-bold text-heading">알림</p>
+              <p className="text-xs text-muted mt-0.5">
                 {on ? "이 기기로 받는 중" : "이 기기에서 꺼짐"}
               </p>
             </div>
@@ -153,7 +153,7 @@ export default function PushBellButton() {
                 aria-checked={on}
                 aria-label="알림 켜고 끄기"
                 className={`relative w-12 h-7 rounded-full transition cursor-pointer disabled:opacity-50 ${
-                  on ? "bg-[#2151EC]" : "bg-gray-300"
+                  on ? "bg-primary" : "bg-gray-300"
                 }`}
               >
                 <span

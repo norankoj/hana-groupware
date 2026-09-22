@@ -21,6 +21,7 @@ import {
   toCommaInput,
   fiscalYearFor,
   type BudgetYear,
+  type ExpenseRequest,
   type ExpenseUser,
   type ProofFile,
 } from "./shared";
@@ -32,6 +33,8 @@ type Props = {
   /** 어느 연도 예산으로 처리할 청구인지. 담당자가 이 연도의 비목에 배정한다. */
   fiscalYear: number;
   years: BudgetYear[];
+  /** 반려·취소된 청구를 그대로 다시 올릴 때 — 이 내용으로 폼을 채운다 */
+  template?: ExpenseRequest | null;
   onSubmitted: () => void;
 };
 
@@ -183,6 +186,26 @@ const newRow = (account: Account): Row => ({
   ...account,
 });
 
+/**
+ * 반려된 청구를 그대로 불러온다. 영수증은 가져오지 않는다 —
+ * 반려 사유가 대개 영수증이라 새로 올리는 편이 맞다.
+ */
+const rowsFrom = (req: ExpenseRequest): Row[] =>
+  (req.items ?? []).map((it) => ({
+    key: crypto.randomUUID(),
+    item_name: it.item_name,
+    qty: it.qty && it.qty !== 1 ? String(it.qty) : "",
+    unit_price: it.unit_price ? toCommaInput(String(it.unit_price)) : "",
+    amount: toCommaInput(String(it.amount)),
+    // 수량×단가와 총액이 다른 건(카드 합계 등)은 다시 계산되지 않게 잠근다
+    amountLocked: (it.qty || 1) * it.unit_price !== it.amount,
+    purpose: it.purpose ?? "",
+    files: [],
+    bank_name: it.bank_name ?? req.bank_name ?? "",
+    account_no: it.account_no ?? req.account_no ?? "",
+    account_holder: it.account_holder ?? req.account_holder ?? "",
+  }));
+
 /** 수량은 소수 두 자리까지 (numeric(12,2)) */
 const toQtyInput = (raw: string) => {
   const cleaned = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
@@ -209,6 +232,7 @@ export default function ExpenseRequestModal({
   user,
   fiscalYear,
   years,
+  template,
   onSubmitted,
 }: Props) {
   const supabase = createClient();
@@ -234,7 +258,11 @@ export default function ExpenseRequestModal({
 
     setRequestDate(todayString());
     setSaved([]);
-    setRows([newRow(emptyAccount())]);
+    setRows(
+      template && (template.items ?? []).length > 0
+        ? rowsFrom(template)
+        : [newRow(emptyAccount())],
+    );
 
     const load = async () => {
       const { data } = await supabase
@@ -264,7 +292,7 @@ export default function ExpenseRequestModal({
     };
 
     load();
-  }, [isOpen, user.id, supabase]);
+  }, [isOpen, user.id, supabase, template]);
 
   const patchRow = (key: string, patch: Partial<Row>) =>
     setRows((prev) =>
@@ -437,10 +465,10 @@ export default function ExpenseRequestModal({
       footer={
         <div className="flex items-center gap-3 w-full">
           <div className="flex-1">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               {touched.length}건 합계
             </p>
-            <p className="text-lg font-bold text-gray-900 tabular-nums leading-tight">
+            <p className="text-lg font-bold text-heading tabular-nums leading-tight">
               {formatWon(total)}
               <span className="ml-0.5 text-sm font-medium text-gray-400">원</span>
             </p>
@@ -459,6 +487,17 @@ export default function ExpenseRequestModal({
       }
     >
       <div className="space-y-5">
+        {template && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
+            {template.status === "rejected" && template.reject_reason && (
+              <p className="mb-1">
+                <b>반려 사유</b> {template.reject_reason}
+              </p>
+            )}
+            지난 청구 내용을 불러왔습니다. <b>영수증은 다시 올려주세요.</b>
+          </div>
+        )}
+
         {/* ── 청구일자 ── */}
         <div className="w-full sm:w-[200px]">
           <label className="block text-sm font-bold text-gray-700 mb-1.5">
@@ -473,7 +512,7 @@ export default function ExpenseRequestModal({
             <label className="text-sm font-bold text-gray-700">
               청구 내역<span className="ml-1 text-red-500">*</span>
             </label>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted">
               수량·단가는 비워도 됩니다
             </span>
           </div>
@@ -499,7 +538,7 @@ export default function ExpenseRequestModal({
           <button
             type="button"
             onClick={addRow}
-            className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-[#2151EC] border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition cursor-pointer"
+            className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-primary border border-dashed border-primary-soft rounded-lg hover:bg-primary-wash transition cursor-pointer"
           >
             <Plus size={16} /> 줄 추가
           </button>
@@ -535,16 +574,16 @@ function RowCard({
   const overLength = row.item_name.trim().length > ITEM_NAME_HINT;
 
   return (
-    <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+    <div className="border border-line rounded-lg bg-white overflow-hidden">
       {/* 줄 머리 — 순번과 그 줄 금액을 함께 두어 눈으로 합계를 따라갈 수 있게 */}
-      <div className="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 border-b border-gray-200">
-        <span className="text-xs font-bold text-gray-500 tabular-nums">
+      <div className="flex items-center justify-between gap-3 px-3 py-2 bg-table-header border-b border-line">
+        <span className="text-xs font-bold text-muted tabular-nums">
           순번 {index}
         </span>
         <div className="flex items-center gap-3">
           <span
             className={`text-sm font-bold tabular-nums ${
-              amount > 0 ? "text-gray-900" : "text-gray-300"
+              amount > 0 ? "text-heading" : "text-disabled-text"
             }`}
           >
             {amount > 0 ? `${formatWon(amount)}원` : "금액 미입력"}
@@ -613,7 +652,7 @@ function RowCard({
         </SubField>
 
         {/* 증빙과 지급 정보는 한 묶음으로 떨어뜨린다 */}
-        <div className="pt-3 mt-3 border-t border-gray-100 space-y-2.5">
+        <div className="pt-3 mt-3 border-t border-line-soft space-y-2.5">
           <ReceiptPicker
             index={index}
             files={row.files}
@@ -636,8 +675,8 @@ function RowCard({
                       onClick={() => onChange(a)}
                       className={`px-2.5 py-1 text-xs rounded-md border transition cursor-pointer ${
                         picked
-                          ? "border-blue-500 bg-blue-50 text-blue-700 font-bold"
-                          : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                          ? "border-primary bg-primary-wash text-primary font-bold"
+                          : "border-line-strong bg-white text-gray-600 hover:bg-gray-50"
                       }`}
                     >
                       {a.bank_name} {a.account_no}
@@ -648,7 +687,7 @@ function RowCard({
                 <button
                   type="button"
                   onClick={() => onChange(emptyAccount())}
-                  className="px-2.5 py-1 text-xs rounded-md border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 cursor-pointer"
+                  className="px-2.5 py-1 text-xs rounded-md border border-dashed border-line-strong text-muted hover:bg-gray-50 cursor-pointer"
                 >
                   비우기
                 </button>
@@ -772,10 +811,10 @@ function ReceiptPicker({
         }}
         className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-dashed cursor-pointer transition text-sm outline-none ${
           dragging
-            ? "border-[#2151EC] bg-blue-50 text-[#2151EC]"
+            ? "border-primary bg-primary-wash text-primary"
             : pasteReady
-              ? "border-[#2151EC] bg-blue-50/50 text-[#2151EC] ring-2 ring-blue-100"
-              : "border-gray-300 bg-gray-50/60 text-gray-500 hover:bg-gray-100"
+              ? "border-primary bg-primary-wash/50 text-primary ring-2 ring-primary-soft"
+              : "border-line-strong bg-table-header text-muted hover:bg-gray-100"
         }`}
       >
         <Paperclip size={15} className="shrink-0" />
@@ -807,7 +846,7 @@ function ReceiptPicker({
           {files.map((f, i) => (
             <li
               key={i}
-              className="flex items-center justify-between gap-2 text-sm bg-white border border-gray-200 rounded px-3 py-1.5"
+              className="flex items-center justify-between gap-2 text-sm bg-white border border-line rounded px-3 py-1.5"
             >
               <span className="truncate text-gray-700">{f.name}</span>
               <span className="flex items-center gap-2 shrink-0">
@@ -847,14 +886,14 @@ const SubField = ({
   children: React.ReactNode;
 }) => (
   <div>
-    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-1">
+    <label className="flex items-center gap-1.5 text-xs font-medium text-muted mb-1">
       {label}
       {hint && (
         <span
           className={`text-[10px] rounded border px-1 ${
             tone === "warn"
               ? "text-amber-700 border-amber-200 bg-amber-50"
-              : "text-[#2151EC] border-blue-200 bg-blue-50"
+              : "text-primary border-primary-soft bg-primary-wash"
           }`}
         >
           {hint}

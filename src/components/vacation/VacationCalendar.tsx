@@ -30,28 +30,8 @@ import {
   getQuarterFromDate,
   findFirstTuesdayInRange,
 } from "./shared";
-
-// 내부용 InfoRow 컴포넌트
-const InfoRow = ({
-  label,
-  value,
-  isLast,
-}: {
-  label: string;
-  value: React.ReactNode;
-  isLast?: boolean;
-}) => (
-  <div
-    className={`flex border-b border-gray-200 ${isLast ? "border-b-0" : ""}`}
-  >
-    <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
-      {label}
-    </div>
-    <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center whitespace-pre-wrap">
-      {value}
-    </div>
-  </div>
-);
+import { DetailRow, DetailTable } from "@/components/ui/DetailTable";
+import { table, tdWide, thWide, thead, trHover } from "@/components/ui/table";
 
 export default function VacationCalendar({
   user,
@@ -372,7 +352,7 @@ export default function VacationCalendar({
               onClick={() => setShowRangePicker(false)}
             />
             <div
-              className="fixed z-[10001] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+              className="fixed z-[10001] bg-white border border-line rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
               style={{
                 top: pickerPos.top,
                 left: pickerPos.left,
@@ -432,7 +412,7 @@ export default function VacationCalendar({
       {/* 메인 레이아웃 */}
       <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[650px] animate-fadeIn">
         {/* 달력/리스트 영역 — 모바일에서는 아래로(order-2), PC에서는 왼쪽(order-1) */}
-        <div className="order-2 lg:order-1 lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-gray-200 h-[580px] lg:h-[650px] w-full flex flex-col">
+        <div className="order-2 lg:order-1 lg:flex-[2] bg-white p-6 rounded-xl shadow-md border border-line h-[580px] lg:h-[650px] w-full flex flex-col">
           {/* 1. 수정: 모바일에서는 2줄 (날짜 위 / 버튼 아래), PC에서는 1줄 */}
           {/* Grid를 사용하여 모바일 정렬 제어 */}
           <div className="grid grid-cols-2 gap-y-3 sm:flex sm:flex-row sm:justify-between sm:items-center mb-6 w-full relative">
@@ -443,8 +423,8 @@ export default function VacationCalendar({
                   onClick={() => setCalendarViewMode("month")}
                   className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
                     calendarViewMode === "month"
-                      ? "bg-white text-blue-600 shadow-sm font-bold"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white text-primary shadow-sm font-bold"
+                      : "text-muted hover:text-gray-700"
                   }`}
                 >
                   달력
@@ -453,8 +433,8 @@ export default function VacationCalendar({
                   onClick={() => setCalendarViewMode("list")}
                   className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
                     calendarViewMode === "list"
-                      ? "bg-white text-blue-600 shadow-sm font-bold"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white text-primary shadow-sm font-bold"
+                      : "text-muted hover:text-gray-700"
                   }`}
                 >
                   리스트
@@ -468,7 +448,7 @@ export default function VacationCalendar({
                 onClick={() =>
                   setActiveStartDate(subMonths(activeStartDate, 1))
                 }
-                className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
+                className="p-2 hover:bg-gray-100 rounded-full transition text-muted hover:text-heading"
               >
                 <svg
                   className="w-5 h-5"
@@ -493,7 +473,7 @@ export default function VacationCalendar({
                 onClick={() =>
                   setActiveStartDate(addMonths(activeStartDate, 1))
                 }
-                className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-gray-900"
+                className="p-2 hover:bg-gray-100 rounded-full transition text-muted hover:text-heading"
               >
                 <svg
                   className="w-5 h-5"
@@ -519,7 +499,7 @@ export default function VacationCalendar({
                   setDate(now);
                   setActiveStartDate(now);
                 }}
-                className="hidden sm:inline-flex px-3 py-1.5 text-sm font-bold bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition border border-blue-100 cursor-pointer"
+                className="hidden sm:inline-flex px-3 py-1.5 text-sm font-bold bg-primary-wash text-primary rounded-md hover:bg-primary-soft transition border border-primary-soft cursor-pointer"
               >
                 오늘
               </button>
@@ -534,7 +514,7 @@ export default function VacationCalendar({
                   });
                   setIsRequestModalOpen(true);
                 }}
-                className="px-3 py-1.5 text-sm font-bold rounded-md text-blue-600 hover:bg-blue-50 border border-blue-200  transition flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 text-sm font-bold rounded-md text-primary hover:bg-primary-wash border border-primary-soft  transition flex items-center gap-1 cursor-pointer"
               >
                 <svg
                   className="w-4 h-4"
@@ -646,10 +626,10 @@ export default function VacationCalendar({
                       {currentMonthData.map((req) => (
                         <div
                           key={req.id}
-                          className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
+                          className="bg-white border border-line rounded-xl p-4 shadow-sm"
                         >
                           <div className="flex justify-between items-start mb-2">
-                            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-line">
                               {req.type}
                             </span>
                             <span
@@ -670,11 +650,11 @@ export default function VacationCalendar({
                           </div>
                           <div className="text-sm text-gray-800 font-bold mb-1">
                             {req.start_date} ~ {req.end_date}
-                            <span className="text-xs text-gray-500 font-normal ml-1">
+                            <span className="text-xs text-muted font-normal ml-1">
                               ({req.days_count}일)
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500 mb-3 truncate">
+                          <div className="text-xs text-muted mb-3 truncate">
                             {req.reason}
                           </div>
                           <button
@@ -682,7 +662,7 @@ export default function VacationCalendar({
                               setSelectedRequest(req);
                               setIsDetailModalOpen(true);
                             }}
-                            className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg border border-blue-100 hover:bg-blue-100 transition"
+                            className="w-full py-2 text-sm font-medium text-primary bg-primary-wash rounded-lg border border-primary-soft hover:bg-primary-soft transition"
                           >
                             상세보기
                           </button>
@@ -690,47 +670,47 @@ export default function VacationCalendar({
                       ))}
                     </div>
 
-                    <table className="min-w-full divide-y divide-gray-200 hidden sm:table">
-                      <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                    <table className={`${table} min-w-full hidden sm:table`}>
+                      <thead className={thead}>
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
+                          <th className={`${thWide} text-left font-bold whitespace-nowrap`}>
                             종류
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
+                          <th className={`${thWide} text-left font-bold whitespace-nowrap`}>
                             기간
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
+                          <th className={`${thWide} text-left font-bold whitespace-nowrap`}>
                             사유
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
+                          <th className={`${thWide} text-left font-bold whitespace-nowrap`}>
                             상태
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">
+                          <th className={`${thWide} text-left font-bold whitespace-nowrap`}>
                             관리
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white">
                         {currentMonthData.map((req) => (
                           <tr
                             key={req.id}
-                            className="hover:bg-blue-50/30 transition"
+                            className={`${trHover}`}
                           >
-                            <td className="px-4 py-4">
-                              <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">
+                            <td className={`${tdWide}`}>
+                              <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-line whitespace-nowrap">
                                 {req.type}
                               </span>
                             </td>
-                            <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                            <td className={`${tdWide} whitespace-nowrap`}>
                               {req.start_date} ~ {req.end_date}
                               <span className="text-xs text-gray-400 block sm:inline sm:ml-1">
                                 ({req.days_count}일)
                               </span>
                             </td>
-                            <td className="px-4 py-4 text-sm text-gray-500 max-w-[150px] truncate">
+                            <td className={`${tdWide} max-w-[150px] truncate`}>
                               {req.reason}
                             </td>
-                            <td className="px-4 py-4">
+                            <td className={`${tdWide}`}>
                               <span
                                 className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${
                                   req.status === "approved"
@@ -747,13 +727,13 @@ export default function VacationCalendar({
                                     : "반려됨"}
                               </span>
                             </td>
-                            <td className="px-4 py-4">
+                            <td className={`${tdWide}`}>
                               <button
                                 onClick={() => {
                                   setSelectedRequest(req);
                                   setIsDetailModalOpen(true);
                                 }}
-                                className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded text-sm font-medium border border-blue-200 transition cursor-pointer whitespace-nowrap"
+                                className="text-primary hover:bg-primary-wash px-3 py-1.5 rounded text-sm font-medium border border-primary-soft transition cursor-pointer whitespace-nowrap"
                               >
                                 상세보기
                               </button>
@@ -772,12 +752,12 @@ export default function VacationCalendar({
         {/* 오른쪽: 통계 & 최근 신청 내역 — 모바일에서는 위로(order-1), PC에서는 오른쪽(order-2) */}
         <div className="order-1 lg:order-2 lg:flex-1 w-full flex flex-col gap-6 h-auto lg:h-[650px]">
           {/* 내 연차 현황 */}
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">
+          <div className="bg-white rounded-xl shadow-md border border-line p-6">
+            <h3 className="text-sm font-bold text-muted uppercase tracking-wide mb-4">
               내 연차 현황 ({new Date().getFullYear()})
             </h3>
             <div className="flex items-end justify-between mb-2">
-              <span className="text-4xl font-extrabold text-blue-600">
+              <span className="text-4xl font-extrabold text-primary">
                 {(user?.total_leave_days || 0) - (user?.used_leave_days || 0)}
               </span>
               <span className="text-sm text-gray-400 mb-1 font-medium">
@@ -786,7 +766,7 @@ export default function VacationCalendar({
             </div>
             <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
               <div
-                className="h-full bg-blue-600 rounded-full transition-all duration-1000"
+                className="h-full bg-primary rounded-full transition-all duration-1000"
                 style={{
                   width: `${Math.min(
                     (((user?.total_leave_days || 0) -
@@ -798,14 +778,14 @@ export default function VacationCalendar({
                 }}
               ></div>
             </div>
-            <div className="mt-3 text-right text-xs text-gray-500 font-medium">
+            <div className="mt-3 text-right text-xs text-muted font-medium">
               {user?.used_leave_days}일 사용함
             </div>
             {/* 화요일 연차 분기 현황 */}
-            <div className="mt-4 pt-3 border-t border-gray-100">
+            <div className="mt-4 pt-3 border-t border-line-soft">
               <div className="mb-2.5">
                 <span className="text-xs font-bold text-gray-600">화요일 연차</span>
-                <span className="text-[11px] text-gray-500 ml-1 font-medium">(분기당 1회만 사용 가능합니다)</span>
+                <span className="text-[11px] text-muted ml-1 font-medium">(분기당 1회만 사용 가능합니다)</span>
               </div>
               <div className="grid grid-cols-4 gap-1.5">
                 {tuesdayQuarterStatus.map(({ q, startMonth, endMonth, usedReq }) => {
@@ -817,8 +797,8 @@ export default function VacationCalendar({
                         usedReq
                           ? "bg-red-50 text-red-500"
                           : isCurrent
-                            ? "bg-blue-50 text-blue-500"
-                            : "bg-gray-50 text-gray-400"
+                            ? "bg-primary-wash text-primary"
+                            : "bg-table-header text-gray-400"
                       }`}
                     >
                       <div className="text-[11px] font-medium opacity-80">{startMonth}~{endMonth}월</div>
@@ -833,8 +813,8 @@ export default function VacationCalendar({
           </div>
 
           {/* ★ 수정: 높이 설정 변경 (모바일: 자동 / PC: 자동 + 스크롤) */}
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 flex-1 overflow-hidden flex flex-col min-h-[300px] h-auto lg:h-full">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 font-bold text-gray-700 shrink-0">
+          <div className="bg-white rounded-xl shadow-md border border-line flex-1 overflow-hidden flex flex-col min-h-[300px] h-auto lg:h-full">
+            <div className="px-6 py-4 border-b border-line-soft bg-table-header font-bold text-gray-700 shrink-0">
               최근 신청 내역
             </div>
             {/* max-h를 주어 모바일에서 무한히 늘어나는 것을 방지하고 내부 스크롤 유도 */}
@@ -851,7 +831,7 @@ export default function VacationCalendar({
                       setSelectedRequest(req);
                       setIsDetailModalOpen(true);
                     }}
-                    className="bg-white border border-gray-100 p-3 rounded-lg hover:shadow-sm hover:border-blue-200 cursor-pointer transition group"
+                    className="bg-white border border-line-soft p-3 rounded-lg hover:shadow-sm hover:border-primary-soft cursor-pointer transition group"
                   >
                     <div className="flex justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -891,7 +871,7 @@ export default function VacationCalendar({
                           </button>
                         )}
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-xs text-muted mt-0.5">
                       {req.start_date} ~ {req.end_date}
                     </div>
                   </div>
@@ -975,7 +955,7 @@ export default function VacationCalendar({
           )}
 
           <div className="relative" ref={rangePickerRef}>
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-muted uppercase mb-1">
               {["오전반차", "오후반차"].includes(formData.type)
                 ? "날짜 선택"
                 : "기간 선택"}
@@ -983,12 +963,12 @@ export default function VacationCalendar({
 
             <button
               onClick={openRangePicker}
-              className="w-full flex items-center justify-between p-2.5 border border-gray-300 rounded-md text-sm text-left hover:border-blue-500 focus:ring-2 focus:ring-blue-200 transition bg-white"
+              className="w-full flex items-center justify-between p-2.5 border border-line-strong rounded-md text-sm text-left hover:border-primary focus:ring-2 focus:ring-primary-soft transition bg-white"
             >
               <span
                 className={
                   formData.start_date
-                    ? "text-gray-900 font-medium"
+                    ? "text-heading font-medium"
                     : "text-gray-400"
                 }
               >
@@ -1015,7 +995,7 @@ export default function VacationCalendar({
             </button>
           </div>
           {calculatedDays > 0 && (
-            <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold flex justify-between items-center">
+            <div className="bg-primary-wash text-primary-active text-sm px-3 py-2 rounded font-bold flex justify-between items-center">
               <span>총 {calculatedDays}일</span>
               <span className="text-xs font-medium opacity-75">
                 {formData.type === "연차" && "연차 1일/일 차감"}
@@ -1051,13 +1031,13 @@ export default function VacationCalendar({
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-muted uppercase mb-1">
               사유
             </label>
             <textarea
               required
               rows={5}
-              className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm font-normal"
+              className="w-full p-2.5 border border-line-strong rounded-md outline-none focus:ring-2 focus:ring-primary resize-none text-sm font-normal"
               placeholder="사유 입력"
               value={formData.reason}
               onChange={(e) =>
@@ -1102,23 +1082,15 @@ export default function VacationCalendar({
           <div className="space-y-6">
             {/* 1. 상단 상태 요약 카드 */}
             <div
-              className={`flex flex-col items-center justify-center p-6 rounded-xl border ${
+              className={`flex flex-col items-center justify-center p-5 rounded-xl border ${
                 selectedRequest.status === "approved"
-                  ? "bg-green-50 border-green-100"
+                  ? "bg-success-soft border-success/30 text-success-active"
                   : selectedRequest.status === "rejected"
-                    ? "bg-red-50 border-red-100"
-                    : "bg-yellow-50 border-yellow-100"
+                    ? "bg-danger-soft border-danger/30 text-danger-active"
+                    : "bg-warning-soft border-warning/30 text-warning-active"
               }`}
             >
-              <h3
-                className={`text-xl font-bold ${
-                  selectedRequest.status === "approved"
-                    ? "text-green-700"
-                    : selectedRequest.status === "rejected"
-                      ? "text-red-700"
-                      : "text-yellow-700"
-                }`}
-              >
+              <h3 className="text-xl font-bold">
                 {selectedRequest.status === "approved"
                   ? "승인되었습니다"
                   : selectedRequest.status === "rejected"
@@ -1129,7 +1101,7 @@ export default function VacationCalendar({
               <div className="mt-3 flex flex-col items-center gap-1 text-sm opacity-80">
                 {selectedRequest.status === "approved" &&
                 selectedRequest.approved_at ? (
-                  <span className="text-green-800 font-medium">
+                  <span className="font-medium font-mono">
                     승인일:{" "}
                     {format(
                       parseISO(selectedRequest.approved_at),
@@ -1138,7 +1110,7 @@ export default function VacationCalendar({
                   </span>
                 ) : selectedRequest.status === "rejected" &&
                   selectedRequest.rejected_at ? (
-                  <span className="text-red-800 font-medium">
+                  <span className="font-medium font-mono">
                     반려일:{" "}
                     {format(
                       parseISO(selectedRequest.rejected_at),
@@ -1159,86 +1131,70 @@ export default function VacationCalendar({
               </div>
             </div>
 
-            {/* 2. 상세 정보 테이블 */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="flex border-b border-gray-200">
-                <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
-                  기안자
-                </div>
-                <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+            {/* 2. 상세 정보 — 공용 상세 표 (운행 상세와 같은 모양) */}
+            <DetailTable>
+              <DetailRow label="기안자">
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold">
                     {selectedRequest.profiles.full_name.slice(0, 1)}
-                  </div>
+                  </span>
                   {selectedRequest.profiles.full_name}
-                  <span className="text-gray-400 text-xs">
+                  <span className="text-muted text-xs">
                     ({selectedRequest.profiles.position})
                   </span>
-                </div>
-              </div>
-
+                </span>
+              </DetailRow>
               {selectedRequest.status !== "pending" && (
-                <InfoRow
-                  label="신청일"
-                  value={
-                    selectedRequest.created_at
+                <DetailRow label="신청일">
+                  <span className="font-mono">
+                    {selectedRequest.created_at
                       ? format(
                           parseISO(selectedRequest.created_at),
                           "yyyy-MM-dd HH:mm",
                         )
-                      : "-"
-                  }
-                />
+                      : "-"}
+                  </span>
+                </DetailRow>
               )}
-
-              <InfoRow label="휴가 구분" value={selectedRequest.type} />
-              <InfoRow
-                label="기간"
-                value={`${selectedRequest.start_date} ~ ${selectedRequest.end_date}`}
-              />
-              <InfoRow
-                label="사용 일수"
-                value={`${selectedRequest.days_count}일`}
-              />
-              <InfoRow
-                label="신청 사유"
-                value={selectedRequest.reason}
-                isLast={selectedRequest.status === "pending"}
-              />
-
-              {/* 결재자 정보 */}
+              <DetailRow label="휴가 구분">{selectedRequest.type}</DetailRow>
+              <DetailRow label="기간">
+                <span className="font-mono">
+                  {selectedRequest.start_date} ~ {selectedRequest.end_date}
+                </span>
+              </DetailRow>
+              <DetailRow label="사용 일수">
+                {selectedRequest.days_count}일
+              </DetailRow>
+              <DetailRow label="신청 사유" top>
+                <span className="whitespace-pre-wrap">
+                  {selectedRequest.reason}
+                </span>
+              </DetailRow>
               {selectedRequest.status !== "pending" && (
-                <>
-                  <div className="flex border-t border-gray-200 border-b border-gray-200">
-                    <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
-                      결재자
-                    </div>
-                    <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
-                      {selectedRequest.approver ? (
-                        <>
-                          <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
-                            {selectedRequest.approver.full_name.slice(0, 1)}
-                          </div>
-                          {selectedRequest.approver.full_name}
-                        </>
-                      ) : (
-                        "-"
-                      )}
-                    </div>
-                  </div>
-
-                  {selectedRequest.status === "rejected" && (
-                    <div className="flex border-b-0">
-                      <div className="w-32 bg-red-50 p-3 text-sm font-bold text-red-600 flex items-center justify-center border-r border-gray-200">
-                        반려 사유
-                      </div>
-                      <div className="flex-1 bg-white p-3 text-sm text-red-600 font-medium">
-                        {selectedRequest.rejection_reason}
-                      </div>
-                    </div>
+                <DetailRow label="결재자">
+                  {selectedRequest.approver ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-secondary-soft text-dark flex items-center justify-center text-xs font-bold">
+                        {selectedRequest.approver.full_name.slice(0, 1)}
+                      </span>
+                      {selectedRequest.approver.full_name}
+                    </span>
+                  ) : (
+                    "-"
                   )}
-                </>
+                </DetailRow>
               )}
-            </div>
+              {selectedRequest.status === "rejected" && (
+                <DetailRow
+                  label={<span className="text-danger-active">반려 사유</span>}
+                  top
+                >
+                  <span className="text-danger-active font-medium whitespace-pre-wrap">
+                    {selectedRequest.rejection_reason}
+                  </span>
+                </DetailRow>
+              )}
+            </DetailTable>
           </div>
         )}
       </Modal>

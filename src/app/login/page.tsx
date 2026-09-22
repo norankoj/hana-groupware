@@ -300,8 +300,8 @@ export default function LoginPage() {
   };
 
   const labelStyle = "block text-sm font-bold text-gray-600 mb-1.5 ml-1";
-  const inputStyle = `w-full px-4 py-3.5 rounded-xl text-base transition-all outline-none bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200`;
-  const readOnlyStyle = `w-full px-4 py-3.5 rounded-xl text-base outline-none cursor-default font-medium bg-gray-200 border border-gray-300 text-gray-500`;
+  const inputStyle = `w-full px-4 py-3.5 rounded-xl text-base transition-all outline-none bg-table-header border border-line text-heading placeholder-gray-400 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary-soft`;
+  const readOnlyStyle = `w-full px-4 py-3.5 rounded-xl text-base outline-none cursor-default font-medium bg-gray-200 border border-line-strong text-muted`;
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-gray-100">
@@ -309,7 +309,7 @@ export default function LoginPage() {
       {loading && view === "signup" && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/50">
           <div className="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             <p className="text-gray-800 font-bold text-base">가입 처리 중입니다...</p>
             <p className="text-gray-400 text-sm">잠시만 기다려 주세요</p>
           </div>
@@ -370,7 +370,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl hover:bg-blue-700 transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                className="w-full py-4 bg-primary text-white font-bold text-lg rounded-xl hover:bg-primary-active transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 {loading ? "로그인 중..." : "로그인"}
               </button>
@@ -378,13 +378,13 @@ export default function LoginPage() {
               {/* 회원가입 & 비밀번호 찾기 링크 영역 */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-4 text-[13px] sm:text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-500 whitespace-nowrap">
+                  <span className="text-muted whitespace-nowrap">
                     계정이 없으신가요?
                   </span>
                   <button
                     type="button"
                     onClick={() => changeView("signup")}
-                    className="font-bold text-blue-600 hover:underline whitespace-nowrap"
+                    className="font-bold text-primary hover:underline whitespace-nowrap"
                   >
                     회원가입
                   </button>
@@ -396,7 +396,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => changeView("forgot")}
-                  className="font-bold text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap"
+                  className="font-bold text-muted hover:text-heading transition-colors whitespace-nowrap"
                 >
                   비밀번호 찾기
                 </button>
@@ -411,10 +411,10 @@ export default function LoginPage() {
             {!isVerified ? (
               <div className="space-y-6">
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <h2 className="text-2xl font-bold text-heading mb-2">
                     비밀번호 찾기
                   </h2>
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-muted text-sm">
                     가입 시 등록한 휴대폰 번호로
                     <br />
                     인증을 진행해주세요.
@@ -484,7 +484,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={handleVerifyCode}
                       disabled={loading || verifyCode.length < 6}
-                      className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 shadow-md transition-colors mt-2"
+                      className="w-full py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary-active disabled:bg-gray-200 disabled:text-gray-400 shadow-md transition-colors mt-2"
                     >
                       인증번호 확인
                     </button>
@@ -505,13 +505,13 @@ export default function LoginPage() {
                 <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
                   ✓
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900">
+                <h3 className="text-2xl font-bold text-heading">
                   본인인증 완료
                 </h3>
 
                 {!tempPassword ? (
                   <>
-                    <p className="text-gray-500 text-sm mb-6">
+                    <p className="text-muted text-sm mb-6">
                       본인 확인이 완료되었습니다.
                       <br />
                       아래 버튼을 눌러 임시 비밀번호를 발급받으세요.
@@ -550,12 +550,12 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <div className="animate-slideDown space-y-6">
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-muted text-sm">
                       발급된 임시 비밀번호입니다.
                       <br />
                       로그인 후 마이페이지에서 반드시 비밀번호를 변경해주세요.
                     </p>
-                    <div className="bg-gray-100 p-6 rounded-2xl border border-gray-200">
+                    <div className="bg-gray-100 p-6 rounded-2xl border border-line">
                       <span className="block text-3xl font-mono font-extrabold text-indigo-600 tracking-widest">
                         {tempPassword}
                       </span>
@@ -566,7 +566,7 @@ export default function LoginPage() {
                         toast.success("비밀번호가 복사되었습니다!");
                         changeView("login");
                       }}
-                      className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2"
+                      className="w-full py-4 bg-primary text-white text-lg font-bold rounded-2xl hover:bg-primary-active transition shadow-lg flex items-center justify-center gap-2"
                     >
                       <svg
                         className="w-5 h-5"
@@ -599,10 +599,10 @@ export default function LoginPage() {
                 <div className="text-center space-y-8 animate-fadeIn py-4">
                   <div className="flex flex-col items-center gap-4">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      <h2 className="text-2xl font-bold text-heading mb-2">
                         본인인증을 진행해주세요
                       </h2>
-                      <p className="text-gray-500 leading-relaxed">
+                      <p className="text-muted leading-relaxed">
                         안전한 서비스 사용을 위해
                         <br />
                         휴대폰 번호 인증이 필요합니다.
@@ -620,7 +620,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => changeView("login")}
-                      className="w-full py-3 text-gray-500 font-medium hover:text-gray-800 transition"
+                      className="w-full py-3 text-muted font-medium hover:text-gray-800 transition"
                     >
                       로그인으로 돌아가기
                     </button>
@@ -707,11 +707,11 @@ export default function LoginPage() {
                           type="button"
                           onClick={handleVerifyCode}
                           disabled={loading || verifyCode.length < 6}
-                          className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 shadow-md transition-colors mt-2"
+                          className="w-full py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary-active disabled:bg-gray-200 disabled:text-gray-400 shadow-md transition-colors mt-2"
                         >
                           인증번호 확인
                         </button>
-                        <p className="text-xs text-gray-500 text-center pt-2">
+                        <p className="text-xs text-muted text-center pt-2">
                           문자가 안 오나요?{" "}
                           <span
                             className="underline cursor-pointer text-indigo-600 font-bold"
@@ -742,7 +742,7 @@ export default function LoginPage() {
                     {errorMsg}
                   </div>
                 )}
-                <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+                <h3 className="text-xl font-bold text-heading mb-6 text-center">
                   회원가입 정보 입력
                 </h3>
                 <div>
@@ -826,7 +826,7 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl hover:bg-blue-700 transition shadow-lg hover:shadow-xl"
+                    className="w-full py-4 bg-primary text-white text-lg font-bold rounded-2xl hover:bg-primary-active transition shadow-lg hover:shadow-xl"
                   >
                     {loading ? "가입 처리 중..." : "회원가입 완료"}
                   </button>

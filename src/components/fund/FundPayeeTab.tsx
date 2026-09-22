@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
 import ConfirmModal from "./ConfirmModal";
+import { table, td, th, thead } from "@/components/ui/table";
 import {
   PAYEE_KIND_LABEL,
   btnStyles,
@@ -208,7 +209,7 @@ export default function FundPayeeTab({
       </p>
 
       {/* 한눈에 보기 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 border border-gray-200 rounded-xl overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 border border-line rounded-xl overflow-hidden">
         <CountCell label="전체 대상자" value={counts.total} unit="명" />
         <CountCell label="사역자" value={counts.person} unit="명" />
         <CountCell
@@ -241,35 +242,35 @@ export default function FundPayeeTab({
           placeholder="이름 또는 메모 검색"
           className={`${inputClass} flex-1`}
         />
-        <div className="flex items-center justify-center bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-500 whitespace-nowrap">
+        <div className="flex items-center justify-center bg-white border border-line-strong rounded-lg px-4 py-2.5 text-sm text-muted whitespace-nowrap">
           <b className="text-gray-700">{sorted.length}</b>명
         </div>
         <button
           onClick={openNew}
-          className="px-4 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md cursor-pointer whitespace-nowrap"
+          className="px-4 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-active transition text-sm shadow-md cursor-pointer whitespace-nowrap"
         >
           대상자 추가
         </button>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
+      <div className="bg-white border border-line rounded-xl shadow-sm overflow-hidden flex flex-col h-[430px] sm:h-[490px]">
         <div className="flex-1 overflow-auto custom-scrollbar">
           {sorted.length === 0 ? (
             <div className="py-16 text-center text-sm text-gray-400">
               등록된 대상자가 없습니다.
             </div>
           ) : (
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
+            <table className={`${table} w-full min-w-[720px]`}>
+              <thead className={thead}>
+                <tr>
                   <SortHeader
                     label="이름"
                     active={sortKey === "name"}
                     dir={sortDir}
                     onClick={() => toggleSort("name")}
                   />
-                  <th className="text-left px-4 py-3 font-bold">구분</th>
-                  <th className="text-left px-4 py-3 font-bold">계정 연결</th>
+                  <th className={`${th} text-left font-bold`}>구분</th>
+                  <th className={`${th} text-left font-bold`}>계정 연결</th>
                   <SortHeader
                     label="현재 잔액"
                     align="right"
@@ -277,7 +278,7 @@ export default function FundPayeeTab({
                     dir={sortDir}
                     onClick={() => toggleSort("balance")}
                   />
-                  <th className="text-right px-4 py-3 font-bold">관리</th>
+                  <th className={`${th} text-right font-bold`}>관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -286,11 +287,11 @@ export default function FundPayeeTab({
                   return (
                     <tr
                       key={p.id}
-                      className={`border-b border-gray-100 last:border-0 ${
-                        p.is_active ? "" : "bg-gray-50/60 text-gray-400"
+                      className={`border-b border-table-line last:border-0 ${
+                        p.is_active ? "" : "bg-table-header text-gray-400"
                       }`}
                     >
-                      <td className="px-4 py-3 font-medium">
+                      <td className={`${td} font-medium`}>
                         {p.name}
                         {!p.is_active && (
                           <span className="ml-2 text-[11px] font-bold text-gray-400">
@@ -303,18 +304,18 @@ export default function FundPayeeTab({
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className={`${td} whitespace-nowrap`}>
                         <span
                           className={`px-2 py-0.5 text-[11px] font-bold rounded border ${
                             p.kind === "person"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              ? "bg-primary-wash text-primary-active border-primary-soft"
                               : "bg-violet-50 text-violet-700 border-violet-200"
                           }`}
                         >
                           {PAYEE_KIND_LABEL[p.kind]}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className={`${td} whitespace-nowrap`}>
                         {p.user_id ? (
                           <span className="text-emerald-700">연결됨</span>
                         ) : (
@@ -323,13 +324,13 @@ export default function FundPayeeTab({
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-bold whitespace-nowrap">
+                      <td className={`${td} text-right tabular-nums font-bold whitespace-nowrap`}>
                         {formatWon(bal?.balance ?? 0)}
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <td className={`${td} text-right whitespace-nowrap`}>
                         <button
                           onClick={() => openEdit(p)}
-                          className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+                          className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-line-strong rounded hover:bg-gray-50 cursor-pointer"
                         >
                           수정
                         </button>
@@ -411,7 +412,7 @@ export default function FundPayeeTab({
                 placeholder="연결 안 함"
                 className={selectClass}
               />
-              <p className="mt-1.5 text-sm text-gray-500">
+              <p className="mt-1.5 text-sm text-muted">
                 연결하면 그분 '내 펀드' 화면에 잔액과 내역이 보이고 사용 신청을
                 할 수 있습니다. 미가입자는 비워두세요.
               </p>
@@ -435,7 +436,7 @@ export default function FundPayeeTab({
               onChange={(e) =>
                 setForm({ ...form, is_active: e.target.checked })
               }
-              className="w-4 h-4 accent-[#2151EC] cursor-pointer"
+              className="w-4 h-4 accent-primary cursor-pointer"
             />
             <span className="text-sm text-gray-700">
               사용 중 (끄면 등록 화면 목록에서 빠집니다)
@@ -490,13 +491,13 @@ const SortHeader = ({
       onClick={onClick}
       aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
       className={`inline-flex items-center gap-1 cursor-pointer transition hover:text-gray-800 ${
-        active ? "text-gray-900" : ""
+        active ? "text-heading" : ""
       }`}
     >
       {label}
       <span
         aria-hidden="true"
-        className={`text-[10px] leading-none ${active ? "text-blue-600" : "text-gray-300"}`}
+        className={`text-[10px] leading-none ${active ? "text-primary" : "text-disabled-text"}`}
       >
         {active ? (dir === "asc" ? "▲" : "▼") : "▲"}
       </span>
@@ -516,9 +517,9 @@ const CountCell = ({
   muted?: boolean;
 }) => (
   <div className="bg-white px-4 py-4">
-    <p className="text-xs font-medium text-gray-500">{label}</p>
+    <p className="text-xs font-medium text-muted">{label}</p>
     <p
-      className={`mt-1 text-lg font-bold tabular-nums ${muted ? "text-gray-500" : "text-gray-900"}`}
+      className={`mt-1 text-lg font-bold tabular-nums ${muted ? "text-muted" : "text-heading"}`}
     >
       {value}
       <span className="ml-0.5 text-sm font-semibold text-gray-400">{unit}</span>

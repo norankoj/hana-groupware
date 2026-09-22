@@ -315,7 +315,7 @@ export default function Home() {
   if (loading && !profile)
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
       </div>
     );
 
@@ -415,12 +415,12 @@ export default function Home() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+                className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-line hover:border-primary transition-all"
               >
-                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                <div className="w-11 h-11 rounded-xl bg-table-header group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
                   {item.icon}
                 </div>
-                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                <span className="text-xs font-semibold text-muted group-hover:text-gray-800 transition-colors text-center">
                   {item.label}
                 </span>
               </Link>
@@ -430,14 +430,14 @@ export default function Home() {
             {showApproveShortcut ? (
               <Link
                 href="/vacation?tab=approve"
-                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-line hover:border-primary transition-all"
               >
                 {pendingCount > 0 && (
                   <span className="absolute top-3 right-3 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
                     {pendingCount > 99 ? "99+" : pendingCount}
                   </span>
                 )}
-                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                <div className="w-11 h-11 rounded-xl bg-table-header group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
                   <svg
                     className="w-6 h-6"
                     fill="none"
@@ -452,16 +452,16 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                <span className="text-xs font-semibold text-muted group-hover:text-gray-800 transition-colors text-center">
                   결재 대기
                 </span>
               </Link>
             ) : (
               <Link
                 href="/notice"
-                className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+                className="group flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-line hover:border-primary transition-all"
               >
-                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                <div className="w-11 h-11 rounded-xl bg-table-header group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
                   <svg
                     className="w-6 h-6"
                     fill="none"
@@ -476,7 +476,7 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                <span className="text-xs font-semibold text-muted group-hover:text-gray-800 transition-colors text-center">
                   공지사항
                 </span>
               </Link>
@@ -487,7 +487,7 @@ export default function Home() {
               href={
                 profile.is_fund_manager ? "/fund?tab=approve" : "/fund"
               }
-              className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+              className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-line hover:border-primary transition-all"
             >
               {profile.is_fund_manager ? (
                 fundPendingCount > 0 && (
@@ -503,7 +503,7 @@ export default function Home() {
                   />
                 )
               )}
-              <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+              <div className="w-11 h-11 rounded-xl bg-table-header group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
                 <svg
                   className="w-6 h-6"
                   fill="none"
@@ -524,7 +524,7 @@ export default function Home() {
                   />
                 </svg>
               </div>
-              <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+              <span className="text-xs font-semibold text-muted group-hover:text-gray-800 transition-colors text-center">
                 선교펀드
               </span>
             </Link>
@@ -537,7 +537,7 @@ export default function Home() {
                 href={
                   profile.is_expense_manager ? "/expense?tab=approve" : "/expense"
                 }
-                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-gray-200 hover:border-blue-400 transition-all"
+                className="group relative flex flex-col items-center gap-2.5 py-5 px-3 bg-white rounded-2xl border border-line hover:border-primary transition-all"
               >
                 {profile.is_expense_manager ? (
                   expensePendingCount > 0 && (
@@ -553,7 +553,7 @@ export default function Home() {
                     />
                   )
                 )}
-                <div className="w-11 h-11 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
+                <div className="w-11 h-11 rounded-xl bg-table-header group-hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 group-hover:text-gray-600">
                   <svg
                     className="w-6 h-6"
                     fill="none"
@@ -568,7 +568,7 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-800 transition-colors text-center">
+                <span className="text-xs font-semibold text-muted group-hover:text-gray-800 transition-colors text-center">
                   지출결의서
                 </span>
               </Link>

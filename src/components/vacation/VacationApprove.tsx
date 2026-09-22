@@ -20,7 +20,10 @@ import {
   DEDUCTIBLE_TYPES,
   btnStyles,
   calculateChurchVacationDays,
+  VACATION_STATUS,
 } from "./shared";
+import { center, empty, sub, table, tdWide, thWide, thead, trHover } from "@/components/ui/table";
+import { DetailRow, DetailTable } from "@/components/ui/DetailTable";
 
 type StaffProfile = { id: string; full_name: string; position: string };
 
@@ -154,16 +157,16 @@ const ProxyModal = memo(function ProxyModal({
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-4 py-2.5">
-            결재권자가 직원 대신 입력하며 <span className="font-bold text-blue-600">즉시 승인</span> 처리됩니다.
+          <p className="text-sm text-muted bg-primary-wash border border-primary-soft rounded-lg px-4 py-2.5">
+            결재권자가 직원 대신 입력하며 <span className="font-bold text-primary">즉시 승인</span> 처리됩니다.
           </p>
 
           {/* 직원 검색 콤보박스 */}
           <div ref={staffInputRef} className="relative">
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">선택 <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-medium text-muted uppercase mb-1">선택 <span className="text-red-500">*</span></label>
             {proxyForm.userId ? (
-              <div className="flex items-center gap-2 p-2.5 border border-blue-400 rounded-md bg-blue-50">
-                <div className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
+              <div className="flex items-center gap-2 p-2.5 border border-primary rounded-md bg-primary-wash">
+                <div className="w-6 h-6 rounded-full bg-primary-soft text-primary-active flex items-center justify-center text-xs font-bold shrink-0">
                   {proxyForm.userName.slice(0, 1)}
                 </div>
                 <span className="text-sm font-bold text-gray-800 flex-1">{proxyForm.userName}</span>
@@ -185,13 +188,13 @@ const ProxyModal = memo(function ProxyModal({
                   onChange={(e) => { setProxySearch(e.target.value); setShowStaffList(true); }}
                   onFocus={() => setShowStaffList(true)}
                   onBlur={() => setTimeout(() => setShowStaffList(false), 150)}
-                  className="w-full p-2.5 pl-9 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition bg-white"
+                  className="w-full p-2.5 pl-9 border border-line-strong rounded-md text-sm outline-none focus:ring-2 focus:ring-primary-soft focus:border-primary transition bg-white"
                 />
                 <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 {showStaffList && filteredStaff.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-44 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg shadow-lg z-50 max-h-44 overflow-y-auto">
                     {filteredStaff.map((s) => (
                       <button
                         key={s.id}
@@ -200,7 +203,7 @@ const ProxyModal = memo(function ProxyModal({
                           setProxySearch("");
                           setShowStaffList(false);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 text-left transition"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary-wash text-left transition"
                       >
                         <div className="w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold shrink-0">
                           {s.full_name.slice(0, 1)}
@@ -255,15 +258,15 @@ const ProxyModal = memo(function ProxyModal({
 
           {/* 날짜 선택 버튼 */}
           <div className="relative">
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+            <label className="block text-xs font-medium text-muted uppercase mb-1">
               {["오전반차", "오후반차"].includes(proxyForm.type) ? "날짜 선택" : "기간 선택"}
             </label>
             <button
               ref={calendarBtnRef}
               onClick={openProxyCalendar}
-              className="w-full flex items-center justify-between p-2.5 border border-gray-300 rounded-md text-sm text-left hover:border-blue-500 focus:ring-2 focus:ring-blue-200 transition bg-white"
+              className="w-full flex items-center justify-between p-2.5 border border-line-strong rounded-md text-sm text-left hover:border-primary focus:ring-2 focus:ring-primary-soft transition bg-white"
             >
-              <span className={proxyForm.startDate ? "text-gray-900 font-medium" : "text-gray-400"}>
+              <span className={proxyForm.startDate ? "text-heading font-medium" : "text-gray-400"}>
                 {proxyForm.startDate
                   ? (["오전반차", "오후반차"].includes(proxyForm.type) || proxyForm.startDate === proxyForm.endDate
                     ? proxyForm.startDate
@@ -278,7 +281,7 @@ const ProxyModal = memo(function ProxyModal({
 
           {/* 자동계산 일수 표시 */}
           {proxyForm.daysCount > 0 && (
-            <div className="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded font-bold text-right">
+            <div className="bg-primary-wash text-primary-active text-sm px-3 py-2 rounded font-bold text-right">
               {proxyForm.type === "비전트립 B"
                 ? `총 ${proxyForm.daysCount}일 차감 (0.5일/일 × 근무일수)`
                 : DEDUCTIBLE_TYPES.includes(proxyForm.type)
@@ -289,13 +292,13 @@ const ProxyModal = memo(function ProxyModal({
 
           {/* 사유 */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">사유 <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-medium text-muted uppercase mb-1">사유 <span className="text-red-500">*</span></label>
             <textarea
               rows={3}
               placeholder="사유 입력"
               value={proxyForm.reason}
               onChange={(e) => setProxyForm((f) => ({ ...f, reason: e.target.value }))}
-              className="w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm font-normal"
+              className="w-full p-2.5 border border-line-strong rounded-md outline-none focus:ring-2 focus:ring-primary resize-none text-sm font-normal"
             />
           </div>
         </div>
@@ -306,7 +309,7 @@ const ProxyModal = memo(function ProxyModal({
         <>
           <div className="fixed inset-0 z-[10000]" onClick={() => setShowProxyCalendar(false)} />
           <div
-            className="fixed z-[10001] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
+            className="fixed z-[10001] bg-white border border-line rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn"
             style={{ top: calendarPos.top, left: calendarPos.left, width: calendarPos.width, maxWidth: "90vw" }}
           >
             <Calendar
@@ -340,24 +343,6 @@ const ProxyModal = memo(function ProxyModal({
 });
 
 
-const InfoRow = ({
-  label,
-  value,
-  isLast,
-}: {
-  label: string;
-  value: React.ReactNode;
-  isLast?: boolean;
-}) => (
-  <div className={`flex border-b border-gray-200 ${isLast ? "border-b-0" : ""}`}>
-    <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">
-      {label}
-    </div>
-    <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center whitespace-pre-wrap">
-      {value}
-    </div>
-  </div>
-);
 
 export default function VacationApprove({
   user,
@@ -470,14 +455,14 @@ export default function VacationApprove({
   /* ── 렌더 ─────────────────────────────────────── */
   return (
     <>
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col h-[500px] sm:h-[650px] animate-fadeIn">
+      <div className="bg-white rounded-xl shadow-md border border-line overflow-hidden flex flex-col h-[500px] sm:h-[650px] animate-fadeIn">
 
         {/* 필터 영역 */}
-        <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-wrap gap-2 items-center">
+        <div className="p-4 border-b border-line-soft bg-table-header flex flex-wrap gap-2 items-center">
           {/* 왼쪽: 상태 + 종류 필터 */}
           <div className="w-36">
             <Select
-              className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
+              className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-line-strong rounded-lg"
               value={filterStatus}
               onChange={setFilterStatus}
               options={STATUS_OPTIONS}
@@ -485,7 +470,7 @@ export default function VacationApprove({
           </div>
           <div className="w-36">
             <Select
-              className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
+              className="w-full h-[42px] px-3 py-2 text-sm bg-white border border-line-strong rounded-lg"
               value={filterType}
               onChange={setFilterType}
               options={TYPE_OPTIONS}
@@ -500,7 +485,7 @@ export default function VacationApprove({
                 placeholder="이름 검색"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-44 sm:w-56 h-[40px] pl-9 pr-3 bg-white border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-sm"
+                className="w-44 sm:w-56 h-[40px] pl-9 pr-3 bg-white border border-line-strong rounded-lg outline-none focus:border-primary text-sm"
               />
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -508,7 +493,7 @@ export default function VacationApprove({
             </div>
             <button
               onClick={() => setIsProxyOpen(true)}
-              className="h-[40px] px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition whitespace-nowrap shadow-sm"
+              className="h-[40px] px-4 bg-primary hover:bg-primary-active text-white text-sm font-bold rounded-lg transition whitespace-nowrap shadow-sm"
             >
               + 대리 입력
             </button>
@@ -516,26 +501,26 @@ export default function VacationApprove({
         </div>
 
         {/* 리스트 영역 */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar bg-gray-50 sm:bg-white p-4 sm:p-0">
+        <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar bg-table-header sm:bg-white p-4 sm:p-0">
           {/* 모바일 */}
           <div className="block sm:hidden space-y-3">
             {filteredApprovals.length === 0 ? (
-              <div className="py-20 text-center text-gray-400">조건에 맞는 문서가 없습니다.</div>
+              <div className={empty}>조건에 맞는 문서가 없습니다.</div>
             ) : filteredApprovals.map((req) => (
-              <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <div key={req.id} className="bg-white border border-line rounded-xl p-4 shadow-sm">
                 <div className="flex justify-between items-start mb-3 border-b border-gray-50 pb-3">
                   <div>
-                    <div className="text-base font-bold text-gray-900">{req.profiles.full_name}</div>
-                    <div className="text-xs text-gray-500">{req.profiles.position}</div>
+                    <div className="text-base font-bold text-heading">{req.profiles.full_name}</div>
+                    <div className="text-xs text-muted">{req.profiles.position}</div>
                   </div>
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${req.status === "approved" ? "bg-green-100 text-green-700" : req.status === "rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
-                    {req.status === "pending" ? "대기중" : req.status === "approved" ? "승인" : "반려"}
+                  <span className={`inline-block px-2 py-0.5 rounded border text-[11px] font-bold ${(VACATION_STATUS[req.status] ?? VACATION_STATUS.pending).className}`}>
+                    {(VACATION_STATUS[req.status] ?? VACATION_STATUS.pending).label}
                   </span>
                 </div>
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400 w-8">종류</span>
-                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">{req.type}</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-secondary-soft text-dark border border-secondary/30">{req.type}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-400 w-8 mt-0.5">기간</span>
@@ -544,7 +529,7 @@ export default function VacationApprove({
                 </div>
                 <button
                   onClick={() => { setSelectedRequest(req); setIsDetailModalOpen(true); setIsRejectMode(false); }}
-                  className="w-full text-blue-600 bg-blue-50 py-2.5 rounded-lg text-sm font-bold border border-blue-200 hover:bg-blue-100 transition active:scale-[0.98]"
+                  className="w-full text-primary bg-primary-wash py-2.5 rounded-lg text-sm font-bold border border-primary-soft hover:bg-primary-soft transition active:scale-[0.98]"
                 >
                   {req.status === "pending" ? "결재하기" : "상세보기"}
                 </button>
@@ -554,39 +539,60 @@ export default function VacationApprove({
 
           {/* PC 테이블 */}
           <div className="hidden sm:block h-full">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+            <table className={`min-w-full ${table}`}>
+              <thead className={thead}>
                 <tr>
-                  {["기안자", "종류", "기간", "상태", "결재자", "관리"].map((h) => (
-                    <th key={h} className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">{h}</th>
+                  {/* 글자는 왼쪽, 상태·관리는 가운데 */}
+                  {(
+                    [
+                      ["기안자", ""],
+                      ["종류", ""],
+                      ["기간", ""],
+                      ["상태", center],
+                      ["결재자", ""],
+                      ["관리", center],
+                    ] as const
+                  ).map(([h, align]) => (
+                    <th key={h} scope="col" className={`${thWide} ${align}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white">
                 {filteredApprovals.length === 0 ? (
-                  <tr><td colSpan={6} className="py-20 text-center text-gray-400">조건에 맞는 문서가 없습니다.</td></tr>
+                  <tr><td colSpan={6} className={empty}>조건에 맞는 문서가 없습니다.</td></tr>
                 ) : filteredApprovals.map((req) => (
-                  <tr key={req.id} className="hover:bg-blue-50/30 transition">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-bold text-gray-900">{req.profiles.full_name}</div>
-                      <div className="text-xs text-gray-500">{req.profiles.position}</div>
+                  <tr
+                    key={req.id}
+                    // 줄 어디를 눌러도 결재 화면이 열린다
+                    onClick={() => { setSelectedRequest(req); setIsDetailModalOpen(true); setIsRejectMode(false); }}
+                    className={`${trHover} cursor-pointer`}
+                  >
+                    <td className={tdWide}>
+                      <div className="font-bold">{req.profiles.full_name}</div>
+                      <div className={sub}>{req.profiles.position}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">{req.type}</span>
+                    <td className={tdWide}>
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-secondary-soft text-dark border border-secondary/30">{req.type}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                      {req.start_date} ~ {req.end_date}<span className="text-xs text-gray-400"> ({req.days_count}일)</span>
+                    <td className={`${tdWide} whitespace-nowrap`}>
+                      <span className="font-mono text-[13px] tabular-nums">{req.start_date} ~ {req.end_date}</span>
+                      <span className={`${sub} ml-1`}>({req.days_count}일)</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${req.status === "approved" ? "bg-green-100 text-green-700" : req.status === "rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
-                        {req.status === "pending" ? "대기중" : req.status === "approved" ? "승인" : "반려"}
+                    <td className={`${tdWide} ${center}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded border text-[11px] font-bold ${(VACATION_STATUS[req.status] ?? VACATION_STATUS.pending).className}`}>
+                        {(VACATION_STATUS[req.status] ?? VACATION_STATUS.pending).label}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{req.approver?.full_name || "-"}</td>
-                    <td className="px-6 py-4">
+                    <td className={`${tdWide} text-muted`}>{req.approver?.full_name || "-"}</td>
+                    <td className={`${tdWide} ${center}`}>
+                      {/* 대기중은 할 일이라 채운 버튼, 나머지는 보기만 */}
                       <button
-                        onClick={() => { setSelectedRequest(req); setIsDetailModalOpen(true); setIsRejectMode(false); }}
-                        className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded text-sm font-medium border border-blue-200 transition cursor-pointer whitespace-nowrap"
+                        onClick={(e) => { e.stopPropagation(); setSelectedRequest(req); setIsDetailModalOpen(true); setIsRejectMode(false); }}
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                          req.status === "pending"
+                            ? "bg-primary text-white hover:bg-primary-active"
+                            : "border border-line-strong bg-white text-dark hover:bg-secondary-soft"
+                        }`}
                       >
                         {req.status === "pending" ? "결재하기" : "상세보기"}
                       </button>
@@ -614,93 +620,98 @@ export default function VacationApprove({
         onClose={() => setIsDetailModalOpen(false)}
         title={selectedRequest?.status === "pending" ? "결재 처리" : "상세 내용"}
         footer={
-          selectedRequest?.status === "pending" && user?.is_approver && selectedRequest.user_id !== user.id ? (
-            !isRejectMode ? (
+          <div className="flex gap-2 w-full">
+            {selectedRequest?.status === "pending" && user?.is_approver && selectedRequest.user_id !== user.id ? (
+              !isRejectMode ? (
+                <>
+                  <button onClick={() => setIsRejectMode(true)} className={`${btnStyles.dangerSoft} sm:mr-auto`}>반려</button>
+                  <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
+                  <button onClick={() => handleProcess(true)} className={btnStyles.save}>승인</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => { setIsRejectMode(false); setRejectReason(""); }} className={`${btnStyles.cancel} sm:ml-auto`}>취소</button>
+                  <button onClick={() => handleProcess(false)} className={btnStyles.delete}>반려 확정</button>
+                </>
+              )
+            ) : selectedRequest?.status === "approved" && user?.is_approver ? (
               <>
-                <button onClick={() => handleProcess(true)} className={btnStyles.save}>승인</button>
-                <button onClick={() => setIsRejectMode(true)} className={btnStyles.delete}>반려</button>
+                <button onClick={handleCancel} className={`${btnStyles.dangerSoft} sm:mr-auto`}>승인 취소</button>
+                <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
               </>
             ) : (
-              <>
-                <button onClick={() => handleProcess(false)} className={btnStyles.delete}>반려 확정</button>
-                <button onClick={() => { setIsRejectMode(false); setRejectReason(""); }} className={btnStyles.cancel}>취소</button>
-              </>
-            )
-          ) : selectedRequest?.status === "approved" && user?.is_approver ? (
-            <>
-              <button onClick={handleCancel} className={btnStyles.delete}>승인 취소</button>
-              <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
-            </>
-          ) : (
-            <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
-          )
+              <button onClick={() => setIsDetailModalOpen(false)} className={`${btnStyles.cancel} sm:ml-auto`}>닫기</button>
+            )}
+          </div>
         }
       >
         {selectedRequest && (
           <div className="space-y-6">
-            <div className={`flex flex-col items-center justify-center p-6 rounded-xl border ${selectedRequest.status === "approved" ? "bg-green-50 border-green-100" : selectedRequest.status === "rejected" ? "bg-red-50 border-red-100" : "bg-yellow-50 border-yellow-100"}`}>
-              <h3 className={`text-xl font-bold ${selectedRequest.status === "approved" ? "text-green-700" : selectedRequest.status === "rejected" ? "text-red-700" : "text-yellow-700"}`}>
+            <div className={`flex flex-col items-center justify-center p-5 rounded-xl border ${selectedRequest.status === "approved" ? "bg-success-soft border-success/30 text-success-active" : selectedRequest.status === "rejected" ? "bg-danger-soft border-danger/30 text-danger-active" : "bg-warning-soft border-warning/30 text-warning-active"}`}>
+              <h3 className="text-xl font-bold">
                 {selectedRequest.status === "approved" ? "승인되었습니다" : selectedRequest.status === "rejected" ? "반려되었습니다" : "결재 대기중입니다"}
               </h3>
               <div className="mt-3 flex flex-col items-center gap-1 text-sm opacity-80">
                 {selectedRequest.status === "approved" && selectedRequest.approved_at ? (
-                  <span className="text-green-800 font-medium">승인일: {format(parseISO(selectedRequest.approved_at), "yyyy-MM-dd HH:mm")}</span>
+                  <span className="font-medium font-mono">승인일: {format(parseISO(selectedRequest.approved_at), "yyyy-MM-dd HH:mm")}</span>
                 ) : selectedRequest.status === "rejected" && selectedRequest.rejected_at ? (
-                  <span className="text-red-800 font-medium">반려일: {format(parseISO(selectedRequest.rejected_at), "yyyy-MM-dd HH:mm")}</span>
+                  <span className="font-medium font-mono">반려일: {format(parseISO(selectedRequest.rejected_at), "yyyy-MM-dd HH:mm")}</span>
                 ) : (
-                  <span className="text-gray-600 font-medium">신청일: {selectedRequest.created_at ? format(parseISO(selectedRequest.created_at), "yyyy-MM-dd HH:mm") : "-"}</span>
+                  <span className="font-medium font-mono">신청일: {selectedRequest.created_at ? format(parseISO(selectedRequest.created_at), "yyyy-MM-dd HH:mm") : "-"}</span>
                 )}
               </div>
             </div>
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="flex border-b border-gray-200">
-                <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">기안자</div>
-                <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+            {/* 공용 상세 표 — 내 연차 상세 · 운행 상세와 같은 모양 (선 두 겹 없음) */}
+            <DetailTable>
+              <DetailRow label="기안자">
+                <span className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold">
                     {selectedRequest.profiles.full_name.slice(0, 1)}
-                  </div>
+                  </span>
                   {selectedRequest.profiles.full_name}
-                  <span className="text-gray-400 text-xs">({selectedRequest.profiles.position})</span>
-                </div>
-              </div>
+                  <span className="text-muted text-xs">({selectedRequest.profiles.position})</span>
+                </span>
+              </DetailRow>
               {selectedRequest.status !== "pending" && (
-                <InfoRow label="신청일" value={selectedRequest.created_at ? format(parseISO(selectedRequest.created_at), "yyyy-MM-dd HH:mm") : "-"} />
+                <DetailRow label="신청일">
+                  <span className="font-mono">
+                    {selectedRequest.created_at ? format(parseISO(selectedRequest.created_at), "yyyy-MM-dd HH:mm") : "-"}
+                  </span>
+                </DetailRow>
               )}
-              <InfoRow label="휴가 구분" value={selectedRequest.type} />
-              <InfoRow label="기간" value={`${selectedRequest.start_date} ~ ${selectedRequest.end_date}`} />
-              <InfoRow label="사용 일수" value={`${selectedRequest.days_count}일`} />
-              <InfoRow label="신청 사유" value={selectedRequest.reason} isLast={selectedRequest.status === "pending" && !isRejectMode} />
+              <DetailRow label="휴가 구분">{selectedRequest.type}</DetailRow>
+              <DetailRow label="기간">
+                <span className="font-mono">{selectedRequest.start_date} ~ {selectedRequest.end_date}</span>
+              </DetailRow>
+              <DetailRow label="사용 일수">{selectedRequest.days_count}일</DetailRow>
+              <DetailRow label="신청 사유" top>
+                <span className="whitespace-pre-wrap">{selectedRequest.reason}</span>
+              </DetailRow>
               {selectedRequest.status !== "pending" && (
-                <>
-                  <div className="flex border-t border-gray-200 border-b border-gray-200">
-                    <div className="w-32 bg-gray-50 p-3 text-sm font-bold text-gray-600 flex items-center justify-center border-r border-gray-200">결재자</div>
-                    <div className="flex-1 bg-white p-3 text-sm text-gray-800 flex items-center gap-2">
-                      {selectedRequest.approver ? (
-                        <>
-                          <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
-                            {selectedRequest.approver.full_name.slice(0, 1)}
-                          </div>
-                          {selectedRequest.approver.full_name}
-                        </>
-                      ) : "-"}
-                    </div>
-                  </div>
-                  {selectedRequest.status === "rejected" && (
-                    <div className="flex border-b-0">
-                      <div className="w-32 bg-red-50 p-3 text-sm font-bold text-red-600 flex items-center justify-center border-r border-gray-200">반려 사유</div>
-                      <div className="flex-1 bg-white p-3 text-sm text-red-600 font-medium">{selectedRequest.rejection_reason}</div>
-                    </div>
-                  )}
-                </>
+                <DetailRow label="결재자">
+                  {selectedRequest.approver ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-secondary-soft text-dark flex items-center justify-center text-xs font-bold">
+                        {selectedRequest.approver.full_name.slice(0, 1)}
+                      </span>
+                      {selectedRequest.approver.full_name}
+                    </span>
+                  ) : "-"}
+                </DetailRow>
               )}
-            </div>
+              {selectedRequest.status === "rejected" && (
+                <DetailRow label={<span className="text-danger-active">반려 사유</span>} top>
+                  <span className="text-danger-active font-medium whitespace-pre-wrap">{selectedRequest.rejection_reason}</span>
+                </DetailRow>
+              )}
+            </DetailTable>
 
             {isRejectMode && (
               <div className="mt-4 animate-fadeIn">
-                <label className="block text-sm font-medium text-red-600 mb-2">반려 사유 입력</label>
+                <label className="block text-sm font-bold text-danger-active mb-1.5">반려 사유 입력</label>
                 <textarea
-                  className="w-full p-3 border border-red-200 rounded-md outline-none focus:ring-1 focus:ring-red-400 bg-red-50/50 text-sm font-normal text-gray-800 resize-none"
+                  className="w-full px-3.5 py-2.5 border border-danger/40 rounded-lg outline-none focus:border-danger focus:ring-2 focus:ring-danger-soft bg-white text-sm text-heading placeholder:text-muted resize-none"
                   rows={3}
                   placeholder="반려 사유를 입력하세요."
                   value={rejectReason}

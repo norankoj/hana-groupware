@@ -225,13 +225,13 @@ export default function FloorMap({
       {/* Legend */}
       <div className="flex items-center gap-4 mt-2.5 flex-wrap">
         {selectedId && (
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-            <div className="w-3 h-3 rounded bg-blue-600" />
+          <div className="flex items-center gap-1.5 text-xs text-muted font-medium">
+            <div className="w-3 h-3 rounded bg-primary" />
             선택된 공간
           </div>
         )}
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <div className="w-3 h-3 rounded border border-blue-200 bg-blue-50" />
+          <div className="w-3 h-3 rounded border border-primary-soft bg-primary-wash" />
           예약 가능
         </div>
         {isEdu2 && (

@@ -138,7 +138,7 @@ export default function ReceiptViewer({ receipts, startAt, onClose }: Props) {
             <p className="mt-3 text-sm font-medium text-gray-800 break-all">
               {current.name}
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted">
               {failed
                 ? "미리보기를 불러오지 못했습니다."
                 : "이 형식은 미리보기를 지원하지 않습니다."}
@@ -147,7 +147,7 @@ export default function ReceiptViewer({ receipts, startAt, onClose }: Props) {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-[#2151EC] text-white text-sm font-medium rounded-lg hover:bg-[#1a43c9] transition"
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-active transition"
             >
               <Download size={15} /> 내려받기
             </a>
@@ -182,7 +182,7 @@ export default function ReceiptViewer({ receipts, startAt, onClose }: Props) {
               aria-current={i === at}
               className={`shrink-0 max-w-[160px] px-2.5 py-1.5 rounded-md text-xs truncate transition cursor-pointer ${
                 i === at
-                  ? "bg-white text-gray-900 font-bold"
+                  ? "bg-white text-heading font-bold"
                   : "bg-white/10 text-white/70 hover:bg-white/20"
               }`}
             >

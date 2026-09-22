@@ -204,9 +204,9 @@ export default function FundRequestModal({
     >
       <div className="space-y-5">
         {/* 잔액 안내 */}
-        <div className="flex items-baseline justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+        <div className="flex items-baseline justify-between bg-table-header border border-line rounded-lg px-4 py-3">
           <span className="text-sm font-medium text-gray-600">신청 가능 금액</span>
-          <span className="text-lg font-bold text-gray-900 tabular-nums">
+          <span className="text-lg font-bold text-heading tabular-nums">
             {formatWon(balance)}원
           </span>
         </div>
@@ -219,7 +219,7 @@ export default function FundRequestModal({
           />
           {amount > 0 && (
             <p
-              className={`mt-1.5 text-sm ${over ? "text-red-600 font-medium" : "text-gray-500"}`}
+              className={`mt-1.5 text-sm ${over ? "text-red-600 font-medium" : "text-muted"}`}
             >
               {over
                 ? `잔액을 ${formatWon(amount - balance)}원 초과했습니다.`
@@ -236,7 +236,7 @@ export default function FundRequestModal({
             placeholder="예) 이집트·모로코 1진 비전트립 항공권"
             className={`${inputClass} resize-none`}
           />
-          <p className="mt-1.5 text-sm text-gray-500">
+          <p className="mt-1.5 text-sm text-muted">
             배우자·자녀가 사용하는 경우 여기에 함께 적어주세요.
           </p>
         </Field>
@@ -255,8 +255,8 @@ export default function FundRequestModal({
                     onClick={() => setForm({ ...form, ...a })}
                     className={`px-3 py-1.5 text-sm rounded-lg border transition cursor-pointer ${
                       picked
-                        ? "border-blue-500 bg-blue-50 text-blue-700 font-bold"
-                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        ? "border-primary bg-primary-wash text-primary-active font-bold"
+                        : "border-line-strong bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     {a.bank_name} {a.account_no}
@@ -273,7 +273,7 @@ export default function FundRequestModal({
                     account_holder: user.full_name,
                   })
                 }
-                className="px-3 py-1.5 text-sm rounded-lg border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 cursor-pointer"
+                className="px-3 py-1.5 text-sm rounded-lg border border-dashed border-line-strong text-muted hover:bg-gray-50 cursor-pointer"
               >
                 새 계좌
               </button>
@@ -319,7 +319,7 @@ export default function FundRequestModal({
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
             className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 file:cursor-pointer"
           />
-          <p className="mt-1.5 text-sm text-gray-500">
+          <p className="mt-1.5 text-sm text-muted">
             영수증·견적서 등 (선택). 여러 개 고를 수 있습니다. 사진·PDF·엑셀·워드,
             개당 10MB 이하.
           </p>
@@ -328,7 +328,7 @@ export default function FundRequestModal({
               {files.map((f, i) => (
                 <li
                   key={i}
-                  className="flex items-center justify-between gap-2 text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5"
+                  className="flex items-center justify-between gap-2 text-sm bg-table-header border border-line rounded px-3 py-1.5"
                 >
                   <span className="truncate text-gray-700">{f.name}</span>
                   <span className="shrink-0 text-xs text-gray-400 tabular-nums">
@@ -341,8 +341,8 @@ export default function FundRequestModal({
         </Field>
 
         {/* 운영규정 안내 */}
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 text-base font-bold text-gray-800">
+        <div className="border border-line rounded-lg overflow-hidden">
+          <div className="px-4 py-3 bg-table-header border-b border-line text-base font-bold text-gray-800">
             해외사역매칭펀드 사용 안내
           </div>
           <div className="p-4 space-y-4">

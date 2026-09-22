@@ -166,16 +166,16 @@ export default function ProjectSettingsPage() {
           </svg>
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">프로젝트 설정</h1>
-          <p className="text-sm text-gray-500">{project.name}</p>
+          <h1 className="text-xl font-bold text-heading">프로젝트 설정</h1>
+          <p className="text-sm text-muted">{project.name}</p>
         </div>
       </div>
 
       {/* 탭 권한 설정 */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b bg-gray-50">
+      <div className="bg-white border border-line rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b bg-table-header">
           <h2 className="font-bold text-gray-800">탭 접근 권한</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             각 탭의 표시 여부와 최소 접근 역할을 설정합니다. 탭을 숨기면 해당 역할이어도 볼 수 없습니다.
           </p>
         </div>
@@ -196,7 +196,7 @@ export default function ProjectSettingsPage() {
                 <button
                   onClick={() => updateSetting(tab.key, { is_visible: !s.is_visible })}
                   className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                    s.is_visible ? "bg-blue-500" : "bg-gray-300"
+                    s.is_visible ? "bg-primary" : "bg-gray-300"
                   }`}
                   title={s.is_visible ? "탭 숨기기" : "탭 표시"}
                 >
@@ -217,7 +217,7 @@ export default function ProjectSettingsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">{tab.description}</p>
+                  <p className="text-xs text-muted mt-0.5">{tab.description}</p>
                 </div>
 
                 {/* 역할 선택 */}
@@ -225,7 +225,7 @@ export default function ProjectSettingsPage() {
                   value={s.min_role}
                   onChange={(e) => updateSetting(tab.key, { min_role: e.target.value })}
                   disabled={!s.is_visible}
-                  className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  className="text-sm border border-line-strong rounded-lg px-2 py-1.5 bg-white disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                 >
                   <option value="none">모든 로그인 사용자</option>
                   <option value="member">담당자(멤버) 이상</option>
@@ -237,15 +237,15 @@ export default function ProjectSettingsPage() {
         </div>
 
         {/* 역할 설명 */}
-        <div className="px-6 py-4 bg-gray-50 border-t">
-          <p className="text-xs text-gray-500 font-semibold mb-2">역할 설명</p>
+        <div className="px-6 py-4 bg-table-header border-t">
+          <p className="text-xs text-muted font-semibold mb-2">역할 설명</p>
           <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-gray-300" />
               모든 로그인 사용자 — 프로젝트에 속하지 않아도 조회 가능
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              <span className="w-2 h-2 rounded-full bg-primary-soft" />
               담당자 이상 — 프로젝트 멤버/관리자만
             </div>
             <div className="flex items-center gap-1.5">
@@ -267,7 +267,7 @@ export default function ProjectSettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="px-6 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50"
         >
           {saving ? "저장 중..." : "설정 저장"}
         </button>

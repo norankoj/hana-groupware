@@ -9,6 +9,7 @@ import WelcomePackModal from "@/components/projects/WelcomePackModal";
 import AuditLogModal from "@/components/projects/AuditLogModal";
 import * as XLSX from "xlsx";
 import { logAudit } from "@/utils/auditLog";
+import { table, td, th } from "@/components/ui/table";
 import {
   type DatePeriod,
   checkMultiPeriodCoverage,
@@ -690,7 +691,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
             placeholder="이름·국가·소속·가족 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 min-w-0 border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <div className="w-28 sm:w-36 shrink-0">
             <Select
@@ -703,7 +704,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                 { value: "ride",          label: "라이드 필요" },
                 { value: "unmatched",     label: "미배정" },
               ]}
-              className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+              className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
             />
           </div>
         </div>
@@ -715,7 +716,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
             <button
               onClick={handleDownloadTemplate}
               title="템플릿 다운로드"
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-line-strong text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
             >
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -738,7 +739,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               title="엑셀 업로드"
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-line-strong text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition"
             >
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
@@ -748,7 +749,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
             <button
               onClick={() => setShowAuditLog(true)}
               title="변경 이력"
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-line-strong text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
             >
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -758,7 +759,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
             <button
               onClick={openCreate}
               title="명단 추가"
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition"
             >
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -783,11 +784,11 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
 
       {/* 통계 뱃지 */}
       <div className="flex gap-3 mb-4 text-sm flex-wrap">
-        <span className="text-gray-500">
+        <span className="text-muted">
           전체 <b className="text-gray-800">{missionaries.length}</b>명
           <span className="text-gray-400 ml-1 font-normal">({allFamilyGroups.size}가족 + 개별 {allSoloCount}명)</span>
         </span>
-        <span className="text-blue-500">
+        <span className="text-primary">
           숙소필요 <b>{countUnits(missionaries.filter(m => m.accommodation_needed))}</b>가구
         </span>
         <span className="text-green-500">
@@ -806,9 +807,9 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
           {isAdmin && <p className="text-sm mt-1">위 버튼으로 추가하세요.</p>}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+        <div className="bg-white rounded-xl border border-line overflow-hidden">
+          <table className={`${table} w-full`}>
+            <thead>
               <tr>
                 {(["이름", "소속", "국가 / 출발지", "IN (날짜·시간·편)", "OUT (날짜·시간·편)"] as const).map((label, i) => {
                   const keys = ["name", "affiliation", "country", "arrival_date", "departure_date"] as const;
@@ -818,20 +819,20 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                   return (
                     <th key={key}
                       onClick={() => handleSort(key)}
-                      className={`text-left px-4 py-3 font-semibold text-gray-600 cursor-pointer select-none hover:bg-gray-100 transition ${hidden}`}
+                      className={`${th} text-left cursor-pointer select-none hover:text-primary ${hidden}`}
                     >
                       <span className="flex items-center gap-1">
                         {label}
-                        <span className={`text-xs ${active ? "text-blue-500" : "text-gray-300"}`}>
+                        <span className={`text-xs ${active ? "text-primary" : "text-disabled-text"}`}>
                           {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
                         </span>
                       </span>
                     </th>
                   );
                 })}
-                <th className="text-center px-3 py-3 font-semibold text-gray-600">숙소</th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-600">차량/라이드</th>
-                {isMember && <th className="px-4 py-3 w-20" />}
+                <th className={`${th} text-center font-semibold`}>숙소</th>
+                <th className={`${th} text-center font-semibold`}>차량/라이드</th>
+                {isMember && <th className={`${th} w-20`} />}
               </tr>
             </thead>
             <tbody>
@@ -839,16 +840,16 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                 if (row.type === "header") {
                   const rep = row.rep;
                   return (
-                    <tr key={`group-${row.key}`} className="bg-blue-50 border-t border-b border-blue-100">
-                      <td colSpan={colSpan} className="px-4 py-1.5">
+                    <tr key={`group-${row.key}`}>
+                      <td colSpan={colSpan} className={`${td}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-xs font-bold text-blue-600 shrink-0">👨‍👩‍👧 {row.key}</span>
-                            <span className="text-xs text-blue-400 shrink-0">{row.count}명</span>
+                            <span className="text-xs font-bold text-primary shrink-0">👨‍👩‍👧 {row.key}</span>
+                            <span className="text-xs text-primary/60 shrink-0">{row.count}명</span>
                             {rep?.accommodation_needed && (() => {
                               const periods = getFamilyAccomPeriods(rep.id, missionaries);
                               return (
-                                <span className="text-xs bg-white text-blue-600 px-1.5 py-0.5 rounded border border-blue-200 shrink-0">
+                                <span className="text-xs bg-white text-primary px-1.5 py-0.5 rounded border border-primary-soft shrink-0">
                                   🏠{periods.length > 0 ? ` ${formatPeriods(periods)}` : ""}
                                 </span>
                               );
@@ -865,7 +866,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                           {isMember && (
                             <button
                               onClick={(e) => { e.stopPropagation(); openFamilyEdit(row.key); }}
-                              className="shrink-0 text-blue-400 hover:text-blue-600 p-1 rounded hover:bg-blue-100 transition"
+                              className="shrink-0 text-primary/60 hover:text-primary p-1 rounded hover:bg-primary-soft transition"
                               title="가족 숙소/차량 요청 수정"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -882,15 +883,15 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                 if (row.type === "solo-header") {
                   const m = row.data;
                   return (
-                    <tr key={`solo-header-${m.id}`} className="bg-blue-50 border-t border-b border-blue-100">
-                      <td colSpan={colSpan} className="px-4 py-1.5">
+                    <tr key={`solo-header-${m.id}`}>
+                      <td colSpan={colSpan} className={`${td}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-xs font-bold text-blue-600 shrink-0">👤 {m.name}</span>
+                            <span className="text-xs font-bold text-primary shrink-0">👤 {m.name}</span>
                             {m.accommodation_needed && (() => {
                               const periods = getFamilyAccomPeriods(m.id, missionaries);
                               return (
-                                <span className="text-xs bg-white text-blue-600 px-1.5 py-0.5 rounded border border-blue-200 shrink-0">
+                                <span className="text-xs bg-white text-primary px-1.5 py-0.5 rounded border border-primary-soft shrink-0">
                                   🏠{periods.length > 0 ? ` ${formatPeriods(periods)}` : ""}
                                 </span>
                               );
@@ -907,7 +908,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                           {isMember && (
                             <button
                               onClick={(e) => { e.stopPropagation(); openEdit(m); }}
-                              className="shrink-0 text-blue-400 hover:text-blue-600 p-1 rounded hover:bg-blue-100 transition"
+                              className="shrink-0 text-primary/60 hover:text-primary p-1 rounded hover:bg-primary-soft transition"
                               title="숙소/차량 요청 수정"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -924,45 +925,45 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                 const m = row.data;
                 return (
                   <tr key={m.id}
-                    className={`hover:bg-gray-50 border-t border-gray-100 ${row.inGroup ? "bg-white" : ""} cursor-pointer`}
+                    className={`hover:bg-gray-50 border-t border-table-line ${row.inGroup ? "bg-white" : ""} cursor-pointer`}
                     onClick={() => openDetail(m)}
                   >
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{m.name}</div>
+                    <td className={`${td}`}>
+                      <div className="font-medium text-heading">{m.name}</div>
                     </td>
-                    <td className="px-4 py-3 text-gray-700 hidden sm:table-cell text-sm">{m.affiliation || "-"}</td>
-                    <td className="px-4 py-3 text-gray-700 hidden md:table-cell">
+                    <td className={`${td} hidden sm:table-cell`}>{m.affiliation || "-"}</td>
+                    <td className={`${td} hidden md:table-cell`}>
                       <div className="text-sm">{m.country || "-"}</div>
-                      {m.departure_location && <div className="text-gray-500 text-xs mt-0.5">{m.departure_location}</div>}
+                      {m.departure_location && <div className="text-muted text-xs mt-0.5">{m.departure_location}</div>}
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
+                    <td className={`${td} hidden lg:table-cell`}>
                       {m.arrival_date ? (
                         <div className="text-sm text-gray-800">
                           <span className="font-medium">{m.arrival_date}</span>
-                          {m.arrival_time && <span className="text-gray-500 ml-1">{m.arrival_time}</span>}
-                          {m.arrival_terminal && <span className="text-gray-500 ml-1">· {m.arrival_terminal}</span>}
-                          {m.arrival_flight && <span className="text-blue-600 ml-1 font-medium">{m.arrival_flight}</span>}
+                          {m.arrival_time && <span className="text-muted ml-1">{m.arrival_time}</span>}
+                          {m.arrival_terminal && <span className="text-muted ml-1">· {m.arrival_terminal}</span>}
+                          {m.arrival_flight && <span className="text-primary ml-1 font-medium">{m.arrival_flight}</span>}
                         </div>
                       ) : <span className="text-gray-400 text-sm">-</span>}
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
+                    <td className={`${td} hidden lg:table-cell`}>
                       {m.departure_date ? (
                         <div className="text-sm text-gray-800">
                           <span className="font-medium">{m.departure_date}</span>
-                          {m.departure_time && <span className="text-gray-500 ml-1">{m.departure_time}</span>}
-                          {m.departure_terminal && <span className="text-gray-500 ml-1">· {m.departure_terminal}</span>}
-                          {m.departure_flight && <span className="text-blue-600 ml-1 font-medium">{m.departure_flight}</span>}
+                          {m.departure_time && <span className="text-muted ml-1">{m.departure_time}</span>}
+                          {m.departure_terminal && <span className="text-muted ml-1">· {m.departure_terminal}</span>}
+                          {m.departure_flight && <span className="text-primary ml-1 font-medium">{m.departure_flight}</span>}
                         </div>
                       ) : <span className="text-gray-400 text-sm">-</span>}
                     </td>
-                    <td className="px-3 py-3 text-center">
+                    <td className={`${td} text-center`}>
                       {m.accommodation_needed ? (
                         isAccomMatched(m)
                           ? <span className="text-green-500 font-bold" title="배정완료">✓</span>
                           : <span className="text-orange-400 font-bold" title="미배정">!</span>
-                      ) : <span className="text-gray-300">-</span>}
+                      ) : <span className="text-disabled-text">-</span>}
                     </td>
-                    <td className="px-3 py-3 text-center">
+                    <td className={`${td} text-center`}>
                       <div className="flex justify-center gap-1">
                         {m.vehicle_needed ? (
                           isVehicleMatched(m)
@@ -970,11 +971,11 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                             : <span className="text-orange-400 font-bold" title="차량 미배정">!</span>
                         ) : null}
                         {m.ride_needed && <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-semibold">라이드</span>}
-                        {!m.vehicle_needed && !m.ride_needed && <span className="text-gray-300">-</span>}
+                        {!m.vehicle_needed && !m.ride_needed && <span className="text-disabled-text">-</span>}
                       </div>
                     </td>
                     {isMember && (
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className={`${td} text-right`} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setWelcomePack({ familyGroup: m.family_group, repId: m.id })}
@@ -994,7 +995,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                             </svg>
                           </button>
                           */}
-                          <button onClick={() => openEdit(m)} className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition" title="수정">
+                          <button onClick={() => openEdit(m)} className="text-gray-400 hover:text-primary p-1 rounded hover:bg-primary-wash transition" title="수정">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                           </button>
                           {isAdmin && (
@@ -1022,14 +1023,14 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
         footer={
           <>
             <button onClick={() => setShowFamilyModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleFamilySave} disabled={savingFamily} className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleFamilySave} disabled={savingFamily} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
               {savingFamily ? "저장 중..." : "저장"}
             </button>
           </>
         }
       >
         <div className="space-y-4">
-          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">가족 전체 인원에게 동일하게 적용됩니다.</p>
+          <p className="text-xs text-muted bg-table-header rounded-lg px-3 py-2">가족 전체 인원에게 동일하게 적용됩니다.</p>
           {/* 숙소 */}
           <div>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1072,7 +1073,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
           className="sm:max-w-[600px]"
           footer={
             isMember ? (
-              <button onClick={() => openEdit(detailM)} className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
+              <button onClick={() => openEdit(detailM)} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active">
                 수정하기
               </button>
             ) : null
@@ -1097,86 +1098,86 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
             return (
               <div className="space-y-4">
                 {/* ── 기본 정보 ── */}
-                <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
-                  <tbody className="divide-y divide-gray-100">
+                <table className={`${table} w-full overflow-hidden`}>
+                  <tbody>
                     <tr>
-                      <th className="w-28 px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">이름</th>
-                      <td className="px-4 py-3 text-gray-900 font-semibold">
+                      <th className={`${th} w-28 font-medium text-left whitespace-nowrap`}>이름</th>
+                      <td className={`${td} text-heading font-semibold`}>
                         {detailM.name}
-                        {detailM.family_group && <span className="ml-2 text-xs text-blue-500 font-normal">👨‍👩‍👧 {detailM.family_group}</span>}
+                        {detailM.family_group && <span className="ml-2 text-xs text-primary font-normal">👨‍👩‍👧 {detailM.family_group}</span>}
                       </td>
                     </tr>
                     {detailM.affiliation && (
                       <tr>
-                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left">소속</th>
-                        <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.affiliation}</td>
+                        <th className={`${th} font-medium text-left`}>소속</th>
+                        <td className={`${td} text-heading font-semibold`}>{detailM.affiliation}</td>
                       </tr>
                     )}
                     {detailM.country && (
                       <tr>
-                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">국가 / 출발지</th>
-                        <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.country}{detailM.departure_location ? ` / ${detailM.departure_location}` : ""}</td>
+                        <th className={`${th} font-medium text-left whitespace-nowrap`}>국가 / 출발지</th>
+                        <td className={`${td} text-heading font-semibold`}>{detailM.country}{detailM.departure_location ? ` / ${detailM.departure_location}` : ""}</td>
                       </tr>
                     )}
                     <tr className="bg-yellow-50">
-                      <th className="px-4 py-3 text-gray-500 font-medium text-left whitespace-nowrap">한국 전화</th>
-                      <td className="px-4 py-3 text-gray-900 font-semibold">{detailM.phone_kr || <span className="text-yellow-500 font-normal">없음</span>}</td>
+                      <th className={`${th} font-medium text-left whitespace-nowrap`}>한국 전화</th>
+                      <td className={`${td} text-heading font-semibold`}>{detailM.phone_kr || <span className="text-yellow-500 font-normal">없음</span>}</td>
                     </tr>
                     {detailM.phone && (
                       <tr>
-                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left">해외 연락처</th>
-                        <td className="px-4 py-3 text-gray-700 text-xs whitespace-pre-wrap">{detailM.phone}</td>
+                        <th className={`${th} font-medium text-left`}>해외 연락처</th>
+                        <td className={`${td} whitespace-pre-wrap`}>{detailM.phone}</td>
                       </tr>
                     )}
                     <tr>
-                      <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">한국 입국</th>
-                      <td className="px-4 py-3 text-gray-900 font-semibold">
+                      <th className={`${th} font-medium text-left whitespace-nowrap`}>한국 입국</th>
+                      <td className={`${td} text-heading font-semibold`}>
                         {detailM.arrival_date ? (
                           <>
                             {detailM.arrival_date}
-                            {detailM.arrival_time && <span className="text-gray-500 font-normal ml-1">{detailM.arrival_time}</span>}
-                            {detailM.arrival_terminal && <span className="text-gray-500 font-normal ml-1">· {detailM.arrival_terminal}</span>}
-                            {detailM.arrival_flight && <span className="text-blue-600 ml-1">{detailM.arrival_flight}</span>}
+                            {detailM.arrival_time && <span className="text-muted font-normal ml-1">{detailM.arrival_time}</span>}
+                            {detailM.arrival_terminal && <span className="text-muted font-normal ml-1">· {detailM.arrival_terminal}</span>}
+                            {detailM.arrival_flight && <span className="text-primary ml-1">{detailM.arrival_flight}</span>}
                           </>
                         ) : <span className="text-gray-400 font-normal">미입력</span>}
                       </td>
                     </tr>
                     <tr>
-                      <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left whitespace-nowrap">한국 출국</th>
-                      <td className="px-4 py-3 text-gray-900 font-semibold">
+                      <th className={`${th} font-medium text-left whitespace-nowrap`}>한국 출국</th>
+                      <td className={`${td} text-heading font-semibold`}>
                         {detailM.departure_date ? (
                           <>
                             {detailM.departure_date}
-                            {detailM.departure_time && <span className="text-gray-500 font-normal ml-1">{detailM.departure_time}</span>}
-                            {detailM.departure_terminal && <span className="text-gray-500 font-normal ml-1">· {detailM.departure_terminal}</span>}
-                            {detailM.departure_flight && <span className="text-blue-600 ml-1">{detailM.departure_flight}</span>}
+                            {detailM.departure_time && <span className="text-muted font-normal ml-1">{detailM.departure_time}</span>}
+                            {detailM.departure_terminal && <span className="text-muted font-normal ml-1">· {detailM.departure_terminal}</span>}
+                            {detailM.departure_flight && <span className="text-primary ml-1">{detailM.departure_flight}</span>}
                           </>
                         ) : <span className="text-gray-400 font-normal">미입력</span>}
                       </td>
                     </tr>
                     {(detailM.accommodation_needed || detailM.vehicle_needed || detailM.ride_needed || detailM.dietary_notes) && (
                       <tr>
-                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left">필요사항</th>
-                        <td className="px-4 py-3">
+                        <th className={`${th} font-medium text-left`}>필요사항</th>
+                        <td className={`${td}`}>
                           <div className="flex gap-2 flex-wrap">
                             {detailM.accommodation_needed && (() => {
                               const periods = getFamilyAccomPeriods(detailM.id, missionaries);
-                              return <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">🏠 숙소{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
+                              return <span className="text-xs text-gray-600 border border-line px-2 py-0.5 rounded font-medium">🏠 숙소{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
                             })()}
                             {detailM.vehicle_needed && (() => {
                               const periods = getFamilyVehiclePeriods(detailM.id, missionaries);
-                              return <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">🚗 차량{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
+                              return <span className="text-xs text-gray-600 border border-line px-2 py-0.5 rounded font-medium">🚗 차량{periods.length > 0 ? ` · ${formatPeriods(periods, false)}` : ""}</span>;
                             })()}
-                            {detailM.ride_needed && <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">✈️ 공항 라이드</span>}
-                            {detailM.dietary_notes && <span className="text-xs text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-medium">🍽️ {detailM.dietary_notes}</span>}
+                            {detailM.ride_needed && <span className="text-xs text-gray-600 border border-line px-2 py-0.5 rounded font-medium">✈️ 공항 라이드</span>}
+                            {detailM.dietary_notes && <span className="text-xs text-gray-600 border border-line px-2 py-0.5 rounded font-medium">🍽️ {detailM.dietary_notes}</span>}
                           </div>
                         </td>
                       </tr>
                     )}
                     {detailM.notes && (
                       <tr>
-                        <th className="px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left align-top">메모</th>
-                        <td className="px-4 py-3 text-gray-700 whitespace-pre-wrap">{detailM.notes}</td>
+                        <th className={`${th} font-medium text-left align-top`}>메모</th>
+                        <td className={`${td} whitespace-pre-wrap`}>{detailM.notes}</td>
                       </tr>
                     )}
                   </tbody>
@@ -1184,11 +1185,11 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
 
                 {/* ── 숙소 배정 ── */}
                 {detailM.accommodation_needed && (
-                  <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                  <table className={`${table} w-full overflow-hidden`}>
                     <tbody>
                       <tr>
-                        <th className="w-28 px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left align-top whitespace-nowrap">🏠 숙소 배정</th>
-                        <td className="px-4 py-3">
+                        <th className={`${th} w-28 font-medium text-left align-top whitespace-nowrap`}>🏠 숙소 배정</th>
+                        <td className={`${td}`}>
                           {detailLoading ? (
                             <span className="text-gray-400 text-sm">불러오는 중...</span>
                           ) : detailAccoms.length > 0 ? (() => {
@@ -1203,11 +1204,11 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                                 {detailAccoms.map((accom) => {
                                   const myA = (accom.assignments?.length ? accom.assignments : (accom.assigned_missionary_id ? [{ missionary_id: accom.assigned_missionary_id, from: accom.available_from || "", to: accom.available_to || "" }] : [])).filter(a => familyIdSet.has(a.missionary_id));
                                   return (
-                                    <div key={accom.id} className="border-l-2 border-gray-200 pl-3 py-0.5">
+                                    <div key={accom.id} className="border-l-2 border-line pl-3 py-0.5">
                                       <p className="font-semibold text-gray-800">{accom.provider_name}</p>
                                       {accom.address && <p className="text-xs text-gray-400 mt-0.5">{accom.address}</p>}
                                       {myA.map((as, i) => as.from && (
-                                        <p key={i} className="text-xs text-gray-500 mt-0.5">{as.from} ~ {as.to || "미정"}</p>
+                                        <p key={i} className="text-xs text-muted mt-0.5">{as.from} ~ {as.to || "미정"}</p>
                                       ))}
                                     </div>
                                   );
@@ -1223,11 +1224,11 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
 
                 {/* ── 차량 배정 ── */}
                 {detailM.vehicle_needed && (
-                  <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                  <table className={`${table} w-full overflow-hidden`}>
                     <tbody>
                       <tr>
-                        <th className="w-28 px-4 py-3 bg-gray-50 text-gray-500 font-medium text-left align-top whitespace-nowrap">🚗 차량 배정</th>
-                        <td className="px-4 py-3">
+                        <th className={`${th} w-28 font-medium text-left align-top whitespace-nowrap`}>🚗 차량 배정</th>
+                        <td className={`${td}`}>
                           {detailLoading ? (
                             <span className="text-gray-400 text-sm">불러오는 중...</span>
                           ) : detailVehicles.length > 0 ? (() => {
@@ -1242,14 +1243,14 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                                 {detailVehicles.map((v) => {
                                   const myA = (v.assignments?.length ? v.assignments : (v.assigned_missionary_id ? [{ missionary_id: v.assigned_missionary_id, from: v.available_from || "", to: v.available_to || "" }] : [])).filter(a => familyIdSet.has(a.missionary_id));
                                   return (
-                                    <div key={v.id} className="border-l-2 border-gray-200 pl-3 py-0.5">
+                                    <div key={v.id} className="border-l-2 border-line pl-3 py-0.5">
                                       <div className="flex items-center gap-2">
                                         <p className="font-semibold text-gray-800">{v.provider_name}</p>
                                         {!v.insurance_added && <span className="text-[11px] text-orange-500">보험 미완료</span>}
                                       </div>
                                       {v.car_model && <p className="text-xs text-gray-400 mt-0.5">{v.car_model}{v.car_number ? ` · ${v.car_number}` : ""}</p>}
                                       {myA.map((as, i) => as.from && (
-                                        <p key={i} className="text-xs text-gray-500 mt-0.5">{as.from} ~ {as.to || "미정"}</p>
+                                        <p key={i} className="text-xs text-muted mt-0.5">{as.from} ~ {as.to || "미정"}</p>
                                       ))}
                                     </div>
                                   );
@@ -1277,7 +1278,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
         footer={
           <>
             <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
               {saving ? "저장 중..." : "저장"}
             </button>
           </>
@@ -1388,7 +1389,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   rows={3}
                   placeholder={"전화: 010-1234-5678\n이메일: hong@example.com\n카카오: 홍길동"}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
               <div>
@@ -1397,7 +1398,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                   value={form.notes || ""}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
             </div>
@@ -1438,7 +1439,7 @@ function Field({ label, value, onChange, type = "text", placeholder }: {
     <div>
       <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
       <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
     </div>
   );
 }
@@ -1488,7 +1489,7 @@ function PeriodListEditor({ periods, onChange }: {
       <button
         type="button"
         onClick={add}
-        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium py-0.5 hover:underline"
+        className="flex items-center gap-1 text-xs text-primary hover:text-primary-active font-medium py-0.5 hover:underline"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

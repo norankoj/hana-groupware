@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import Select from "@/components/Select";
 import { AmountField, DateField, MemberField, type Member } from "./FundFields";
+import { table, td, th, thead } from "@/components/ui/table";
 import {
   BANK_OPTIONS,
   ENTRY_MODE_OPTIONS,
@@ -476,7 +477,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
           <button
             onClick={handleSaveSingle}
             disabled={savingSingle}
-            className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md disabled:opacity-60 cursor-pointer"
+            className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-active transition text-sm shadow-md disabled:opacity-60 cursor-pointer"
           >
             {savingSingle ? "등록 중..." : "등록"}
           </button>
@@ -491,7 +492,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <button
             onClick={handleDownloadTemplate}
-            className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer whitespace-nowrap"
+            className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-line-strong rounded-lg hover:bg-gray-50 cursor-pointer whitespace-nowrap"
           >
             양식 내려받기
           </button>
@@ -527,7 +528,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                 </span>
               )}
               {rows.length > PREVIEW_LIMIT && (
-                <span className="text-gray-500 text-xs">
+                <span className="text-muted text-xs">
                   미리보기는 앞 {PREVIEW_LIMIT}줄만 보여줍니다 (저장은 전부)
                 </span>
               )}
@@ -546,7 +547,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
             )}
 
             {savingBulk && (
-              <div className="border border-gray-200 rounded-lg px-4 py-3">
+              <div className="border border-line rounded-lg px-4 py-3">
                 <div className="flex justify-between text-sm text-gray-600 mb-1.5">
                   <span>저장 중...</span>
                   <span className="tabular-nums font-bold text-gray-800">
@@ -555,7 +556,7 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#2151EC] transition-all duration-200"
+                    className="h-full bg-primary transition-all duration-200"
                     style={{
                       width: `${validRows.length ? (savedCount / validRows.length) * 100 : 0}%`,
                     }}
@@ -564,18 +565,18 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
               </div>
             )}
 
-            <div className="border border-gray-200 rounded-lg overflow-auto custom-scrollbar max-h-[300px]">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
-                    <th className="text-left px-3 py-2 font-bold">행</th>
-                    <th className="text-left px-3 py-2 font-bold">구분</th>
-                    <th className="text-left px-3 py-2 font-bold">대상자</th>
-                    <th className="text-right px-3 py-2 font-bold">금액</th>
-                    <th className="text-left px-3 py-2 font-bold">적요</th>
-                    <th className="text-left px-3 py-2 font-bold">내용</th>
-                    <th className="text-left px-3 py-2 font-bold">날짜</th>
-                    <th className="text-left px-3 py-2 font-bold">확인</th>
+            <div className="border border-line rounded-lg overflow-auto custom-scrollbar max-h-[300px]">
+              <table className={`${table} w-full min-w-[720px]`}>
+                <thead className={thead}>
+                  <tr>
+                    <th className={`${th} text-left font-bold`}>행</th>
+                    <th className={`${th} text-left font-bold`}>구분</th>
+                    <th className={`${th} text-left font-bold`}>대상자</th>
+                    <th className={`${th} text-right font-bold`}>금액</th>
+                    <th className={`${th} text-left font-bold`}>적요</th>
+                    <th className={`${th} text-left font-bold`}>내용</th>
+                    <th className={`${th} text-left font-bold`}>날짜</th>
+                    <th className={`${th} text-left font-bold`}>확인</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -584,26 +585,26 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
                     return (
                       <tr
                         key={r.line}
-                        className={`border-b border-gray-100 last:border-0 ${bad ? "bg-red-50/60" : ""}`}
+                        className={`border-b border-table-line last:border-0 ${bad ? "bg-red-50/60" : ""}`}
                       >
-                        <td className="px-3 py-2 text-gray-400 tabular-nums">
+                        <td className={`${td} tabular-nums`}>
                           {r.line}
                         </td>
-                        <td className="px-3 py-2">
+                        <td className={`${td}`}>
                           {r.entry_type ? ENTRY_TYPE_LABEL[r.entry_type] : "-"}
                         </td>
-                        <td className="px-3 py-2">{r.name || "-"}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">
+                        <td className={`${td}`}>{r.name || "-"}</td>
+                        <td className={`${td} text-right tabular-nums`}>
                           {r.amount === null ? "-" : formatWon(r.amount)}
                         </td>
-                        <td className="px-3 py-2 max-w-[140px] truncate">
+                        <td className={`${td} max-w-[140px] truncate`}>
                           {r.note || "-"}
                         </td>
-                        <td className="px-3 py-2 max-w-[200px] truncate">
+                        <td className={`${td} max-w-[200px] truncate`}>
                           {r.description || "-"}
                         </td>
-                        <td className="px-3 py-2">{r.entry_date ?? "-"}</td>
-                        <td className="px-3 py-2 text-xs">
+                        <td className={`${td}`}>{r.entry_date ?? "-"}</td>
+                        <td className={`${td}`}>
                           {bad ? (
                             <span className="text-red-600 font-medium">
                               {r.errors.join(" · ")}
@@ -629,14 +630,14 @@ export default function FundEntryForm({ manager, members, onSaved }: Props) {
             <div className="flex gap-2 justify-end">
               <button
                 onClick={resetBulk}
-                className="px-4 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                className="px-4 py-2.5 text-sm font-bold text-gray-600 bg-white border border-line-strong rounded-lg hover:bg-gray-50 cursor-pointer"
               >
                 취소
               </button>
               <button
                 onClick={handleSaveBulk}
                 disabled={savingBulk || validRows.length === 0}
-                className="px-5 py-2.5 bg-[#2151EC] text-white font-bold rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-active transition text-sm shadow-md disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               >
                 {savingBulk ? "저장 중..." : `${validRows.length}건 저장하기`}
               </button>
@@ -658,10 +659,10 @@ const Card = ({
   desc: string;
   children: React.ReactNode;
 }) => (
-  <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-    <div className="px-4 sm:px-5 py-3 border-b border-gray-200 bg-gray-50/50 rounded-t-xl">
+  <div className="bg-white border border-line rounded-xl shadow-sm">
+    <div className="px-4 sm:px-5 py-3 border-b border-line bg-table-header rounded-t-xl">
       <h2 className="text-base font-bold text-gray-800">{title}</h2>
-      <p className="mt-0.5 text-sm text-gray-500">{desc}</p>
+      <p className="mt-0.5 text-sm text-muted">{desc}</p>
     </div>
     <div className="p-4 sm:p-5">{children}</div>
   </div>

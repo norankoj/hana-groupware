@@ -74,7 +74,7 @@ const EMPTY_FORM: RideForm = {
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   pending:   { label: "미정", cls: "bg-gray-100 text-gray-600" },
-  confirmed: { label: "확정", cls: "bg-blue-100 text-blue-700" },
+  confirmed: { label: "확정", cls: "bg-primary-soft text-primary-active" },
   completed: { label: "완료", cls: "bg-green-100 text-green-700" },
 };
 
@@ -652,9 +652,9 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
       {/* 요약 통계 카드 */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "전체",   value: "all",       count: stats.total,     numCls: "text-gray-800",  activeCardCls: "border-blue-400 bg-blue-50",   activeNumCls: "text-blue-600"  },
+          { label: "전체",   value: "all",       count: stats.total,     numCls: "text-gray-800",  activeCardCls: "border-primary bg-primary-wash",   activeNumCls: "text-primary"  },
           { label: "미정",   value: "pending",   count: stats.pending,   numCls: "text-red-600",   activeCardCls: "border-red-400 bg-red-50",     activeNumCls: "text-red-600"   },
-          { label: "확정",   value: "confirmed", count: stats.confirmed, numCls: "text-blue-600",  activeCardCls: "border-blue-400 bg-blue-50",   activeNumCls: "text-blue-600"  },
+          { label: "확정",   value: "confirmed", count: stats.confirmed, numCls: "text-primary",  activeCardCls: "border-primary bg-primary-wash",   activeNumCls: "text-primary"  },
           { label: "완료",   value: "completed", count: stats.completed, numCls: "text-green-600", activeCardCls: "border-green-400 bg-green-50", activeNumCls: "text-green-600" },
         ].map((s) => {
           const isActive = filterStatus === s.value;
@@ -666,13 +666,13 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
               className={`rounded-xl p-4 text-center border transition-all cursor-pointer ${
                 isActive
                   ? `${s.activeCardCls} shadow-sm`
-                  : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                  : "bg-white border-line hover:border-line-strong hover:shadow-sm"
               }`}
             >
               <div className={`text-2xl font-bold tabular-nums ${isActive ? s.activeNumCls : s.numCls}`}>
                 {s.count}
               </div>
-              <div className="text-xs mt-0.5 text-gray-500">{s.label}</div>
+              <div className="text-xs mt-0.5 text-muted">{s.label}</div>
             </button>
           );
         })}
@@ -693,7 +693,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
         });
         let rankIdx = 0;
         return (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-line overflow-hidden">
             <button
               type="button"
               onClick={() => setStatsOpen((o) => !o)}
@@ -701,22 +701,22 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
             >
               <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">
                 운전자 현황 · {currentYear}년
-                <span className="ml-2 text-gray-300 font-normal normal-case tracking-normal">{validStats.length}명</span>
+                <span className="ml-2 text-disabled-text font-normal normal-case tracking-normal">{validStats.length}명</span>
               </span>
               <svg
-                className={`w-4 h-4 text-gray-300 transition-transform duration-200 ${statsOpen ? "rotate-180" : ""}`}
+                className={`w-4 h-4 text-disabled-text transition-transform duration-200 ${statsOpen ? "rotate-180" : ""}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             {statsOpen && (
-              <div className="px-4 pb-3 space-y-1.5 border-t border-gray-100">
+              <div className="px-4 pb-3 space-y-1.5 border-t border-line-soft">
                 <div className="pt-2.5 space-y-1.5">
                   {grouped.map(({ count, names }) => {
                     const ri = rankIdx;
                     rankIdx += names.length;
-                    const barCls = ri < 3 ? rankBar[ri] : "bg-blue-300";
+                    const barCls = ri < 3 ? rankBar[ri] : "bg-primary-soft";
                     const dotCls = ri < 3 ? rankBg[ri]  : "bg-gray-200";
                     const textCls = ri === 0 ? "text-yellow-600" : "text-gray-600";
                     return (
@@ -731,7 +731,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                             style={{ width: `${Math.round((count / maxCount) * 100)}%` }}
                           />
                         </div>
-                        <span className="text-xs font-bold text-gray-500 shrink-0 tabular-nums w-7 text-right">{count}회</span>
+                        <span className="text-xs font-bold text-muted shrink-0 tabular-nums w-7 text-right">{count}회</span>
                       </div>
                     );
                   })}
@@ -755,7 +755,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                 { value: "confirmed", label: "확정" },
                 { value: "completed", label: "완료" },
               ]}
-              className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm"
+              className="w-full p-2.5 bg-white border border-line-strong rounded-lg text-sm"
             />
           </div>
           <MonthPicker selected={filterMonths} onChange={setFilterMonths} />
@@ -764,21 +764,21 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
             placeholder="라이더 검색..."
             value={filterRider}
             onChange={(e) => setFilterRider(e.target.value)}
-            className="p-2.5 border border-gray-300 rounded-lg text-sm bg-white w-36 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
+            className="p-2.5 border border-line-strong rounded-lg text-sm bg-white w-36 outline-none focus:ring-2 focus:ring-primary font-bold text-heading placeholder:text-gray-400 placeholder:font-normal"
           />
           <button
             onClick={() => setSortDesc((d) => !d)}
-            className="flex items-center gap-1 p-2.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-600 hover:bg-gray-50 font-bold hover:border-blue-400 transition-colors"
+            className="flex items-center gap-1 p-2.5 border border-line-strong rounded-lg text-sm bg-white text-gray-600 hover:bg-gray-50 font-bold hover:border-primary transition-colors"
           >
             날짜 {sortDesc ? "↓" : "↑"}
           </button>
         </div>
         <div className="flex gap-2 shrink-0">
           {/* 뷰 모드 토글 */}
-          <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+          <div className="flex border border-line-strong rounded-lg overflow-hidden">
             <button
               onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 text-sm transition ${viewMode === "list" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              className={`px-3 py-1.5 text-sm transition ${viewMode === "list" ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -786,7 +786,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
             </button>
             <button
               onClick={() => setViewMode("calendar")}
-              className={`px-3 py-1.5 text-sm border-l border-gray-300 transition ${viewMode === "calendar" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              className={`px-3 py-1.5 text-sm border-l border-line-strong transition ${viewMode === "calendar" ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -796,7 +796,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
           {isAdmin && (
             <button
               onClick={() => setShowDriversModal(true)}
-              className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+              className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-line-strong rounded-lg hover:bg-gray-50 text-gray-600"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -806,7 +806,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
           )}
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-line-strong rounded-lg hover:bg-gray-50 text-gray-600"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -815,20 +815,20 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
           </button>
           {isMember && (
             <>
-              <button onClick={handleDownloadTemplate} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">
+              <button onClick={handleDownloadTemplate} className="text-sm px-3 py-1.5 border border-line-strong rounded-lg hover:bg-gray-50 text-gray-600">
                 양식
               </button>
               <button
                 onClick={() => importRef.current?.click()}
                 disabled={importing}
-                className="text-sm px-3 py-1.5 border border-blue-300 rounded-lg hover:bg-blue-50 text-blue-600 disabled:opacity-50"
+                className="text-sm px-3 py-1.5 border border-primary-soft rounded-lg hover:bg-primary-wash text-primary disabled:opacity-50"
               >
                 {importing ? "가져오는 중..." : "엑셀 가져오기"}
               </button>
               <input ref={importRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
               <button
                 onClick={openAdd}
-                className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary-active"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -874,7 +874,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
             const d = new Date(ride.event_date + "T00:00:00");
             const [, mm, dd] = ride.event_date.split("-");
             const dayLabel = ["일","월","화","수","목","금","토"][d.getDay()];
-            const dayColor = d.getDay() === 0 ? "text-red-500" : d.getDay() === 6 ? "text-blue-500" : "text-gray-700";
+            const dayColor = d.getDay() === 0 ? "text-red-500" : d.getDay() === 6 ? "text-primary" : "text-gray-700";
             const isExpanded = expandedIds.has(ride.id);
             const expandable = canExpand(ride);
             const statusInfo = STATUS_MAP[ride.status] ?? STATUS_MAP.pending;
@@ -883,7 +883,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
               <div
                 key={ride.id}
                 className={`rounded-xl border bg-white transition-shadow ${
-                  ride.is_important ? "border-blue-200" : "border-gray-200"
+                  ride.is_important ? "border-primary-soft" : "border-line"
                 } ${isExpanded ? "shadow-sm" : "hover:shadow-sm"}`}
               >
                 {/* 메인 행 */}
@@ -905,7 +905,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                       {ride.departure_time && (
                         <span className="text-gray-400 text-xs">{ride.departure_time.slice(0,5)}</span>
                       )}
-                      <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-disabled-text shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
                       {ride.arrival_location && ride.arrival_location !== "-" ? (
@@ -914,7 +914,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="font-semibold text-gray-800 hover:text-blue-600 hover:underline flex items-center gap-0.5 transition-colors"
+                          className="font-semibold text-gray-800 hover:text-primary hover:underline flex items-center gap-0.5 transition-colors"
                         >
                           {ride.arrival_location}
                           <svg className="w-3 h-3 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -928,7 +928,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                       {ride.arrival_time && (
                         <span className="text-gray-400 text-xs">{ride.arrival_time.slice(0,5)}</span>
                       )}
-                      <span className={`ml-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-gray-500"}`}>{ride.direction}</span>
+                      <span className={`ml-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-muted"}`}>{ride.direction}</span>
                       {ride.estimated_duration && (
                         <span className="text-[11px] text-gray-400">{ride.estimated_duration}</span>
                       )}
@@ -940,7 +940,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                         {statusInfo.label}
                       </span>
                       {ride.is_important && (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">중요</span>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary-active">중요</span>
                       )}
                       <span className="font-normal text-gray-700 text-sm">
                         {ride.event_name ?? <span className="text-gray-400">집회명 없음</span>}
@@ -974,7 +974,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                     {isMember && (
                       <button
                         onClick={() => openEdit(ride)}
-                        className="text-xs text-gray-400 hover:text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition"
+                        className="text-xs text-gray-400 hover:text-primary px-2 py-1 rounded hover:bg-primary-wash transition"
                       >
                         수정
                       </button>
@@ -990,7 +990,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                     {expandable && (
                       <button
                         onClick={() => toggleExpanded(ride.id)}
-                        className="text-gray-300 hover:text-gray-500 p-1 rounded hover:bg-gray-100 transition ml-1"
+                        className="text-disabled-text hover:text-muted p-1 rounded hover:bg-gray-100 transition ml-1"
                       >
                         <svg
                           className={`w-4 h-4 transition-transform duration-150 ${isExpanded ? "rotate-180" : ""}`}
@@ -1013,7 +1013,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
 
                 {/* 확장 상세 */}
                 {isExpanded && expandable && (
-                  <div className={`px-5 pb-4 pt-3 border-t ${ride.is_important ? "border-blue-100" : "border-gray-100"}`}>
+                  <div className={`px-5 pb-4 pt-3 border-t ${ride.is_important ? "border-primary-soft" : "border-line-soft"}`}>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 text-sm">
                       {ride.responsible_org && (
                         <div>
@@ -1026,7 +1026,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
                           <div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-0.5">담당자</div>
                           <div className="text-gray-800">{ride.coordinator_name}</div>
                           {ride.coordinator_contact && (
-                            <div className="text-xs text-gray-500 mt-0.5">{ride.coordinator_contact}</div>
+                            <div className="text-xs text-muted mt-0.5">{ride.coordinator_contact}</div>
                           )}
                         </div>
                       )}
@@ -1163,7 +1163,7 @@ function RiderSelector({
         onClick={() => isMember && setOpen((o) => !o)}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition
           ${hasRider
-            ? "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
+            ? "bg-white text-gray-700 border-line hover:border-line-strong"
             : "bg-orange-50 text-orange-500 border-orange-200 hover:border-orange-300"
           } ${!isMember ? "cursor-default opacity-80" : "cursor-pointer"}`}
       >
@@ -1179,7 +1179,7 @@ function RiderSelector({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-52 py-1 text-sm max-h-64 overflow-y-auto custom-scrollbar">
+        <div className="absolute right-0 top-full mt-1 bg-white border border-line rounded-xl shadow-lg z-20 w-52 py-1 text-sm max-h-64 overflow-y-auto custom-scrollbar">
           <button
             onClick={clearAll}
             className="w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-400 flex items-center gap-2"
@@ -1189,7 +1189,7 @@ function RiderSelector({
             </svg>
             배치 없음
           </button>
-          <div className="border-t border-gray-100 my-1" />
+          <div className="border-t border-line-soft my-1" />
           {members.length === 0 && (
             <div className="px-3 py-2 text-gray-400 text-xs">운전자 관리에서 추가하세요</div>
           )}
@@ -1200,11 +1200,11 @@ function RiderSelector({
                 key={m.id}
                 onClick={() => toggle(m.name)}
                 className={`w-full text-left px-3 py-2 flex items-center gap-2 transition ${
-                  isSelected ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 text-gray-800"
+                  isSelected ? "bg-primary-wash text-primary-active" : "hover:bg-gray-50 text-gray-800"
                 }`}
               >
                 <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition ${
-                  isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300"
+                  isSelected ? "bg-primary border-primary" : "border-line-strong"
                 }`}>
                   {isSelected && (
                     <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1218,8 +1218,8 @@ function RiderSelector({
           })}
           {currentNames.length > 0 && (
             <>
-              <div className="border-t border-gray-100 my-1" />
-              <div className="px-3 py-1.5 text-[11px] text-blue-500 font-medium">
+              <div className="border-t border-line-soft my-1" />
+              <div className="px-3 py-1.5 text-[11px] text-primary font-medium">
                 {currentNames.length}명 선택됨
               </div>
             </>
@@ -1243,7 +1243,7 @@ function RideViewModal({
   onClose:  () => void;
 }) {
   const statusInfo = STATUS_MAP[ride.status] ?? STATUS_MAP.pending;
-  const dirCls = DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-gray-500";
+  const dirCls = DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-muted";
 
   const Field = ({ label, value }: { label: string; value?: string | null }) =>
     value ? (
@@ -1279,7 +1279,7 @@ function RideViewModal({
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-sm font-bold px-3 py-1 rounded-full ${statusInfo.cls}`}>{statusInfo.label}</span>
           <span className={`text-sm font-bold px-3 py-1 rounded-full ${dirCls}`}>{ride.direction}</span>
-          {ride.is_important && <span className="text-sm font-bold px-3 py-1 rounded-full bg-blue-100 text-blue-700">중요</span>}
+          {ride.is_important && <span className="text-sm font-bold px-3 py-1 rounded-full bg-primary-soft text-primary-active">중요</span>}
           <span className="text-sm font-semibold text-gray-700 ml-1">
             {(() => {
               const d = new Date(ride.event_date + "T00:00:00");
@@ -1291,12 +1291,12 @@ function RideViewModal({
         </div>
 
         {/* 이동 경로 */}
-        <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+        <div className="bg-table-header rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-1">출발</div>
               <div className="font-semibold text-gray-800 break-words">{ride.departure_location ?? "-"}</div>
-              {ride.departure_time && <div className="text-sm text-gray-500 mt-0.5">{ride.departure_time.slice(0,5)}</div>}
+              {ride.departure_time && <div className="text-sm text-muted mt-0.5">{ride.departure_time.slice(0,5)}</div>}
             </div>
             <div>
               <div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-1">도착</div>
@@ -1304,18 +1304,18 @@ function RideViewModal({
                 <a
                   href={`https://map.kakao.com/?q=${encodeURIComponent(ride.arrival_location)}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="font-semibold text-gray-800 hover:text-blue-600 hover:underline break-words"
+                  className="font-semibold text-gray-800 hover:text-primary hover:underline break-words"
                 >
                   {ride.arrival_location}
                 </a>
               ) : (
                 <div className="font-semibold text-gray-800">-</div>
               )}
-              {ride.arrival_time && <div className="text-sm text-gray-500 mt-0.5">{ride.arrival_time.slice(0,5)}</div>}
+              {ride.arrival_time && <div className="text-sm text-muted mt-0.5">{ride.arrival_time.slice(0,5)}</div>}
             </div>
           </div>
           {ride.estimated_duration && (
-            <div className="text-xs text-gray-400 border-t border-gray-200 pt-2 mt-1">예상 소요 {ride.estimated_duration}</div>
+            <div className="text-xs text-gray-400 border-t border-line pt-2 mt-1">예상 소요 {ride.estimated_duration}</div>
           )}
         </div>
 
@@ -1401,7 +1401,7 @@ function RideFormModal({
       <div className="space-y-5">
 
         {/* 라이드 번호 + 날짜 / 상태 / 중요 */}
-        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-3">
+        <div className="p-3 bg-table-header border border-line rounded-lg space-y-3">
           <div>
             <label className={labelCls}>라이드 번호</label>
             <input
@@ -1417,19 +1417,19 @@ function RideFormModal({
             <button
               type="button"
               onClick={() => setDateOpen((o) => !o)}
-              className="w-full p-2.5 border border-gray-300 rounded-md text-sm bg-white text-left font-bold text-gray-900 flex items-center gap-2 hover:border-blue-400 transition"
+              className="w-full p-2.5 border border-line-strong rounded-md text-sm bg-white text-left font-bold text-heading flex items-center gap-2 hover:border-primary transition"
             >
               <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className={form.event_date ? "text-gray-900" : "text-gray-400"}>
+              <span className={form.event_date ? "text-heading" : "text-gray-400"}>
                 {form.event_date
                   ? format(new Date(form.event_date + "T00:00:00"), "yyyy.MM.dd(EEE)", { locale: ko })
                   : "날짜 선택"}
               </span>
             </button>
             {dateOpen && (
-              <div className="absolute top-full left-0 z-50 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-[280px] range-calendar-wrapper animate-fadeIn">
+              <div className="absolute top-full left-0 z-50 mt-1 bg-white border border-line rounded-xl shadow-2xl p-3 w-[280px] range-calendar-wrapper animate-fadeIn">
                 <Calendar
                   onChange={(v) => {
                     if (v instanceof Date) {
@@ -1455,7 +1455,7 @@ function RideFormModal({
                 { value: "confirmed", label: "확정" },
                 { value: "completed", label: "완료" },
               ]}
-              className="w-full p-2.5 border border-gray-300 rounded-md text-sm font-bold"
+              className="w-full p-2.5 border border-line-strong rounded-md text-sm font-bold"
             />
           </div>
           <label className="flex items-center gap-1.5 cursor-pointer select-none pb-2.5">
@@ -1463,7 +1463,7 @@ function RideFormModal({
               type="checkbox"
               checked={form.is_important}
               onChange={(e) => set("is_important", e.target.checked)}
-              className="w-4 h-4 accent-blue-600"
+              className="w-4 h-4 accent-primary"
             />
             <span className="text-sm text-gray-600 whitespace-nowrap">중요</span>
           </label>
@@ -1487,14 +1487,14 @@ function RideFormModal({
             value={form.direction}
             onChange={(v) => set("direction", v)}
             options={DIRECTIONS.map((d) => ({ value: d, label: d }))}
-            className="w-full p-2.5 border border-gray-300 rounded-md text-sm font-bold"
+            className="w-full p-2.5 border border-line-strong rounded-md text-sm font-bold"
           />
         </FormField>
 
         <FormField label="출발 장소">
           <div className="flex gap-2">
             <input className={`${inputCls} flex-1`} placeholder="장소" value={form.departure_location ?? ""} onChange={(e) => set("departure_location", e.target.value)} />
-            <input type="time" className="p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white w-32 shrink-0" value={form.departure_time ?? ""} onChange={(e) => set("departure_time", e.target.value)} />
+            <input type="time" className="p-2.5 border border-line-strong rounded-md outline-none focus:ring-2 focus:ring-primary text-sm bg-white w-32 shrink-0" value={form.departure_time ?? ""} onChange={(e) => set("departure_time", e.target.value)} />
           </div>
         </FormField>
 
@@ -1522,7 +1522,7 @@ function RideFormModal({
                 </a>
               )}
             </div>
-            <input type="time" className="p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white w-32 shrink-0" value={form.arrival_time ?? ""} onChange={(e) => set("arrival_time", e.target.value)} />
+            <input type="time" className="p-2.5 border border-line-strong rounded-md outline-none focus:ring-2 focus:ring-primary text-sm bg-white w-32 shrink-0" value={form.arrival_time ?? ""} onChange={(e) => set("arrival_time", e.target.value)} />
           </div>
         </FormField>
 
@@ -1560,7 +1560,7 @@ function RideFormModal({
                     setDurationLoading(false);
                   }
                 }}
-                className="px-3 py-2 bg-blue-50 border border-blue-200 text-blue-600 text-xs rounded-md hover:bg-blue-100 transition whitespace-nowrap disabled:opacity-50"
+                className="px-3 py-2 bg-primary-wash border border-primary-soft text-primary text-xs rounded-md hover:bg-primary-soft transition whitespace-nowrap disabled:opacity-50"
               >
                 {durationLoading ? "계산중…" : "계산"}
               </button>
@@ -1597,9 +1597,9 @@ function RideFormModal({
                 {selectedNames.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {selectedNames.map((name) => (
-                      <span key={name} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium rounded-full">
+                      <span key={name} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-primary-wash border border-primary-soft text-primary-active text-sm font-medium rounded-full">
                         {name}
-                        <button type="button" onClick={() => removeName(name)} className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-200 text-blue-400 hover:text-blue-700 transition">
+                        <button type="button" onClick={() => removeName(name)} className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-primary-soft text-primary/60 hover:text-primary-active transition">
                           <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -1614,7 +1614,7 @@ function RideFormModal({
                     onChange={(name) => { if (name) addName(name); }}
                     placeholder="운전자 추가..."
                     options={available.map((d) => ({ value: d.name, label: d.name }))}
-                    className="w-full p-2.5 border border-gray-300 rounded-md text-sm"
+                    className="w-full p-2.5 border border-line-strong rounded-md text-sm"
                   />
                 )}
                 {available.length === 0 && selectedNames.length > 0 && (
@@ -1663,10 +1663,10 @@ function RideFormModal({
 
 /* ── UI 헬퍼 ────────────────────────────────────────────────────────── */
 
-const inputCls = "w-full p-2.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white";
-const labelCls = "block text-xs font-medium text-gray-500 uppercase mb-1";
-const formBtnSave   = "px-5 py-2.5 bg-[#2151EC] text-white font-medium rounded-lg hover:bg-[#1a43c9] transition text-sm shadow-md";
-const formBtnCancel = "px-5 py-2.5 bg-white border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition text-sm sm:min-w-[80px]";
+const inputCls = "w-full p-2.5 border border-line-strong rounded-md outline-none focus:ring-2 focus:ring-primary text-sm bg-white";
+const labelCls = "block text-xs font-medium text-muted uppercase mb-1";
+const formBtnSave   = "px-5 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-active transition text-sm shadow-md";
+const formBtnCancel = "px-5 py-2.5 bg-white border border-line text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition text-sm sm:min-w-[80px]";
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -1729,7 +1729,7 @@ function RideCalendarView({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden range-calendar-wrapper">
+      <div className="bg-white rounded-xl border border-line overflow-hidden range-calendar-wrapper">
         <Calendar
           activeStartDate={calendarMonth}
           onActiveStartDateChange={({ activeStartDate }) => activeStartDate && onMonthChange(activeStartDate)}
@@ -1754,7 +1754,7 @@ function RideCalendarView({
                   <div
                     key={r.id}
                     className={`w-1.5 h-1.5 rounded-full ${
-                      r.status === "confirmed" ? "bg-blue-500" :
+                      r.status === "confirmed" ? "bg-primary" :
                       r.status === "completed" ? "bg-green-500" :
                       "bg-gray-400"
                     }`}
@@ -1804,19 +1804,19 @@ function RideCalendarView({
                 ride.message_body    || ride.notes
               );
               return (
-                <div key={ride.id} className={`rounded-xl border bg-white transition-shadow ${ride.is_important ? "border-blue-200" : "border-gray-200"} ${isExpanded ? "shadow-sm" : "hover:shadow-sm"}`}>
+                <div key={ride.id} className={`rounded-xl border bg-white transition-shadow ${ride.is_important ? "border-primary-soft" : "border-line"} ${isExpanded ? "shadow-sm" : "hover:shadow-sm"}`}>
                   <div className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusInfo.cls}`}>{statusInfo.label}</span>
-                        {ride.is_important && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">중요</span>}
-                        <span className="font-semibold text-gray-900 text-sm">{ride.event_name ?? <span className="text-gray-400 font-normal">집회명 없음</span>}</span>
-                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-gray-500"}`}>{ride.direction}</span>
+                        {ride.is_important && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary-active">중요</span>}
+                        <span className="font-semibold text-heading text-sm">{ride.event_name ?? <span className="text-gray-400 font-normal">집회명 없음</span>}</span>
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${DIRECTION_MAP[ride.direction]?.cls ?? "bg-gray-100 text-muted"}`}>{ride.direction}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
                         <span className="font-semibold text-gray-800">{ride.departure_location ?? "-"}</span>
                         {ride.departure_time && <span className="text-gray-400 text-xs">{ride.departure_time.slice(0,5)}</span>}
-                        <svg className="w-3 h-3 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-3 h-3 text-disabled-text shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                         </svg>
                         <span className="font-medium text-gray-800">{ride.arrival_location ?? "-"}</span>
@@ -1825,10 +1825,10 @@ function RideCalendarView({
                     </div>
                     <RiderSelector ride={ride} members={drivers} isMember={isMember} onUpdate={onRiderUpdate} />
                     <div className="flex items-center gap-1 shrink-0 ml-1">
-                      {isMember && <button onClick={() => onEdit(ride)} className="text-xs text-gray-400 hover:text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition">수정</button>}
+                      {isMember && <button onClick={() => onEdit(ride)} className="text-xs text-gray-400 hover:text-primary px-2 py-1 rounded hover:bg-primary-wash transition">수정</button>}
                       {isAdmin && <button onClick={() => onDelete(ride.id)} className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 rounded hover:bg-red-50 transition">삭제</button>}
                       {expandable && (
-                        <button onClick={() => onToggleExpand(ride.id)} className="text-gray-300 hover:text-gray-500 p-1 rounded hover:bg-gray-100 transition">
+                        <button onClick={() => onToggleExpand(ride.id)} className="text-disabled-text hover:text-muted p-1 rounded hover:bg-gray-100 transition">
                           <svg className={`w-4 h-4 transition-transform duration-150 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
@@ -1837,10 +1837,10 @@ function RideCalendarView({
                     </div>
                   </div>
                   {isExpanded && expandable && (
-                    <div className={`px-5 pb-4 pt-3 border-t ${ride.is_important ? "border-blue-100" : "border-gray-100"}`}>
+                    <div className={`px-5 pb-4 pt-3 border-t ${ride.is_important ? "border-primary-soft" : "border-line-soft"}`}>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 text-sm">
                         {ride.responsible_org && <div><div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-0.5">담당단체</div><div className="text-gray-800">{ride.responsible_org}</div></div>}
-                        {ride.coordinator_name && <div><div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-0.5">담당자</div><div className="text-gray-800">{ride.coordinator_name}</div>{ride.coordinator_contact && <div className="text-xs text-gray-500 mt-0.5">{ride.coordinator_contact}</div>}</div>}
+                        {ride.coordinator_name && <div><div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-0.5">담당자</div><div className="text-gray-800">{ride.coordinator_name}</div>{ride.coordinator_contact && <div className="text-xs text-muted mt-0.5">{ride.coordinator_contact}</div>}</div>}
                         {ride.arrival_contact && <div><div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-0.5">도착지 연락처</div><div className="text-gray-800">{ride.arrival_contact}</div></div>}
                         {ride.estimated_duration && <div><div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-0.5">예상 소요</div><div className="text-gray-800">{ride.estimated_duration}</div></div>}
                       </div>
@@ -1954,8 +1954,8 @@ function DriversModal({
       <div className="grid grid-cols-2 gap-4" style={{ height: 420 }}>
 
         {/* 왼쪽: 전체 목록 */}
-        <div className="flex flex-col border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-3 py-2.5 border-b border-gray-100 bg-gray-50 shrink-0">
+        <div className="flex flex-col border border-line rounded-xl overflow-hidden">
+          <div className="px-3 py-2.5 border-b border-line-soft bg-table-header shrink-0">
             <input
               autoFocus
               type="text"
@@ -1977,9 +1977,9 @@ function DriversModal({
                   type="button"
                   onClick={() => add(p.id)}
                   disabled={busy}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left group"
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-wash hover:text-primary transition-colors text-left group"
                 >
-                  <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-400 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-3.5 h-3.5 text-disabled-text group-hover:text-primary/60 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   <span className="font-bold text-base">{p.name}</span>
@@ -1987,17 +1987,17 @@ function DriversModal({
               ))
             )}
           </div>
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 text-[11px] text-gray-400 shrink-0">
+          <div className="px-3 py-2 border-t border-line-soft bg-table-header text-[11px] text-gray-400 shrink-0">
             클릭하면 오른쪽에 추가됩니다
           </div>
         </div>
 
         {/* 오른쪽: 선택된 운전자 */}
-        <div className="flex flex-col border border-blue-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-blue-100 bg-blue-50 shrink-0">
-            <span className="text-sm font-bold text-blue-700">
+        <div className="flex flex-col border border-primary-soft rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-primary-soft bg-primary-wash shrink-0">
+            <span className="text-sm font-bold text-primary-active">
               선택된 운전자
-              <span className="ml-1.5 text-blue-500 font-semibold">
+              <span className="ml-1.5 text-primary font-semibold">
                 {selected.length + customDrivers.length}명
               </span>
             </span>
@@ -2013,15 +2013,15 @@ function DriversModal({
             ) : (
               <>
                 {selected.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 transition-colors group">
+                  <div key={p.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-primary-wash transition-colors group">
                     <div className="flex items-center gap-2 text-base text-gray-800 font-bold">
-                      <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-3.5 h-3.5 text-primary/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                       {p.name}
                     </div>
                     <button type="button" onClick={() => remove(p.id)} disabled={busy}
-                      className="w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100">
+                      className="w-6 h-6 flex items-center justify-center rounded-full text-disabled-text hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -2030,10 +2030,10 @@ function DriversModal({
                 ))}
                 {customDrivers.length > 0 && (
                   <>
-                    {selected.length > 0 && <div className="mx-4 border-t border-blue-100" />}
+                    {selected.length > 0 && <div className="mx-4 border-t border-primary-soft" />}
                     <div className="px-4 py-1 text-[11px] font-bold text-gray-400 uppercase tracking-wide">직접 추가</div>
                     {customDrivers.map((d) => (
-                      <div key={d.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 transition-colors group">
+                      <div key={d.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-primary-wash transition-colors group">
                         <div className="flex items-center gap-2 text-base text-gray-800 font-bold">
                           <svg className="w-3.5 h-3.5 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -2041,7 +2041,7 @@ function DriversModal({
                           {d.name}
                         </div>
                         <button type="button" onClick={() => removeCustom(d.id)} disabled={busy}
-                          className="w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100">
+                          className="w-6 h-6 flex items-center justify-center rounded-full text-disabled-text hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -2054,7 +2054,7 @@ function DriversModal({
             )}
           </div>
           {/* 직접 이름 입력 */}
-          <div className="border-t border-blue-100 p-3 shrink-0 bg-blue-50/30">
+          <div className="border-t border-primary-soft p-3 shrink-0 bg-primary-wash/30">
             <div className="text-[11px] text-gray-400 font-medium mb-1.5">이름 직접 추가 (비사역자)</div>
             <div className="flex gap-2">
               <input
@@ -2063,13 +2063,13 @@ function DriversModal({
                 onChange={(e) => setCustomInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCustom()}
                 placeholder="이름 입력 후 Enter 또는 추가..."
-                className="flex-1 text-sm px-2.5 py-1.5 border border-blue-200 rounded-lg outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                className="flex-1 text-sm px-2.5 py-1.5 border border-primary-soft rounded-lg outline-none focus:ring-1 focus:ring-primary bg-white"
               />
               <button
                 type="button"
                 onClick={addCustom}
                 disabled={!customInput.trim() || busy}
-                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-40 font-medium shrink-0"
+                className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-active transition disabled:opacity-40 font-medium shrink-0"
               >
                 추가
               </button>
@@ -2142,15 +2142,15 @@ function MonthPicker({
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center justify-between gap-2 px-3 py-2.5 border rounded-lg text-sm font-bold transition-all whitespace-nowrap
           ${hasSelection
-            ? "border-blue-400 text-blue-600 bg-blue-50"
-            : "border-gray-300 text-gray-900 bg-white"
+            ? "border-primary text-primary bg-primary-wash"
+            : "border-line-strong text-heading bg-white"
           }
-          ${open ? "ring-2 ring-blue-200 border-blue-500" : ""}
+          ${open ? "ring-2 ring-primary-soft border-primary" : ""}
         `}
       >
         <span>{label}</span>
         <svg
-          className={`w-4 h-4 transition-transform shrink-0 ${open ? "rotate-180" : ""} ${hasSelection ? "text-blue-400" : "text-gray-400"}`}
+          className={`w-4 h-4 transition-transform shrink-0 ${open ? "rotate-180" : ""} ${hasSelection ? "text-primary/60" : "text-gray-400"}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2158,7 +2158,7 @@ function MonthPicker({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4 w-64 animate-fadeIn">
+        <div className="absolute top-full left-0 mt-1 bg-white border border-line rounded-xl shadow-xl z-50 p-4 w-64 animate-fadeIn">
           {/* 년도 네비게이션 */}
           <div className="flex items-center justify-between mb-3">
             <button
@@ -2194,7 +2194,7 @@ function MonthPicker({
                   onClick={() => toggle(ym)}
                   className={`py-2 rounded-lg text-sm font-medium transition ${
                     isSel
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-primary text-white shadow-sm"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
@@ -2205,18 +2205,18 @@ function MonthPicker({
           </div>
 
           {/* 하단 액션 */}
-          <div className="flex gap-2 border-t border-gray-100 pt-3">
+          <div className="flex gap-2 border-t border-line-soft pt-3">
             <button
               type="button"
               onClick={() => onChange([])}
-              className="flex-1 py-2 text-xs text-gray-500 hover:bg-gray-50 rounded-lg border border-gray-200 transition font-medium"
+              className="flex-1 py-2 text-xs text-muted hover:bg-gray-50 rounded-lg border border-line transition font-medium"
             >
               전체 보기
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="flex-1 py-2 text-xs bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+              className="flex-1 py-2 text-xs bg-primary text-white rounded-lg font-medium hover:bg-primary-active transition"
             >
               확인
             </button>

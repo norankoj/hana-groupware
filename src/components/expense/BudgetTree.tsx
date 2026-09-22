@@ -203,11 +203,11 @@ export default function BudgetTree({
 
   if (items.length === 0)
     return (
-      <div className="border border-gray-200 rounded-xl bg-white p-10 text-center">
+      <div className="border border-line rounded-xl bg-white p-10 text-center">
         <p className="text-gray-700 font-medium">
           {fiscalYear}년 예산안이 등록되지 않았습니다.
         </p>
-        <p className="mt-1.5 text-sm text-gray-500">
+        <p className="mt-1.5 text-sm text-muted">
           <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">
             supabase/migrations/seed_budget_{fiscalYear}.sql
           </code>{" "}
@@ -233,13 +233,13 @@ export default function BudgetTree({
       const row = (
         <tr
           key={n.id}
-          className={`border-b border-gray-100 last:border-0 hover:bg-blue-50/40 ${
+          className={`border-b border-table-line last:border-0 hover:bg-primary-wash/40 ${
             n.level === 1
-              ? "bg-gray-50/80 text-gray-900"
+              ? "bg-table-header text-heading"
               : n.level === 2
                 ? "text-gray-800"
                 : "text-gray-600"
-          } ${matched ? "bg-blue-50" : ""}`}
+          } ${matched ? "bg-primary-wash" : ""}`}
         >
           {/* th 의 기본 굵기(UA 스타일)가 상속을 이기므로 단계별로 직접 지정한다 */}
           <th
@@ -259,7 +259,7 @@ export default function BudgetTree({
                   onClick={() => toggle(n.id)}
                   aria-expanded={open}
                   aria-label={`${n.name} ${open ? "접기" : "펴기"}`}
-                  className="mt-0.5 shrink-0 text-gray-400 hover:text-gray-900 cursor-pointer"
+                  className="mt-0.5 shrink-0 text-gray-400 hover:text-heading cursor-pointer"
                 >
                   {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
@@ -270,7 +270,7 @@ export default function BudgetTree({
                 {n.code && (
                   <span
                     className={`mr-2 font-mono text-[11px] tabular-nums ${
-                      n.level === 1 ? "text-[#2151EC]" : "text-gray-400"
+                      n.level === 1 ? "text-primary" : "text-gray-400"
                     }`}
                   >
                     {n.code}
@@ -280,7 +280,7 @@ export default function BudgetTree({
                 {n.note && (
                   <span
                     title={n.note}
-                    className="ml-1.5 align-middle text-[10px] font-normal text-gray-400 border border-gray-200 rounded px-1 cursor-help"
+                    className="ml-1.5 align-middle text-[10px] font-normal text-gray-400 border border-line rounded px-1 cursor-help"
                   >
                     비고
                   </span>
@@ -334,7 +334,7 @@ export default function BudgetTree({
                       ? "bg-red-500"
                       : pct >= WARN_AT
                         ? "bg-amber-500"
-                        : "bg-[#2151EC]"
+                        : "bg-primary"
                   }`}
                   style={{ width: `${Math.min(pct, 100)}%` }}
                 />
@@ -361,9 +361,9 @@ export default function BudgetTree({
   const rows = renderRows(roots);
 
   return (
-    <div className="border border-gray-200 rounded-xl bg-white overflow-hidden flex flex-col">
+    <div className="border border-line rounded-xl bg-white overflow-hidden flex flex-col">
       {/* 총계 — 한 줄로 붙여 표가 차지할 높이를 남긴다 */}
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-4 py-3 border-b border-gray-200 bg-gray-50/60">
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-4 py-3 border-b border-line bg-table-header">
         <span className="flex items-center gap-2">
           <div className="w-[150px]">
             <Select
@@ -376,7 +376,7 @@ export default function BudgetTree({
                 value: String(y),
                 label: `${y}년 예산안`,
               }))}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+              className="w-full bg-white border border-line-strong rounded-lg px-3 py-1.5 text-sm"
             />
           </div>
           {yearInfo?.status === "draft" && (
@@ -388,7 +388,7 @@ export default function BudgetTree({
                 <button
                   type="button"
                   onClick={finalize}
-                  className="px-2 py-0.5 rounded-md border border-[#2151EC] bg-white text-xs font-bold text-[#2151EC] hover:bg-blue-50 cursor-pointer"
+                  className="px-2 py-0.5 rounded-md border border-primary bg-white text-xs font-bold text-primary hover:bg-primary-soft cursor-pointer"
                 >
                   확정
                 </button>
@@ -399,7 +399,7 @@ export default function BudgetTree({
             <button
               type="button"
               onClick={() => setChangeOpen(true)}
-              className="px-2 py-0.5 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+              className="px-2 py-0.5 rounded-md border border-line-strong bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
             >
               예산 변경
             </button>
@@ -408,7 +408,7 @@ export default function BudgetTree({
             <button
               type="button"
               onClick={() => setHistoryOpen(true)}
-              className="px-2 py-0.5 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+              className="px-2 py-0.5 rounded-md border border-line-strong bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
             >
               변경 내역 <span className="font-mono tabular-nums">{yearChanges.length}</span>
             </button>
@@ -420,12 +420,12 @@ export default function BudgetTree({
         <Stat
           label="잔액"
           value={total.planned - total.spent}
-          tone="text-[#2151EC]"
+          tone="text-primary"
         />
       </div>
 
       {/* 검색 · 걸러보기 */}
-      <div className="flex flex-col sm:flex-row gap-2 px-4 py-3 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row gap-2 px-4 py-3 border-b border-line">
         <div className="relative flex-1">
           <Search
             size={15}
@@ -443,7 +443,7 @@ export default function BudgetTree({
               type="button"
               onClick={() => setQuery("")}
               aria-label="검색 지우기"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-heading cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -456,7 +456,7 @@ export default function BudgetTree({
           className={`px-3.5 py-2 text-sm rounded-lg border transition cursor-pointer whitespace-nowrap ${
             warnOnly
               ? "border-amber-400 bg-amber-50 text-amber-800 font-bold"
-              : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+              : "border-line-strong bg-white text-gray-600 hover:bg-gray-50"
           }`}
         >
           {WARN_AT}% 이상만
@@ -470,7 +470,7 @@ export default function BudgetTree({
           type="button"
           onClick={() => setExpanded(allOpen ? new Set() : new Set(allIds))}
           disabled={filtering}
-          className="px-3.5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-3.5 py-2 text-sm font-medium bg-white border border-line-strong rounded-lg text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           {allOpen ? "전체 접기" : "전체 펴기"}
         </button>
@@ -510,7 +510,7 @@ export default function BudgetTree({
         </table>
       </div>
 
-      <p className="px-4 py-2.5 border-t border-gray-200 bg-gray-50/60 text-xs text-gray-500">
+      <p className="px-4 py-2.5 border-t border-line bg-table-header text-xs text-muted">
         확정지출은 승인·지급완료 건의 합입니다. 처리대기는 잔액에서 빼지 않고 따로
         보여줍니다. 상위 항목의 숫자는 하위 항목을 모두 더한 값입니다.
       </p>
@@ -529,14 +529,14 @@ export default function BudgetTree({
         >
           <div className="space-y-4">
             {/* 요약 — 다른 상세 팝업과 같은 회색 띠 */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+            <div className="bg-table-header border border-line rounded-lg px-4 py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <p className="min-w-0 text-sm font-bold text-gray-900">
-                  <span className="mr-1.5 text-xs font-medium text-gray-500">
+                <p className="min-w-0 text-sm font-bold text-heading">
+                  <span className="mr-1.5 text-xs font-medium text-muted">
                     {fiscalYear}년
                   </span>
                   {detail.node.code && (
-                    <span className="mr-1.5 font-mono text-[#2151EC]">
+                    <span className="mr-1.5 font-mono text-primary">
                       {detail.node.code}
                     </span>
                   )}
@@ -546,7 +546,7 @@ export default function BudgetTree({
                   {detailLines.length}건 ·{" "}
                   <b
                     className={`text-lg tabular-nums ${
-                      detail.kind === "spent" ? "text-[#2151EC]" : "text-amber-600"
+                      detail.kind === "spent" ? "text-primary" : "text-amber-600"
                     }`}
                   >
                     {formatWon(detailSum)}
@@ -577,7 +577,7 @@ export default function BudgetTree({
                   : "해당하는 청구가 없습니다."}
               </p>
             ) : (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="border border-table-line rounded-lg overflow-hidden">
                 <div className="max-h-[clamp(220px,48vh,480px)] overflow-auto">
                   <table className="w-full min-w-[640px] border-collapse text-sm">
                     <thead>
@@ -597,21 +597,21 @@ export default function BudgetTree({
                         return (
                           <tr
                             key={i.id}
-                            className="border-b border-gray-100 last:border-0 hover:bg-blue-50/40 align-top"
+                            className="border-b border-table-line last:border-0 hover:bg-primary-wash/40 align-top"
                           >
-                            <td className="py-2.5 pl-4 pr-3 font-mono text-[12px] tabular-nums text-gray-500 whitespace-nowrap">
+                            <td className="py-2.5 pl-4 pr-3 font-mono text-[12px] tabular-nums text-muted whitespace-nowrap">
                               {r.request_date}
                             </td>
                             <td className="py-2.5 px-3 whitespace-nowrap text-gray-800">
                               {r.requester?.full_name ?? "-"}
                             </td>
                             <td className="py-2.5 px-3">
-                              <p className="text-gray-900">{i.item_name}</p>
+                              <p className="text-heading">{i.item_name}</p>
                               {i.purpose && (
                                 <p className="mt-0.5 text-xs text-gray-400">{i.purpose}</p>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-xs text-gray-500 whitespace-nowrap">
+                            <td className="py-2.5 px-3 text-xs text-muted whitespace-nowrap">
                               {i.budget_item ? (
                                 <>
                                   <span className="mr-1 font-mono text-gray-400">
@@ -624,7 +624,7 @@ export default function BudgetTree({
                               )}
                             </td>
                             <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                              <span className="font-mono tabular-nums font-semibold text-gray-900">
+                              <span className="font-mono tabular-nums font-semibold text-heading">
                                 {formatWon(amt)}
                               </span>
                               {adjusted && detail.kind === "spent" && (
@@ -675,7 +675,7 @@ export default function BudgetTree({
             </button>
           }
         >
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-table-line rounded-lg overflow-hidden">
             <div className="max-h-[clamp(220px,50vh,480px)] overflow-auto">
               <table className="w-full min-w-[620px] border-collapse text-sm">
                 <thead>
@@ -688,8 +688,8 @@ export default function BudgetTree({
                 </thead>
                 <tbody>
                   {yearChanges.map((c) => (
-                    <tr key={c.id} className="border-b border-gray-100 last:border-0 align-top">
-                      <td className="py-2.5 pl-4 pr-3 font-mono text-[12px] text-gray-500 whitespace-nowrap">
+                    <tr key={c.id} className="border-b border-table-line last:border-0 align-top">
+                      <td className="py-2.5 pl-4 pr-3 font-mono text-[12px] text-muted whitespace-nowrap">
                         {c.changed_on}
                       </td>
                       <td className="py-2.5 px-3 whitespace-nowrap">
@@ -698,16 +698,16 @@ export default function BudgetTree({
                         </span>
                       </td>
                       <td className="py-2.5 px-3">
-                        <p className="text-gray-900">
+                        <p className="text-heading">
                           {c.kind === "transfer"
                             ? `${itemName(c.from_item_id)} → ${itemName(c.to_item_id)}`
                             : itemName(c.to_item_id)}
                         </p>
-                        <p className="mt-0.5 text-xs text-gray-500">{c.memo}</p>
+                        <p className="mt-0.5 text-xs text-muted">{c.memo}</p>
                       </td>
                       <td
                         className={`py-2.5 pl-3 pr-4 text-right font-mono tabular-nums whitespace-nowrap ${
-                          c.kind === "revise" && c.amount < 0 ? "text-red-600" : "text-gray-900"
+                          c.kind === "revise" && c.amount < 0 ? "text-red-600" : "text-heading"
                         }`}
                       >
                         {c.kind === "revise" ? (c.amount > 0 ? "+" : "−") : ""}
@@ -729,14 +729,14 @@ export default function BudgetTree({
 const Stat = ({
   label,
   value,
-  tone = "text-gray-900",
+  tone = "text-heading",
 }: {
   label: string;
   value: number;
   tone?: string;
 }) => (
   <span className="flex items-baseline gap-1.5">
-    <span className="text-xs text-gray-500">{label}</span>
+    <span className="text-xs text-muted">{label}</span>
     <b className={`font-mono text-[15px] tabular-nums ${tone}`}>
       {formatWon(value)}
     </b>
@@ -755,7 +755,7 @@ const DetailLink = ({
     type="button"
     onClick={onClick}
     title="세부내역 보기"
-    className="underline decoration-dotted underline-offset-2 hover:text-[#2151EC] hover:decoration-solid cursor-pointer"
+    className="underline decoration-dotted underline-offset-2 hover:text-primary hover:decoration-solid cursor-pointer"
   >
     {children}
   </button>

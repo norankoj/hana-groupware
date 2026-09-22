@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import { fmtKDate, fmtEDate } from "@/utils/messageTemplates";
 import { type AssignmentEntry } from "@/components/projects/AccommodationTab";
+import { table, td, th } from "@/components/ui/table";
 
 type Props = {
   isOpen: boolean;
@@ -87,7 +88,7 @@ function LineWithLinks({ text }: { text: string }) {
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 text-blue-600 underline underline-offset-2 hover:text-blue-800 break-all"
+            className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2 hover:text-primary-active break-all"
             onClick={(e) => e.stopPropagation()}
           >
             <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -252,16 +253,16 @@ export default function WelcomePackModal({
       <div className="welcome-pack-card relative bg-white w-full max-w-[820px] my-8 rounded-lg shadow-2xl print:shadow-none print:my-0 print:max-w-full print:rounded-none">
 
         {/* ── 모달 헤더 (print:hidden) ── */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between print:hidden">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between print:hidden">
           <h2 className="text-lg font-bold text-gray-800">환영팩 미리보기</h2>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-md border border-gray-200 overflow-hidden">
-              <button onClick={() => setLang("ko")} className={`px-2.5 py-1 text-xs font-semibold ${lang === "ko" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>한국어</button>
-              <button onClick={() => setLang("en")} className={`px-2.5 py-1 text-xs font-semibold border-l border-gray-200 ${lang === "en" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>English</button>
+            <div className="flex rounded-md border border-line overflow-hidden">
+              <button onClick={() => setLang("ko")} className={`px-2.5 py-1 text-xs font-semibold ${lang === "ko" ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>한국어</button>
+              <button onClick={() => setLang("en")} className={`px-2.5 py-1 text-xs font-semibold border-l border-line ${lang === "en" ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>English</button>
             </div>
             <button
               onClick={() => window.print()}
-              className="px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700 flex items-center gap-1.5"
+              className="px-3 py-1.5 text-sm font-semibold text-white bg-primary rounded hover:bg-primary-active flex items-center gap-1.5"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -286,14 +287,14 @@ export default function WelcomePackModal({
             <>
               {/* ── 헤더 ── */}
               <div className="mb-8">
-                <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-blue-500 mb-3">{projectName}</p>
+                <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary mb-3">{projectName}</p>
                 <div className="flex items-center gap-2 group">
-                  <h1 className="text-[28px] font-bold text-gray-900 leading-tight mb-1">
+                  <h1 className="text-[28px] font-bold text-heading leading-tight mb-1">
                     {t("welcome")}, {familyLabel} {lang === "ko" ? "선생님" : ""}
                   </h1>
                   <button
                     onClick={() => setEditPopup("header")}
-                    className="print:hidden mb-1 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-blue-500 transition p-1 rounded"
+                    className="print:hidden mb-1 opacity-0 group-hover:opacity-100 text-disabled-text hover:text-primary transition p-1 rounded"
                     title="이름 수정"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -301,11 +302,11 @@ export default function WelcomePackModal({
                     </svg>
                   </button>
                 </div>
-                <div className="mt-3 space-y-0.5 text-[14px] text-gray-500 leading-relaxed">
+                <div className="mt-3 space-y-0.5 text-[14px] text-muted leading-relaxed">
                   <p>{t("welcomeSub")}</p>
                   <p>{t("welcomeSub2")}</p>
                 </div>
-                <div className="mt-5 border-t border-gray-200" />
+                <div className="mt-5 border-t border-line" />
               </div>
 
               {/* ── 도착 / 출국 ── */}
@@ -362,7 +363,7 @@ export default function WelcomePackModal({
                   return (
                     <div key={a.id} className="mb-5 last:mb-0">
                       <p className="text-[14px] font-bold text-gray-800 mb-2">
-                        <span className="text-blue-400 mr-1">{idx + 1}.</span> {a.provider_name}
+                        <span className="text-primary/60 mr-1">{idx + 1}.</span> {a.provider_name}
                       </p>
                       <div className="ml-3 space-y-1 text-[13px] text-gray-600">
                         {periods.length > 0 && (
@@ -393,13 +394,13 @@ export default function WelcomePackModal({
                     )}
                     <p className="text-[14px] font-semibold text-gray-700 mb-2">차량배치 일정</p>
                     <div className="mb-3 overflow-x-auto">
-                      <table className="w-full border-collapse text-[14px]">
+                      <table className={`${table} w-full`}>
                         <thead>
-                          <tr className="bg-gray-50">
-                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">기간</th>
-                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">차량 / 제공자</th>
-                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">보험사</th>
-                            <th className="border border-gray-200 px-3 py-2 text-left text-gray-500 font-medium whitespace-nowrap">보험사 연락처</th>
+                          <tr>
+                            <th className={`${th} text-left font-medium whitespace-nowrap`}>기간</th>
+                            <th className={`${th} text-left font-medium whitespace-nowrap`}>차량 / 제공자</th>
+                            <th className={`${th} text-left font-medium whitespace-nowrap`}>보험사</th>
+                            <th className={`${th} text-left font-medium whitespace-nowrap`}>보험사 연락처</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -407,23 +408,23 @@ export default function WelcomePackModal({
                             .flatMap((v) => myAssigns(v).map((p) => ({ p, v })))
                             .sort((a, b) => (a.p.from ?? "").localeCompare(b.p.from ?? ""))
                             .map(({ p, v }, i) => (
-                              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                                <td className="border border-gray-200 px-3 py-2 whitespace-nowrap font-medium text-gray-800">
+                              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-table-header"}>
+                                <td className={`${td} whitespace-nowrap font-medium`}>
                                   {fmtShort(p.from)} ~ {fmtShort(p.to)}
                                 </td>
-                                <td className="border border-gray-200 px-3 py-2">
+                                <td className={`${td}`}>
                                   <span className="font-semibold text-gray-800">{v.provider_name}</span>
                                   {v.car_model && (
-                                    <span className="text-gray-500 ml-1">
+                                    <span className="text-muted ml-1">
                                       ({v.car_model}{v.car_number ? ` · ${v.car_number}` : ""})
                                     </span>
                                   )}
                                 </td>
-                                <td className="border border-gray-200 px-3 py-2 text-gray-700">
-                                  {v.insurance_company || <span className="text-gray-300">—</span>}
+                                <td className={`${td}`}>
+                                  {v.insurance_company || <span className="text-disabled-text">—</span>}
                                 </td>
-                                <td className="border border-gray-200 px-3 py-2 text-gray-700">
-                                  {v.insurance_number || <span className="text-gray-300">—</span>}
+                                <td className={`${td}`}>
+                                  {v.insurance_number || <span className="text-disabled-text">—</span>}
                                 </td>
                               </tr>
                             ))
@@ -450,7 +451,7 @@ export default function WelcomePackModal({
                     <div className="space-y-2">
                       {inStay.map((s) => (
                         <div key={s.id} className="flex items-baseline gap-3 text-[13px]">
-                          <span className="shrink-0 text-gray-500 w-28">{fmt(s.event_date)}</span>
+                          <span className="shrink-0 text-muted w-28">{fmt(s.event_date)}</span>
                           <span>
                             {s.start_time && <span className="text-gray-400 mr-1.5">{s.start_time.slice(0, 5)}</span>}
                             <span className="font-semibold text-gray-800">{s.title}</span>
@@ -483,7 +484,7 @@ export default function WelcomePackModal({
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={`자동: ${autoFamilyLabel}`}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                className="w-full text-sm border border-line-strong rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:outline-none"
               />
               <p className="text-xs text-gray-400 mt-1.5">예: 김영숙 · 김민준 &nbsp;/&nbsp; 홍길동 가정</p>
             </div>
@@ -509,7 +510,7 @@ export default function WelcomePackModal({
                   onChange={(e) => setAccomNotes((prev) => ({ ...prev, [a.id]: e.target.value }))}
                   rows={4}
                   placeholder={"호텔이라 취식이 불가합니다. (전자렌지 비치 X)\n세탁실은 B2에 위치해있습니다.\n입실시 수건/세탁바구니는 저희가 비치해두겠습니다."}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                  className="w-full text-sm border border-line-strong rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
             ))}
@@ -531,7 +532,7 @@ export default function WelcomePackModal({
                 value={vehicleIntro}
                 onChange={(e) => setVehicleIntro(e.target.value)}
                 rows={3}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                className="w-full text-sm border border-line-strong rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
             <div>
@@ -541,7 +542,7 @@ export default function WelcomePackModal({
                 onChange={(e) => setVehicleNote(e.target.value)}
                 rows={5}
                 placeholder={"교회모닝은 엘로라호텔에 배치\n→ 반납은 6/14일 17시에 교회로 해주시면 됩니다.\n아반떼 15일 교육관 주차장에 비치\n→ 반납은 7/8일 교육관 주차장에 해주시면 됩니다.\n렌트카는 추후 말씀드리도록 하겠습니다."}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                className="w-full text-sm border border-line-strong rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
           </EditPopup>
@@ -630,7 +631,7 @@ function EditPopup({
     >
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         {/* 팝업 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line-soft">
           <div>
             <h3 className="font-bold text-gray-800 text-sm">{title}</h3>
             {hint && <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>}
@@ -649,7 +650,7 @@ function EditPopup({
           {children}
         </div>
         {/* 팝업 푸터 */}
-        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+        <div className="px-5 py-3 border-t border-line-soft flex items-center justify-end gap-2">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-semibold text-gray-600 rounded-lg hover:bg-gray-100 transition"
@@ -659,7 +660,7 @@ function EditPopup({
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
+            className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition disabled:opacity-60"
           >
             {saving ? "저장 중..." : "저장"}
           </button>
@@ -681,13 +682,13 @@ function DocSection({
     <div className="wp-section mb-7">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-[3px] h-4 bg-blue-500 rounded-full shrink-0" />
+          <div className="w-[3px] h-4 bg-primary rounded-full shrink-0" />
           <h3 className="text-[13px] font-bold text-gray-700 tracking-wide">{title}</h3>
         </div>
         {onEdit && (
           <button
             onClick={onEdit}
-            className="print:hidden flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 px-1.5 py-0.5 rounded hover:bg-blue-50 transition"
+            className="print:hidden flex items-center gap-1 text-xs text-gray-400 hover:text-primary px-1.5 py-0.5 rounded hover:bg-primary-soft transition"
             title="특이사항 편집"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -697,7 +698,7 @@ function DocSection({
           </button>
         )}
       </div>
-      <div className="ml-[11px] pl-4 border-l border-gray-100">
+      <div className="ml-[11px] pl-4 border-l border-line-soft">
         {children}
       </div>
     </div>
@@ -706,8 +707,8 @@ function DocSection({
 
 function InfoBox({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-50 rounded-lg p-3.5 border border-gray-100">
-      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-2.5">{label}</div>
+    <div className="bg-table-header rounded-lg p-3.5 border border-line-soft">
+      <div className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mb-2.5">{label}</div>
       <div className="space-y-2">{children}</div>
     </div>
   );

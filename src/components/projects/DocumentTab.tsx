@@ -18,7 +18,7 @@ type Doc = {
 };
 
 const DOC_TYPES: Record<string, { label: string; color: string }> = {
-  accommodation_guide: { label: "숙소 안내문", color: "bg-blue-100 text-blue-700" },
+  accommodation_guide: { label: "숙소 안내문", color: "bg-primary-soft text-primary-active" },
   vehicle_guide:       { label: "차량 안내문", color: "bg-green-100 text-green-700" },
   insurance:           { label: "보험 서류",   color: "bg-orange-100 text-orange-700" },
   general:             { label: "일반",         color: "bg-gray-100 text-gray-600" },
@@ -91,11 +91,11 @@ export default function DocumentTab({ projectId, myUserId, isMember, isAdmin }: 
               { value: "all", label: "전체" },
               ...Object.entries(DOC_TYPES).map(([k, v]) => ({ value: k, label: v.label })),
             ]}
-            className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+            className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
           />
         </div>
         {isAdmin && (
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active transition">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             문서 추가
           </button>
@@ -109,16 +109,16 @@ export default function DocumentTab({ projectId, myUserId, isMember, isAdmin }: 
           {filtered.map((d) => {
             const type = DOC_TYPES[d.doc_type] ?? DOC_TYPES.general;
             return (
-              <div key={d.id} className={`bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center gap-4 hover:shadow-sm transition ${isMember ? "cursor-pointer" : ""}`} onClick={() => isMember && openEdit(d)}>
+              <div key={d.id} className={`bg-white rounded-xl border border-line px-5 py-4 flex items-center gap-4 hover:shadow-sm transition ${isMember ? "cursor-pointer" : ""}`} onClick={() => isMember && openEdit(d)}>
                 <div className="shrink-0">
-                  <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-8 h-8 text-disabled-text" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${type.color}`}>{type.label}</span>
-                    <span className="font-medium text-gray-900 truncate">{d.title}</span>
+                    <span className="font-medium text-heading truncate">{d.title}</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">최종 수정: {new Date(d.updated_at).toLocaleDateString("ko-KR")}</p>
                 </div>
@@ -141,7 +141,7 @@ export default function DocumentTab({ projectId, myUserId, isMember, isAdmin }: 
         footer={
           <>
             <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
               {saving ? "저장 중..." : "저장"}
             </button>
           </>
@@ -152,7 +152,7 @@ export default function DocumentTab({ projectId, myUserId, isMember, isAdmin }: 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">제목 *</label>
               <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">문서 유형</label>
@@ -160,7 +160,7 @@ export default function DocumentTab({ projectId, myUserId, isMember, isAdmin }: 
                 value={form.doc_type}
                 onChange={(v) => setForm({ ...form, doc_type: v })}
                 options={Object.entries(DOC_TYPES).map(([k, v]) => ({ value: k, label: v.label }))}
-                className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg text-sm"
+                className="w-full py-2 px-3 bg-white border border-line-strong rounded-lg text-sm"
               />
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function DocumentTab({ projectId, myUserId, isMember, isAdmin }: 
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               rows={14}
               placeholder="안내문 내용을 작성하세요..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono leading-relaxed"
+              className="w-full border border-line-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none font-mono leading-relaxed"
             />
           </div>
         </div>

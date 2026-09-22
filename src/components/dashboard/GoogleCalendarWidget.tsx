@@ -160,7 +160,7 @@ function FullCalendarModal({
           selectedDate ? (
             <div className="flex items-center gap-2">
               {isToday(selectedDate) && (
-                <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">TODAY</span>
+                <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">TODAY</span>
               )}
               <span>{format(selectedDate, "M월 d일 (EEE)", { locale: ko })}</span>
               <span className="text-xs text-gray-400 font-normal">({selectedDayEvents.length}건)</span>
@@ -170,7 +170,7 @@ function FullCalendarModal({
         footer={
           <button
             onClick={() => setSelectedDate(null)}
-            className="py-2 px-5 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm text-sm"
+            className="py-2 px-5 rounded-lg font-bold bg-primary text-white hover:bg-primary-active transition shadow-sm text-sm"
           >
             닫기
           </button>
@@ -191,7 +191,7 @@ function FullCalendarModal({
                   <div className="flex items-start gap-2 mb-2">
                     <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cs.dot }} />
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 text-sm leading-snug">{ev.title}</p>
+                      <p className="font-bold text-heading text-sm leading-snug">{ev.title}</p>
                       <span
                         className="inline-block text-[10px] px-1.5 py-0.5 rounded font-semibold mt-1"
                         style={{ backgroundColor: cs.badgeBg, color: cs.badgeText }}
@@ -200,14 +200,14 @@ function FullCalendarModal({
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 ml-5">
+                  <div className="flex items-center gap-2 text-xs text-muted ml-5">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                     </svg>
                     <span>{timeLabel}</span>
                   </div>
                   {ev.location && (
-                    <div className="flex items-start gap-2 text-xs text-gray-500 mt-1.5 ml-5">
+                    <div className="flex items-start gap-2 text-xs text-muted mt-1.5 ml-5">
                       <svg className="shrink-0 mt-px" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
                       </svg>
@@ -215,7 +215,7 @@ function FullCalendarModal({
                     </div>
                   )}
                   {ev.description && (
-                    <div className="mt-2 ml-5 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-wrap leading-relaxed border border-gray-100">
+                    <div className="mt-2 ml-5 text-xs text-muted bg-table-header rounded-lg px-3 py-2 whitespace-pre-wrap leading-relaxed border border-line-soft">
                       {ev.description}
                     </div>
                   )}
@@ -237,7 +237,7 @@ function FullCalendarModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* ── 모달 헤더 ── */}
-          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 sm:py-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
+          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 sm:py-4 border-b border-line-soft bg-table-header shrink-0">
             {/* 모바일: 닫기 왼쪽 */}
             <button
               onClick={onClose}
@@ -254,14 +254,14 @@ function FullCalendarModal({
             <div className="flex items-center gap-1 flex-1 sm:flex-none justify-center sm:justify-start">
               <button
                 onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 text-lg font-bold"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-muted text-lg font-bold"
               >‹</button>
               <span className="text-sm font-bold text-gray-700 w-28 text-center whitespace-nowrap">
                 {format(currentMonth, "yyyy년 M월", { locale: ko })}
               </span>
               <button
                 onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 text-lg font-bold"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-muted text-lg font-bold"
               >›</button>
             </div>
 
@@ -269,7 +269,7 @@ function FullCalendarModal({
             <div className="flex items-center gap-2 ml-auto shrink-0">
               <button
                 onClick={() => setCurrentMonth(startOfMonth(today))}
-                className="px-2.5 sm:px-3 py-1.5 text-xs font-bold bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition border border-blue-100"
+                className="px-2.5 sm:px-3 py-1.5 text-xs font-bold bg-primary-wash text-primary rounded-lg hover:bg-primary-soft transition border border-primary-soft"
               >오늘</button>
               <button
                 onClick={onClose}
@@ -285,7 +285,7 @@ function FullCalendarModal({
               {DAY_LABELS.map((d, i) => (
                 <div
                   key={d}
-                  className={`text-center text-[11px] sm:text-xs font-bold py-1.5 sm:py-2 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-500"}`}
+                  className={`text-center text-[11px] sm:text-xs font-bold py-1.5 sm:py-2 ${i === 0 ? "text-red-500" : i === 6 ? "text-primary" : "text-muted"}`}
                 >
                   {d}
                 </div>
@@ -296,7 +296,7 @@ function FullCalendarModal({
             <div className="grid grid-cols-7 gap-px sm:gap-0.5">
               {weeks.flat().map((day, idx) => {
                 if (!day) return (
-                  <div key={`empty-${idx}`} className="h-[56px] sm:h-[100px] bg-gray-50/30" />
+                  <div key={`empty-${idx}`} className="h-[56px] sm:h-[100px] bg-table-header" />
                 );
                 const dateStr = format(day, "yyyy-MM-dd");
                 const dayEvents = (eventsByDay[dateStr] ?? []).sort((a, b) => {
@@ -321,10 +321,10 @@ function FullCalendarModal({
                     onClick={() => setSelectedDate(day)}
                     className={`h-[56px] sm:h-[100px] overflow-hidden rounded sm:rounded-lg p-0.5 sm:p-1 flex flex-col border transition-colors cursor-pointer active:opacity-70 ${
                       isCurrentDay
-                        ? "bg-blue-50 border-blue-200"
+                        ? "bg-primary-wash border-primary-soft"
                         : isCurrentMonth
-                          ? "bg-white border-gray-100 hover:bg-gray-50"
-                          : "bg-gray-50/40 border-gray-50 hover:bg-gray-100/50"
+                          ? "bg-white border-line-soft hover:bg-gray-50"
+                          : "bg-table-header border-gray-50 hover:bg-gray-100/50"
                     }`}
                   >
                     {/* 날짜 숫자 */}
@@ -332,11 +332,11 @@ function FullCalendarModal({
                       <span
                         className={`text-[11px] sm:text-sm font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full ${
                           isCurrentDay
-                            ? "bg-blue-500 text-white"
+                            ? "bg-primary text-white"
                             : isSun || !isCurrentMonth
                               ? "text-red-400"
                               : isSat
-                                ? "text-blue-500"
+                                ? "text-primary"
                                 : "text-gray-700"
                         }`}
                       >
@@ -409,12 +409,12 @@ function FullCalendarModal({
           </div>
 
           {/* ── 범례 ── */}
-          <div className="px-3 sm:px-5 py-2 sm:py-3 border-t border-gray-100 bg-gray-50/30 shrink-0">
+          <div className="px-3 sm:px-5 py-2 sm:py-3 border-t border-line-soft bg-table-header shrink-0">
             <div className="flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1">
               {Object.entries(CALENDAR_NAME_STYLE).map(([name, cs]) => (
                 <div key={name} className="flex items-center gap-1 sm:gap-1.5">
                   <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0" style={{ backgroundColor: cs.dot }} />
-                  <span className="text-[10px] sm:text-[11px] text-gray-500 font-medium">{name}</span>
+                  <span className="text-[10px] sm:text-[11px] text-muted font-medium">{name}</span>
                 </div>
               ))}
             </div>
@@ -566,7 +566,7 @@ export default function GoogleCalendarWidget({
         footer={
           <button
             onClick={() => setSelectedEvent(null)}
-            className="py-2 px-5 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm text-sm"
+            className="py-2 px-5 rounded-lg font-bold bg-primary text-white hover:bg-primary-active transition shadow-sm text-sm"
           >
             닫기
           </button>
@@ -577,11 +577,11 @@ export default function GoogleCalendarWidget({
           const dateLabel = getDateLabel(selectedEvent);
           return (
             <div className="space-y-5 pt-2">
-              <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3 pb-4 border-b border-line-soft">
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cs.dot }} />
                 <div>
-                  <h3 className="text-xl font-extrabold text-gray-900">{selectedEvent.title}</h3>
-                  <p className="text-sm text-gray-500 font-medium mt-1">{selectedEvent.calendarName}</p>
+                  <h3 className="text-xl font-extrabold text-heading">{selectedEvent.title}</h3>
+                  <p className="text-sm text-muted font-medium mt-1">{selectedEvent.calendarName}</p>
                 </div>
               </div>
               <div className="space-y-4">
@@ -596,7 +596,7 @@ export default function GoogleCalendarWidget({
                   </div>
                 )}
                 {selectedEvent.description && (
-                  <div className="flex items-start gap-4 border-t border-gray-100 pt-4">
+                  <div className="flex items-start gap-4 border-t border-line-soft pt-4">
                     <span className="text-sm font-bold text-gray-600 w-12 shrink-0 pt-0.5">메모</span>
                     <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedEvent.description}</p>
                   </div>
@@ -616,7 +616,7 @@ export default function GoogleCalendarWidget({
       )}
 
       {/* ── 위젯 본체 ── */}
-      <div className={`bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col w-full ${className ?? ""}`}>
+      <div className={`bg-white rounded-2xl border border-line overflow-hidden flex flex-col w-full ${className ?? ""}`}>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
           <div className="flex items-center gap-2">
@@ -632,7 +632,7 @@ export default function GoogleCalendarWidget({
               <button
                 onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                 disabled={!canGoPrev}
-                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed text-gray-500 text-base font-bold"
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed text-muted text-base font-bold"
               >‹</button>
               <span className="text-sm font-bold text-gray-700 w-12 text-center">
                 {format(currentMonth, "M월", { locale: ko })}
@@ -640,11 +640,11 @@ export default function GoogleCalendarWidget({
               <button
                 onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                 disabled={!canGoNext}
-                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed text-gray-500 text-base font-bold"
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed text-muted text-base font-bold"
               >›</button>
             </div>
             {updatedAt && (
-              <span className="text-[10px] text-gray-300">
+              <span className="text-[10px] text-disabled-text">
                 {format(parseISO(updatedAt), "HH:mm")} 기준
               </span>
             )}
@@ -685,16 +685,16 @@ export default function GoogleCalendarWidget({
                   ref={isCurrentDay ? todayRef : null}
                   className={[
                     "px-5 py-3 transition-colors",
-                    isCurrentDay ? "bg-blue-50" : "",
+                    isCurrentDay ? "bg-primary-wash" : "",
                   ].join(" ")}
                 >
                   {/* 날짜 헤더 */}
                   <p className={`text-xs font-bold mb-1.5 flex items-center gap-1.5 ${
-                    isCurrentDay ? "text-blue-600" : "text-gray-500"
+                    isCurrentDay ? "text-primary" : "text-muted"
                   }`}>
                     {format(day, "d일 (E)", { locale: ko })}
                     {isCurrentDay && (
-                      <span className="bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">
+                      <span className="bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">
                         TODAY
                       </span>
                     )}
@@ -702,7 +702,7 @@ export default function GoogleCalendarWidget({
 
                   {/* 이벤트 or 일정없음 */}
                   {dayEvents.length === 0 ? (
-                    <p className="text-[11px] text-gray-300 pl-1">일정 없음</p>
+                    <p className="text-[11px] text-disabled-text pl-1">일정 없음</p>
                   ) : (
                     <div className="space-y-1.5">
                       {[...dayEvents]
@@ -724,7 +724,7 @@ export default function GoogleCalendarWidget({
                                 style={{ backgroundColor: cs.dot }}
                               />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate leading-tight text-gray-800 group-hover:text-blue-600 transition-colors">
+                                <p className="text-sm font-medium truncate leading-tight text-gray-800 group-hover:text-primary transition-colors">
                                   {ev.title}
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
