@@ -911,7 +911,7 @@ export default function ExpenseApprove({
               원
             </>
           ) : (
-            "골라서 한꺼번에 승인"
+            "선택 후 한번에 승인"
           )}
         </span>
         <button
