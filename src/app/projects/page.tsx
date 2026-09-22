@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
+import { btnStyles } from "@/components/fund/shared";
 
 type Project = {
   id: string;
@@ -242,10 +243,10 @@ export default function ProjectsPage() {
         title="새 프로젝트 만들기"
         footer={
           <>
-            <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition">취소</button>
-            <button onClick={handleCreate} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50 transition">
+            <button onClick={handleCreate} disabled={saving} className={btnStyles.save}>
               {saving ? "저장 중..." : "만들기"}
             </button>
+            <button onClick={() => setShowCreateModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >

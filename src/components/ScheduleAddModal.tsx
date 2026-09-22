@@ -270,15 +270,15 @@ export default function ScheduleAddModal({
         title={isEditMode ? "사역 일정 수정" : "새로운 사역 일정 추가"}
         footer={
           <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
-            <button onClick={handleClose} className={btnStyles.cancel}>
-              취소
-            </button>
             <button
               onClick={handleSubmit}
               disabled={loading}
               className={btnStyles.save}
             >
               {loading ? (isEditMode ? "수정 중..." : "등록 중...") : isEditMode ? "수정 완료" : "일정 등록"}
+            </button>
+            <button onClick={handleClose} className={btnStyles.cancel}>
+              취소
             </button>
           </div>
         }

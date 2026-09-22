@@ -106,7 +106,7 @@ export default function ExpenseDetailModal({
       className="sm:max-w-[680px]"
       footer={
         // 청구 취소(되돌릴 수 없음)는 옅은 빨강으로 왼쪽, 닫기는 오른쪽
-        <div className="flex gap-2 w-full">
+        <div className="flex gap-2 w-full sm:justify-end">
           {canCancel && (
             <button
               onClick={() => onCancel!(request)}
@@ -117,7 +117,7 @@ export default function ExpenseDetailModal({
           )}
           <button
             onClick={onClose}
-            className={`${btnStyles.cancel} ${canCancel ? "" : "sm:ml-auto"}`}
+            className={btnStyles.cancel}
           >
             닫기
           </button>

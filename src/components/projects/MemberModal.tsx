@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
+import { btnStyles } from "@/components/fund/shared";
 
 type Props = { projectId: string; onClose: () => void };
 
@@ -69,7 +70,7 @@ export default function MemberModal({ projectId, onClose }: Props) {
       onClose={onClose}
       title="담당자 관리"
       className="sm:max-w-[500px]"
-      footer={<button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">닫기</button>}
+      footer={<button onClick={onClose} className={btnStyles.cancel}>닫기</button>}
     >
       {loading ? (
         <div className="text-center py-6 text-gray-400">로딩 중...</div>

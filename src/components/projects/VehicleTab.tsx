@@ -26,6 +26,7 @@ import {
 } from "@/utils/projectUtils";
 import { type AssignmentEntry } from "@/components/projects/AccommodationTab";
 import { table, td, tdWide, th, thWide, trHover } from "@/components/ui/table";
+import { btnStyles } from "@/components/fund/shared";
 
 type Props = { projectId: string; myUserId: string; isMember: boolean; isAdmin: boolean };
 
@@ -1023,7 +1024,7 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
       {/* ── 상세 보기 모달 ── */}
       {detailItem && (
         <Modal isOpen={showDetail} onClose={() => setShowDetail(false)} title="차량 상세 정보" className="sm:max-w-[550px]"
-          footer={isMember ? <button onClick={() => openEdit(detailItem)} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active">수정하기</button> : null}
+          footer={isMember ? <button onClick={() => openEdit(detailItem)} className={btnStyles.save}>수정하기</button> : null}
         >
           {(() => {
             const v = detailItem;
@@ -1262,8 +1263,8 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={selected ? "차량 정보 수정" : "차량 등록"} className="sm:max-w-[600px]"
         footer={
           <>
-            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">{saving ? "저장 중..." : "저장"}</button>
+            <button onClick={handleSave} disabled={saving} className={btnStyles.save}>{saving ? "저장 중..." : "저장"}</button>
+            <button onClick={() => setShowModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >
@@ -1437,10 +1438,10 @@ export default function VehicleTab({ projectId, isMember, isAdmin }: Props) {
         className="sm:max-w-[500px]"
         footer={
           <>
-            <button onClick={() => setShowPickModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSavePick} disabled={savingPick || !pickVehicleId} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
+            <button onClick={handleSavePick} disabled={savingPick || !pickVehicleId} className={btnStyles.save}>
               {savingPick ? "배정 중..." : "배정하기"}
             </button>
+            <button onClick={() => setShowPickModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >

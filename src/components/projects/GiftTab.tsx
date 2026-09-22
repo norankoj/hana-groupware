@@ -7,6 +7,7 @@ import Select from "@/components/Select";
 import Modal from "@/components/Modal";
 import * as XLSX from "xlsx";
 import { table, td, th, trHover } from "@/components/ui/table";
+import { btnStyles } from "@/components/fund/shared";
 
 type Props = { projectId: string; myUserId: string; isMember: boolean; isAdmin: boolean };
 
@@ -572,10 +573,10 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
         className="sm:max-w-[480px]"
         footer={
           <>
-            <button onClick={() => setShowItemModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSaveItem} disabled={savingItem} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
+            <button onClick={handleSaveItem} disabled={savingItem} className={btnStyles.save}>
               {savingItem ? "저장 중..." : "저장"}
             </button>
+            <button onClick={() => setShowItemModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >
@@ -649,10 +650,10 @@ export default function GiftTab({ projectId, isMember, isAdmin }: Props) {
         className="sm:max-w-[400px]"
         footer={
           <>
-            <button onClick={() => setShowAssignModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSaveAssign} disabled={savingAssign} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
+            <button onClick={handleSaveAssign} disabled={savingAssign} className={btnStyles.save}>
               {savingAssign ? "저장 중..." : "저장"}
             </button>
+            <button onClick={() => setShowAssignModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >

@@ -473,15 +473,15 @@ export default function ExpenseRequestModal({
               <span className="ml-0.5 text-sm font-medium text-gray-400">원</span>
             </p>
           </div>
-          <button onClick={onClose} className={btnStyles.cancel}>
-            닫기
-          </button>
           <button
             onClick={handleSubmit}
             disabled={saving || shrinking > 0}
             className={btnStyles.save}
           >
             {saving ? "접수 중..." : shrinking > 0 ? "사진 줄이는 중..." : "청구하기"}
+          </button>
+          <button onClick={onClose} className={btnStyles.cancel}>
+            닫기
           </button>
         </div>
       }

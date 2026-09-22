@@ -1443,7 +1443,7 @@ export default function VehicleReservationPage() {
             setEditingLogId(null);
             setIsReserveModalOpen(true);
           }}
-          className="flex items-center gap-2 bg-primary hover:bg-primary text-white px-4 py-2.5 rounded-lg font-bold text-sm transition shadow-sm"
+          className={`${btnStyles.cta} px-4 py-2.5 text-sm`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

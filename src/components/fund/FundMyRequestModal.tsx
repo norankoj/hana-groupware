@@ -32,7 +32,7 @@ export default function FundMyRequestModal({
       title="펀드 사용 내역"
       footer={
         // 신청 취소(되돌릴 수 없음)는 옅은 빨강으로 왼쪽, 닫기는 오른쪽
-        <div className="flex gap-2 w-full">
+        <div className="flex gap-2 w-full sm:justify-end">
           {canCancel && request && (
             <button
               onClick={() => onCancel(request)}
@@ -43,7 +43,7 @@ export default function FundMyRequestModal({
           )}
           <button
             onClick={onClose}
-            className={`${btnStyles.cancel} ${canCancel ? "" : "sm:ml-auto"}`}
+            className={btnStyles.cancel}
           >
             닫기
           </button>

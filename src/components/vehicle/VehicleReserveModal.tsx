@@ -295,9 +295,6 @@ export default function VehicleReserveModal({
       footer={
         // 공용 버튼 — 취소 왼쪽, 주 동작(예약하기) 오른쪽. 다른 팝업과 같은 순서
         <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
-          <button onClick={onClose} className={btnStyles.cancel}>
-            취소
-          </button>
           <button
             onClick={async () => {
               if (reserveType === "recurring") {
@@ -327,6 +324,9 @@ export default function VehicleReserveModal({
               </svg>
             )}
             {recurringSubmitting ? "처리 중..." : isReserving ? "저장 중..." : "예약하기"}
+          </button>
+          <button onClick={onClose} className={btnStyles.cancel}>
+            취소
           </button>
         </div>
       }

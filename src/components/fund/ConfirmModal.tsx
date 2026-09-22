@@ -57,15 +57,15 @@ export default function ConfirmModal({
       size="sm"
       footer={
         <>
-          <button onClick={onClose} className={btnStyles.cancel}>
-            닫기
-          </button>
           <button
             onClick={handleConfirm}
             disabled={busy}
             className={danger ? btnStyles.delete : btnStyles.save}
           >
             {busy ? "처리 중..." : confirmText}
+          </button>
+          <button onClick={onClose} className={btnStyles.cancel}>
+            닫기
           </button>
         </>
       }

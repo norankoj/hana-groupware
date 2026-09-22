@@ -189,15 +189,15 @@ export default function FundRequestModal({
       title="펀드 사용 신청"
       footer={
         <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
-          <button onClick={onClose} className={btnStyles.cancel}>
-            닫기
-          </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
             className={btnStyles.save}
           >
             {saving ? "접수 중..." : "신청하기"}
+          </button>
+          <button onClick={onClose} className={btnStyles.cancel}>
+            닫기
           </button>
         </div>
       }

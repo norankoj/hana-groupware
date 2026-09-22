@@ -313,9 +313,6 @@ export default function MaintenanceModal({
       title={`정비 이력 — ${vehicle?.name ?? ""}`}
       footer={
         <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
-          <button onClick={handleClose} className={btnStyles.cancel}>
-            닫기
-          </button>
           {!showForm && !editingId && (
             <button
               onClick={() => setShowForm(true)}
@@ -323,7 +320,9 @@ export default function MaintenanceModal({
             >
               + 정비 추가
             </button>
-          )}
+          )}<button onClick={handleClose} className={btnStyles.cancel}>
+            닫기
+          </button>
         </div>
       }
     >

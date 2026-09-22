@@ -688,12 +688,6 @@ export default function NoticePage() {
               </button>
               <div className="ml-auto flex gap-2">
                 <button
-                  onClick={() => setIsWriteOpen(false)}
-                  className={btnStyles.cancel}
-                >
-                  취소
-                </button>
-                <button
                   onClick={handleSave}
                   disabled={!form.title.trim() || saving || uploadingFiles}
                   className={btnStyles.save}
@@ -705,6 +699,12 @@ export default function NoticePage() {
                     : editTarget
                       ? "수정 완료"
                       : "등록"}
+                </button>
+                <button
+                  onClick={() => setIsWriteOpen(false)}
+                  className={btnStyles.cancel}
+                >
+                  취소
                 </button>
               </div>
             </div>

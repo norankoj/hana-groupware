@@ -49,23 +49,23 @@ export default function ScheduleDetailModal({
     setConfirming(false);
   };
 
-  // 공용 버튼. 삭제는 옅은 빨강으로 왼쪽에 따로 두고, 닫기(중립) · 수정(주 동작) 순.
+  // 공용 버튼. 삭제는 옅은 빨강으로 왼쪽에 따로 두고, 오른쪽은 수정 · 닫기 순 (닫기가 맨 끝).
   // 예전엔 '닫기'가 파란 주 버튼이라 눈이 엉뚱한 곳으로 갔다.
   const footer = confirming ? (
     <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
-      <button
-        onClick={() => setConfirming(false)}
-        disabled={deleting}
-        className={btnStyles.cancel}
-      >
-        취소
-      </button>
       <button
         onClick={handleConfirmDelete}
         disabled={deleting}
         className={btnStyles.delete}
       >
         {deleting ? "삭제 중..." : "정말 삭제"}
+      </button>
+      <button
+        onClick={() => setConfirming(false)}
+        disabled={deleting}
+        className={btnStyles.cancel}
+      >
+        취소
       </button>
     </div>
   ) : canManage ? (
@@ -76,11 +76,11 @@ export default function ScheduleDetailModal({
       >
         삭제
       </button>
-      <button onClick={onClose} className={btnStyles.cancel}>
-        닫기
-      </button>
       <button onClick={() => onEdit?.(event)} className={btnStyles.save}>
         수정
+      </button>
+      <button onClick={onClose} className={btnStyles.cancel}>
+        닫기
       </button>
     </div>
   ) : (

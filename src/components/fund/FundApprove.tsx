@@ -341,8 +341,8 @@ export default function FundApprove({ requests, onRefresh }: Props) {
           title="펀드 사용 신청"
           className="sm:max-w-[640px]"
           footer={
-            // 반려(되돌리기 어려움)는 옅은 빨강으로 왼쪽, 닫기 · 주 동작은 오른쪽
-            <div className="flex gap-2 w-full">
+            // 반려(되돌리기 어려움)는 옅은 빨강으로 왼쪽, 오른쪽은 주 동작 · 닫기(맨 끝)
+            <div className="flex gap-2 w-full sm:justify-end">
               {detail.status === "pending" && (
                 <button
                   onClick={() => setRejectTarget(detail)}
@@ -352,12 +352,6 @@ export default function FundApprove({ requests, onRefresh }: Props) {
                   반려
                 </button>
               )}
-              <button
-                onClick={() => setDetailId(null)}
-                className={`${btnStyles.cancel} ${detail.status === "pending" ? "" : "sm:ml-auto"}`}
-              >
-                닫기
-              </button>
               {detail.status === "pending" && (
                 <button
                   onClick={() => setCompleteTarget(detail)}
@@ -366,7 +360,12 @@ export default function FundApprove({ requests, onRefresh }: Props) {
                 >
                   이체 완료
                 </button>
-              )}
+              )}<button
+                onClick={() => setDetailId(null)}
+                className={btnStyles.cancel}
+              >
+                닫기
+              </button>
             </div>
           }
         >

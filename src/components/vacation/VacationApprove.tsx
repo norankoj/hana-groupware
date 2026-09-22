@@ -149,10 +149,10 @@ const ProxyModal = memo(function ProxyModal({
         className="min-h-[580px]"
         footer={
           <div className="flex gap-2 w-full justify-end">
-            <button onClick={onClose} className={btnStyles.cancel}>취소</button>
             <button onClick={handleProxySubmit} disabled={proxySaving} className={btnStyles.save}>
               {proxySaving ? "처리 중..." : "승인 완료로 저장"}
             </button>
+            <button onClick={onClose} className={btnStyles.cancel}>취소</button>
           </div>
         }
       >
@@ -620,18 +620,18 @@ export default function VacationApprove({
         onClose={() => setIsDetailModalOpen(false)}
         title={selectedRequest?.status === "pending" ? "결재 처리" : "상세 내용"}
         footer={
-          <div className="flex gap-2 w-full">
+          <div className="flex gap-2 w-full sm:justify-end">
             {selectedRequest?.status === "pending" && user?.is_approver && selectedRequest.user_id !== user.id ? (
               !isRejectMode ? (
                 <>
                   <button onClick={() => setIsRejectMode(true)} className={`${btnStyles.dangerSoft} sm:mr-auto`}>반려</button>
-                  <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
                   <button onClick={() => handleProcess(true)} className={btnStyles.save}>승인</button>
+                  <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => { setIsRejectMode(false); setRejectReason(""); }} className={`${btnStyles.cancel} sm:ml-auto`}>취소</button>
                   <button onClick={() => handleProcess(false)} className={btnStyles.delete}>반려 확정</button>
+                  <button onClick={() => { setIsRejectMode(false); setRejectReason(""); }} className={btnStyles.cancel}>취소</button>
                 </>
               )
             ) : selectedRequest?.status === "approved" && user?.is_approver ? (
@@ -640,7 +640,7 @@ export default function VacationApprove({
                 <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
               </>
             ) : (
-              <button onClick={() => setIsDetailModalOpen(false)} className={`${btnStyles.cancel} sm:ml-auto`}>닫기</button>
+              <button onClick={() => setIsDetailModalOpen(false)} className={btnStyles.cancel}>닫기</button>
             )}
           </div>
         }

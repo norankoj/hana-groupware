@@ -10,6 +10,7 @@ import AuditLogModal from "@/components/projects/AuditLogModal";
 import * as XLSX from "xlsx";
 import { logAudit } from "@/utils/auditLog";
 import { table, td, th } from "@/components/ui/table";
+import { btnStyles } from "@/components/fund/shared";
 import {
   type DatePeriod,
   checkMultiPeriodCoverage,
@@ -1022,10 +1023,10 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
         className="sm:max-w-[480px]"
         footer={
           <>
-            <button onClick={() => setShowFamilyModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleFamilySave} disabled={savingFamily} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
+            <button onClick={handleFamilySave} disabled={savingFamily} className={btnStyles.save}>
               {savingFamily ? "저장 중..." : "저장"}
             </button>
+            <button onClick={() => setShowFamilyModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >
@@ -1073,7 +1074,7 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
           className="sm:max-w-[600px]"
           footer={
             isMember ? (
-              <button onClick={() => openEdit(detailM)} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active">
+              <button onClick={() => openEdit(detailM)} className={btnStyles.save}>
                 수정하기
               </button>
             ) : null
@@ -1277,10 +1278,10 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
         className="sm:max-w-[720px]"
         footer={
           <>
-            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving} className={btnStyles.save}>
               {saving ? "저장 중..." : "저장"}
             </button>
+            <button onClick={() => setShowModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >

@@ -2230,6 +2230,9 @@ export default function DetailModal({
             </div>
           </div>
           <div className="flex gap-2 sm:justify-end">
+            <button onClick={handleExtend} className={btnStyles.save}>
+              연장
+            </button>
             <button
               onClick={() => {
                 setShowExtendForm(false);
@@ -2238,9 +2241,6 @@ export default function DetailModal({
               className={btnStyles.cancel}
             >
               취소
-            </button>
-            <button onClick={handleExtend} className={btnStyles.save}>
-              연장
             </button>
           </div>
         </div>
@@ -2254,7 +2254,7 @@ export default function DetailModal({
       )}
 
       {/* ─── 버튼 영역 — 공용 버튼 크기 (모바일은 꽉 차게, PC 는 오른쪽 정렬) ───
-          되돌리기 어려운 동작(취소·삭제)은 왼쪽, 주 동작은 맨 오른쪽 */}
+          되돌리기 어려운 동작(취소·삭제)은 왼쪽, 오른쪽은 주 동작 · 닫기(맨 끝) */}
       <div className="flex gap-2 w-full sm:justify-end">
         {/* 관리자 삭제 버튼 — 운행중·반납완료 상태 */}
         {isAdmin &&
@@ -2278,14 +2278,6 @@ export default function DetailModal({
           </button>
         )}
 
-        {/* 닫기 — 운행중·반납 상태에서 제출 버튼과 함께 */}
-        {(!isMyTurn ||
-          selectedLog?.vehicle_status === "returned" ||
-          selectedLog?.vehicle_status === "noshow") && (
-          <button onClick={onClose} className={btnStyles.cancel}>
-            닫기
-          </button>
-        )}
 
         {/* 본인 또는 관리자 — 노쇼 복구 */}
         {(isAdmin || selectedLog?.user_id === currentUser) &&
@@ -2330,6 +2322,15 @@ export default function DetailModal({
               : actionType === "checkin"
                 ? "운행 시작"
                 : "반납 완료"}
+          </button>
+        )}
+
+        {/* 닫기 — 맨 끝(오른쪽). 운행중·반납 상태에서 제출 버튼과 함께 */}
+        {(!isMyTurn ||
+          selectedLog?.vehicle_status === "returned" ||
+          selectedLog?.vehicle_status === "noshow") && (
+          <button onClick={onClose} className={btnStyles.cancel}>
+            닫기
           </button>
         )}
       </div>

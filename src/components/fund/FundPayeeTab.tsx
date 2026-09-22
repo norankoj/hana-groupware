@@ -359,17 +359,17 @@ export default function FundPayeeTab({
         footer={
           <>
             <button
-              onClick={() => setEditing(null)}
-              className={btnStyles.cancel}
-            >
-              닫기
-            </button>
-            <button
               onClick={handleSave}
               disabled={saving}
               className={btnStyles.save}
             >
               {saving ? "저장 중..." : "저장"}
+            </button>
+            <button
+              onClick={() => setEditing(null)}
+              className={btnStyles.cancel}
+            >
+              닫기
             </button>
           </>
         }

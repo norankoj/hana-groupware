@@ -61,15 +61,15 @@ export default function FundCorrectModal({
       title="내역 정정"
       footer={
         <>
-          <button onClick={onClose} className={btnStyles.cancel}>
-            닫기
-          </button>
           <button
             onClick={handleConfirm}
             disabled={busy}
             className={btnStyles.delete}
           >
             {busy ? "처리 중..." : mode === "fix" ? "금액 고치기" : "취소 처리"}
+          </button>
+          <button onClick={onClose} className={btnStyles.cancel}>
+            닫기
           </button>
         </>
       }

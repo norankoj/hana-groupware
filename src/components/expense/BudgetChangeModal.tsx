@@ -98,15 +98,15 @@ export default function BudgetChangeModal({
         title={`${fiscalYear}년 예산 변경`}
         footer={
           <div className="flex gap-2 w-full sm:w-auto sm:justify-end">
-            <button onClick={onClose} className={btnStyles.cancel}>
-              닫기
-            </button>
             <button
               onClick={save}
               disabled={busy}
               className={`${btnStyles.save} sm:min-w-[80px]`}
             >
               {busy ? "기록 중..." : "기록"}
+            </button>
+            <button onClick={onClose} className={btnStyles.cancel}>
+              닫기
             </button>
           </div>
         }

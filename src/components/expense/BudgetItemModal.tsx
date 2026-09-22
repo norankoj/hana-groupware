@@ -298,16 +298,15 @@ export default function BudgetItemModal({
             )}
           </div>
           <div className="flex gap-2 order-3 shrink-0">
-            <button onClick={onClose} className={btnStyles.cancel}>
-              닫기
-            </button>
-            {/* btnStyles.cancel 에만 최소 너비가 있어 그대로 두면 두 버튼 크기가 어긋난다 */}
             <button
               onClick={() => confirm()}
               disabled={!selectedId}
-              className={`${btnStyles.save} sm:min-w-[80px]`}
+              className={btnStyles.save}
             >
               {hideWithdraw ? "고르기" : "배정"}
+            </button>
+            <button onClick={onClose} className={btnStyles.cancel}>
+              닫기
             </button>
           </div>
         </div>

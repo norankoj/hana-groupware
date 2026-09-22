@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import Select from "@/components/Select";
 import Modal from "@/components/Modal";
+import { btnStyles } from "@/components/fund/shared";
 
 type Props = { projectId: string; myUserId: string; isMember: boolean; isAdmin: boolean };
 
@@ -140,10 +141,10 @@ export default function DocumentTab({ projectId, myUserId, isMember, isAdmin }: 
         bodyClassName="p-6"
         footer={
           <>
-            <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
-            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-active disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving} className={btnStyles.save}>
               {saving ? "저장 중..." : "저장"}
             </button>
+            <button onClick={() => setShowModal(false)} className={btnStyles.cancel}>취소</button>
           </>
         }
       >

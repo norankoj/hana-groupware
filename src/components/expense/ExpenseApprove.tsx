@@ -866,13 +866,6 @@ export default function ExpenseApprove({
                         {req.status === "paying" && (
                           <>
                             <button
-                              onClick={() => undoPaying(req)}
-                              disabled={busy}
-                              className={btnStyles.cancel}
-                            >
-                              승인됨으로 되돌리기
-                            </button>
-                            <button
                               onClick={() => {
                                 setPayDate(todayString());
                                 setPayTarget(req);
@@ -881,6 +874,13 @@ export default function ExpenseApprove({
                               className={btnStyles.save}
                             >
                               지급완료 기록
+                            </button>
+                            <button
+                              onClick={() => undoPaying(req)}
+                              disabled={busy}
+                              className={btnStyles.cancel}
+                            >
+                              승인됨으로 되돌리기
                             </button>
                           </>
                         )}
@@ -1354,8 +1354,8 @@ export default function ExpenseApprove({
           title={detailReq.title}
           className="sm:max-w-[680px]"
           footer={
-            // 반려(되돌리기 어려움)는 옅은 빨강으로 왼쪽, 닫기 · 주 동작은 오른쪽
-            <div className="flex gap-2 w-full">
+            // 반려(되돌리기 어려움)는 옅은 빨강으로 왼쪽, 오른쪽은 주 동작 · 닫기(맨 끝)
+            <div className="flex gap-2 w-full sm:justify-end">
               {detailReq.status === "pending" && (
                 <button
                   onClick={() => {
@@ -1393,14 +1393,6 @@ export default function ExpenseApprove({
                   승인됨으로 되돌리기
                 </button>
               )}
-              <button
-                onClick={() => setDetailId(null)}
-                className={`${btnStyles.cancel} ${
-                  ["pending", "approved", "paying"].includes(detailReq.status) ? "" : "sm:ml-auto"
-                }`}
-              >
-                닫기
-              </button>
               {detailReq.status === "paid" && (detailReq.items ?? [])[0] && (
                 <button
                   onClick={() => openAdjust((detailReq.items ?? [])[0])}
@@ -1420,7 +1412,12 @@ export default function ExpenseApprove({
                 >
                   승인
                 </button>
-              )}
+              )}<button
+                onClick={() => setDetailId(null)}
+                className={btnStyles.cancel}
+              >
+                닫기
+              </button>
             </div>
           }
         >

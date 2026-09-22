@@ -1655,16 +1655,16 @@ export default function FacilityReservationPage() {
                 </div>
                 <div className="flex gap-2 pt-2 border-t border-line-soft sm:justify-end">
                   <button
-                    onClick={() => setDetailEditMode(false)}
-                    className={btnStyles.cancel}
-                  >
-                    취소
-                  </button>
-                  <button
                     onClick={handleEditSave}
                     className={btnStyles.save}
                   >
                     저장
+                  </button>
+                  <button
+                    onClick={() => setDetailEditMode(false)}
+                    className={btnStyles.cancel}
+                  >
+                    취소
                   </button>
                 </div>
               </div>
@@ -1729,12 +1729,6 @@ export default function FacilityReservationPage() {
                     </div>
                   )}
                   <div className="flex gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => { setDetailRsv(null); setDetailEditMode(false); }}
-                      className={btnStyles.cancel}
-                    >
-                      닫기
-                    </button>
                     {(detailRsv.user_id === currentUser || isAdmin) && (
                       <button
                         onClick={() => {
@@ -1747,7 +1741,12 @@ export default function FacilityReservationPage() {
                       >
                         예약 수정
                       </button>
-                    )}
+                    )}<button
+                      onClick={() => { setDetailRsv(null); setDetailEditMode(false); }}
+                      className={btnStyles.cancel}
+                    >
+                      닫기
+                    </button>
                   </div>
                 </div>
               </>
