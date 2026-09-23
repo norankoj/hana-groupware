@@ -16,7 +16,9 @@
       "PowerShell(Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass)",
       "PowerShell(node \"C:\\\\dev\\\\hana-groupware\\\\node_modules\\\\typescript\\\\bin\\\\tsc\" --noEmit --project \"C:\\\\dev\\\\hana-groupware\\\\tsconfig.json\" 2>&1)",
       "Bash(node \"/c/dev/hana-groupware/node_modules/typescript/bin/tsc\" --noEmit --project \"/c/dev/hana-groupware/tsconfig.json\")",
-      "Bash(/c/dev/hana-groupware/node_modules/.bin/tsc --noEmit -p /c/dev/hana-groupware/tsconfig.json)"
+      "Bash(/c/dev/hana-groupware/node_modules/.bin/tsc --noEmit -p /c/dev/hana-groupware/tsconfig.json)",
+      "Bash(cd /c/dev/hana-groupware && grep -rn \"reminder_at\\\\|reminder_sent\" src supabase scripts worker 2>/dev/null)",
+      "Bash(cd /c/Users/suwonhanaweb/.claude/projects/C--dev-hana-groupware/memory && grep -n -A40 \"reservations\" project_schema.md | head -80)"
     ]
   }
 }

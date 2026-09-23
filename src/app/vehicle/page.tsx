@@ -569,6 +569,8 @@ export default function VehicleReservationPage() {
           reservationId: editingLogId,
           updates: {
             ...updatePayload,
+            // 시간 변경 시 반납 알림이 다시 나가도록 초기화
+            reminder_sent: false,
             driver_user_id: form.driver_user_id || null,
           },
         }),
@@ -2011,7 +2013,7 @@ export default function VehicleReservationPage() {
                     )}
                   </div>
                   <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-line shadow-sm">
-                    <div className="p-3 border-b border-line bg-table-header flex gap-2 items-center shrink-0">
+                    <div className="p-3 border-b border-line bg-white flex gap-2 items-center shrink-0">
                       <div className="w-32 shrink-0">
                         <Select
                           value={statusFilter}
