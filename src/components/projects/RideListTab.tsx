@@ -11,6 +11,7 @@ import "react-calendar/dist/Calendar.css";
 import "@/styles/calendar.css";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { ArrowDown, ArrowUp } from "lucide-react";
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
@@ -770,7 +771,7 @@ export default function RideListTab({ projectId, isMember, isAdmin }: Props) {
             onClick={() => setSortDesc((d) => !d)}
             className="flex items-center gap-1 p-2.5 border border-line-strong rounded-lg text-sm bg-white text-gray-600 hover:bg-gray-50 font-bold hover:border-primary transition-colors"
           >
-            날짜 {sortDesc ? "↓" : "↑"}
+            날짜 {sortDesc ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
           </button>
         </div>
         <div className="flex gap-2 shrink-0">

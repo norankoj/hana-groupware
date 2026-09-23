@@ -9,6 +9,7 @@ import Modal from "@/components/Modal";
 import Select from "@/components/Select";
 import ConfirmModal from "./ConfirmModal";
 import { table, td, th, thead } from "@/components/ui/table";
+import SortTh from "@/components/ui/SortTh";
 import {
   PAYEE_KIND_LABEL,
   btnStyles,
@@ -263,7 +264,7 @@ export default function FundPayeeTab({
             <table className={`${table} w-full min-w-[720px]`}>
               <thead className={thead}>
                 <tr>
-                  <SortHeader
+                  <SortTh
                     label="이름"
                     active={sortKey === "name"}
                     dir={sortDir}
@@ -271,7 +272,7 @@ export default function FundPayeeTab({
                   />
                   <th className={`${th} text-left font-bold`}>구분</th>
                   <th className={`${th} text-left font-bold`}>계정 연결</th>
-                  <SortHeader
+                  <SortTh
                     label="현재 잔액"
                     align="right"
                     active={sortKey === "balance"}
@@ -470,40 +471,6 @@ const Label = ({ children }: { children: React.ReactNode }) => (
   </label>
 );
 
-const SortHeader = ({
-  label,
-  active,
-  dir,
-  onClick,
-  align = "left",
-}: {
-  label: string;
-  active: boolean;
-  dir: "asc" | "desc";
-  onClick: () => void;
-  align?: "left" | "right";
-}) => (
-  <th
-    className={`px-4 py-3 font-bold ${align === "right" ? "text-right" : "text-left"}`}
-  >
-    <button
-      type="button"
-      onClick={onClick}
-      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
-      className={`inline-flex items-center gap-1 cursor-pointer transition hover:text-gray-800 ${
-        active ? "text-heading" : ""
-      }`}
-    >
-      {label}
-      <span
-        aria-hidden="true"
-        className={`text-[10px] leading-none ${active ? "text-primary" : "text-disabled-text"}`}
-      >
-        {active ? (dir === "asc" ? "▲" : "▼") : "▲"}
-      </span>
-    </button>
-  </th>
-);
 
 const CountCell = ({
   label,

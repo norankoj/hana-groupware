@@ -11,6 +11,7 @@ import * as XLSX from "xlsx";
 import { logAudit } from "@/utils/auditLog";
 import { table, td, th } from "@/components/ui/table";
 import { btnStyles } from "@/components/fund/shared";
+import SortTh from "@/components/ui/SortTh";
 import {
   type DatePeriod,
   checkMultiPeriodCoverage,
@@ -816,19 +817,15 @@ export default function MissionaryTab({ projectId, isMember, isAdmin }: Props) {
                   const keys = ["name", "affiliation", "country", "arrival_date", "departure_date"] as const;
                   const key = keys[i];
                   const hidden = ["", "hidden sm:table-cell", "hidden md:table-cell", "hidden lg:table-cell", "hidden lg:table-cell"][i];
-                  const active = sortKey === key;
                   return (
-                    <th key={key}
+                    <SortTh
+                      key={key}
+                      label={label}
+                      active={sortKey === key}
+                      dir={sortDir}
                       onClick={() => handleSort(key)}
-                      className={`${th} text-left cursor-pointer select-none hover:text-primary ${hidden}`}
-                    >
-                      <span className="flex items-center gap-1">
-                        {label}
-                        <span className={`text-xs ${active ? "text-primary" : "text-disabled-text"}`}>
-                          {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-                        </span>
-                      </span>
-                    </th>
+                      className={hidden}
+                    />
                   );
                 })}
                 <th className={`${th} text-center font-semibold`}>숙소</th>

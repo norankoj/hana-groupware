@@ -351,6 +351,8 @@ export default function ExpenseApprove({
     exportExpenseLines(
       toExportLines(shown, majorLabels(options)),
       `지출결의_${label}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      // 이체할 때 통장별로 처리하므로 출금계좌 코드로 묶어 정렬한다
+      { groupByWithdraw: true },
     );
   };
 
@@ -979,6 +981,8 @@ export default function ExpenseApprove({
             onClick={() => {
               setFilter(f.key);
               setPicked(new Set());
+              // 지급완료는 이체일자별로 묶어 보는 카드가 편하다 (나머지는 표)
+              setView(f.key === "paid" ? "card" : "table");
             }}
             className={`px-3.5 py-1.5 text-sm rounded-lg border transition cursor-pointer ${
               filter === f.key

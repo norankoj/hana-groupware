@@ -1,5 +1,6 @@
 // src/components/expense/exportExcel.ts
-// 청구 줄을 엑셀로 내려준다. 요청 리스트와 전체 내역이 같은 양식을 쓴다.
+// 청구 줄을 엑셀로 내려준다. 요청 리스트와 전체 내역이 같은 열(양식)을 쓰고,
+// 줄 순서만 다르다 — 요청 리스트는 출금계좌 코드로 묶고, 전체 내역은 화면 순서 그대로.
 //
 // 셀 색·테두리는 xlsx(SheetJS 무료판)로 쓸 수 없어 스타일 쓰기를 더한
 // 포크인 xlsx-js-style 을 쓴다. API는 같다.
@@ -104,12 +105,45 @@ const GENERAL_COLS: {
   { head: "용도/비고", width: 22, align: "left", value: (l) => l.item.purpose ?? "" },
   { head: "대항목", width: 16, value: (l) => (l.major === UNASSIGNED ? "" : l.major) },
   { head: "비목코드", width: 9, value: (l) => l.item.budget_item?.code ?? "" },
+  // 출금계좌 코드(A~P) — 이 줄을 어느 통장에서 빼는지. 정렬 기준 1순위이기도 하다
+  { head: "출금계좌", width: 9, value: (l) => l.item.withdraw_code ?? "" },
   { head: "비목", width: 22, align: "left", value: (l) => l.item.budget_item?.name ?? "" },
   { head: "상태", width: 9, value: (l) => STATUS_LABEL[l.request.status] },
   { head: "이체일자", width: 11, value: (l) => l.request.paid_at ?? "" },
 ];
 
-export function exportExpenseLines(lines: ExportLine[], fileName: string) {
+/**
+ * 엑셀 줄 순서 — 출금계좌 코드(A, B, C …)로 묶고 그 안에서 청구일자 오름차순.
+ * 통장별로 모여 있어야 이체할 때 한 통장씩 처리할 수 있다.
+ * 출금계좌가 아직 없는 줄(비목 미배정)은 맨 뒤로 보낸다.
+ */
+const forExcel = (lines: ExportLine[]) =>
+  [...lines].sort((a, b) => {
+    const ca = a.item.withdraw_code ?? "";
+    const cb = b.item.withdraw_code ?? "";
+    if (ca !== cb) {
+      if (!ca) return 1;
+      if (!cb) return -1;
+      return ca.localeCompare(cb);
+    }
+    const da = (a.request.request_date ?? "").localeCompare(
+      b.request.request_date ?? "",
+    );
+    if (da !== 0) return da;
+    // 같은 날이면 청구서 안의 줄 순서대로
+    return a.item.sort_order - b.item.sort_order;
+  });
+
+export function exportExpenseLines(
+  rows: ExportLine[],
+  fileName: string,
+  /**
+   * 출금계좌 코드로 묶어 정렬한다 — 요청 리스트(이체 준비)에서만 쓴다.
+   * 전체 내역은 화면에서 정렬·검색한 그대로 내려받는 게 자연스러워 기본은 끈다.
+   */
+  opts: { groupByWithdraw?: boolean } = {},
+) {
+  const lines = opts.groupByWithdraw ? forExcel(rows) : rows;
   const body = lines.map((l) => GENERAL_COLS.map((c) => c.value(l)));
 
   // 합계 — 청구금액 · 최종지급액 칸 아래에 맞춘다

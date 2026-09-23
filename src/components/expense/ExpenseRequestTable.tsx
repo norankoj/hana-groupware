@@ -8,15 +8,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsUpDown,
-  Paperclip,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Paperclip } from "lucide-react";
 import Select from "@/components/Select";
+import SortTh from "@/components/ui/SortTh";
 import { collectReceipts } from "./ReceiptViewer";
 import {
   STATUS_LABEL,
@@ -54,56 +48,6 @@ const PAGE_SIZES = [10, 30, 50, 100];
 // 머리칸에 테두리를 직접 준다 — border-collapse 로는 스크롤 중에 사라진다
 const TH =
   "px-2.5 py-2.5 text-[13px] font-bold text-heading tracking-[0.2px] whitespace-nowrap bg-table-header border-b border-table-line";
-const ALIGN = {
-  left: "text-left",
-  center: "text-center",
-  right: "text-right",
-} as const;
-
-/** 눌러서 정렬하는 머리칸 */
-function SortTh({
-  label,
-  keyName,
-  align = "left",
-  sort,
-  asc,
-  onSort,
-}: {
-  label: string;
-  keyName: SortKey;
-  align?: keyof typeof ALIGN;
-  sort: SortKey;
-  asc: boolean;
-  onSort: (k: SortKey) => void;
-}) {
-  const on = sort === keyName;
-  return (
-    <th
-      scope="col"
-      aria-sort={on ? (asc ? "ascending" : "descending") : "none"}
-      className={`${TH} ${ALIGN[align]}`}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(keyName)}
-        className={`inline-flex items-center gap-1 hover:text-heading cursor-pointer ${
-          align === "right" ? "flex-row-reverse" : ""
-        } ${on ? "text-primary" : ""}`}
-      >
-        {label}
-        {on ? (
-          asc ? (
-            <ArrowUp size={12} />
-          ) : (
-            <ArrowDown size={12} />
-          )
-        ) : (
-          <ChevronsUpDown size={12} className="text-disabled-text" />
-        )}
-      </button>
-    </th>
-  );
-}
 
 /** 한 청구의 품명 — 여러 줄이면 첫 줄 + 외 n건 */
 const itemNameOf = (req: ExpenseRequest) => {
@@ -199,7 +143,12 @@ export default function ExpenseRequestTable({
 
   // 기본은 넉넉하게 — 한 줄을 눌러 여는 표라 누를 자리가 커야 한다
   const pad = dense ? "py-2" : "py-3.5";
-  const sortProps = { sort, asc, onSort: sortBy };
+  // 머리칸 하나에 넘길 것 — 켜졌는지 · 방향 · 누르면 무엇
+  const sortProps = (key: SortKey) => ({
+    active: sort === key,
+    dir: (asc ? "asc" : "desc") as "asc" | "desc",
+    onClick: () => sortBy(key),
+  });
 
   return (
     <div className="border border-table-line bg-white rounded-xl overflow-hidden">
@@ -276,11 +225,11 @@ export default function ExpenseRequestTable({
               <th scope="col" className={`${TH} text-center`}>
                 상태
               </th>
-              <SortTh label="청구일" keyName="date" align="center" {...sortProps} />
+              <SortTh label="청구일" align="center" {...sortProps("date")} />
               <th scope="col" className={`${TH} text-center`}>
                 예산
               </th>
-              <SortTh label="신청자" keyName="requester" {...sortProps} />
+              <SortTh label="신청자" {...sortProps("requester")} />
               <th scope="col" className={`${TH} text-left`}>
                 품명
               </th>
@@ -293,7 +242,7 @@ export default function ExpenseRequestTable({
               <th scope="col" className={`${TH} text-center`}>
                 영수증
               </th>
-              <SortTh label="금액" keyName="amount" align="right" {...sortProps} />
+              <SortTh label="금액" align="right" {...sortProps("amount")} />
             </tr>
           </thead>
           <tbody>

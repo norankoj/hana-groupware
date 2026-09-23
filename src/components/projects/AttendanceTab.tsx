@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import Modal from "@/components/Modal";
 import Select from "@/components/Select";
 import { empty, table, td, th } from "@/components/ui/table";
+import SortTh from "@/components/ui/SortTh";
 
 type Props = {
   projectId: string;
@@ -259,40 +260,6 @@ function RoleBadge({
   );
 }
 
-function SortTh({
-  label,
-  colKey,
-  currentKey,
-  currentDir,
-  onSort,
-  center = false,
-}: {
-  label: string;
-  colKey: SortKey;
-  currentKey: SortKey | null;
-  currentDir: "asc" | "desc";
-  onSort: (k: SortKey) => void;
-  center?: boolean;
-}) {
-  const active = currentKey === colKey;
-  return (
-    <th
-      onClick={() => onSort(colKey)}
-      className={`px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 transition-colors bg-table-header text-muted text-xs ${center ? "text-center" : "text-left"}`}
-    >
-      <div
-        className={`flex items-center gap-0.5 ${center ? "justify-center" : ""}`}
-      >
-        <span>{label}</span>
-        <span
-          className={`text-[9px] ml-0.5 ${active ? "text-primary" : "text-disabled-text"}`}
-        >
-          {active ? (currentDir === "asc" ? "▲" : "▼") : "⇅"}
-        </span>
-      </div>
-    </th>
-  );
-}
 
 function StatCard({
   label,
@@ -358,6 +325,13 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
       setSortDir("asc");
     }
   };
+
+  // 머리칸 하나에 넘길 것 — 켜졌는지 · 방향 · 누르면 무엇
+  const sortProps = (key: SortKey) => ({
+    active: sortKey === key,
+    dir: sortDir,
+    onClick: () => handleSort(key),
+  });
 
   const updateField = async (
     id: string,
@@ -906,84 +880,49 @@ export default function AttendanceTab({ projectId, isMember, isAdmin }: Props) {
         <table className={`${table} w-full min-w-[760px]`}>
           <thead>
             <tr>
-              <th
-                onClick={() => handleSort("country")}
-                className={`${th} whitespace-nowrap cursor-pointer select-none hover:text-primary text-center w-20`}
-              >
-                <div className="flex items-center justify-center gap-0.5">
-                  <span>파송국가</span>
-                  <span
-                    className={`text-[9px] ml-0.5 ${sortKey === "country" ? "text-primary" : "text-disabled-text"}`}
-                  >
-                    {sortKey === "country"
-                      ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
-                      : "⇅"}
-                  </span>
-                </div>
-              </th>
+              <SortTh
+                label="파송국가"
+                align="center"
+                className="w-20"
+                {...sortProps("country")}
+              />
               <SortTh
                 label="이름"
-                colKey="name"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
+                {...sortProps("name")}
               />
               <SortTh
                 label="소속"
-                colKey="affiliation"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
+                {...sortProps("affiliation")}
               />
               <SortTh
                 label="수파선"
-                colKey="attend_supasun"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
-                center
+                align="center"
+                {...sortProps("attend_supasun")}
               />
               <SortTh
                 label="수양회"
-                colKey="attend_retreat"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
-                center
+                align="center"
+                {...sortProps("attend_retreat")}
               />
               <SortTh
                 label="수양회 숙박"
-                colKey="overnight_retreat"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
-                center
+                align="center"
+                {...sortProps("overnight_retreat")}
               />
               <SortTh
                 label="수양회→문막"
-                colKey="retreat_transport"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
-                center
+                align="center"
+                {...sortProps("retreat_transport")}
               />
               <SortTh
                 label="MK"
-                colKey="mk_program"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
-                center
+                align="center"
+                {...sortProps("mk_program")}
               />
               <SortTh
                 label="마프참석"
-                colKey="attend_marf"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
-                center
+                align="center"
+                {...sortProps("attend_marf")}
               />
               <th className={`${th} w-8`} />
             </tr>
