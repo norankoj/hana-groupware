@@ -1,7 +1,7 @@
 // src/app/expense/page.tsx
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useCurrentMenu } from "@/components/ClientLayout";
@@ -86,6 +86,7 @@ function ExpenseContent() {
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("mine");
+  const tabFromUrlDone = useRef(false);
 
   const fetchData = async () => {
     const {
@@ -108,11 +109,14 @@ function ExpenseContent() {
     // 예산안은 담당자·관리자만 본다 (DB에서도 RLS로 한 번 더 막는다)
     const canReadBudget = profile.is_expense_manager || profile.role === "admin";
 
-    // 알림에서 온 링크로 첫 탭을 정한다 (그 뒤로는 클릭이 이긴다)
-    const wanted = searchParams.get("tab");
+    // 알림에서 온 링크로 첫 탭을 정한다.
+    // 처음 들어올 때만 본다 — 저장 후 새로고침에서도 보면 작업 중에 탭이 튕긴다.
+    const wanted = tabFromUrlDone.current ? null : searchParams.get("tab");
     if (wanted === "approve" && profile.is_expense_manager) {
+      tabFromUrlDone.current = true;
       setActiveTab("approve");
     } else if (wanted === "budget" && canReadBudget) {
+      tabFromUrlDone.current = true;
       setActiveTab("budget");
     }
 

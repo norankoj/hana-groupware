@@ -1,7 +1,7 @@
 // src/app/fund/page.tsx
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCurrentMenu } from "@/components/ClientLayout";
@@ -45,6 +45,7 @@ function FundContent() {
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("mine");
+  const tabFromUrlDone = useRef(false);
 
   const fetchData = async () => {
     const {
@@ -64,7 +65,10 @@ function FundContent() {
     setUser(profile as FundUser);
 
     const isManager = !!profile.is_fund_manager;
-    if (searchParams.get("tab") === "approve" && isManager) {
+    // 주소의 tab= 은 처음 들어올 때만 본다.
+    // (등록 후 새로고침에서도 보면 적립등록 중에 신청리스트로 튕긴다)
+    if (!tabFromUrlDone.current && searchParams.get("tab") === "approve" && isManager) {
+      tabFromUrlDone.current = true;
       setActiveTab("approve");
     }
 

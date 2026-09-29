@@ -1,7 +1,7 @@
 // src/app/vacation/page.tsx
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCurrentMenu } from "@/components/ClientLayout";
@@ -27,6 +27,7 @@ function VacationContent() {
   const [activeTab, setActiveTab] = useState<
     "calendar" | "approve" | "history"
   >("calendar");
+  const tabFromUrlDone = useRef(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -42,8 +43,15 @@ function VacationContent() {
       .single();
     setUser(profile);
 
-    if (searchParams.get("tab") === "approve" && profile.is_approver)
+    // 주소의 tab= 은 처음 들어올 때만 (저장 후 새로고침에 탭이 튕기지 않게)
+    if (
+      !tabFromUrlDone.current &&
+      searchParams.get("tab") === "approve" &&
+      profile.is_approver
+    ) {
+      tabFromUrlDone.current = true;
       setActiveTab("approve");
+    }
 
     const { data: myData } = await supabase
       .from("vacation_requests")
