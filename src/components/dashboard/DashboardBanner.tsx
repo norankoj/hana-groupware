@@ -75,6 +75,7 @@ const ALARM_BADGE_STYLE: Record<string, string> = {
   일반: "bg-gray-100 text-muted",
   차량: "bg-green-50 text-green-700",
   시설: "bg-purple-50 text-purple-600",
+  안식관: "bg-amber-50 text-amber-700",
 };
 
 function AlarmDetailPopup({
@@ -585,7 +586,8 @@ function AlarmCard() {
           Array.isArray(r.profiles) ? r.profiles[0] : r.profiles
         ) as { full_name?: string } | null;
         const isVehicle = resource?.category === "vehicle";
-        const badge = isVehicle ? "차량" : "시설";
+        const isLodging = resource?.category === "lodging";
+        const badge = isVehicle ? "차량" : isLodging ? "안식관" : "시설";
 
         let subtitle: string | undefined;
         if (r.start_at && r.end_at) {
@@ -608,7 +610,7 @@ function AlarmCard() {
           date: r.created_at,
           href: isVehicle
             ? "/vehicle"
-            : resource?.category === "lodging"
+            : isLodging
               ? "/lodging"
               : "/reservation",
         };
@@ -674,7 +676,7 @@ function AlarmCard() {
                   className="flex items-start gap-2 min-w-0 hover:bg-gray-50 rounded-lg px-1 py-0.5 transition-colors"
                 >
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${item.badgeColor}`}
+                    className={`w-[38px] text-center text-[10px] font-bold py-0.5 rounded shrink-0 mt-0.5 ${item.badgeColor}`}
                   >
                     {item.badge}
                   </span>

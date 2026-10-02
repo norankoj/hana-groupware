@@ -26,8 +26,8 @@ import toast from "react-hot-toast";
 import { showConfirm } from "@/utils/alert";
 import { HOLIDAYS } from "@/constants/holidays";
 import Modal from "@/components/Modal";
+import Select from "@/components/Select";
 import { btnStyles } from "@/components/fund/shared";
-import { TimeSelect } from "@/components/vehicle/VehicleReserveModal";
 
 // 안식관/선교관 — resources.category = 'lodging', 예약은 reservations 를 그대로 쓴다.
 // start_at = 입실, end_at = 퇴실. 선교관은 구글 캘린더 일정도 함께 보여준다(읽기 전용).
@@ -37,6 +37,8 @@ type Room = {
   name: string;
   description: string | null; // 구분: 안식관 / 선교관
   color: string | null;
+  location: string | null; // 예: 교회 옆
+  guide_url: string | null; // 이용 안내문 (노션)
 };
 type Stay = {
   id: number | string;
@@ -79,6 +81,12 @@ const nightsOf = (s: Stay) =>
   differenceInCalendarDays(new Date(s.end_at), new Date(s.start_at));
 const isMission = (r?: Room) => r?.description === "선교관";
 
+// 시 단위 선택지 (분은 쓰지 않는다) — 공용 Select 드롭다운에 넘긴다
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => ({
+  value: `${String(h).padStart(2, "0")}:00`,
+  label: `${h < 12 ? "오전" : "오후"} ${h % 12 === 0 ? 12 : h % 12}시`,
+}));
+
 const emptyForm = (resource_id: number | null, day = new Date()): Form => ({
   resource_id,
   startDate: format(day, "yyyy-MM-dd"),
@@ -96,6 +104,7 @@ export default function LodgingPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [stays, setStays] = useState<Stay[]>([]);
   const [googleStays, setGoogleStays] = useState<Stay[]>([]);
+  const [googleFailed, setGoogleFailed] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -106,7 +115,7 @@ export default function LodgingPage() {
   const [detail, setDetail] = useState<Stay | null>(null);
   const [calView, setCalView] = useState<"timeline" | "month">("timeline");
   const [dayOpen, setDayOpen] = useState<Date | null>(null);
-  const [rangeOpen, setRangeOpen] = useState(false);
+  const [calOpen, setCalOpen] = useState<"start" | "end" | null>(null);
 
   const missionRoom = rooms.find((r) => isMission(r));
 
@@ -148,7 +157,7 @@ export default function LodgingPage() {
       }
       const { data } = await supabase
         .from("resources")
-        .select("id, name, description, color")
+        .select("id, name, description, color, location, guide_url")
         .eq("category", "lodging")
         .eq("is_active", true)
         .order("id");
@@ -165,7 +174,10 @@ export default function LodgingPage() {
   useEffect(() => {
     if (!missionRoom) return;
     fetch("/api/calendar")
-      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then(({ events }) => {
         setGoogleStays(
           (events ?? [])
@@ -182,7 +194,8 @@ export default function LodgingPage() {
             })),
         );
       })
-      .catch(() => {});
+      // 구글을 못 불러오면 선교관 겹침 확인이 반쪽이 되므로 예약 창에 경고를 띄운다
+      .catch(() => setGoogleFailed(true));
   }, [missionRoom?.id]);
 
   const allStays = useMemo(
@@ -243,13 +256,17 @@ export default function LodgingPage() {
       reservee_phone: form.phone.trim() || null,
       purpose: form.purpose.trim() || "숙박",
     };
-    const { error } = form.id
-      ? await supabase.from("reservations").update(row).eq("id", form.id)
+    // .select() 로 실제 바뀐 줄을 받아온다 — 권한(RLS)에 막히면 에러 없이 0줄이 되기 때문
+    const { data: saved, error } = form.id
+      ? await supabase.from("reservations").update(row).eq("id", form.id).select("id")
       : await supabase
           .from("reservations")
-          .insert({ ...row, user_id: currentUser, status: "confirmed" });
+          .insert({ ...row, user_id: currentUser, status: "confirmed" })
+          .select("id");
     setSaving(false);
     if (error) return toast.error("저장 실패: " + error.message);
+    if (!saved?.length)
+      return toast.error("저장 권한이 없습니다. 예약한 본인 또는 관리자만 수정할 수 있어요.");
     toast.success(form.id ? "수정되었습니다." : "예약되었습니다!");
     setForm(null);
     setDetail(null);
@@ -327,9 +344,12 @@ export default function LodgingPage() {
     );
   };
   const roomOf = (s: Stay) => rooms.find((r) => r.id === s.resource_id);
-  // 월간 달력: 일요일 시작 6주(42칸) 고정
+  // 월간 달력: 일요일 시작 6주 고정. 숙소마다 고정된 줄(lane)에 기간 막대를 이어 그린다
   const gridStart = startOfWeek(month, { weekStartsOn: 0 });
-  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+  const weeks = Array.from({ length: 6 }, (_, w) =>
+    Array.from({ length: 7 }, (_, i) => addDays(gridStart, w * 7 + i)),
+  );
+  const WEEK_MS = 7 * 86400000;
   // 일정 상태 라벨 (그날 기준)
   const dayTag = (s: Stay, d: Date) => {
     const k = format(d, "yyyy-MM-dd");
@@ -374,7 +394,7 @@ export default function LodgingPage() {
       ) : (
         <>
           {/* ── 지금 현황 카드 ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
             {rooms.map((room) => {
               const mine = allStays.filter((s) => s.resource_id === room.id);
               const cur = mine.find(
@@ -388,15 +408,18 @@ export default function LodgingPage() {
                   onClick={() => (cur ? setDetail(cur) : setForm(emptyForm(room.id)))}
                   className="bg-white border border-line rounded-2xl p-5 cursor-pointer hover:border-primary-soft hover:shadow-md transition-all flex flex-col gap-3"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-1.5 min-w-0">
                       <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        className="w-2.5 h-2.5 rounded-full shrink-0 self-center"
                         style={{ background: color }}
                       />
-                      <h3 className="text-base font-bold text-heading truncate">
+                      <h3 className="text-base font-bold text-heading shrink-0">
                         {room.name}
                       </h3>
+                      {room.location && (
+                        <span className="text-xs text-gray-400 truncate">{room.location}</span>
+                      )}
                     </div>
                     <span
                       className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${
@@ -418,14 +441,28 @@ export default function LodgingPage() {
                   ) : (
                     <p className="text-sm text-gray-400">지금 사용하는 분이 없어요</p>
                   )}
-                  <div className="pt-3 border-t border-line-soft text-xs text-muted truncate">
-                    {next ? (
-                      <>
-                        <span className="font-bold text-gray-600">다음</span>{" "}
-                        {fmt(next.start_at)} · {guestOf(next)}
-                      </>
-                    ) : (
-                      "예정된 입실 없음"
+                  <div className="mt-auto pt-3 border-t border-line-soft flex items-center gap-2 text-xs text-muted">
+                    <span className="flex-1 min-w-0 truncate">
+                      {next ? (
+                        <>
+                          <span className="font-bold text-gray-600">다음</span>{" "}
+                          {fmt(next.start_at)} · {guestOf(next)}
+                        </>
+                      ) : (
+                        "예정된 입실 없음"
+                      )}
+                    </span>
+                    {room.guide_url && (
+                      <a
+                        href={room.guide_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="이용 안내문 열기"
+                        className="shrink-0 font-bold text-gray-400 hover:text-primary transition"
+                      >
+                        안내문 ↗
+                      </a>
                     )}
                   </div>
                 </div>
@@ -488,94 +525,120 @@ export default function LodgingPage() {
             </div>
 
             {calView === "month" ? (
-              <div className="bg-white border border-line rounded-2xl shadow-sm p-1.5 sm:p-4">
-                <div className="grid grid-cols-7 mb-0.5">
+              <div className="bg-white border border-line rounded-2xl shadow-sm overflow-hidden [--lane:10px] sm:[--lane:22px]">
+                {/* 숙소 범례 — 줄 순서와 같다 */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-4 sm:px-5 py-3 border-b border-line-soft">
+                  {rooms.map((r) => (
+                    <span key={r.id} className="flex items-center gap-1.5 text-xs">
+                      <span className="w-3 h-1.5 rounded-full" style={{ background: r.color || FALLBACK_COLOR }} />
+                      <span className="font-bold text-heading">{r.name}</span>
+                      {r.location && <span className="text-gray-400">{r.location}</span>}
+                    </span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 bg-table-header border-b border-line-soft">
                   {["일", "월", "화", "수", "목", "금", "토"].map((d, i) => (
                     <div
                       key={d}
-                      className={`text-center text-[11px] sm:text-xs font-bold py-1.5 sm:py-2 ${i === 0 ? "text-red-500" : i === 6 ? "text-primary" : "text-muted"}`}
+                      className={`text-center text-[11px] sm:text-xs font-bold py-2 ${i === 0 ? "text-red-500" : i === 6 ? "text-primary" : "text-muted"}`}
                     >
                       {d}
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-px sm:gap-0.5">
-                  {gridDays.map((day) => {
-                    const list = staysOn(day);
-                    const inMonth = isSameMonth(day, month);
-                    const dow = getDay(day);
-                    const red = dow === 0 || HOLIDAYS[format(day, "yyyy-MM-dd")];
-                    return (
-                      <div
-                        key={+day}
-                        onClick={() => setDayOpen(day)}
-                        className={`h-[64px] sm:h-[108px] overflow-hidden rounded sm:rounded-lg p-0.5 sm:p-1 flex flex-col border transition-colors cursor-pointer active:opacity-70 ${
-                          isToday(day)
-                            ? "bg-primary-wash border-primary-soft"
-                            : inMonth
-                              ? "bg-white border-line-soft hover:bg-gray-50"
-                              : "bg-table-header border-gray-50 hover:bg-gray-100/50"
-                        }`}
-                      >
-                        <div className="flex justify-end mb-0.5">
-                          <span
-                            className={`text-[11px] sm:text-sm font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full ${
-                              isToday(day)
-                                ? "bg-primary text-white"
-                                : !inMonth
-                                  ? "text-gray-300"
-                                  : red
-                                    ? "text-red-400"
-                                    : dow === 6
-                                      ? "text-primary"
-                                      : "text-gray-700"
+                {weeks.map((week) => {
+                  const w0 = +week[0];
+                  const w1 = w0 + WEEK_MS;
+                  const segs = allStays.filter(
+                    (s) => +new Date(s.start_at) < w1 && +new Date(s.end_at) > w0,
+                  );
+                  return (
+                    <div
+                      key={w0}
+                      className="relative grid grid-cols-7 border-b border-line-soft last:border-b-0"
+                      style={{ height: `calc(30px + var(--lane) * ${rooms.length} + 8px)` }}
+                    >
+                      {week.map((day) => {
+                        const inMonth = isSameMonth(day, month);
+                        const dow = getDay(day);
+                        const red = dow === 0 || HOLIDAYS[format(day, "yyyy-MM-dd")];
+                        return (
+                          <button
+                            key={+day}
+                            onClick={() => setDayOpen(day)}
+                            className={`flex items-start border-r border-line-soft last:border-r-0 text-left px-1.5 sm:px-2 pt-1 transition-colors ${
+                              inMonth ? "hover:bg-primary-wash/40" : "bg-table-header/70"
                             }`}
                           >
-                            {format(day, "d")}
-                          </span>
-                        </div>
-                        {/* 모바일: 숙소 색 점 */}
-                        <div className="sm:hidden flex flex-wrap gap-px justify-center">
-                          {list.map((s) => (
                             <span
-                              key={s.id}
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ background: roomOf(s)?.color || FALLBACK_COLOR }}
-                            />
-                          ))}
-                        </div>
-                        {/* 데스크탑: 숙소 · 이름 */}
-                        <div className="hidden sm:flex flex-col gap-0.5">
-                          {list.slice(0, 3).map((s) => {
-                            const c = roomOf(s)?.color || FALLBACK_COLOR;
-                            return (
-                              <div
-                                key={s.id}
-                                className="text-[11px] font-medium px-1.5 py-0.5 rounded truncate leading-tight"
-                                style={{ background: `${c}1f`, color: c }}
-                              >
-                                <span className="font-bold">{roomOf(s)?.name}</span>{" "}
-                                <span className="text-heading">{guestOf(s)}</span>
-                              </div>
-                            );
-                          })}
-                          {list.length > 3 && (
-                            <span className="text-[10px] text-gray-400 font-medium text-center">
-                              +{list.length - 3}건 더
+                              className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] sm:text-xs font-bold tabular-nums ${
+                                isToday(day)
+                                  ? "bg-primary text-white"
+                                  : !inMonth
+                                    ? "text-gray-300"
+                                    : red
+                                      ? "text-red-500"
+                                      : dow === 6
+                                        ? "text-primary"
+                                        : "text-gray-700"
+                              }`}
+                            >
+                              {format(day, "d")}
                             </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                          </button>
+                        );
+                      })}
+                      {/* 기간 막대 — 숙소 순서대로 줄을 고정, 입·퇴실 시각 비율로 위치 */}
+                      {segs.map((s) => {
+                        const lane = rooms.findIndex((r) => r.id === s.resource_id);
+                        const c = roomOf(s)?.color || FALLBACK_COLOR;
+                        const a = Math.max(+new Date(s.start_at), w0);
+                        const b = Math.min(+new Date(s.end_at), w1);
+                        const left = ((a - w0) / WEEK_MS) * 100;
+                        const width = Math.max(((b - a) / WEEK_MS) * 100, 2);
+                        const headCut = +new Date(s.start_at) < w0;
+                        const tailCut = +new Date(s.end_at) > w1;
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => setDetail(s)}
+                            title={`${roomOf(s)?.name} ${guestOf(s)} (${fmt(s.start_at)} ~ ${fmt(s.end_at)})`}
+                            className={`absolute flex items-center gap-1 px-1.5 overflow-hidden text-left transition hover:brightness-95 ${
+                              headCut ? "" : "rounded-l-md"
+                            } ${tailCut ? "" : "rounded-r-md"}`}
+                            style={{
+                              top: `calc(32px + var(--lane) * ${lane})`,
+                              height: "calc(var(--lane) - 3px)",
+                              left: `${left}%`,
+                              width: `${width}%`,
+                              background: `${c}26`,
+                              color: c,
+                            }}
+                          >
+                            {s.google && (
+                              <span
+                                className="hidden sm:inline shrink-0 text-[9px] font-extrabold text-white rounded px-1"
+                                style={{ background: c }}
+                              >
+                                G
+                              </span>
+                            )}
+                            <span className="hidden sm:inline text-[11px] font-bold truncate">
+                              {guestOf(s)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
             <div className="bg-white border border-line rounded-2xl overflow-x-auto shadow-sm">
               <div className="min-w-[960px]">
                 {/* 날짜 헤더 */}
                 <div className="flex border-b border-line bg-table-header">
-                  <div className="w-[110px] shrink-0 sticky left-0 z-20 bg-table-header border-r border-line px-3 py-2 text-xs font-bold text-muted flex items-center">
+                  <div className="w-[120px] shrink-0 sticky left-0 z-20 bg-table-header border-r border-line px-3 py-2 text-xs font-bold text-muted flex items-center">
                     숙소
                   </div>
                   <div className="flex-1 flex">
@@ -615,9 +678,14 @@ export default function LodgingPage() {
                   );
                   return (
                     <div key={room.id} className="flex border-b border-line-soft last:border-b-0">
-                      <div className="w-[110px] shrink-0 sticky left-0 z-20 bg-white border-r border-line px-3 flex items-center gap-2">
+                      <div className="w-[120px] shrink-0 sticky left-0 z-20 bg-white border-r border-line px-3 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                        <span className="text-sm font-bold text-heading truncate">{room.name}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-heading truncate">{room.name}</p>
+                          {room.location && (
+                            <p className="text-[11px] text-gray-400 truncate">{room.location}</p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex-1 relative h-14">
                         {/* 빈 칸 클릭 → 그날 입실로 예약 */}
@@ -650,18 +718,16 @@ export default function LodgingPage() {
                               style={{
                                 left: `${left}%`,
                                 width: `${width}%`,
-                                ...(s.google
-                                  ? {}
-                                  : { background: `${color}1f`, borderColor: color }),
+                                background: `${color}26`,
+                                color,
                               }}
-                              className={`absolute top-2 bottom-2 z-10 rounded-lg border-l-[3px] px-2 flex items-center gap-1 overflow-hidden text-left hover:shadow-md hover:z-20 transition ${
-                                s.google
-                                  ? "bg-emerald-50 border border-dashed border-emerald-400 text-emerald-800"
-                                  : "text-heading"
-                              }`}
+                              className="absolute top-2.5 bottom-2.5 z-10 rounded-lg px-2 flex items-center gap-1 overflow-hidden text-left hover:brightness-95 hover:z-20 transition"
                             >
                               {s.google && (
-                                <span className="shrink-0 text-[9px] font-extrabold bg-emerald-500 text-white rounded px-1">
+                                <span
+                                  className="shrink-0 text-[9px] font-extrabold text-white rounded px-1"
+                                  style={{ background: color }}
+                                >
                                   G
                                 </span>
                               )}
@@ -687,7 +753,12 @@ export default function LodgingPage() {
               </span>
               {missionRoom && (
                 <span className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-extrabold bg-emerald-500 text-white rounded px-1">G</span>
+                  <span
+                    className="text-[9px] font-extrabold text-white rounded px-1"
+                    style={{ background: missionRoom.color || FALLBACK_COLOR }}
+                  >
+                    G
+                  </span>
                   구글 캘린더 「{GOOGLE_CAL_NAME}」 일정
                 </span>
               )}
@@ -720,7 +791,7 @@ export default function LodgingPage() {
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       <span className="text-sm font-bold text-gray-800 truncate">{guestOf(s)}</span>
                       {s.google && (
-                        <span className="shrink-0 text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">
+                        <span className="shrink-0 text-[10px] bg-violet-50 text-violet-600 px-1.5 py-0.5 rounded font-bold">
                           구글캘린더
                         </span>
                       )}
@@ -812,7 +883,7 @@ export default function LodgingPage() {
                       {tag}
                     </span>
                     {s.google && (
-                      <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">
+                      <span className="text-[10px] bg-violet-50 text-violet-600 px-1.5 py-0.5 rounded font-bold">
                         구글캘린더
                       </span>
                     )}
@@ -845,7 +916,12 @@ export default function LodgingPage() {
             </div>
             <div className="space-y-3 text-sm">
               {[
-                ["숙소", rooms.find((r) => r.id === detail.resource_id)?.name],
+                [
+                  "숙소",
+                  [roomOf(detail)?.name, roomOf(detail)?.location && `(${roomOf(detail)?.location})`]
+                    .filter(Boolean)
+                    .join(" "),
+                ],
                 ["입실", fmt(detail.start_at)],
                 ["퇴실", fmt(detail.end_at)],
                 ["기간", `${nightsOf(detail)}박`],
@@ -861,7 +937,7 @@ export default function LodgingPage() {
                 ))}
             </div>
             {detail.google && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+              <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">
                 구글 캘린더 「{GOOGLE_CAL_NAME}」에서 가져온 일정입니다. 수정은 구글 캘린더에서 해주세요.
               </p>
             )}
@@ -889,7 +965,7 @@ export default function LodgingPage() {
         isOpen={!!form}
         onClose={() => {
           setForm(null);
-          setRangeOpen(false);
+          setCalOpen(null);
         }}
         title={form?.id ? "예약 수정" : "숙소 예약"}
         footer={
@@ -923,78 +999,89 @@ export default function LodgingPage() {
                   </button>
                 ))}
               </div>
+              {(() => {
+                const r = rooms.find((x) => x.id === form.resource_id);
+                if (!r?.location && !r?.guide_url) return null;
+                return (
+                  <div className="mt-2 flex items-center gap-3 text-xs text-muted">
+                    {r.location && <span>📍 {r.location}</span>}
+                    {r.guide_url && (
+                      <a href={r.guide_url} target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline">
+                        이용 안내문 →
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* 이용 기간 — 차량 '기간' 예약과 같은 범위 달력 */}
-            <div className="relative">
-              <label className={labelCls}>
-                이용 기간 <span className="text-red-500">*</span>
-                <span className="font-normal text-gray-400 ml-1 text-xs">
-                  (입실일·퇴실일을 차례로 눌러주세요)
-                </span>
-              </label>
-              <button
-                type="button"
-                onClick={() => setRangeOpen(!rangeOpen)}
-                className="w-full border border-line-strong rounded-lg p-3 bg-white flex items-center justify-center gap-2 text-sm font-bold text-heading hover:border-primary transition"
-              >
-                {format(parseISO(form.startDate), "MM.dd(EEE)", { locale: ko })}
-                <span className="text-gray-400 font-normal">~</span>
-                {format(parseISO(form.endDate), "MM.dd(EEE)", { locale: ko })}
-              </button>
-              {rangeOpen && (
-                <div className="absolute top-full left-0 right-0 sm:right-auto z-50 mt-2 bg-white border border-line rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn sm:w-[350px]">
-                  <Calendar
-                    selectRange
-                    value={[parseISO(form.startDate), parseISO(form.endDate)]}
-                    onChange={(v) => {
-                      if (!Array.isArray(v) || !v[0] || !v[1]) return;
-                      setForm({
-                        ...form,
-                        startDate: format(v[0], "yyyy-MM-dd"),
-                        endDate: format(v[1], "yyyy-MM-dd"),
-                      });
-                      setRangeOpen(false);
-                    }}
-                    formatDay={(_, d) => format(d, "d")}
-                    calendarType="gregory"
-                    locale="ko-KR"
-                    tileClassName={({ date, view }) => {
-                      if (view !== "month") return null;
-                      if (HOLIDAYS[format(date, "yyyy-MM-dd")]) return "holiday-day";
-                      // 선택한 숙소가 그날 사용중이면 점 표시
-                      const busy = staysOn(date).some(
-                        (s) => s.resource_id === form.resource_id && s.id !== form.id,
-                      );
-                      return busy ? "has-reservation" : null;
-                    }}
-                  />
+            {/* 입실 / 퇴실 — 날짜는 달력 팝업, 시간은 시 단위 드롭다운 */}
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  ["start", "입실", "startDate", "startTime"],
+                  ["end", "퇴실", "endDate", "endTime"],
+                ] as const
+              ).map(([which, label, dk, tk]) => (
+                <div key={which} className="relative space-y-2">
+                  <label className={labelCls}>
+                    {label} <span className="text-red-500">*</span>
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setRangeOpen(false)}
-                    className="w-full mt-2 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600 font-bold"
+                    onClick={() => setCalOpen(calOpen === which ? null : which)}
+                    className={`w-full border rounded-lg p-3 bg-white flex items-center justify-between gap-2 text-sm font-bold text-heading transition ${
+                      calOpen === which
+                        ? "border-primary ring-2 ring-primary-soft"
+                        : "border-line-strong hover:border-primary"
+                    }`}
                   >
-                    닫기
+                    {format(parseISO(form[dk]), "M월 d일 (EEE)", { locale: ko })}
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
                   </button>
+                  {calOpen === which && (
+                    <div
+                      className={`absolute top-[76px] z-50 bg-white border border-line rounded-xl shadow-2xl p-3 range-calendar-wrapper animate-fadeIn w-[300px] sm:w-[330px] ${
+                        which === "end" ? "right-0" : "left-0"
+                      }`}
+                    >
+                      <Calendar
+                        value={parseISO(form[dk])}
+                        minDate={which === "end" ? parseISO(form.startDate) : undefined}
+                        onChange={(v) => {
+                          if (!(v instanceof Date)) return;
+                          const ds = format(v, "yyyy-MM-dd");
+                          // 입실일을 퇴실일 이후로 옮기면 퇴실을 다음 날로 같이 민다
+                          if (which === "start" && ds >= form.endDate)
+                            setForm({ ...form, startDate: ds, endDate: format(addDays(v, 1), "yyyy-MM-dd") });
+                          else setForm({ ...form, [dk]: ds });
+                          setCalOpen(null);
+                        }}
+                        formatDay={(_, d) => format(d, "d")}
+                        calendarType="gregory"
+                        locale="ko-KR"
+                        tileClassName={({ date, view }) => {
+                          if (view !== "month") return null;
+                          if (HOLIDAYS[format(date, "yyyy-MM-dd")]) return "holiday-day";
+                          // 선택한 숙소가 그날 사용중이면 점 표시
+                          const busy = staysOn(date).some(
+                            (s) => s.resource_id === form.resource_id && s.id !== form.id,
+                          );
+                          return busy ? "has-reservation" : null;
+                        }}
+                      />
+                    </div>
+                  )}
+                  <Select
+                    value={form[tk]}
+                    onChange={(v) => setForm({ ...form, [tk]: v })}
+                    options={HOUR_OPTIONS}
+                    className="w-full p-3 bg-white border border-line-strong rounded-lg text-sm"
+                  />
                 </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-muted mb-1">입실 시간</label>
-                <TimeSelect
-                  value={form.startTime}
-                  onChange={(t) => setForm({ ...form, startTime: t })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-muted mb-1">퇴실 시간</label>
-                <TimeSelect
-                  value={form.endTime}
-                  onChange={(t) => setForm({ ...form, endTime: t })}
-                />
-              </div>
+              ))}
             </div>
 
             {(() => {
@@ -1011,8 +1098,10 @@ export default function LodgingPage() {
             })()}
 
             {isMission(rooms.find((r) => r.id === form.resource_id)) && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                구글 캘린더 「{GOOGLE_CAL_NAME}」 일정과 겹치는지도 함께 확인합니다.
+              <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">
+                {googleFailed
+                  ? `⚠️ 구글 캘린더 「${GOOGLE_CAL_NAME}」를 불러오지 못해 구글 일정과의 겹침은 확인되지 않습니다. 구글 캘린더를 직접 확인해주세요.`
+                  : `구글 캘린더 「${GOOGLE_CAL_NAME}」 일정과 겹치는지도 함께 확인합니다.`}
               </p>
             )}
 
@@ -1023,7 +1112,7 @@ export default function LodgingPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="예: 홍길동 선교사 가족"
+                  placeholder="예: 홍길동 선생님 가정"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className={inputCls}
