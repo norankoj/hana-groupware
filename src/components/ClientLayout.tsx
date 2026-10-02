@@ -114,6 +114,14 @@ const ICON_MAP: Record<string, any> = {
       d="M3 10l2-3h10l2 3h4v6h-2v-1a2 2 0 1 0-4 0v1H9v-1a2 2 0 1 0-4 0v1H3v-6zm4 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm10 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"
     />
   ),
+  lodging: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 18v-6a2 2 0 012-2h14a2 2 0 012 2v6M3 18h18M3 18v2m18-2v2M5 10V6a2 2 0 012-2h10a2 2 0 012 2v4M9 10V8h6v2"
+    />
+  ),
   folder: (
     <path
       strokeLinecap="round"

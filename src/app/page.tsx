@@ -292,7 +292,9 @@ export default function Home() {
     if (reservationData) {
       setTodayFacilities(
         reservationData.filter(
-          (r: any) => r.resources?.category !== "vehicle" && r.resources,
+          (r: any) =>
+            r.resources &&
+            !["vehicle", "lodging"].includes(r.resources.category),
         ) as any,
       );
       setTodayVehicles(

@@ -215,7 +215,7 @@ export default function FacilityReservationPage() {
       .from("resources")
       .select("*")
       .eq("is_active", true)
-      .neq("category", "vehicle")
+      .not("category", "in", "(vehicle,lodging)")
       .order("id");
     if (resData) setResources(resData);
 

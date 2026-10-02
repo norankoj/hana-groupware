@@ -165,7 +165,9 @@ function AlarmDetailPopup({
 
         const facility = (facilityData ?? [])
           .map(toItem)
-          .filter((r) => r.resources?.category !== "vehicle");
+          .filter(
+            (r) => !["vehicle", "lodging"].includes(r.resources?.category ?? ""),
+          );
         const vehicle = (vehicleData ?? [])
           .map(toItem)
           .filter((r) => r.resources?.category === "vehicle");
@@ -604,7 +606,11 @@ function AlarmCard() {
           title: `${resource?.name ?? ""}${profile?.full_name ? ` · ${profile.full_name}` : ""} 예약`,
           subtitle,
           date: r.created_at,
-          href: isVehicle ? "/vehicle" : "/reservation",
+          href: isVehicle
+            ? "/vehicle"
+            : resource?.category === "lodging"
+              ? "/lodging"
+              : "/reservation",
         };
       });
 

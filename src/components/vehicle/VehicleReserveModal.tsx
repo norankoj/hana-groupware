@@ -80,7 +80,7 @@ const formatDateDisplay = (dateStr: string) => {
 };
 
 // 시간 선택 컴포넌트 (OS 로케일 포맷 회피)
-const TimeSelect = ({
+export const TimeSelect = ({
   value,
   onChange,
 }: {
