@@ -18,6 +18,7 @@ export type LibraryCategory = {
   description: string | null;
   creator_id: string;
   created_at: string;
+  sort_order: number;
   profiles?: { full_name: string } | null;
   library_files?: { count: number }[];
 };

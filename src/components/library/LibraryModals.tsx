@@ -3,7 +3,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, X, Check, AlertCircle } from "lucide-react";
+import { Upload, X, Check, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
 import Modal from "@/components/Modal";
 import { btnStyles, inputClass } from "@/components/fund/shared";
@@ -305,6 +305,93 @@ export function UploadModal({
           )}
         </div>
       </div>
+    </Modal>
+  );
+}
+
+// ── 카테고리 순서 (관리자/디렉터) ─────────────────────────────────────────
+export function CategoryOrderModal({
+  categories,
+  onClose,
+  onSaved,
+}: {
+  categories: LibraryCategory[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const supabase = createClient();
+  const [list, setList] = useState(categories);
+  const [busy, setBusy] = useState(false);
+
+  const move = (i: number, d: -1 | 1) =>
+    setList((prev) => {
+      const next = [...prev];
+      [next[i], next[i + d]] = [next[i + d], next[i]];
+      return next;
+    });
+
+  const handleSave = async () => {
+    setBusy(true);
+    // 자리가 바뀐 것만 1, 2, 3… 으로 고쳐 쓴다
+    const results = await Promise.all(
+      list
+        .map((c, i) => ({ c, order: i + 1 }))
+        .filter(({ c, order }) => c.sort_order !== order)
+        .map(({ c, order }) => supabase.from("library_categories").update({ sort_order: order }).eq("id", c.id)),
+    );
+    setBusy(false);
+    if (results.some((r) => r.error)) return toast.error("순서를 저장하지 못했습니다.");
+    toast.success("순서를 저장했습니다.");
+    onSaved();
+  };
+
+  const arrow =
+    "w-8 h-8 inline-flex items-center justify-center rounded-lg text-gray-500 hover:text-primary hover:bg-primary-wash transition disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-gray-500";
+
+  return (
+    <Modal
+      isOpen
+      onClose={() => !busy && onClose()}
+      title="카테고리 순서"
+      className="sm:max-w-[440px]"
+      footer={
+        <div className="flex gap-2 ml-auto">
+          <button onClick={handleSave} disabled={busy} className={btnStyles.save}>
+            {busy ? "저장 중..." : "저장"}
+          </button>
+          <button onClick={onClose} disabled={busy} className={btnStyles.cancel}>
+            취소
+          </button>
+        </div>
+      }
+    >
+      <p className="text-xs text-muted mb-3 ml-1">화살표로 옮긴 뒤 저장하면 모든 사람에게 같은 순서로 보입니다</p>
+      <ol className="space-y-1.5">
+        {list.map((c, i) => (
+          <li key={c.id} className="flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-lg border border-line bg-white">
+            <span className="w-5 text-xs font-bold text-muted tabular-nums">{i + 1}</span>
+            <span className="flex-1 min-w-0 text-sm font-semibold text-heading truncate">{c.name}</span>
+            <button
+              type="button"
+              onClick={() => move(i, -1)}
+              disabled={i === 0 || busy}
+              aria-label={`${c.name} 위로`}
+              className={arrow}
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => move(i, 1)}
+              disabled={i === list.length - 1 || busy}
+              aria-label={`${c.name} 아래로`}
+              className={arrow}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </li>
+        ))}
+      </ol>
     </Modal>
   );
 }

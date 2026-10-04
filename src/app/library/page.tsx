@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { FolderOpen, FolderPlus, ChevronRight } from "lucide-react";
+import { FolderOpen, FolderPlus, ChevronRight, Settings2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
@@ -16,11 +16,12 @@ import {
   EmptyState,
   SkeletonRows,
   deleteObject,
+  isManager,
   useMe,
   type LibraryCategory,
   type LibraryFile,
 } from "@/components/library/shared";
-import { CategoryModal } from "@/components/library/LibraryModals";
+import { CategoryModal, CategoryOrderModal } from "@/components/library/LibraryModals";
 
 export default function LibraryPage() {
   const supabase = createClient();
@@ -31,6 +32,7 @@ export default function LibraryPage() {
   const [categories, setCategories] = useState<LibraryCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isOrderOpen, setIsOrderOpen] = useState(false);
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -45,7 +47,8 @@ export default function LibraryPage() {
     const { data, error } = await supabase
       .from("library_categories")
       .select("*, profiles:creator_id(full_name), library_files(count)")
-      .order("name");
+      .order("sort_order")
+      .order("created_at");
     if (error) toast.error("카테고리를 불러오지 못했습니다.");
     else setCategories(data as LibraryCategory[]);
     setLoading(false);
@@ -95,11 +98,24 @@ export default function LibraryPage() {
           <p className="mt-1 text-sm text-muted">매뉴얼, 서식, 공문을 카테고리별로 모아두고 내려받는 곳입니다</p>
         </div>
         {me && (
-          <button onClick={() => setIsCreateOpen(true)} className={`${btnStyles.cta} px-4 py-2.5 text-sm shrink-0`}>
-            <FolderPlus className="w-4 h-4" />
-            {/* 좁은 화면에선 '만들기'만 — 버튼이 화면 밖으로 밀려나지 않게 */}
-            <span className="mt-[1px]"><span className="hidden sm:inline">카테고리 </span>만들기</span>
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* 순서는 모두에게 같이 보여서 관리자/디렉터만 바꾼다 */}
+            {isManager(me) && categories.length > 1 && (
+              <button
+                onClick={() => setIsOrderOpen(true)}
+                aria-label="카테고리 순서 설정"
+                title="카테고리 순서"
+                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-line bg-white text-gray-500 hover:text-primary hover:border-primary/40 transition"
+              >
+                <Settings2 className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={() => setIsCreateOpen(true)} className={`${btnStyles.cta} px-4 py-2.5 text-sm`}>
+              <FolderPlus className="w-4 h-4" />
+              {/* 좁은 화면에선 '만들기'만 — 버튼이 화면 밖으로 밀려나지 않게 */}
+              <span className="mt-[1px]"><span className="hidden sm:inline">카테고리 </span>만들기</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -200,6 +216,16 @@ export default function LibraryPage() {
           meId={me.id}
           onClose={() => setIsCreateOpen(false)}
           onSaved={(id) => router.push(`/library/${id}`)}
+        />
+      )}
+      {isOrderOpen && (
+        <CategoryOrderModal
+          categories={categories}
+          onClose={() => setIsOrderOpen(false)}
+          onSaved={() => {
+            setIsOrderOpen(false);
+            fetchCategories();
+          }}
         />
       )}
     </div>
