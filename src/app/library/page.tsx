@@ -89,15 +89,16 @@ export default function LibraryPage() {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-5">
       {/* 헤더 */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
+      <div className="flex items-start sm:items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-heading tracking-tight">{menu?.name || "자료실"}</h1>
           <p className="mt-1 text-sm text-muted">매뉴얼, 서식, 공문을 카테고리별로 모아두고 내려받는 곳입니다</p>
         </div>
         {me && (
           <button onClick={() => setIsCreateOpen(true)} className={`${btnStyles.cta} px-4 py-2.5 text-sm shrink-0`}>
             <FolderPlus className="w-4 h-4" />
-            <span className="mt-[1px]">카테고리 만들기</span>
+            {/* 좁은 화면에선 '만들기'만 — 버튼이 화면 밖으로 밀려나지 않게 */}
+            <span className="mt-[1px]"><span className="hidden sm:inline">카테고리 </span>만들기</span>
           </button>
         )}
       </div>

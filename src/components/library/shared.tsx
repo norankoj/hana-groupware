@@ -339,19 +339,18 @@ export function FileTable({
       {/* 모바일 */}
       <ul className="md:hidden space-y-2">
         {files.map((f) => (
-          <li key={f.id} className="bg-white rounded-xl border border-line px-4 py-3">
-            <div className="flex items-start gap-3">
+          // 좁은 화면 — 제목을 한 줄 다 쓰고, 형식 · 정보 · 버튼을 아랫줄 하나에 모은다
+          <li key={f.id} className="bg-white rounded-xl border border-line pl-4 pr-2 pt-3 pb-2">
+            <div className="flex min-w-0 pr-2">{titleBlock(f)}</div>
+            <div className="mt-1.5 flex items-center gap-2">
               {fileBadge(f)}
-              <div className="min-w-0 flex-1">
-                {titleBlock(f)}
-                <p className="text-[11px] text-gray-400 mt-1">
-                  {showCategory && `${f.library_categories?.name ?? ""} / `}
-                  {f.profiles?.full_name} / {format(new Date(f.created_at), "yy.MM.dd")}
-                  {f.attachments.length > 0 && ` / ${formatSize(totalSize(f))}`}
-                </p>
-              </div>
+              <p className="text-[11px] text-gray-400 truncate flex-1 min-w-0">
+                {showCategory && `${f.library_categories?.name ?? ""} / `}
+                {f.profiles?.full_name} / {format(new Date(f.created_at), "yy.MM.dd")}
+                {f.attachments.length > 0 && ` / ${formatSize(totalSize(f))}`}
+              </p>
+              {actions(f)}
             </div>
-            <div className="mt-2.5">{actions(f)}</div>
           </li>
         ))}
       </ul>

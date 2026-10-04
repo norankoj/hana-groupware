@@ -128,7 +128,7 @@ export default function LibraryCategoryPage() {
               <div className="h-8 w-48 rounded bg-table-header animate-pulse" />
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {canManageCategory && (
               <>
                 <button
@@ -150,7 +150,8 @@ export default function LibraryCategoryPage() {
             {me && category && (
               <button onClick={() => setModal("upload")} className={`${btnStyles.cta} px-4 py-2.5 text-sm`}>
                 <Upload className="w-4 h-4" />
-                <span className="mt-[1px]">자료 올리기</span>
+                {/* 좁은 화면에선 '올리기'만 */}
+                <span className="mt-[1px]"><span className="hidden sm:inline">자료 </span>올리기</span>
               </button>
             )}
           </div>
@@ -159,7 +160,7 @@ export default function LibraryCategoryPage() {
 
       {/* 검색 */}
       <div className="bg-white rounded-2xl border border-line p-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted whitespace-nowrap shrink-0">
           전체 <span className="font-bold text-heading">{files.length}</span>건
           {q && (
             <>

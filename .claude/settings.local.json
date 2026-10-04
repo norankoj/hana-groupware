@@ -45,7 +45,8 @@
       "Bash(sed -i 's/bg-red-50 border border-red-200 rounded-lg px-3 py-3/bg-danger-soft border border-danger\\\\/30 rounded-lg px-3 py-3/; s/<span className=\"text-red-500 mt-0.5 shrink-0\">/<span className=\"text-danger mt-0.5 shrink-0\">/; s/text-sm text-red-700 font-medium leading-relaxed/text-sm text-danger-active font-medium leading-relaxed/; s/<span className=\"text-red-500\">삭제 후에는/<span className=\"text-danger\">삭제 후에는/' src/components/ScheduleDetailModal.tsx)",
       "Bash(node \"/c/Users/SUWONH~1/AppData/Local/Temp/claude/C--dev-hana-groupware/936e8527-bb6a-4870-865f-2dd7053f5d9e/scratchpad/sort-unify.js\")",
       "Bash(sed 's|src/||')",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(grep -n \"formatSize\\(f.file_size\\)\\\\|w-40\\\\`}>\\\\|className=\\\\\"p-2 rounded-lg text-gray-400 hover:text-danger\" src/components/library/shared.tsx)"
     ],
     "deny": [
       "Read(.env*)",
