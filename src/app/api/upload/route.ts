@@ -24,7 +24,16 @@ const ALLOWED_TYPES = [
   "application/vnd.ms-excel",
   "application/msword",
   "application/zip",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.ms-powerpoint",
+  "text/plain",
 ];
+
+// 브라우저가 MIME 을 비워 보내거나 제각각인 한글 파일 — 확장자로 받는다
+const EXT_TYPES: Record<string, string> = {
+  hwp: "application/x-hwp",
+  hwpx: "application/vnd.hancom.hwpx",
+};
 
 // 최대 10MB
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -43,12 +52,14 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ error: "파일이 없습니다" }, { status: 400 });
     if (file.size > MAX_SIZE) return NextResponse.json({ error: "파일 크기는 10MB 이하만 가능합니다" }, { status: 400 });
-    if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ error: "지원하지 않는 파일 형식입니다" }, { status: 400 });
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const mimeType = ALLOWED_TYPES.includes(file.type) ? file.type : EXT_TYPES[ext];
+    if (!mimeType) return NextResponse.json({ error: "지원하지 않는 파일 형식입니다" }, { status: 400 });
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const objectName = await uploadToMinio(bucketKey, buffer, file.name, file.type, folder || undefined);
+    const objectName = await uploadToMinio(bucketKey, buffer, file.name, mimeType, folder || undefined);
 
     // Private 버킷은 URL 노출 X, objectName만 반환
     const isPrivate = bucketKey === "private";

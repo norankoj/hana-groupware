@@ -54,9 +54,15 @@ export async function GET(req: NextRequest) {
     // 받는 대로 흘려보낸다 (다 모았다가 보내지 않는다)
     const body = await streamObject(bucketKey, objectName);
 
+    // ?name=원래파일명 → 저장 이름(타임스탬프) 대신 원래 이름으로 내려받기
+    const downloadName = searchParams.get("name");
+
     return new NextResponse(body, {
       headers: {
         "Content-Type": contentType,
+        ...(downloadName && {
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+        }),
         "Cache-Control": "public, max-age=31536000, immutable", // 1년 캐시
       },
     });
