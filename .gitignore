@@ -60,3 +60,6 @@ next-env.d.ts
 /supabase/migrations/
 /src/app/**/*.sql
 
+
+# Claude Code 개인 설정 (권한 등) — 사람마다 다르다
+.claude/settings.local.json

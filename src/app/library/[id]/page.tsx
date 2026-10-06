@@ -15,7 +15,7 @@ import {
   FileTable,
   EmptyState,
   SkeletonRows,
-  deleteObject,
+  deleteAttachment,
   isManager,
   useMe,
   type LibraryCategory,
@@ -75,7 +75,7 @@ export default function LibraryCategoryPage() {
     if (!(await showConfirm("자료 삭제", `'${f.title}' 자료를 삭제하시겠습니까?`, "삭제"))) return;
     const { error } = await supabase.from("library_files").delete().eq("id", f.id);
     if (error) return toast.error("삭제하지 못했습니다.");
-    f.attachments.forEach((a) => deleteObject(a.object_name));
+    f.attachments.forEach(deleteAttachment);
     setFiles((prev) => prev.filter((x) => x.id !== f.id));
     toast.success("삭제되었습니다.");
   };

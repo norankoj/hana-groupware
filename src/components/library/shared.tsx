@@ -23,7 +23,12 @@ export type LibraryCategory = {
   library_files?: { count: number }[];
 };
 
-export type Attachment = { name: string; object_name: string; size: number };
+/**
+ * 첨부 한 개. 4MB 넘는 파일은 조각으로 저장해서 parts 에 순서대로 담긴다 (object_name = 첫 조각).
+ * 배포 서버(Vercel)가 요청 하나에 4.5MB 까지만 받아서다.
+ * ponytail: NAS 에 HTTPS 가 붙으면 브라우저 → NAS 직접 업로드(presigned)로 바꾸고 조각을 없앤다
+ */
+export type Attachment = { name: string; object_name: string; size: number; parts?: string[] };
 
 /** 자료 한 건 — 파일 여러 개 + 링크(선택). 둘 중 하나는 꼭 있다 */
 export type LibraryFile = {
@@ -43,8 +48,11 @@ export type Me = { id: string; role: string };
 
 export const BUCKET = "notice";
 export const FOLDER = "library";
-/** /api/upload 와 같은 값 */
-export const MAX_SIZE = 10 * 1024 * 1024;
+/** 파일 하나 최대 크기 — 조각내 올리므로 /api/upload 의 요청당 10MB 와는 따로다 */
+export const MAX_SIZE = 30 * 1024 * 1024;
+export const MAX_SIZE_LABEL = "30MB";
+/** 이보다 크면 조각낸다 — Vercel 요청 한도 4.5MB 아래로 */
+const CHUNK = 4 * 1024 * 1024;
 export const MAX_FILES = 10;
 export const ACCEPT = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.hwpx,.txt,.zip";
 
@@ -57,13 +65,17 @@ export const extOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "
 
 const totalSize = (f: LibraryFile) => f.attachments.reduce((s, a) => s + a.size, 0);
 
-/** download=true 면 원래 이름으로 저장되게, 아니면 브라우저 안에서 연다(미리보기) */
-const fileUrl = (a: Attachment, download = false) =>
-  `/api/proxy-image?bucket=${BUCKET}&object=${encodeURIComponent(a.object_name)}` +
-  (download ? `&name=${encodeURIComponent(a.name)}` : "");
+const objectUrl = (objectName: string) =>
+  `/api/proxy-image?bucket=${BUCKET}&object=${encodeURIComponent(objectName)}`;
+
+const partsOf = (a: { object_name: string; parts?: string[] }) => a.parts ?? [a.object_name];
 
 export const deleteObject = (objectName: string) =>
   fetch(`/api/upload?bucket=${BUCKET}&object=${encodeURIComponent(objectName)}`, { method: "DELETE" });
+
+/** 조각까지 전부 지운다 */
+export const deleteAttachment = (a: { object_name: string; parts?: string[] }) =>
+  partsOf(a).forEach((o) => deleteObject(o));
 
 /** 로그인한 사람 id · 권한 */
 export function useMe() {
@@ -83,15 +95,16 @@ export function useMe() {
 }
 
 /**
- * 진행률이 보이는 업로드 — fetch 는 올라가는 양을 알려주지 않아서 XHR 을 쓴다.
- * 실패하면 서버가 준 문구(10MB 초과, 형식 등)를 그대로 던진다.
+ * 요청 하나 보내기 — fetch 는 올라가는 양을 알려주지 않아서 XHR 을 쓴다.
+ * 실패하면 서버가 준 문구(형식 등)를 그대로 던진다. chunkOf = 조각일 때 원래 파일 이름
  */
-export function uploadWithProgress(file: File, onProgress: (ratio: number) => void) {
-  return new Promise<{ objectName: string }>((resolve, reject) => {
+function postFile(file: File, chunkOf: string | null, onProgress: (ratio: number) => void) {
+  return new Promise<string>((resolve, reject) => {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("bucket", BUCKET);
     fd.append("folder", FOLDER);
+    if (chunkOf) fd.append("chunk_of", chunkOf);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/upload");
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
@@ -100,7 +113,7 @@ export function uploadWithProgress(file: File, onProgress: (ratio: number) => vo
       try {
         body = JSON.parse(xhr.responseText);
       } catch {}
-      if (xhr.status < 300 && body.objectName) resolve({ objectName: body.objectName });
+      if (xhr.status < 300 && body.objectName) resolve(body.objectName);
       else
         reject(new Error(body.error || (xhr.status === 413 ? "파일이 너무 큽니다" : `업로드 실패 (${xhr.status})`)));
     };
@@ -109,24 +122,50 @@ export function uploadWithProgress(file: File, onProgress: (ratio: number) => vo
   });
 }
 
-/**
- * 받은 양을 세면서 모았다가 원래 이름으로 저장한다.
- * NAS 프록시가 Content-Length 를 안 주므로 진행률은 DB 의 size 로 잡는다 (onBytes 로 받은 바이트를 넘김).
- */
-async function downloadAttachment(a: Attachment, onBytes: (received: number) => void) {
-  const res = await fetch(fileUrl(a, true));
-  if (!res.ok || !res.body) throw new Error("download failed");
-  const reader = res.body.getReader();
+export type Uploaded = { objectName: string; parts?: string[] };
+
+/** 진행률이 보이는 업로드 — 4MB 넘으면 조각내 차례로 보낸다 */
+export async function uploadWithProgress(file: File, onProgress: (ratio: number) => void): Promise<Uploaded> {
+  if (file.size <= CHUNK) return { objectName: await postFile(file, null, onProgress) };
+  const parts: string[] = [];
+  try {
+    for (let start = 0; start < file.size; start += CHUNK) {
+      const piece = file.slice(start, start + CHUNK);
+      parts.push(
+        await postFile(new File([piece], "part.bin"), file.name, (r) =>
+          onProgress((start + r * piece.size) / file.size),
+        ),
+      );
+    }
+  } catch (e) {
+    parts.forEach((o) => deleteObject(o)); // 반쯤 올라간 조각은 치운다
+    throw e;
+  }
+  return { objectName: parts[0], parts };
+}
+
+/** 조각까지 차례로 받아 모은다. NAS 프록시가 Content-Length 를 안 주므로 진행률은 DB 의 size 로 잡는다 */
+async function fetchAttachment(a: Attachment, onBytes?: (received: number) => void) {
   const chunks: Uint8Array[] = [];
   let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.length;
-    onBytes(received);
+  for (const part of partsOf(a)) {
+    const res = await fetch(objectUrl(part));
+    if (!res.ok || !res.body) throw new Error("download failed");
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      onBytes?.(received);
+    }
   }
-  const url = URL.createObjectURL(new Blob(chunks as BlobPart[]));
+  return chunks as BlobPart[];
+}
+
+/** 받은 조각을 이어 붙여 원래 이름으로 저장한다 */
+async function downloadAttachment(a: Attachment, onBytes: (received: number) => void) {
+  const url = URL.createObjectURL(new Blob(await fetchAttachment(a, onBytes)));
   const link = document.createElement("a");
   link.href = url;
   link.download = a.name;
@@ -364,12 +403,40 @@ export function FileTable({
 // ── 미리보기 ──────────────────────────────────────────────────────────────
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"];
 
+/**
+ * 미리보기 주소 — 한 덩어리면 프록시 주소 그대로, 조각이면 받아서 이어 붙인 Blob 주소.
+ * type 을 붙여야 브라우저가 PDF · 이미지로 알아본다
+ */
+function useAttachmentSrc(a: Attachment, type: string) {
+  const [src, setSrc] = useState<string | null>(a.parts ? null : objectUrl(a.object_name));
+  useEffect(() => {
+    if (!a.parts) return;
+    let url: string | null = null;
+    let alive = true;
+    fetchAttachment(a)
+      .then((chunks) => {
+        url = URL.createObjectURL(new Blob(chunks, { type }));
+        if (alive) setSrc(url);
+      })
+      .catch(() => alive && setSrc(""));
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [a.object_name]);
+  return src;
+}
+
+const PreviewLoading = () => (
+  <div className="h-full flex items-center justify-center text-sm text-muted">불러오는 중...</div>
+);
+
 /** 텍스트 파일은 iframe 에 그대로 넣으면 한글이 깨져서 UTF-8 로 읽어 보여준다 */
 function TextPreview({ a }: { a: Attachment }) {
   const [text, setText] = useState<string | null>(null);
   useEffect(() => {
-    fetch(fileUrl(a))
-      .then((r) => r.arrayBuffer())
+    fetchAttachment(a)
+      .then((chunks) => new Blob(chunks).arrayBuffer())
       .then((b) => setText(new TextDecoder("utf-8").decode(b)))
       .catch(() => setText("불러오지 못했습니다."));
   }, [a.object_name]);
@@ -380,16 +447,27 @@ function TextPreview({ a }: { a: Attachment }) {
   );
 }
 
+function ImagePreview({ a }: { a: Attachment }) {
+  const src = useAttachmentSrc(a, `image/${extOf(a.name) === "jpg" ? "jpeg" : extOf(a.name)}`);
+  if (src === null) return <PreviewLoading />;
+  return (
+    <div className="h-full flex items-center justify-center p-4">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={a.name} className="max-w-full max-h-full object-contain rounded-lg" />
+    </div>
+  );
+}
+
+function PdfPreview({ a }: { a: Attachment }) {
+  const src = useAttachmentSrc(a, "application/pdf");
+  if (src === null) return <PreviewLoading />;
+  return <iframe src={src} title={a.name} className="w-full h-full bg-white" />;
+}
+
 function AttachmentPreview({ a, onDownload }: { a: Attachment; onDownload: () => void }) {
   const ext = extOf(a.name);
-  if (IMAGE_EXT.includes(ext))
-    return (
-      <div className="h-full flex items-center justify-center p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={fileUrl(a)} alt={a.name} className="max-w-full max-h-full object-contain rounded-lg" />
-      </div>
-    );
-  if (ext === "pdf") return <iframe src={fileUrl(a)} title={a.name} className="w-full h-full bg-white" />;
+  if (IMAGE_EXT.includes(ext)) return <ImagePreview a={a} />;
+  if (ext === "pdf") return <PdfPreview a={a} />;
   if (ext === "txt") return <TextPreview a={a} />;
   // 한글 · 오피스 문서는 브라우저가 직접 열지 못한다. 외부 뷰어는 교회 문서를 밖으로 보내야 해서 쓰지 않는다
   return (

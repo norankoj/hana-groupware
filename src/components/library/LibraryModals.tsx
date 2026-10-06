@@ -14,7 +14,9 @@ import {
   MAX_FILES,
   ExtBadge,
   formatSize,
-  deleteObject,
+  deleteAttachment,
+  MAX_SIZE_LABEL,
+  type Uploaded,
   uploadWithProgress,
   type Attachment,
   type LibraryCategory,
@@ -29,8 +31,10 @@ type Pending = {
   progress: number | null;
   error: string | null;
   /** 올라간 뒤 받은 이름 — 다시 등록을 눌러도 이미 올린 건 또 올리지 않는다 */
-  objectName: string | null;
+  uploaded: Uploaded | null;
 };
+
+const deleteUploaded = (u: Uploaded) => deleteAttachment({ object_name: u.objectName, parts: u.parts });
 
 /** 'naver.com' 처럼 앞을 빼고 붙여넣어도 받는다. 비었으면 "", 주소가 아니면 null */
 function normalizeLink(raw: string): string | null {
@@ -84,16 +88,16 @@ export function UploadModal({
     const next = picked.slice(0, Math.max(0, room)).map((file) => ({
       file,
       progress: null,
-      objectName: null,
+      uploaded: null,
       // 서버까지 보내기 전에 걸러서 바로 알려준다
-      error: file.size > MAX_SIZE ? "10MB를 넘어서 올릴 수 없습니다" : null,
+      error: file.size > MAX_SIZE ? `${MAX_SIZE_LABEL}를 넘어서 올릴 수 없습니다` : null,
     }));
     setItems((prev) => [...prev, ...next]);
   };
 
   const removeItem = (i: number) => {
     const it = items[i];
-    if (it.objectName) deleteObject(it.objectName); // 올려두고 빼면 NAS 에서도 치운다
+    if (it.uploaded) deleteUploaded(it.uploaded); // 올려두고 빼면 NAS 에서도 치운다
     setItems((prev) => prev.filter((_, j) => j !== i));
   };
 
@@ -106,19 +110,24 @@ export function UploadModal({
     let failed = false;
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
-      let objectName = it.objectName;
-      if (!objectName) {
+      let uploaded = it.uploaded;
+      if (!uploaded) {
         patch(i, { progress: 0, error: null });
         try {
-          ({ objectName } = await uploadWithProgress(it.file, (r) => patch(i, { progress: r })));
-          patch(i, { objectName, progress: 1 });
+          uploaded = await uploadWithProgress(it.file, (r) => patch(i, { progress: r }));
+          patch(i, { uploaded, progress: 1 });
         } catch (e) {
           patch(i, { error: e instanceof Error ? e.message : "업로드 실패", progress: null });
           failed = true;
           continue;
         }
       }
-      attachments.push({ name: it.file.name, object_name: objectName, size: it.file.size });
+      attachments.push({
+        name: it.file.name,
+        object_name: uploaded.objectName,
+        size: it.file.size,
+        ...(uploaded.parts && { parts: uploaded.parts }),
+      });
     }
     // 하나라도 실패하면 등록하지 않고 멈춘다 — 빼거나 다시 누르면 실패한 것만 다시 올린다
     if (failed) {
@@ -145,7 +154,7 @@ export function UploadModal({
   // 등록 없이 닫으면 올려둔 파일을 치운다
   const handleClose = () => {
     if (busy) return;
-    items.forEach((it) => it.objectName && deleteObject(it.objectName));
+    items.forEach((it) => it.uploaded && deleteUploaded(it.uploaded));
     onClose();
   };
 
@@ -238,7 +247,7 @@ export function UploadModal({
               {items.length >= MAX_FILES ? `최대 ${MAX_FILES}개까지 첨부했습니다` : "파일을 선택하거나 끌어다 놓으세요"}
             </span>
             <span className="text-xs text-muted">
-              최대 {MAX_FILES}개, 파일당 10MB / 한글, PDF, 오피스, 이미지, ZIP
+              최대 {MAX_FILES}개, 파일당 {MAX_SIZE_LABEL} / 한글, PDF, 오피스, 이미지, ZIP
             </span>
           </button>
 
@@ -250,7 +259,7 @@ export function UploadModal({
                     <ExtBadge name={it.file.name} />
                     <span className="truncate text-heading flex-1">{it.file.name}</span>
                     <span className="text-xs text-muted shrink-0">{formatSize(it.file.size)}</span>
-                    {it.objectName && <Check className="w-4 h-4 text-success shrink-0" aria-label="올라감" />}
+                    {it.uploaded && <Check className="w-4 h-4 text-success shrink-0" aria-label="올라감" />}
                     <button
                       type="button"
                       disabled={busy}
@@ -261,7 +270,7 @@ export function UploadModal({
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  {it.progress !== null && !it.objectName && (
+                  {it.progress !== null && !it.uploaded && (
                     <div className="mt-2 flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-white overflow-hidden">
                         <div
