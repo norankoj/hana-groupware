@@ -22,6 +22,7 @@ const ALL_ROLES = [
   { key: "campleader", label: "진장" },
   { key: "cellleader", label: "셀리더" },
   { key: "member", label: "일반" },
+  { key: "expense", label: "지출결의 전용" },
 ];
 
 // ★ [추가] 입력 필드를 별도 컴포넌트로 분리 (렌더링 최적화 & DB 요청 최소화)

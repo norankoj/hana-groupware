@@ -266,6 +266,16 @@ export default function ClientLayout({
     document.title = `${pageTitle} - 수원하나교회`;
   }, [pathname, activeMenu]);
 
+  // 지출결의 전용 계정은 지출결의서(와 내 정보)만 쓸 수 있다
+  const expenseOnly = profile?.role === "expense";
+  const expenseOnlyBlocked =
+    expenseOnly &&
+    !pathname.startsWith("/expense") &&
+    !pathname.startsWith("/mypage");
+  useEffect(() => {
+    if (expenseOnlyBlocked) router.replace("/expense");
+  }, [expenseOnlyBlocked]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.replace("/login");
@@ -373,7 +383,7 @@ export default function ClientLayout({
             {/* 로고 */}
             {(!isCollapsed || isMobileMenuOpen) && (
               <Link
-                href="/"
+                href={expenseOnly ? "/expense" : "/"}
                 className="flex items-center text-xl font-bold text-gray-800 tracking-tight mr-2"
               >
                 <Image
@@ -541,7 +551,9 @@ export default function ClientLayout({
           </header>
 
           {/* 컨텐츠 (패딩 조절: 모바일 p-4, PC p-8) */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-8">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 sm:p-8">
+            {expenseOnlyBlocked ? null : children}
+          </main>
 
           <Toaster
             position="top-center"

@@ -462,6 +462,7 @@ export default function AdminTeamsPage() {
                       <option value="director">디렉터</option>
                       <option value="pastor">목사/사모</option>
                       <option value="admin">관리자</option>
+                      <option value="expense">지출결의 전용</option>
                     </select>
                     <button
                       onClick={() =>
@@ -580,6 +581,7 @@ export default function AdminTeamsPage() {
                     <option value="staff">사역자</option>
                     <option value="pastor">목사/사모</option>
                     <option value="admin">관리자</option>
+                    <option value="expense">지출결의 전용</option>
                   </select>
                 </div>
               </div>
@@ -749,6 +751,7 @@ export default function AdminTeamsPage() {
                       <option value="director">디렉터</option>
                       <option value="pastor">목사/사모</option>
                       <option value="admin">관리자</option>
+                      <option value="expense">지출결의 전용</option>
                     </select>
                   </td>
                   <td className={`${tdWide} whitespace-nowrap text-center`}>
