@@ -80,7 +80,11 @@ export default function AdminTeamsPage() {
       .from("teams")
       .select("*")
       .order("id");
-    if (usersData) setProfiles(usersData as any);
+    // 이름 없이 가입된 계정이 있으면 화면이 깨지므로 빈 문자열로 채운다
+    if (usersData)
+      setProfiles(
+        usersData.map((p) => ({ ...p, full_name: p.full_name ?? "" })) as any,
+      );
     if (teamsData) setTeams(teamsData);
     setLoading(false);
   };
