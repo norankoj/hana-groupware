@@ -149,6 +149,43 @@ export async function deleteFromMinio(
 }
 
 /**
+ * DB에 저장된 차량 사진 URL에서 MinIO objectName 추출
+ *   1) 프록시 URL : /api/proxy-image?bucket=vehicle&object=folder/file.jpg
+ *   2) 직접 URL  : http://host:9000/vehicle-images/folder/file.jpg
+ */
+function extractObjectName(url: string): string | null {
+  if (!url) return null;
+  if (url.startsWith("/api/proxy-image")) {
+    return new URLSearchParams(url.split("?")[1] ?? "").get("object");
+  }
+  try {
+    const parts = new URL(url).pathname.split("/").filter(Boolean);
+    return parts.length < 2 ? null : parts.slice(1).join("/");
+  } catch {
+    return null;
+  }
+}
+
+/** 차량 사진들을 NAS에서 삭제 (오류가 있어도 계속 진행) */
+export async function deleteVehiclePhotos(urls: (string | null | undefined)[]) {
+  const results = await Promise.allSettled(
+    urls.map(async (url) => {
+      const objectName = url && extractObjectName(url);
+      if (!objectName) return;
+      await deleteFromMinio("vehicle", objectName);
+      console.log(`[vehicle] NAS 사진 삭제: ${objectName}`);
+    }),
+  );
+  const failed = results.filter((r) => r.status === "rejected");
+  if (failed.length > 0) {
+    console.warn(
+      `[vehicle] ${failed.length}개 사진 삭제 실패:`,
+      failed.map((r) => (r as PromiseRejectedResult).reason),
+    );
+  }
+}
+
+/**
  * Presigned PUT URL 발급 — 클라이언트 직접 업로드용 (업로드 속도 최적화)
  */
 export async function getPresignedPutUrl(

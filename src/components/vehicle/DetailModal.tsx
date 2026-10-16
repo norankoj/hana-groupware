@@ -76,6 +76,69 @@ const InfoRow = ({
   isLast?: boolean;
 }) => <DetailRow label={label}>{children}</DetailRow>;
 
+// 반납 후 사진 수정 — 기존 URL(string) 과 새 파일(File) 을 섞어서 관리. max=1 이면 교체
+type PhotoItem = string | File;
+const PhotoEdit = ({
+  label,
+  items,
+  onChange,
+  max,
+}: {
+  label: string;
+  items: PhotoItem[];
+  onChange: (items: PhotoItem[]) => void;
+  max: number;
+}) => (
+  <div>
+    <div className="flex items-center justify-between mb-1">
+      <label className="text-xs font-bold text-muted">{label}</label>
+      <label className="text-xs font-bold text-primary cursor-pointer hover:underline">
+        {max === 1 && items.length ? "변경" : "+ 추가"}
+        <input
+          type="file"
+          accept="image/*"
+          multiple={max > 1}
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            if (!files.length) return;
+            if (max === 1) return onChange([files[0]]);
+            if (items.length + files.length > max)
+              return toast.error(`최대 ${max}장까지 등록 가능합니다.`);
+            onChange([...items, ...files]);
+          }}
+        />
+      </label>
+    </div>
+    <div className="flex flex-wrap gap-2">
+      {items.map((it, i) => (
+        <div key={i} className="relative w-[72px] h-[72px] rounded-sm border border-line overflow-hidden">
+          {/* ponytail: 미리보기 objectURL 은 해제 안 함, 수정 화면 몇 장 수준이라 무시 */}
+          <img
+            src={typeof it === "string" ? toProxyUrl(it) : URL.createObjectURL(it)}
+            className="w-full h-full object-cover"
+            alt={label}
+          />
+          {typeof it !== "string" && (
+            <span className="absolute top-0.5 left-0.5 bg-primary text-white text-[9px] font-bold px-1 rounded">NEW</span>
+          )}
+          {max > 1 && (
+            <button
+              type="button"
+              onClick={() => onChange(items.filter((_, idx) => idx !== i))}
+              className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-none"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      ))}
+      {items.length === 0 && <p className="text-xs text-gray-400 py-2">없음</p>}
+    </div>
+  </div>
+);
+
 
 export default function DetailModal({
   isOpen,
@@ -196,6 +259,12 @@ export default function DetailModal({
     incident_type: null as string | null,
   });
   const [adminSaving, setAdminSaving] = useState(false);
+  const [adminPhotos, setAdminPhotos] = useState({
+    checkin_photo_url: [] as PhotoItem[],
+    checkin_exterior_urls: [] as PhotoItem[],
+    checkout_photo_url: [] as PhotoItem[],
+    checkout_exterior_urls: [] as PhotoItem[],
+  });
 
   // 이전 탑승자 메모
   const [prevNote, setPrevNote] = useState<{
@@ -1775,6 +1844,12 @@ export default function DetailModal({
                       selectedLog.vehicle_condition ?? "이상 없음",
                     incident_type: selectedLog.incident_type ?? null,
                   });
+                  setAdminPhotos({
+                    checkin_photo_url: selectedLog.checkin_photo_url ? [selectedLog.checkin_photo_url] : [],
+                    checkin_exterior_urls: selectedLog.checkin_exterior_urls ?? [],
+                    checkout_photo_url: selectedLog.checkout_photo_url ? [selectedLog.checkout_photo_url] : [],
+                    checkout_exterior_urls: selectedLog.checkout_exterior_urls ?? [],
+                  });
                   setAdminResultEdit(true);
                 }}
                 className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
@@ -1808,6 +1883,15 @@ export default function DetailModal({
                       return;
                     setAdminSaving(true);
                     try {
+                      // 새로 고른 사진만 업로드, 기존 URL 은 그대로
+                      const up = (items: PhotoItem[]) =>
+                        Promise.all(items.map((it) => (typeof it === "string" ? it : compressAndUpload(it))));
+                      const [ciDash, ciExt, coDash, coExt] = await Promise.all([
+                        up(adminPhotos.checkin_photo_url),
+                        up(adminPhotos.checkin_exterior_urls),
+                        up(adminPhotos.checkout_photo_url),
+                        up(adminPhotos.checkout_exterior_urls),
+                      ]);
                       const res = await fetch("/api/vehicle/submit", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -1828,6 +1912,10 @@ export default function DetailModal({
                             cleanup_status: adminFields.cleanup_status,
                             vehicle_condition: adminFields.vehicle_condition,
                             incident_type: adminFields.incident_type,
+                            checkin_photo_url: ciDash[0] ?? null,
+                            checkin_exterior_urls: ciExt,
+                            checkout_photo_url: coDash[0] ?? null,
+                            checkout_exterior_urls: coExt,
                           },
                         }),
                       });
@@ -1839,6 +1927,8 @@ export default function DetailModal({
                       toast.success("운행 결과가 수정되었습니다.");
                       setAdminResultEdit(false);
                       onRefresh();
+                    } catch (e: any) {
+                      toast.error("수정 실패: " + (e?.message || "사진 업로드 오류"));
                     } finally {
                       setAdminSaving(false);
                     }
@@ -2180,6 +2270,22 @@ export default function DetailModal({
                   placeholder="특이사항 입력"
                 />
               </div>
+              {(
+                [
+                  ["checkin_photo_url", "운행 전 계기판", 1],
+                  ["checkin_exterior_urls", "운행 전 외관", 10],
+                  ["checkout_photo_url", "운행 후 계기판", 1],
+                  ["checkout_exterior_urls", "운행 후 외관", 10],
+                ] as const
+              ).map(([key, label, max]) => (
+                <PhotoEdit
+                  key={key}
+                  label={label}
+                  max={max}
+                  items={adminPhotos[key]}
+                  onChange={(items) => setAdminPhotos((p) => ({ ...p, [key]: items }))}
+                />
+              ))}
             </div>
           )}
         </div>

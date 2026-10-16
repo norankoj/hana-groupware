@@ -12,71 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-import { deleteFromMinio } from "@/utils/minio";
-
-/**
- * DB에 저장된 사진 URL에서 MinIO objectName 추출
- *
- * 저장 형식 두 가지를 모두 처리:
- *   1) 프록시 URL : /api/proxy-image?bucket=vehicle&object=folder/file.jpg
- *   2) 직접 URL  : http://host:9000/vehicle-images/folder/file.jpg
- */
-function extractObjectName(url: string): string | null {
-  if (!url) return null;
-
-  // 1) 프록시 URL
-  if (url.startsWith("/api/proxy-image")) {
-    try {
-      const params = new URLSearchParams(url.split("?")[1] ?? "");
-      return params.get("object");
-    } catch {
-      return null;
-    }
-  }
-
-  // 2) 직접 MinIO URL — 버킷명 뒤의 경로가 objectName
-  try {
-    const parsed = new URL(url);
-    // pathname: /vehicle-images/folder/file.jpg  → 첫 세그먼트가 버킷
-    const parts = parsed.pathname.split("/").filter(Boolean); // ['vehicle-images', 'folder', 'file.jpg']
-    if (parts.length < 2) return null;
-    return parts.slice(1).join("/"); // 'folder/file.jpg'
-  } catch {
-    return null;
-  }
-}
-
-/** 예약 레코드의 모든 사진을 MinIO에서 삭제 (오류가 있어도 계속 진행) */
-async function deleteReservationPhotos(reservation: {
-  checkin_photo_url?: string | null;
-  checkout_photo_url?: string | null;
-  checkin_exterior_urls?: string[] | null;
-  checkout_exterior_urls?: string[] | null;
-}) {
-  const urls: string[] = [
-    reservation.checkin_photo_url,
-    reservation.checkout_photo_url,
-    ...(reservation.checkin_exterior_urls ?? []),
-    ...(reservation.checkout_exterior_urls ?? []),
-  ].filter((u): u is string => Boolean(u));
-
-  const results = await Promise.allSettled(
-    urls.map(async (url) => {
-      const objectName = extractObjectName(url);
-      if (!objectName) return;
-      await deleteFromMinio("vehicle", objectName);
-      console.log(`[vehicle/delete] NAS 사진 삭제: ${objectName}`);
-    }),
-  );
-
-  const failed = results.filter((r) => r.status === "rejected");
-  if (failed.length > 0) {
-    console.warn(
-      `[vehicle/delete] ${failed.length}개 사진 삭제 실패:`,
-      failed.map((r) => (r as PromiseRejectedResult).reason),
-    );
-  }
-}
+import { deleteVehiclePhotos } from "@/utils/minio";
 
 export async function POST(req: NextRequest) {
   try {
@@ -175,7 +111,12 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 7. MinIO NAS 사진 삭제 (실패해도 전체 응답은 성공) ──────
-    await deleteReservationPhotos(reservation);
+    await deleteVehiclePhotos([
+      reservation.checkin_photo_url,
+      reservation.checkout_photo_url,
+      ...(reservation.checkin_exterior_urls ?? []),
+      ...(reservation.checkout_exterior_urls ?? []),
+    ]);
 
     // ── 8. resources.current_mileage 복원 ───────────────────────
     const restoredMileage = prevReturned?.end_mileage ?? prevReturned?.start_mileage ?? 0;

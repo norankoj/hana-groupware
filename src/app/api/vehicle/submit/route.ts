@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { deleteVehiclePhotos } from "@/utils/minio";
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     // ── 2. 예약 소유자 또는 관리자인지 확인 ─────────────────────────
     const { data: reservation } = await serverSupabase
       .from("reservations")
-      .select("id, user_id, vehicle_status, driver_name, resource_id")
+      .select("id, user_id, vehicle_status, driver_name, resource_id, checkin_photo_url, checkout_photo_url, checkin_exterior_urls, checkout_exterior_urls")
       .eq("id", reservationId)
       .single();
 
@@ -75,7 +76,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "업데이트된 행이 없습니다." }, { status: 500 });
     }
 
-    // ── 4. 누적 주행거리 재계산 ───────────────────────────────────
+    // ── 4. 교체·삭제된 사진은 NAS에서도 삭제 ───────────────────────
+    const photoFields = [
+      "checkin_photo_url",
+      "checkout_photo_url",
+      "checkin_exterior_urls",
+      "checkout_exterior_urls",
+    ] as const;
+    const urlsOf = (v: unknown) => [v].flat().filter((u): u is string => typeof u === "string");
+    const touched = photoFields.filter((f) => f in updates);
+    const kept = new Set(touched.flatMap((f) => urlsOf(updates[f])));
+    const removed = touched
+      .flatMap((f) => urlsOf(reservation[f]))
+      .filter((u) => !kept.has(u));
+    if (removed.length) await deleteVehiclePhotos(removed);
+
+    // ── 5. 누적 주행거리 재계산 ───────────────────────────────────
     // DB 트리거는 마지막 입력값으로 덮어써서, 늦게 반납한 과거 기록이
     // 이후 운행 기록보다 작은 값으로 current_mileage를 되돌림 → 전체 기록 중 최대값으로 보정
     if (("start_mileage" in updates || "end_mileage" in updates) && reservation.resource_id) {
