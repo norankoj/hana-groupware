@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     // ── 2. 예약 소유자 또는 관리자인지 확인 ─────────────────────────
     const { data: reservation } = await serverSupabase
       .from("reservations")
-      .select("id, user_id, vehicle_status, driver_name")
+      .select("id, user_id, vehicle_status, driver_name, resource_id")
       .eq("id", reservationId)
       .single();
 
@@ -73,6 +73,27 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
     if (!saved || saved.length === 0) {
       return NextResponse.json({ error: "업데이트된 행이 없습니다." }, { status: 500 });
+    }
+
+    // ── 4. 누적 주행거리 재계산 ───────────────────────────────────
+    // DB 트리거는 마지막 입력값으로 덮어써서, 늦게 반납한 과거 기록이
+    // 이후 운행 기록보다 작은 값으로 current_mileage를 되돌림 → 전체 기록 중 최대값으로 보정
+    if (("start_mileage" in updates || "end_mileage" in updates) && reservation.resource_id) {
+      const { data: logs } = await supabaseAdmin
+        .from("reservations")
+        .select("start_mileage, end_mileage")
+        .eq("resource_id", reservation.resource_id)
+        .in("vehicle_status", ["in_use", "returned"]);
+      const maxKm = Math.max(
+        0,
+        ...(logs ?? []).flatMap((l) => [l.start_mileage ?? 0, l.end_mileage ?? 0]),
+      );
+      if (maxKm > 0) {
+        await supabaseAdmin
+          .from("resources")
+          .update({ current_mileage: maxKm })
+          .eq("id", reservation.resource_id);
+      }
     }
 
     return NextResponse.json({ success: true, data: saved[0] });
