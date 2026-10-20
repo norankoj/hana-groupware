@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     );
 
     // ── 5. 복원할 누적 주행거리 계산 ────────────────────────────
-    // 같은 차량의 반납완료 기록 중, 삭제 대상을 제외한 가장 큰 end_mileage (늦은 반납 대비)
+    // 같은 차량의 반납완료 기록 중, 삭제 대상을 제외한 날짜상 가장 최근 기록 (늦은 반납 대비)
     const { data: prevReturned } = await adminSupabase
       .from("reservations")
       .select("end_mileage, start_mileage")
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       .eq("vehicle_status", "returned")
       .neq("id", reservationId)
       .not("end_mileage", "is", null)
-      .order("end_mileage", { ascending: false })
+      .order("start_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 

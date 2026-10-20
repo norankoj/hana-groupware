@@ -93,21 +93,23 @@ export async function POST(req: NextRequest) {
 
     // ── 5. 누적 주행거리 재계산 ───────────────────────────────────
     // DB 트리거는 마지막 입력값으로 덮어써서, 늦게 반납한 과거 기록이
-    // 이후 운행 기록보다 작은 값으로 current_mileage를 되돌림 → 전체 기록 중 최대값으로 보정
+    // 이후 운행 기록보다 작은 값으로 current_mileage를 되돌림 → 날짜상 가장 최근 운행 기록 값으로 보정
+    // (최대값을 쓰면 옛 기록의 오타가 누적 주행거리로 올라와서 최근 기록 기준으로 함)
     if (("start_mileage" in updates || "end_mileage" in updates) && reservation.resource_id) {
-      const { data: logs } = await supabaseAdmin
+      const { data: latest } = await supabaseAdmin
         .from("reservations")
         .select("start_mileage, end_mileage")
         .eq("resource_id", reservation.resource_id)
-        .in("vehicle_status", ["in_use", "returned"]);
-      const maxKm = Math.max(
-        0,
-        ...(logs ?? []).flatMap((l) => [l.start_mileage ?? 0, l.end_mileage ?? 0]),
-      );
-      if (maxKm > 0) {
+        .in("vehicle_status", ["in_use", "returned"])
+        .not("start_mileage", "is", null)
+        .order("start_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const km = latest?.end_mileage ?? latest?.start_mileage;
+      if (km) {
         await supabaseAdmin
           .from("resources")
-          .update({ current_mileage: maxKm })
+          .update({ current_mileage: km })
           .eq("id", reservation.resource_id);
       }
     }
