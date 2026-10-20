@@ -97,6 +97,7 @@ export default function VehicleSchedulePage() {
         .select("id, name, description")
         .eq("category", "vehicle")
         .eq("is_active", true)
+        .order("sort_order", { nullsFirst: false })
         .order("id");
 
       if (vData) setVehicles(vData as Vehicle[]);

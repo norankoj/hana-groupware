@@ -438,6 +438,7 @@ export default function VehicleReservationPage() {
       .select("*")
       .eq("category", "vehicle")
       .eq("is_active", true)
+      .order("sort_order", { nullsFirst: false })
       .order("id");
 
     if (vData) {
