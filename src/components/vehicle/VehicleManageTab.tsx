@@ -11,6 +11,7 @@ const VEHICLE_IMAGES: Record<string, string> = {
   스타렉스: "/images/cars/starex.webp",
   스타리아: "/images/cars/staria.webp",
   스타리아HEV: "/images/cars/staria-hev.webp",
+  스타리아라운지HEV: "/images/cars/staria-lounge-hev.webp",
   마티즈: "/images/cars/matiz.webp",
   모닝: "/images/cars/morning.webp",
   쏘나타: "/images/cars/sonata.png",

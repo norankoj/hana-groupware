@@ -27,6 +27,7 @@ const VEHICLE_IMAGES: Record<string, string> = {
   스타렉스: "/images/cars/starex.webp",
   스타리아: "/images/cars/staria.webp",
   스타리아HEV: "/images/cars/staria-hev.webp",
+  스타리아라운지HEV: "/images/cars/staria-lounge-hev.webp",
   마티즈: "/images/cars/matiz.webp",
   모닝: "/images/cars/morning.webp",
   쏘나타: "/images/cars/sonata.png",
@@ -217,9 +218,11 @@ export default function VehicleReservationPage() {
     department: "",
   });
 
-  const RESTRICTED_VEHICLE_ID = 31;
+  // 예약 제한 차량 — 번호판(description)으로 찾음
+  const RESTRICTED_VEHICLE_PLATE = "211러3331";
+  const RESTRICTED_VEHICLE_ID = vehicles.find((v) => v.description === RESTRICTED_VEHICLE_PLATE)?.id;
   const RESTRICTED_VEHICLE_MSG =
-    "※ 은색 스타리아 차량은 담당자(김건웅 간사) 확인 후 사용해 주세요.";
+    "※ 스타리아라운지HEV(211러3331) 차량은 담당자(김건웅 간사) 확인 후 사용해 주세요.";
 
   const canReserveRestricted =
     currentProfile?.role === "director" ||
